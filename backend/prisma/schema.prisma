@@ -1,0 +1,273 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User model - synced from Microsoft Entra ID
+model User {
+  id              String    @id @default(uuid())
+  entraId         String    @unique // Object ID from Entra ID
+  email           String    @unique
+  firstName       String
+  lastName        String
+  displayName     String?
+  department      String?
+  jobTitle        String?
+  isActive        Boolean   @default(true)
+  lastSync        DateTime  @default(now())
+  lastLogin       DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  // Relationships
+  rooms           UserRoom[]
+  createdOrders   MaintenanceOrder[] @relation("CreatedBy")
+  assignedOrders  MaintenanceOrder[] @relation("AssignedTo")
+  purchaseOrders  PurchaseOrder[]
+  
+  @@map("users")
+}
+
+// Equipment/Inventory model
+model Equipment {
+  id              String    @id @default(uuid())
+  assetTag        String    @unique
+  serialNumber    String?
+  name            String
+  description     String?
+  brandId         String?
+  modelId         String?
+  locationId      String?
+  categoryId      String?
+  purchaseDate    DateTime?
+  purchasePrice   Decimal?  @db.Decimal(10, 2)
+  status          String    @default("active") // active, inactive, maintenance, disposed
+  condition       String?   // excellent, good, fair, poor
+  isDisposed      Boolean   @default(false)
+  disposedDate    DateTime?
+  disposedReason  String?
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  // Relationships
+  brand           Brand?    @relation(fields: [brandId], references: [id])
+  model           Model?    @relation(fields: [modelId], references: [id])
+  location        Location? @relation(fields: [locationId], references: [id])
+  category        Category? @relation(fields: [categoryId], references: [id])
+  changes         InventoryChange[]
+  
+  @@index([assetTag])
+  @@index([status])
+  @@index([locationId])
+  @@map("equipment")
+}
+
+// Location/Room model
+model Location {
+  id              String    @id @default(uuid())
+  buildingName    String
+  roomNumber      String
+  description     String?
+  floor           Int?
+  capacity        Int?
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  // Relationships
+  equipment       Equipment[]
+  userRooms       UserRoom[]
+  maintenanceOrders MaintenanceOrder[]
+  
+  @@unique([buildingName, roomNumber])
+  @@map("locations")
+}
+
+// Brand model
+model Brand {
+  id              String    @id @default(uuid())
+  name            String    @unique
+  description     String?
+  website         String?
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  // Relationships
+  equipment       Equipment[]
+  models          Model[]
+  
+  @@map("brands")
+}
+
+// Model (equipment model) model
+model Model {
+  id              String    @id @default(uuid())
+  name            String
+  brandId         String
+  modelNumber     String?
+  description     String?
+  specifications  String?   // JSON field for specs
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  // Relationships
+  brand           Brand     @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  equipment       Equipment[]
+  
+  @@unique([name, brandId])
+  @@map("models")
+}
+
+// Category model
+model Category {
+  id              String    @id @default(uuid())
+  name            String    @unique
+  description     String?
+  parentId        String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  // Relationships
+  equipment       Equipment[]
+  parent          Category? @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children        Category[] @relation("CategoryHierarchy")
+  
+  @@map("categories")
+}
+
+// Purchase Order model
+model PurchaseOrder {
+  id              String    @id @default(uuid())
+  poNumber        String    @unique
+  type            String    // "regular" or "food"
+  requestorId     String
+  vendorId        String?
+  description     String
+  amount          Decimal   @db.Decimal(10, 2)
+  status          String    @default("pending") // pending, approved, rejected, completed
+  accountCode     String?
+  program         String?
+  isApproved      Boolean   @default(false)
+  approvedBy      String?
+  approvedDate    DateTime?
+  submittedDate   DateTime  @default(now())
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  // Relationships
+  requestor       User      @relation(fields: [requestorId], references: [id])
+  vendor          Vendor?   @relation(fields: [vendorId], references: [id])
+  items           POItem[]
+  
+  @@index([status])
+  @@index([type])
+  @@map("purchase_orders")
+}
+
+// Purchase Order Item model
+model POItem {
+  id              String    @id @default(uuid())
+  poId            String
+  description     String
+  quantity        Int
+  unitPrice       Decimal   @db.Decimal(10, 2)
+  totalPrice      Decimal   @db.Decimal(10, 2)
+  createdAt       DateTime  @default(now())
+  
+  // Relationships
+  purchaseOrder   PurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
+  
+  @@map("po_items")
+}
+
+// Vendor model
+model Vendor {
+  id              String    @id @default(uuid())
+  name            String    @unique
+  contactName     String?
+  email           String?
+  phone           String?
+  address         String?
+  website         String?
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  // Relationships
+  purchaseOrders  PurchaseOrder[]
+  
+  @@map("vendors")
+}
+
+// Maintenance Order model
+model MaintenanceOrder {
+  id              String    @id @default(uuid())
+  ticketNumber    String    @unique
+  title           String
+  description     String
+  priority        String    @default("medium") // low, medium, high, urgent
+  status          String    @default("open") // open, in_progress, resolved, closed
+  createdById     String
+  assignedToId    String?
+  locationId      String?
+  equipmentId     String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  completedAt     DateTime?
+  
+  // Relationships
+  createdBy       User      @relation("CreatedBy", fields: [createdById], references: [id])
+  assignedTo      User?     @relation("AssignedTo", fields: [assignedToId], references: [id])
+  location        Location? @relation(fields: [locationId], references: [id])
+  
+  @@index([status])
+  @@index([priority])
+  @@map("maintenance_orders")
+}
+
+// User-Room assignment model
+model UserRoom {
+  id              String    @id @default(uuid())
+  userId          String
+  locationId      String
+  assignedAt      DateTime  @default(now())
+  
+  // Relationships
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  location        Location  @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, locationId])
+  @@map("user_rooms")
+}
+
+// Inventory Change log model
+model InventoryChange {
+  id              String    @id @default(uuid())
+  equipmentId     String
+  changeType      String    // "added", "modified", "disposed", "transferred"
+  fieldChanged    String?
+  oldValue        String?
+  newValue        String?
+  changedBy       String
+  changedByName   String
+  changedAt       DateTime  @default(now())
+  notes           String?
+  
+  // Relationships
+  equipment       Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  
+  @@index([equipmentId])
+  @@index([changedAt])
+  @@map("inventory_changes")
+}
+
