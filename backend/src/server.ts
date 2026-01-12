@@ -3,6 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
+import authRoutes from './routes/auth.routes';
 
 // Load environment variables
 dotenv.config();
@@ -40,7 +41,10 @@ app.get('/health', (req: Request, res: Response) => {
   });
 });
 
-// API routes placeholder
+// API routes
+app.use('/api/auth', authRoutes);
+
+// API info endpoint
 app.get('/api', (req: Request, res: Response) => {
   res.json({
     message: 'Tech Department Management API v2',
