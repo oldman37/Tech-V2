@@ -9,10 +9,13 @@ COPY package.json package-lock.json* ./
 # Install dependencies
 RUN npm ci
 
+
 # Copy source and config
 COPY tsconfig.json tsconfig.node.json vite.config.ts index.html ./
 COPY src ./src/
-COPY public ./public/ 2>/dev/null || true
+# Always create public directory (even if empty) to avoid COPY errors
+RUN mkdir -p public
+COPY public ./public/
 
 # Build args for environment variables baked into the frontend
 ARG VITE_API_URL=/api
