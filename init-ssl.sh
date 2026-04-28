@@ -14,12 +14,20 @@ set -euo pipefail
 # Usage: ./init-ssl.sh [--staging]   (use --staging for testing to avoid rate limits)
 # =============================================================================
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
+
+# Load .env if it exists (needed when running under sudo which strips the environment)
+if [ -f "$SCRIPT_DIR/.env" ]; then
+    set -o allexport
+    # shellcheck disable=SC1091
+    source "$SCRIPT_DIR/.env"
+    set +o allexport
+fi
+
 DOMAIN="${DOMAIN:-schoolworks.ocboe.com}"
 EMAIL="${SSL_EMAIL:-}"
 STAGING="${1:-}"
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
