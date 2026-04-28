@@ -55,7 +55,7 @@ log "Initializing SSL for $DOMAIN..."
 
 # Step 1: Create dummy certificate so Nginx can start
 log "Step 1/4: Creating temporary self-signed certificate..."
-docker compose run --rm --entrypoint "" certbot sh -c "
+docker compose run --rm --no-deps --entrypoint "" certbot sh -c "
     mkdir -p /etc/letsencrypt/live/$DOMAIN
     openssl req -x509 -nodes -newkey rsa:2048 -days 1 \
         -keyout /etc/letsencrypt/live/$DOMAIN/privkey.pem \
@@ -72,7 +72,7 @@ sleep 3
 
 # Step 3: Remove dummy cert and request real one
 log "Step 3/4: Requesting Let's Encrypt certificate..."
-docker compose run --rm --entrypoint "" certbot sh -c "
+docker compose run --rm --no-deps --entrypoint "" certbot sh -c "
     rm -rf /etc/letsencrypt/live/$DOMAIN
     rm -rf /etc/letsencrypt/archive/$DOMAIN
     rm -rf /etc/letsencrypt/renewal/$DOMAIN.conf
@@ -84,7 +84,7 @@ if [ "$STAGING" = "--staging" ]; then
     warn "Using Let's Encrypt STAGING environment (cert will not be trusted)"
 fi
 
-docker compose run --rm certbot certonly \
+docker compose run --rm --no-deps certbot certonly \
     --webroot \
     --webroot-path=/var/www/certbot \
     --email "$EMAIL" \
