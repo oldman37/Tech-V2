@@ -53,7 +53,7 @@ first_run() {
     max_attempts=30
     attempt=0
     while [ $attempt -lt $max_attempts ]; do
-        if docker compose exec -T db pg_isready -U "${POSTGRES_USER:-postgres}" -d "${POSTGRES_DB:-techv2}" > /dev/null 2>&1; then
+        if docker compose exec -T db pg_isready -U "${DB_USER:-techv2}" -d "tech_v2" > /dev/null 2>&1; then
             log "Database is ready!"
             break
         fi

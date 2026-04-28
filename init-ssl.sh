@@ -14,7 +14,7 @@ set -euo pipefail
 # Usage: ./init-ssl.sh [--staging]   (use --staging for testing to avoid rate limits)
 # =============================================================================
 
-DOMAIN="schoolworks.ocboe.com"
+DOMAIN="${DOMAIN:-schoolworks.ocboe.com}"
 EMAIL="${SSL_EMAIL:-}"
 STAGING="${1:-}"
 
