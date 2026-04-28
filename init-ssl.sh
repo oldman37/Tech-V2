@@ -90,7 +90,8 @@ if [ "$STAGING" = "--staging" ]; then
 fi
 
 # Use standalone mode - certbot runs its own HTTP server on port 80
-docker compose run --rm --no-deps --entrypoint certbot certbot certonly \
+# -p 80:80 is required because docker compose run doesn't publish ports by default
+docker compose run --rm --no-deps -p 80:80 --entrypoint certbot certbot certonly \
     --standalone \
     --email "$EMAIL" \
     --agree-tos \
