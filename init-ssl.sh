@@ -84,7 +84,7 @@ if [ "$STAGING" = "--staging" ]; then
     warn "Using Let's Encrypt STAGING environment (cert will not be trusted)"
 fi
 
-docker compose run --rm --no-deps certbot certonly \
+docker compose run --rm --no-deps --entrypoint certbot certbot certonly \
     --webroot \
     --webroot-path=/var/www/certbot \
     --email "$EMAIL" \
