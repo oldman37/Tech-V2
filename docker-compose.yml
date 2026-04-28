@@ -1,0 +1,89 @@
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: tech_v2
+      POSTGRES_USER: ${DB_USER:-techv2}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-techv2} -d tech_v2"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgresql://${DB_USER:-techv2}:${DB_PASSWORD}@db:5432/tech_v2
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-1h}
+      REFRESH_TOKEN_EXPIRES_IN: ${REFRESH_TOKEN_EXPIRES_IN:-7d}
+      ENTRA_TENANT_ID: ${ENTRA_TENANT_ID}
+      ENTRA_CLIENT_ID: ${ENTRA_CLIENT_ID}
+      ENTRA_CLIENT_SECRET: ${ENTRA_CLIENT_SECRET}
+      REDIRECT_URI: ${REDIRECT_URI:-https://schoolworks.ocboe.com/api/auth/callback}
+      ENTRA_ADMIN_GROUP_ID: ${ENTRA_ADMIN_GROUP_ID}
+      ENTRA_FINANCE_DIRECTOR_GROUP_ID: ${ENTRA_FINANCE_DIRECTOR_GROUP_ID}
+      ENTRA_DIRECTOR_OF_SCHOOLS_GROUP_ID: ${ENTRA_DIRECTOR_OF_SCHOOLS_GROUP_ID}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+    volumes:
+      - backend_logs:/app/logs
+    expose:
+      - "3000"
+
+  # Frontend (Nginx serving React SPA + reverse proxy to backend)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: /api
+        VITE_ENTRA_CLIENT_ID: ${ENTRA_CLIENT_ID}
+        VITE_ENTRA_TENANT_ID: ${ENTRA_TENANT_ID}
+        VITE_ENTRA_FINANCE_DIRECTOR_GROUP_ID: ${ENTRA_FINANCE_DIRECTOR_GROUP_ID}
+        VITE_ENTRA_DIRECTOR_OF_SCHOOLS_GROUP_ID: ${ENTRA_DIRECTOR_OF_SCHOOLS_GROUP_ID}
+        VITE_ENTRA_FOOD_SERVICES_PO_ENTRY_GROUP_ID: ${ENTRA_FOOD_SERVICES_PO_ENTRY_GROUP_ID}
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - certbot_conf:/etc/letsencrypt
+      - certbot_www:/var/www/certbot
+
+  # Certbot for Let's Encrypt SSL certificates
+  certbot:
+    image: certbot/certbot
+    restart: unless-stopped
+    volumes:
+      - certbot_conf:/etc/letsencrypt
+      - certbot_www:/var/www/certbot
+    # Auto-renew: check every 12 hours
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+
+volumes:
+  pgdata:
+  backend_logs:
+  certbot_conf:
+  certbot_www:
