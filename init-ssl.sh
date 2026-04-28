@@ -70,8 +70,13 @@ docker compose up -d frontend
 # Give Nginx a moment to start
 sleep 3
 
-# Step 3: Remove dummy cert and request real one
+# Step 3: Stop Nginx, remove dummy cert, get real cert via standalone
 log "Step 3/4: Requesting Let's Encrypt certificate..."
+
+# Stop nginx so certbot standalone can bind port 80
+docker compose stop frontend
+
+# Remove the dummy cert so certbot can write the real one
 docker compose run --rm --no-deps --entrypoint "" certbot sh -c "
     rm -rf /etc/letsencrypt/live/$DOMAIN
     rm -rf /etc/letsencrypt/archive/$DOMAIN
@@ -84,18 +89,18 @@ if [ "$STAGING" = "--staging" ]; then
     warn "Using Let's Encrypt STAGING environment (cert will not be trusted)"
 fi
 
+# Use standalone mode - certbot runs its own HTTP server on port 80
 docker compose run --rm --no-deps --entrypoint certbot certbot certonly \
-    --webroot \
-    --webroot-path=/var/www/certbot \
+    --standalone \
     --email "$EMAIL" \
     --agree-tos \
     --no-eff-email \
     -d "$DOMAIN" \
     $STAGING_FLAG
 
-# Step 4: Reload Nginx with the real certificate
-log "Step 4/4: Reloading Nginx with real certificate..."
-docker compose exec frontend nginx -s reload
+# Step 4: Start Nginx with the real certificate
+log "Step 4/4: Starting Nginx with real certificate..."
+docker compose up -d frontend
 
 log ""
 log "===================================="
