@@ -2,6 +2,11 @@ import { ConfidentialClientApplication, Configuration } from '@azure/msal-node';
 import { Client } from '@microsoft/microsoft-graph-client';
 import { ClientSecretCredential } from '@azure/identity';
 import { TokenCredentialAuthenticationProvider } from '@microsoft/microsoft-graph-client/authProviders/azureTokenCredentials';
+import dotenv from 'dotenv';
+import { loggers } from '../lib/logger';
+
+// Load environment variables
+dotenv.config();
 
 // MSAL Configuration for backend
 const msalConfig: Configuration = {
@@ -14,11 +19,11 @@ const msalConfig: Configuration = {
     loggerOptions: {
       loggerCallback(loglevel, message, containsPii) {
         if (!containsPii) {
-          console.log(`[MSAL] ${message}`);
+          loggers.config.debug('MSAL log', { level: loglevel, message });
         }
       },
       piiLoggingEnabled: false,
-      logLevel: 'Info',
+      logLevel: 'Verbose' as any,
     },
   },
 };
@@ -40,7 +45,7 @@ export const graphClient = Client.initWithMiddleware({ authProvider });
 
 // Scopes for authentication
 export const loginScopes = {
-  scopes: ['user.read', 'profile', 'openid', 'email'],
+  scopes: ['User.Read', 'User.ReadBasic.All', 'GroupMember.Read.All'],
 };
 
 export const graphScopes = {

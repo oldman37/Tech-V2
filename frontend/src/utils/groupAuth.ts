@@ -1,0 +1,45 @@
+type PermissionModule = 'TECHNOLOGY' | 'MAINTENANCE' | 'REQUISITIONS';
+
+// Maps VITE_ENTRA_* env var name → { module → level }
+const GROUP_MODULE_MAP: Record<string, Partial<Record<PermissionModule, number>>> = {
+  VITE_ENTRA_ADMIN_GROUP_ID: { TECHNOLOGY: 3, MAINTENANCE: 3, REQUISITIONS: 6 },
+  VITE_ENTRA_TECHNOLOGY_DIRECTOR_GROUP_ID: { TECHNOLOGY: 3, REQUISITIONS: 3 },
+  VITE_ENTRA_TECH_ASSISTANTS_GROUP_ID: { TECHNOLOGY: 3, MAINTENANCE: 2, REQUISITIONS: 3 },
+  VITE_ENTRA_DIRECTOR_OF_SCHOOLS_GROUP_ID: { TECHNOLOGY: 2, MAINTENANCE: 3, REQUISITIONS: 6 },
+  VITE_ENTRA_FINANCE_DIRECTOR_GROUP_ID: { TECHNOLOGY: 2, MAINTENANCE: 2, REQUISITIONS: 5 },
+  VITE_ENTRA_FINANCE_PO_ENTRY_GROUP_ID: { REQUISITIONS: 4 },
+  VITE_ENTRA_PRINCIPALS_GROUP_ID: { TECHNOLOGY: 2, MAINTENANCE: 2, REQUISITIONS: 3 },
+  VITE_ENTRA_VICE_PRINCIPALS_GROUP_ID: { TECHNOLOGY: 2, MAINTENANCE: 2, REQUISITIONS: 3 },
+  VITE_ENTRA_MAINTENANCE_DIRECTOR_GROUP_ID: { MAINTENANCE: 3, REQUISITIONS: 3 },
+  VITE_ENTRA_MAINTENANCE_ADMIN_GROUP_ID: { TECHNOLOGY: 2, MAINTENANCE: 3, REQUISITIONS: 3 },
+  VITE_ENTRA_TRANSPORTATION_DIRECTOR_GROUP_ID: { MAINTENANCE: 2, REQUISITIONS: 3 },
+  VITE_ENTRA_SPED_DIRECTOR_GROUP_ID: { REQUISITIONS: 3 },
+  VITE_ENTRA_AFTERSCHOOL_DIRECTOR_GROUP_ID: { REQUISITIONS: 3 },
+  VITE_ENTRA_NURSE_DIRECTOR_GROUP_ID: { REQUISITIONS: 3 },
+  VITE_ENTRA_PRE_K_DIRECTOR_GROUP_ID: { REQUISITIONS: 3 },
+  VITE_ENTRA_CTE_DIRECTOR_GROUP_ID: { REQUISITIONS: 3 },
+  VITE_ENTRA_FOOD_SERVICES_SUPERVISOR_GROUP_ID: { REQUISITIONS: 3 },
+  VITE_ENTRA_FOOD_SERVICES_PO_ENTRY_GROUP_ID: { REQUISITIONS: 4 },
+  VITE_ENTRA_ALL_STAFF_GROUP_ID: { TECHNOLOGY: 1, MAINTENANCE: 1, REQUISITIONS: 2 },
+  VITE_ENTRA_ALL_STUDENTS_GROUP_ID: { TECHNOLOGY: 1 },
+};
+
+/**
+ * Derives the effective permission level for a module from Entra group IDs.
+ * Returns the maximum level across all of the user's groups for that module.
+ * Synchronous — no API call — reads from Vite env vars.
+ */
+export function derivePermLevelFrontend(
+  groupIds: string[],
+  module: PermissionModule
+): number {
+  let highest = 0;
+  for (const [envVar, moduleMap] of Object.entries(GROUP_MODULE_MAP)) {
+    const gid = import.meta.env[envVar] as string | undefined;
+    if (gid && groupIds.includes(gid)) {
+      const level = moduleMap[module] ?? 0;
+      if (level > highest) highest = level;
+    }
+  }
+  return highest;
+}

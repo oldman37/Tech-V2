@@ -20,14 +20,14 @@ export interface LoginResponse {
 
 export interface CallbackResponse {
   success: boolean;
-  token: string;
-  refreshToken: string;
   user: User;
+  // Tokens are now in HttpOnly cookies, not in response body
 }
 
 export interface RefreshTokenResponse {
   success: boolean;
-  token: string;
+  message: string;
+  // Token is now in HttpOnly cookie, not in response body
 }
 
 export interface MeResponse {
@@ -37,16 +37,16 @@ export interface MeResponse {
 
 // Auth API endpoints
 export const authApi = {
-  // Get login URL
-  getLoginUrl: () => api.get<LoginResponse>('/auth/login'),
+  // Get login URL - pass current origin so the redirect URI works for tunnels/remote URLs
+  getLoginUrl: () => api.get<LoginResponse>(`/auth/login?origin=${encodeURIComponent(window.location.origin)}`),
 
-  // Handle OAuth callback
-  handleCallback: (code: string) => 
-    api.get<CallbackResponse>(`/auth/callback?code=${code}`),
+  // Handle OAuth callback - relay state so backend can resolve the correct redirect URI
+  handleCallback: (code: string, state?: string) =>
+    api.get<CallbackResponse>(`/auth/callback?code=${encodeURIComponent(code)}${state ? `&state=${encodeURIComponent(state)}` : ''}`),
 
-  // Refresh access token
-  refreshToken: (refreshToken: string) =>
-    api.post<RefreshTokenResponse>('/auth/refresh-token', { refreshToken }),
+  // Refresh access token (token sent via cookie)
+  refreshToken: () =>
+    api.post<RefreshTokenResponse>('/auth/refresh-token', {}),
 
   // Logout
   logout: () => api.post('/auth/logout'),

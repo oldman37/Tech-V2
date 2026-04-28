@@ -1,273 +1,777 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
-// User model - synced from Microsoft Entra ID
-model User {
+model brands {
+  id          String      @id @default(uuid())
+  name        String      @unique
+  description String?
+  website     String?
+  isActive    Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  equipment   equipment[]
+  models      models[]
+}
+
+model FundingSource {
+  id          String      @id @default(uuid())
+  name        String      @unique
+  description String?
+  isActive    Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  equipment   equipment[]
+
+  @@index([isActive])
+  @@index([name])
+  @@map("funding_sources")
+}
+
+model categories {
+  id               String       @id @default(uuid())
+  name             String       @unique
+  description      String?
+  parentId         String?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  categories       categories?  @relation("categoriesTocategories", fields: [parentId], references: [id])
+  other_categories categories[] @relation("categoriesTocategories")
+  equipment        equipment[]
+}
+
+model equipment {
+  id                  String                @id @default(uuid())
+  assetTag            String                @unique
+  serialNumber        String?
+  name                String
+  description         String?
+  brandId             String?
+  modelId             String?
+  locationId          String?
+  categoryId          String?
+  purchaseDate        DateTime?
+  purchasePrice       Decimal?              @db.Decimal(10, 2)
+  status              String                @default("active")
+  condition           String?
+  isDisposed          Boolean               @default(false)
+  disposedDate        DateTime?
+  disposedReason      String?
+  notes               String?
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+  // NEW FIELDS FOR INVENTORY MVP
+  officeLocationId    String?
+  fundingSource       String?
+  fundingSourceId     String?
+  poNumber            String?
+  vendorId            String?
+  roomId              String?
+  disposalDate        DateTime?
+  // Additional inventory fields
+  warrantyExpires     DateTime?
+  assignedToUserId    String?
+  barcode             String?               @unique
+  qrCode              String?
+  maintenanceSchedule String?
+  lastMaintenanceDate DateTime?
+  customFields        Json?
+  // Relations
+  brands              brands?               @relation(fields: [brandId], references: [id])
+  categories          categories?           @relation(fields: [categoryId], references: [id])
+  locations           locations?            @relation(fields: [locationId], references: [id])
+  models              models?               @relation(fields: [modelId], references: [id])
+  officeLocation      OfficeLocation?       @relation(fields: [officeLocationId], references: [id])
+  vendor              vendors?              @relation(fields: [vendorId], references: [id])
+  room                Room?                 @relation(fields: [roomId], references: [id])
+  fundingSourceRef    FundingSource?        @relation(fields: [fundingSourceId], references: [id])
+  assignedToUser      User?                 @relation("EquipmentAssignedTo", fields: [assignedToUserId], references: [id])
+  inventory_changes   inventory_changes[]
+  importJobs          InventoryImportItem[]
+  attachments         EquipmentAttachment[]
+  maintenanceHistory  MaintenanceHistory[]
+  assignmentHistory   EquipmentAssignmentHistory[]
+  tickets             Ticket[]              @relation("TicketEquipment")
+
+  @@index([assetTag])
+  @@index([locationId])
+  @@index([status])
+  @@index([officeLocationId])
+  @@index([isDisposed])
+  @@index([categoryId])
+  @@index([roomId])
+  @@index([assignedToUserId])
+  @@index([barcode])
+  @@index([officeLocationId, status])
+  @@index([categoryId, status])
+  @@index([fundingSourceId])
+}
+
+model inventory_changes {
+  id            String    @id @default(uuid())
+  equipmentId   String
+  changeType    String
+  fieldChanged  String?
+  oldValue      String?
+  newValue      String?
+  changedBy     String
+  changedByName String
+  changedAt     DateTime  @default(now())
+  notes         String?
+  equipment     equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+
+  @@index([changedAt])
+  @@index([equipmentId])
+  @@index([changedBy])
+}
+
+model EquipmentAttachment {
+  id          String    @id @default(uuid())
+  equipmentId String
+  fileName    String
+  fileUrl     String
+  fileType    String
+  fileSize    Int
+  description String?
+  uploadedBy  String
+  uploadedAt  DateTime  @default(now())
+  equipment   equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [uploadedBy], references: [id])
+
+  @@index([equipmentId])
+  @@map("equipment_attachments")
+}
+
+model MaintenanceHistory {
   id              String    @id @default(uuid())
-  entraId         String    @unique // Object ID from Entra ID
-  email           String    @unique
-  firstName       String
-  lastName        String
-  displayName     String?
-  department      String?
-  jobTitle        String?
-  isActive        Boolean   @default(true)
-  lastSync        DateTime  @default(now())
-  lastLogin       DateTime?
+  equipmentId     String
+  maintenanceType String
+  description     String
+  performedBy     String
+  performedDate   DateTime
+  cost            Decimal?  @db.Decimal(10, 2)
+  notes           String?
+  nextDueDate     DateTime?
   createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  equipment       equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  user            User      @relation(fields: [performedBy], references: [id])
+
+  @@index([equipmentId])
+  @@index([performedDate])
+  @@map("maintenance_history")
+}
+
+model EquipmentAssignmentHistory {
+  id              String    @id @default(uuid())
+  equipmentId     String
+  assignmentType  String    // "user", "room", "location", "unassign"
+  assignedToId    String?   // UUID of user, room, or location
+  assignedToType  String?   // "User", "Room", "OfficeLocation"
+  assignedToName  String    // Cached name for display
+  assignedBy      String    // User ID who made the assignment
+  assignedByName  String    // Cached name for display
+  assignedAt      DateTime  @default(now())
+  unassignedAt    DateTime? // When unassigned (if applicable)
+  notes           String?
+  // Snapshot of equipment state at assignment time
+  equipmentName   String
+  equipmentTag    String
+  createdAt       DateTime  @default(now())
   
-  // Relationships
-  rooms           UserRoom[]
-  createdOrders   MaintenanceOrder[] @relation("CreatedBy")
-  assignedOrders  MaintenanceOrder[] @relation("AssignedTo")
-  purchaseOrders  PurchaseOrder[]
+  equipment       equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  user            User      @relation(fields: [assignedBy], references: [id])
   
+  @@index([equipmentId])
+  @@index([assignedToId, assignedToType])
+  @@index([assignedBy])
+  @@index([assignedAt])
+  @@map("equipment_assignment_history")
+}
+
+model LocationSupervisor {
+  id             String         @id @default(uuid())
+  locationId     String
+  userId         String
+  supervisorType String
+  isPrimary      Boolean        @default(false)
+  assignedAt     DateTime       @default(now())
+  assignedBy     String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  location       OfficeLocation @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([locationId, userId, supervisorType])
+  @@index([locationId])
+  @@index([supervisorType])
+  @@index([userId])
+  @@map("location_supervisors")
+}
+
+model locations {
+  id                 String               @id @default(uuid())
+  buildingName       String
+  roomNumber         String
+  description        String?
+  floor              Int?
+  capacity           Int?
+  isActive           Boolean              @default(true)
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  equipment          equipment[]
+  maintenance_orders maintenance_orders[]
+  user_rooms         user_rooms[]
+
+  @@unique([buildingName, roomNumber])
+}
+
+model maintenance_orders {
+  id                                           String     @id @default(uuid())
+  ticketNumber                                 String     @unique
+  title                                        String
+  description                                  String
+  priority                                     String     @default("medium")
+  status                                       String     @default("open")
+  createdById                                  String
+  assignedToId                                 String?
+  locationId                                   String?
+  equipmentId                                  String?
+  createdAt                                    DateTime   @default(now())
+  updatedAt                                    DateTime   @updatedAt
+  completedAt                                  DateTime?
+  users_maintenance_orders_assignedToIdTousers User?      @relation("maintenance_orders_assignedToIdTousers", fields: [assignedToId], references: [id])
+  users_maintenance_orders_createdByIdTousers  User       @relation("maintenance_orders_createdByIdTousers", fields: [createdById], references: [id])
+  locations                                    locations? @relation(fields: [locationId], references: [id])
+
+  @@index([priority])
+  @@index([status])
+}
+
+model models {
+  id             String      @id @default(uuid())
+  name           String
+  brandId        String
+  modelNumber    String?
+  description    String?
+  specifications String?
+  isActive       Boolean     @default(true)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  equipment      equipment[]
+  brands         brands      @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  @@unique([name, brandId])
+}
+
+model OfficeLocation {
+  id          String               @id @default(uuid())
+  name        String               @unique
+  code        String?              @unique
+  type        String
+  address     String?
+  phone       String?
+  isActive    Boolean              @default(true)
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+  city        String?
+  state       String?
+  zip         String?
+  supervisors     LocationSupervisor[]
+  rooms           Room[]
+  equipment       equipment[]
+  purchase_orders purchase_orders[] @relation("POOfficeLocation")
+  tickets         Ticket[]
+
+  @@index([isActive])
+  @@index([type])
+  @@map("office_locations")
+}
+
+model po_items {
+  id              String          @id @default(uuid())
+  poId            String
+  description     String
+  lineNumber      Int?
+  model           String?
+  quantity        Int
+  unitPrice       Decimal         @db.Decimal(10, 2)
+  totalPrice      Decimal         @db.Decimal(10, 2)
+  createdAt       DateTime        @default(now())
+  purchase_orders purchase_orders @relation(fields: [poId], references: [id], onDelete: Cascade)
+}
+
+model RequisitionStatusHistory {
+  id              String          @id @default(uuid())
+  purchaseOrderId String
+  fromStatus      String
+  toStatus        String
+  changedById     String
+  changedAt       DateTime        @default(now())
+  notes           String?
+
+  purchaseOrder   purchase_orders @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  changedBy       User            @relation("POStatusChangedBy", fields: [changedById], references: [id])
+
+  @@index([purchaseOrderId])
+  @@index([changedById])
+  @@index([changedAt])
+  @@map("requisition_status_history")
+}
+
+model purchase_orders {
+  id                String     @id @default(uuid())
+  poNumber          String?    @unique
+  reqNumber         String?    @unique
+  type              String
+  requestorId       String
+  vendorId          String?
+  description       String
+  amount            Decimal    @db.Decimal(10, 2)
+  status            String     @default("draft")
+  accountCode       String?
+  program           String?
+  isApproved        Boolean    @default(false)
+  approvedBy        String?
+  approvedDate      DateTime?
+  submittedDate     DateTime?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+
+  // Sprint C-2 additions
+  shipTo            String?
+  shipToType        String?    // 'entity' | 'my_office' | 'custom'
+  shippingCost      Decimal?   @db.Decimal(10, 2)
+  notes             String?
+  officeLocationId  String?
+  denialReason      String?
+  submittedAt       DateTime?
+  approvedAt              DateTime?  // Set when Finance Director approves → finance_director_approved
+  issuedAt                DateTime?  // Set when PO Entry issues → po_issued
+  schoolsDirectorApprovedAt DateTime? // Set when Director of Schools approves → dos_approved
+
+  // Fiscal Year
+  fiscalYear        String?
+
+  // Entity type — cached from officeLocation.type on create/update for efficient list queries
+  // Values: 'SCHOOL' | 'DEPARTMENT' | 'PROGRAM' | 'DISTRICT_OFFICE' | null
+  entityType        String?
+
+  /// Determines which approval chain this PO follows.
+  /// 'standard' = default flow (Supervisor → Finance Director → DOS → PO Entry)
+  /// 'food_service' = Food Service flow (FS Supervisor → DOS → FS PO Entry)
+  workflowType      String   @default("standard")
+
+  // Approver email snapshot (captured at submit time)
+  approverEmailsSnapshot Json?
+
+  // Relations
+  po_items          po_items[]
+  statusHistory     RequisitionStatusHistory[]
+  User              User            @relation(fields: [requestorId], references: [id])
+  vendors           vendors?        @relation(fields: [vendorId], references: [id])
+  officeLocation    OfficeLocation? @relation("POOfficeLocation", fields: [officeLocationId], references: [id])
+
+  @@index([status])
+  @@index([type])
+  @@index([requestorId])
+  @@index([officeLocationId])
+  @@index([fiscalYear])
+  @@index([entityType])
+  @@index([workflowType])
+}
+
+model Room {
+  id         String         @id @default(uuid())
+  locationId String
+  name       String
+  type       String?
+  building   String?
+  floor      Int?
+  capacity   Int?
+  isActive   Boolean        @default(true)
+  notes      String?
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+  createdBy  String?
+  updatedBy  String?
+  location   OfficeLocation @relation(fields: [locationId], references: [id])
+  equipment  equipment[]
+  tickets    Ticket[]
+  primaryUsers User[]       @relation("UserPrimaryRoom")
+
+  @@unique([locationId, name])
+  @@index([isActive])
+  @@index([locationId])
+  @@index([type])
+  @@map("rooms")
+}
+
+model user_rooms {
+  id         String    @id @default(uuid())
+  userId     String
+  locationId String
+  assignedAt DateTime  @default(now())
+  locations  locations @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  User       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, locationId])
+}
+
+model UserSupervisor {
+  id           String   @id @default(uuid())
+  userId       String
+  supervisorId String
+  locationId   String?
+  isPrimary    Boolean  @default(false)
+  assignedAt   DateTime @default(now())
+  assignedBy   String?
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  supervisor   User     @relation("user_supervisors_supervisorIdTousers", fields: [supervisorId], references: [id], onDelete: Cascade)
+  user         User     @relation("user_supervisors_userIdTousers", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, supervisorId, locationId])
+  @@index([locationId])
+  @@index([supervisorId])
+  @@index([userId])
+  @@map("user_supervisors")
+}
+
+model User {
+  id                                                        String                @id @default(uuid())
+  entraId                                                   String                @unique
+  email                                                     String                @unique
+  firstName                                                 String
+  lastName                                                  String
+  displayName                                               String?
+  department                                                String?
+  jobTitle                                                  String?
+  isActive                                                  Boolean               @default(true)
+  lastSync                                                  DateTime              @default(now())
+  lastLogin                                                 DateTime?
+  createdAt                                                 DateTime              @default(now())
+  updatedAt                                                 DateTime              @updatedAt
+  role                                                      String                @default("USER")
+  officeLocation                                            String?
+  locationSupervisors                                       LocationSupervisor[]
+  maintenance_orders_maintenance_orders_assignedToIdTousers maintenance_orders[]  @relation("maintenance_orders_assignedToIdTousers")
+  maintenance_orders_maintenance_orders_createdByIdTousers  maintenance_orders[]  @relation("maintenance_orders_createdByIdTousers")
+  purchase_orders                                           purchase_orders[]
+  user_rooms                                                user_rooms[]
+  user_supervisors_user_supervisors_supervisorIdTousers     UserSupervisor[]      @relation("user_supervisors_supervisorIdTousers")
+  user_supervisors_user_supervisors_userIdTousers           UserSupervisor[]      @relation("user_supervisors_userIdTousers")
+  inventoryImportJobs                                       InventoryImportJob[]
+  assignedEquipment                                         equipment[]           @relation("EquipmentAssignedTo")
+  equipmentAttachments                                      EquipmentAttachment[]
+  maintenanceHistory                                        MaintenanceHistory[]
+  assignmentHistory                                         EquipmentAssignmentHistory[]
+  poStatusHistory                                           RequisitionStatusHistory[] @relation("POStatusChangedBy")
+  fiscalYearRollovers                                       FiscalYearHistory[]
+  // Ticket relations
+  reportedTickets                                           Ticket[]               @relation("TicketReporter")
+  assignedTickets                                           Ticket[]               @relation("TicketAssignee")
+  ticketComments                                            TicketComment[]        @relation("TicketCommentAuthor")
+  ticketStatusHistory                                       TicketStatusHistory[]  @relation("TicketStatusChangedBy")
+  primaryRoomId                                             String?
+  primaryRoom                                               Room?                  @relation("UserPrimaryRoom", fields: [primaryRoomId], references: [id])
+
   @@map("users")
 }
 
-// Equipment/Inventory model
-model Equipment {
-  id              String    @id @default(uuid())
-  assetTag        String    @unique
-  serialNumber    String?
-  name            String
-  description     String?
-  brandId         String?
-  modelId         String?
-  locationId      String?
-  categoryId      String?
-  purchaseDate    DateTime?
-  purchasePrice   Decimal?  @db.Decimal(10, 2)
-  status          String    @default("active") // active, inactive, maintenance, disposed
-  condition       String?   // excellent, good, fair, poor
-  isDisposed      Boolean   @default(false)
-  disposedDate    DateTime?
-  disposedReason  String?
-  notes           String?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  
-  // Relationships
-  brand           Brand?    @relation(fields: [brandId], references: [id])
-  model           Model?    @relation(fields: [modelId], references: [id])
-  location        Location? @relation(fields: [locationId], references: [id])
-  category        Category? @relation(fields: [categoryId], references: [id])
-  changes         InventoryChange[]
-  
-  @@index([assetTag])
-  @@index([status])
-  @@index([locationId])
-  @@map("equipment")
-}
-
-// Location/Room model
-model Location {
-  id              String    @id @default(uuid())
-  buildingName    String
-  roomNumber      String
-  description     String?
-  floor           Int?
-  capacity        Int?
-  isActive        Boolean   @default(true)
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  
-  // Relationships
-  equipment       Equipment[]
-  userRooms       UserRoom[]
-  maintenanceOrders MaintenanceOrder[]
-  
-  @@unique([buildingName, roomNumber])
-  @@map("locations")
-}
-
-// Brand model
-model Brand {
-  id              String    @id @default(uuid())
-  name            String    @unique
-  description     String?
-  website         String?
-  isActive        Boolean   @default(true)
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  
-  // Relationships
-  equipment       Equipment[]
-  models          Model[]
-  
-  @@map("brands")
-}
-
-// Model (equipment model) model
-model Model {
-  id              String    @id @default(uuid())
-  name            String
-  brandId         String
-  modelNumber     String?
-  description     String?
-  specifications  String?   // JSON field for specs
-  isActive        Boolean   @default(true)
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  
-  // Relationships
-  brand           Brand     @relation(fields: [brandId], references: [id], onDelete: Cascade)
-  equipment       Equipment[]
-  
-  @@unique([name, brandId])
-  @@map("models")
-}
-
-// Category model
-model Category {
-  id              String    @id @default(uuid())
-  name            String    @unique
-  description     String?
-  parentId        String?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  
-  // Relationships
-  equipment       Equipment[]
-  parent          Category? @relation("CategoryHierarchy", fields: [parentId], references: [id])
-  children        Category[] @relation("CategoryHierarchy")
-  
-  @@map("categories")
-}
-
-// Purchase Order model
-model PurchaseOrder {
-  id              String    @id @default(uuid())
-  poNumber        String    @unique
-  type            String    // "regular" or "food"
-  requestorId     String
-  vendorId        String?
-  description     String
-  amount          Decimal   @db.Decimal(10, 2)
-  status          String    @default("pending") // pending, approved, rejected, completed
-  accountCode     String?
-  program         String?
-  isApproved      Boolean   @default(false)
-  approvedBy      String?
-  approvedDate    DateTime?
-  submittedDate   DateTime  @default(now())
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  
-  // Relationships
-  requestor       User      @relation(fields: [requestorId], references: [id])
-  vendor          Vendor?   @relation(fields: [vendorId], references: [id])
-  items           POItem[]
-  
-  @@index([status])
-  @@index([type])
-  @@map("purchase_orders")
-}
-
-// Purchase Order Item model
-model POItem {
-  id              String    @id @default(uuid())
-  poId            String
-  description     String
-  quantity        Int
-  unitPrice       Decimal   @db.Decimal(10, 2)
-  totalPrice      Decimal   @db.Decimal(10, 2)
-  createdAt       DateTime  @default(now())
-  
-  // Relationships
-  purchaseOrder   PurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
-  
-  @@map("po_items")
-}
-
-// Vendor model
-model Vendor {
-  id              String    @id @default(uuid())
-  name            String    @unique
+model vendors {
+  id              String            @id @default(uuid())
+  name            String            @unique
   contactName     String?
   email           String?
   phone           String?
   address         String?
+  city            String?
+  state           String?
+  zip             String?
+  fax             String?
   website         String?
-  isActive        Boolean   @default(true)
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  
-  // Relationships
-  purchaseOrders  PurchaseOrder[]
-  
-  @@map("vendors")
+  isActive        Boolean           @default(true)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  purchase_orders purchase_orders[]
+  equipment       equipment[]
 }
 
-// Maintenance Order model
-model MaintenanceOrder {
-  id              String    @id @default(uuid())
-  ticketNumber    String    @unique
-  title           String
-  description     String
-  priority        String    @default("medium") // low, medium, high, urgent
-  status          String    @default("open") // open, in_progress, resolved, closed
-  createdById     String
-  assignedToId    String?
-  locationId      String?
-  equipmentId     String?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  completedAt     DateTime?
-  
-  // Relationships
-  createdBy       User      @relation("CreatedBy", fields: [createdById], references: [id])
-  assignedTo      User?     @relation("AssignedTo", fields: [assignedToId], references: [id])
-  location        Location? @relation(fields: [locationId], references: [id])
-  
+// ============================================
+// INVENTORY MANAGEMENT SYSTEM MODELS
+// ============================================
+
+model InventoryImportJob {
+  id             String                @id @default(uuid())
+  fileName       String
+  fileUrl        String?
+  status         String                @default("pending") // "pending", "processing", "completed", "failed"
+  totalRows      Int
+  processedRows  Int                   @default(0)
+  successCount   Int                   @default(0)
+  errorCount     Int                   @default(0)
+  errors         Json? // Array of error objects
+  importedBy     String
+  importedByName String
+  startedAt      DateTime              @default(now())
+  completedAt    DateTime?
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+  user           User                  @relation(fields: [importedBy], references: [id])
+  items          InventoryImportItem[]
+
+  @@index([status])
+  @@index([importedBy])
+  @@index([startedAt])
+  @@map("inventory_import_jobs")
+}
+
+model InventoryImportItem {
+  id           String             @id @default(uuid())
+  jobId        String
+  equipmentId  String?
+  rowNumber    Int
+  status       String // "success", "error", "skipped"
+  errorMessage String?
+  data         Json // Original row data
+  createdAt    DateTime           @default(now())
+  job          InventoryImportJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  equipment    equipment?         @relation(fields: [equipmentId], references: [id])
+
+  @@index([jobId])
+  @@index([status])
+  @@map("inventory_import_items")
+}
+
+model InventoryExportJob {
+  id             String    @id @default(uuid())
+  fileName       String
+  fileUrl        String?
+  status         String    @default("pending") // "pending", "processing", "completed", "failed"
+  format         String // "xlsx", "csv", "pdf"
+  filters        Json? // Export filters applied
+  exportedBy     String
+  exportedByName String
+  startedAt      DateTime  @default(now())
+  completedAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([status])
+  @@index([exportedBy])
+  @@index([startedAt])
+  @@map("inventory_export_jobs")
+}
+
+// ============================================
+// SYSTEM SETTINGS (singleton)
+// ============================================
+
+model SystemSettings {
+  /// Singleton row — always "singleton"
+  id                      String   @id @default("singleton")
+
+  /// Requisition number sequencing
+  nextReqNumber           Int      @default(1)
+  reqNumberPrefix         String   @default("REQ")
+
+  /// Purchase order number sequencing
+  nextPoNumber            Int      @default(1)
+  poNumberPrefix          String   @default("PO")
+
+  /// Workflow feature flags
+  supervisorBypassEnabled Boolean  @default(true)
+
+  // Fiscal Year Fields
+  currentFiscalYear       String?
+  fiscalYearStart         DateTime?
+  fiscalYearEnd           DateTime?
+  lastYearRolloverAt      DateTime?
+  lastYearRolloverBy      String?
+
+  // Dynamic Approval Levels
+  supervisorApprovalLevel      Int  @default(3)
+  financeDirectorApprovalLevel Int  @default(5)
+  dosApprovalLevel             Int  @default(6)
+
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  @@map("system_settings")
+}
+
+model FiscalYearHistory {
+  id                     String   @id @default(uuid())
+  fiscalYear             String
+  fiscalYearStart        DateTime
+  fiscalYearEnd          DateTime
+  action                 String
+  deniedCount            Int      @default(0)
+  carriedOverTicketCount Int      @default(0)
+  reqPrefix              String
+  reqStartNumber         Int
+  poPrefix               String
+  poStartNumber          Int
+  performedById          String
+  performedAt            DateTime @default(now())
+
+  performedBy      User     @relation(fields: [performedById], references: [id])
+
+  @@map("fiscal_year_history")
+  @@index([fiscalYear])
+}
+
+// ============================================
+// UNIFIED TICKETING SYSTEM
+// ============================================
+
+enum TicketDepartment {
+  TECHNOLOGY
+  MAINTENANCE
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  ON_HOLD
+  RESOLVED
+  CLOSED
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TechTicketCategory {
+  HARDWARE_FAILURE
+  SOFTWARE_ISSUE
+  NETWORK_CONNECTIVITY
+  PRINTING
+  PROJECTOR_DISPLAY
+  CHROMEBOOK
+  DEVICE_SETUP
+  PASSWORD_RESET
+  ACCOUNT_ACCESS
+  OTHER
+}
+
+enum MaintTicketCategory {
+  PLUMBING
+  ELECTRICAL
+  HVAC_HEATING
+  HVAC_COOLING
+  CARPENTRY
+  PAINTING
+  FLOORING
+  PEST_CONTROL
+  CLEANING
+  DOOR_LOCK
+  WINDOW
+  ROOF
+  GROUNDS
+  OTHER
+}
+
+model Ticket {
+  id               String             @id @default(uuid())
+  ticketNumber     String             @unique
+  department       TicketDepartment
+  status           TicketStatus       @default(OPEN)
+  priority         TicketPriority     @default(MEDIUM)
+  fiscalYear       String
+
+  // Reporter
+  reportedById     String
+  reportedBy       User               @relation("TicketReporter", fields: [reportedById], references: [id])
+
+  // Assignee
+  assignedToId     String?
+  assignedTo       User?              @relation("TicketAssignee", fields: [assignedToId], references: [id])
+
+  // Location
+  officeLocationId String?
+  officeLocation   OfficeLocation?    @relation(fields: [officeLocationId], references: [id])
+
+  roomId           String?
+  room             Room?              @relation(fields: [roomId], references: [id])
+
+  // Issue description
+  title            String?
+  description      String
+
+  // Category — stored as String; values from TechTicketCategory or MaintTicketCategory
+  category         String?
+
+  // Technology-specific (nullable, only populated for TECHNOLOGY dept)
+  equipmentId      String?
+  equipment        equipment?         @relation("TicketEquipment", fields: [equipmentId], references: [id])
+
+  // Maintenance-specific (nullable, only populated for MAINTENANCE dept)
+  equipmentMfg     String?
+  equipmentModel   String?
+  equipmentSerial  String?
+
+  // Timestamps
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  resolvedAt       DateTime?
+  closedAt         DateTime?
+
+  // Relations
+  comments         TicketComment[]
+  statusHistory    TicketStatusHistory[]
+
+  @@index([department])
   @@index([status])
   @@index([priority])
-  @@map("maintenance_orders")
+  @@index([reportedById])
+  @@index([assignedToId])
+  @@index([officeLocationId])
+  @@index([roomId])
+  @@index([fiscalYear])
+  @@index([department, status])
+  @@index([officeLocationId, department, status])
+  @@map("tickets")
 }
 
-// User-Room assignment model
-model UserRoom {
-  id              String    @id @default(uuid())
-  userId          String
-  locationId      String
-  assignedAt      DateTime  @default(now())
-  
-  // Relationships
-  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  location        Location  @relation(fields: [locationId], references: [id], onDelete: Cascade)
-  
-  @@unique([userId, locationId])
-  @@map("user_rooms")
+model TicketComment {
+  id         String   @id @default(uuid())
+  ticketId   String
+  authorId   String
+  body       String
+  isInternal Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  ticket     Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author     User     @relation("TicketCommentAuthor", fields: [authorId], references: [id])
+
+  @@index([ticketId])
+  @@index([authorId])
+  @@map("ticket_comments")
 }
 
-// Inventory Change log model
-model InventoryChange {
-  id              String    @id @default(uuid())
-  equipmentId     String
-  changeType      String    // "added", "modified", "disposed", "transferred"
-  fieldChanged    String?
-  oldValue        String?
-  newValue        String?
-  changedBy       String
-  changedByName   String
-  changedAt       DateTime  @default(now())
-  notes           String?
-  
-  // Relationships
-  equipment       Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
-  
-  @@index([equipmentId])
+model TicketStatusHistory {
+  id          String        @id @default(uuid())
+  ticketId    String
+  fromStatus  TicketStatus?
+  toStatus    TicketStatus
+  changedById String
+  changedAt   DateTime      @default(now())
+  notes       String?
+
+  ticket      Ticket        @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  changedBy   User          @relation("TicketStatusChangedBy", fields: [changedById], references: [id])
+
+  @@index([ticketId])
   @@index([changedAt])
-  @@map("inventory_changes")
+  @@map("ticket_status_history")
 }
-

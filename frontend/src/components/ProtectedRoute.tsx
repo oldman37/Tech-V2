@@ -1,28 +1,38 @@
 import { Navigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
+import AccessDenied from '../pages/AccessDenied';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
   requireAdmin?: boolean;
+  requireTech?: boolean;
 }
 
-export const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps) => {
+export const ProtectedRoute = ({ children, requireAdmin = false, requireTech = false }: ProtectedRouteProps) => {
   const { isAuthenticated, user } = useAuthStore();
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
 
+  // Global check: user must belong to at least ALL_STAFF or ALL_STUDENTS (or ADMIN)
+  if (user?.hasBaseAccess === false) {
+    return <AccessDenied />;
+  }
+
   if (requireAdmin) {
-    const isAdmin = user?.roles?.includes('Admin') || false;
+    const isAdmin = user?.roles?.includes('ADMIN');
     
     if (!isAdmin) {
-      return (
-        <div style={{ padding: '40px', textAlign: 'center' }}>
-          <h2>Access Denied</h2>
-          <p>You don't have permission to access this page.</p>
-        </div>
-      );
+      return <AccessDenied />;
+    }
+  }
+
+  if (requireTech) {
+    const isAdmin = user?.roles?.includes('ADMIN');
+    const hasTechAccess = isAdmin || (user?.permLevels?.TECHNOLOGY ?? 0) >= 2;
+    if (!hasTechAccess) {
+      return <AccessDenied />;
     }
   }
 

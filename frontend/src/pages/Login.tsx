@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { authApi } from '../services/authService';
 import { useAuthStore } from '../store/authStore';
@@ -9,7 +9,8 @@ export const Login = () => {
   const [searchParams] = useSearchParams();
   const [error, setError] = useState<string>('');
   const [loading, setLoading] = useState(false);
-  const { setUser, setTokens, isAuthenticated } = useAuthStore();
+  const callbackProcessed = useRef(false);
+  const { setUser, isAuthenticated } = useAuthStore();
 
   // Check if already authenticated
   useEffect(() => {
@@ -21,22 +22,24 @@ export const Login = () => {
   // Handle OAuth callback
   useEffect(() => {
     const code = searchParams.get('code');
+    const state = searchParams.get('state') ?? undefined;
     
-    if (code) {
-      handleCallback(code);
+    if (code && !callbackProcessed.current) {
+      callbackProcessed.current = true;
+      handleCallback(code, state);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
-  const handleCallback = async (code: string) => {
+  const handleCallback = async (code: string, state?: string) => {
     setLoading(true);
     setError('');
 
     try {
-      const response = await authApi.handleCallback(code);
+      const response = await authApi.handleCallback(code, state);
       
       if (response.data.success) {
-        // Store tokens and user
-        setTokens(response.data.token, response.data.refreshToken);
+        // Tokens are now in HttpOnly cookies, just store user
         setUser(response.data.user);
         
         // Redirect to dashboard

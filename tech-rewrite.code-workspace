@@ -1,0 +1,13 @@
+{
+  "folders": [
+    {
+      "name": "Tech-V2 (New)",
+      "path": "."
+    },
+    {
+      "name": "wwwroot (Legacy Reference)",
+      "path": "C:\\wwwroot"
+    }
+  ],
+  "settings": {}
+}

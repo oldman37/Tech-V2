@@ -1,0 +1,178 @@
+/**
+ * Work Order Controller
+ *
+ * HTTP handlers for the unified work order system.
+ * Follows the PurchaseOrderController pattern exactly:
+ *   - Singleton service instance
+ *   - try/catch with handleControllerError
+ *   - Reads req.user.id for the authenticated user
+ */
+
+import { Response } from 'express';
+import { AuthRequest } from '../middleware/auth';
+import { WorkOrderService } from '../services/work-orders.service';
+import { handleControllerError } from '../utils/errorHandler';
+import { prisma } from '../lib/prisma';
+import {
+  WorkOrderQuerySchema,
+  CreateWorkOrderSchema,
+  UpdateWorkOrderSchema,
+  UpdateStatusSchema,
+  AssignWorkOrderSchema,
+  AddCommentSchema,
+} from '../validators/work-orders.validators';
+
+// ---------------------------------------------------------------------------
+// Singleton service instance
+// ---------------------------------------------------------------------------
+
+const service = new WorkOrderService(prisma);
+
+// ---------------------------------------------------------------------------
+// Response mapper — renames DB field `ticketNumber` → `workOrderNumber`
+// ---------------------------------------------------------------------------
+
+function mapTicket(ticket: any): any {
+  if (!ticket) return ticket;
+  const { ticketNumber, ...rest } = ticket;
+  return { ...rest, workOrderNumber: ticketNumber };
+}
+
+// ---------------------------------------------------------------------------
+// Handlers
+// ---------------------------------------------------------------------------
+
+/**
+ * GET /api/work-orders
+ */
+export const getWorkOrders = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const query    = WorkOrderQuerySchema.parse(req.query);
+    const userId   = req.user!.id;
+    const permLevel = req.user!.permLevel ?? 1;
+
+    const result = await service.getWorkOrders(query, userId, permLevel);
+    res.json({ ...result, items: result.items.map(mapTicket) });
+  } catch (error) {
+    handleControllerError(error, res);
+  }
+};
+
+/**
+ * GET /api/work-orders/stats/summary
+ */
+export const getWorkOrderStats = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { officeLocationId, department, fiscalYear } = req.query as Record<string, string | undefined>;
+    const stats = await service.getWorkOrderStats(officeLocationId, department, fiscalYear);
+    res.json(stats);
+  } catch (error) {
+    handleControllerError(error, res);
+  }
+};
+
+/**
+ * GET /api/work-orders/:id
+ */
+export const getWorkOrderById = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const userId    = req.user!.id;
+    const permLevel = req.user!.permLevel ?? 1;
+    const includeInternal = permLevel >= 3;
+
+    const ticket = await service.getWorkOrderById(req.params.id as string, userId, permLevel, includeInternal);
+    res.json(mapTicket(ticket));
+  } catch (error) {
+    handleControllerError(error, res);
+  }
+};
+
+/**
+ * POST /api/work-orders
+ */
+export const createWorkOrder = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const data   = CreateWorkOrderSchema.parse(req.body);
+    const ticket = await service.createWorkOrder(data, req.user!.id);
+    res.status(201).json(mapTicket(ticket));
+  } catch (error) {
+    handleControllerError(error, res);
+  }
+};
+
+/**
+ * PUT /api/work-orders/:id
+ */
+export const updateWorkOrder = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const data      = UpdateWorkOrderSchema.parse(req.body);
+    const userId    = req.user!.id;
+    const permLevel = req.user!.permLevel ?? 1;
+
+    const ticket = await service.updateWorkOrder(req.params.id as string, data, userId, permLevel);
+    res.json(mapTicket(ticket));
+  } catch (error) {
+    handleControllerError(error, res);
+  }
+};
+
+/**
+ * PUT /api/work-orders/:id/status
+ */
+export const updateStatus = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const data      = UpdateStatusSchema.parse(req.body);
+    const userId    = req.user!.id;
+    const permLevel = req.user!.permLevel ?? 1;
+
+    const ticket = await service.updateStatus(req.params.id as string, data, userId, permLevel);
+    res.json(mapTicket(ticket));
+  } catch (error) {
+    handleControllerError(error, res);
+  }
+};
+
+/**
+ * PUT /api/work-orders/:id/assign
+ */
+export const assignWorkOrder = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const data      = AssignWorkOrderSchema.parse(req.body);
+    const userId    = req.user!.id;
+    const permLevel = req.user!.permLevel ?? 1;
+
+    const ticket = await service.assignWorkOrder(req.params.id as string, data, userId, permLevel);
+    res.json(mapTicket(ticket));
+  } catch (error) {
+    handleControllerError(error, res);
+  }
+};
+
+/**
+ * POST /api/work-orders/:id/comments
+ */
+export const addComment = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const data      = AddCommentSchema.parse(req.body);
+    const userId    = req.user!.id;
+    const permLevel = req.user!.permLevel ?? 1;
+
+    const comment = await service.addComment(req.params.id as string, data, userId, permLevel);
+    res.status(201).json(comment);
+  } catch (error) {
+    handleControllerError(error, res);
+  }
+};
+
+/**
+ * DELETE /api/work-orders/:id
+ */
+export const deleteWorkOrder = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const permLevel = req.user!.permLevel ?? 1;
+    await service.deleteWorkOrder(req.params.id as string, permLevel);
+    res.status(204).send();
+  } catch (error) {
+    handleControllerError(error, res);
+  }
+};
