@@ -9,5 +9,9 @@
       "path": "C:\\wwwroot"
     }
   ],
-  "settings": {}
+  "settings": {
+    "git.ignoredRepositories": [
+      "C:\\wwwroot"
+    ]
+  }
 }
