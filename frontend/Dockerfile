@@ -25,8 +25,8 @@ ARG VITE_ENTRA_FINANCE_DIRECTOR_GROUP_ID
 ARG VITE_ENTRA_DIRECTOR_OF_SCHOOLS_GROUP_ID
 ARG VITE_ENTRA_FOOD_SERVICES_PO_ENTRY_GROUP_ID
 
-# Build the application
-RUN npm run build
+# Build the application with increased memory limit for large builds
+RUN NODE_OPTIONS="--max-old-space-size=3072" npm run build
 
 # Production stage - serve with Nginx
 FROM nginx:alpine AS production
