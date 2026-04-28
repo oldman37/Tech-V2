@@ -49,7 +49,22 @@ first_run() {
     docker compose up -d --build
 
     log "Waiting for database to be ready..."
-    sleep 5
+    source .env
+    max_attempts=30
+    attempt=0
+    while [ $attempt -lt $max_attempts ]; do
+        if docker compose exec -T db pg_isready -U "${POSTGRES_USER:-postgres}" -d "${POSTGRES_DB:-techv2}" > /dev/null 2>&1; then
+            log "Database is ready!"
+            break
+        fi
+        attempt=$((attempt + 1))
+        echo "Waiting... ($attempt/$max_attempts)"
+        sleep 2
+    done
+    if [ $attempt -eq $max_attempts ]; then
+        err "Database did not become ready in time"
+        exit 1
+    fi
 
     log "Running Prisma migrations..."
     docker compose exec backend npx prisma migrate deploy
