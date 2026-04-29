@@ -27,6 +27,9 @@ dotenv.config();
 const app: Express = express();
 const PORT = process.env.PORT || 3000;
 
+// Trust the nginx reverse proxy (required for express-rate-limit to use X-Forwarded-For correctly)
+app.set('trust proxy', 1);
+
 // Security middleware
 app.use(helmet());
 
