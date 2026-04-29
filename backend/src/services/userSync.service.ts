@@ -530,37 +530,41 @@ export class UserSyncService {
     let errors = 0;
     const errorDetails: SyncErrorDetail[] = [];
 
-    for (const member of members) {
-      if (member['@odata.type'] === '#microsoft.graph.user') {
-        // Skip disabled users — avoids unnecessary Graph API calls and DB writes
-        if (member.accountEnabled === false) {
-          loggers.userSync.debug('Skipping disabled group member', {
-            memberId: redactEntraId(member.id),
+    const skippedDisabled = members.filter(
+      (m) => m['@odata.type'] === '#microsoft.graph.user' && m.accountEnabled === false
+    ).length;
+
+    const CONCURRENCY_LIMIT = 10;
+
+    const eligibleMembers = members.filter(
+      (m) => m['@odata.type'] === '#microsoft.graph.user' && m.accountEnabled !== false
+    );
+
+    const tasks = eligibleMembers.map((member) => async () => {
+      const isNew = !existingEntraIds.has(member.id);
+      await this.syncUser(member.id);
+      return isNew ? 'added' : 'updated';
+    });
+
+    const settled = await this.runWithConcurrency(tasks, CONCURRENCY_LIMIT);
+
+    for (let i = 0; i < settled.length; i++) {
+      const result = settled[i];
+      if (result.status === 'fulfilled') {
+        if (result.value === 'added') { added++; } else { updated++; }
+      } else {
+        errors++;
+        if (errorDetails.length < 20) {
+          errorDetails.push({
+            entraId: redactEntraId(eligibleMembers[i].id),
+            message: result.reason instanceof Error ? result.reason.message : String(result.reason),
           });
-          continue;
         }
-        const isNew = !existingEntraIds.has(member.id);
-        try {
-          await this.syncUser(member.id);
-          if (isNew) {
-            added++;
-          } else {
-            updated++;
-          }
-        } catch (error) {
-          errors++;
-          if (errorDetails.length < 20) {
-            errorDetails.push({
-              entraId: redactEntraId(member.id),
-              message: error instanceof Error ? error.message : String(error),
-            });
-          }
-          loggers.userSync.error('Failed to sync group member', {
-            groupId,
-            memberId: redactEntraId(member.id),
-            error,
-          });
-        }
+        loggers.userSync.error('Failed to sync group member', {
+          groupId,
+          memberId: redactEntraId(eligibleMembers[i].id),
+          error: result.reason,
+        });
       }
     }
 
@@ -625,26 +629,31 @@ export class UserSyncService {
     let errors = 0;
     const errorDetails: SyncErrorDetail[] = [];
 
-    for (const user of allUsers) {
+    const CONCURRENCY_LIMIT = 10;
+
+    const tasks = allUsers.map((user) => async () => {
       const isNew = !existingEntraIds.has(user.id);
-      try {
-        await this.syncUser(user.id);
-        if (isNew) {
-          added++;
-        } else {
-          updated++;
-        }
-      } catch (error) {
+      await this.syncUser(user.id);
+      return isNew ? 'added' : 'updated';
+    });
+
+    const settled = await this.runWithConcurrency(tasks, CONCURRENCY_LIMIT);
+
+    for (let i = 0; i < settled.length; i++) {
+      const result = settled[i];
+      if (result.status === 'fulfilled') {
+        if (result.value === 'added') { added++; } else { updated++; }
+      } else {
         errors++;
         if (errorDetails.length < 20) {
           errorDetails.push({
-            entraId: redactEntraId(user.id),
-            message: error instanceof Error ? error.message : String(error),
+            entraId: redactEntraId(allUsers[i].id),
+            message: result.reason instanceof Error ? result.reason.message : String(result.reason),
           });
         }
         loggers.userSync.error('Failed to sync user in bulk operation', {
-          userId: redactEntraId(user.id),
-          error,
+          userId: redactEntraId(allUsers[i].id),
+          error: result.reason,
         });
       }
     }
@@ -693,5 +702,33 @@ export class UserSyncService {
       durationMs,
       errorDetails,
     };
+  }
+
+  /**
+   * Run async tasks with a bounded concurrency limit.
+   * Processes `tasks` in parallel but no more than `limit` at a time.
+   */
+  private async runWithConcurrency<T>(
+    tasks: (() => Promise<T>)[],
+    limit: number
+  ): Promise<PromiseSettledResult<T>[]> {
+    const results: PromiseSettledResult<T>[] = [];
+    let index = 0;
+
+    async function worker(): Promise<void> {
+      while (index < tasks.length) {
+        const current = index++;
+        try {
+          const value = await tasks[current]();
+          results[current] = { status: 'fulfilled', value };
+        } catch (reason) {
+          results[current] = { status: 'rejected', reason };
+        }
+      }
+    }
+
+    const workers = Array.from({ length: Math.min(limit, tasks.length) }, () => worker());
+    await Promise.all(workers);
+    return results;
   }
 }
