@@ -24,9 +24,6 @@ async function main() {
       nextPoNumber:            1,
       poNumberPrefix:          'PO',
       supervisorBypassEnabled: true,
-      supervisorStageEmail:    null,
-      purchasingStageEmail:    null,
-      dosStageEmail:           null,
     },
   });
   console.log('✅ System settings created (singleton)');
