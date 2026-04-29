@@ -33,22 +33,25 @@ import type {
 const VALID_TRANSITIONS: Record<string, { to: TicketStatus; minLevel: number }[]> = {
   OPEN: [
     { to: 'IN_PROGRESS', minLevel: 3 },
-    { to: 'CLOSED',      minLevel: 4 },
+    { to: 'CLOSED',      minLevel: 3 },
   ],
   IN_PROGRESS: [
     { to: 'ON_HOLD',   minLevel: 3 },
     { to: 'RESOLVED',  minLevel: 3 },
-    { to: 'CLOSED',    minLevel: 4 },
+    { to: 'CLOSED',    minLevel: 3 },
   ],
   ON_HOLD: [
     { to: 'IN_PROGRESS', minLevel: 3 },
-    { to: 'CLOSED',      minLevel: 4 },
+    { to: 'CLOSED',      minLevel: 3 },
   ],
   RESOLVED: [
     { to: 'CLOSED',      minLevel: 3 },
     { to: 'IN_PROGRESS', minLevel: 3 },
+    { to: 'OPEN',        minLevel: 3 },
   ],
-  CLOSED: [],
+  CLOSED: [
+    { to: 'OPEN', minLevel: 3 },
+  ],
 };
 
 // ---------------------------------------------------------------------------
@@ -482,24 +485,6 @@ export class WorkOrderService {
 
     this.assertValidTransition(ticket.status, data.status, permLevel);
 
-    // Level-3 technicians may only close or resolve work orders assigned to them or that they reported.
-    // If the work order is unassigned (assignedToId === null), any level-3 user may act on it.
-    if (
-      permLevel === 3 &&
-      (data.status === 'CLOSED' || data.status === 'RESOLVED') &&
-      ticket.assignedToId !== null &&
-      ticket.assignedToId !== userId &&
-      ticket.reportedById !== userId
-    ) {
-      logger.warn('Unauthorized work order close/resolve attempt', {
-        ticketId: id,
-        userId,
-      });
-      throw new AuthorizationError(
-        'You can only close or resolve work orders that are assigned to you or that you submitted. Please contact a supervisor if this work order needs to be reassigned.',
-      );
-    }
-
     const now = new Date();
     const timestamps: { resolvedAt?: Date | null; closedAt?: Date | null } = {};
 
@@ -508,7 +493,11 @@ export class WorkOrderService {
     } else if (data.status === 'CLOSED') {
       timestamps.closedAt = now;
     } else if (data.status === 'IN_PROGRESS' && ticket.status === 'RESOLVED') {
-      // Reopen clears resolvedAt
+      // Reopen from RESOLVED clears resolvedAt
+      timestamps.resolvedAt = null;
+    } else if (data.status === 'OPEN' && (ticket.status === 'CLOSED' || ticket.status === 'RESOLVED')) {
+      // Reopen clears both closedAt and resolvedAt
+      timestamps.closedAt = null;
       timestamps.resolvedAt = null;
     }
 

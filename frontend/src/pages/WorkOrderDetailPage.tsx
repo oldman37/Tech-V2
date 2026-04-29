@@ -41,6 +41,7 @@ import {
 } from '@mui/material';
 import AssignmentIndIcon from '@mui/icons-material/AssignmentInd';
 import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
+import ReplayIcon from '@mui/icons-material/Replay';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import { useWorkOrder } from '@/hooks/queries/useWorkOrders';
 import {
@@ -73,6 +74,14 @@ const STATUSES: { value: WorkOrderStatus; label: string }[] = [
   { value: 'RESOLVED',    label: 'Resolved' },
   { value: 'CLOSED',      label: 'Closed' },
 ];
+
+const ALLOWED_NEXT_STATUSES: Record<string, string[]> = {
+  OPEN:        ['IN_PROGRESS', 'CLOSED'],
+  IN_PROGRESS: ['ON_HOLD', 'RESOLVED', 'CLOSED'],
+  ON_HOLD:     ['IN_PROGRESS', 'CLOSED'],
+  RESOLVED:    ['CLOSED', 'IN_PROGRESS', 'OPEN'],
+  CLOSED:      ['OPEN'],
+};
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -147,9 +156,12 @@ export default function WorkOrderDetailPage() {
   const [isInternal, setIsInternal]           = useState(false);
   const [commentError, setCommentError]       = useState<string | null>(null);
 
-  // ── Open status dialog pre-populated with current status ──────────────────
+  // ── Open status dialog pre-populated with first allowed next status ────────
   const openStatusDialog = () => {
-    if (workOrder) setNewStatus(workOrder.status);
+    if (workOrder) {
+      const allowed = ALLOWED_NEXT_STATUSES[workOrder.status] ?? [];
+      setNewStatus((allowed[0] as WorkOrderStatus) ?? workOrder.status);
+    }
     setStatusNote('');
     setStatusError(null);
     setStatusOpen(true);
@@ -164,6 +176,18 @@ export default function WorkOrderDetailPage() {
     } catch (err: unknown) {
       const apiMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
       setStatusError(apiMessage ?? 'Unable to update the work order status. Please try again or contact your supervisor.');
+    }
+  };
+
+  // ── Reopen work order ──────────────────────────────────────────────────────
+  const handleReopenClick = async () => {
+    if (!id) return;
+    setStatusError(null);
+    try {
+      await updateStatus.mutateAsync({ id, status: 'OPEN', notes: 'Work order reopened.' });
+    } catch (err: unknown) {
+      const apiMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setStatusError(apiMessage ?? 'Unable to reopen the work order. Please try again or contact your supervisor.');
     }
   };
 
@@ -254,6 +278,17 @@ export default function WorkOrderDetailPage() {
 
         {/* Action buttons */}
         <Box sx={{ display: 'flex', gap: 1 }}>
+          {workOrder.status === 'CLOSED' && (
+            <Button
+              variant="outlined"
+              startIcon={<ReplayIcon />}
+              onClick={handleReopenClick}
+              size="small"
+              disabled={updateStatus.isPending}
+            >
+              Reopen
+            </Button>
+          )}
           <Button
             variant="outlined"
             startIcon={<SwapHorizIcon />}
@@ -272,6 +307,12 @@ export default function WorkOrderDetailPage() {
           </Button>
         </Box>
       </Box>
+
+      {statusError && !statusOpen && (
+        <Alert severity="error" onClose={() => setStatusError(null)} sx={{ mb: 2 }}>
+          {statusError}
+        </Alert>
+      )}
 
       {/* Two-column layout */}
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '2fr 1fr' }, gap: 3, alignItems: 'start' }}>
@@ -449,7 +490,9 @@ export default function WorkOrderDetailPage() {
               value={newStatus}
               onChange={(e) => setNewStatus(e.target.value as WorkOrderStatus)}
             >
-              {STATUSES.map((s) => (
+              {STATUSES.filter((s) =>
+                (ALLOWED_NEXT_STATUSES[workOrder.status] ?? []).includes(s.value)
+              ).map((s) => (
                 <MenuItem key={s.value} value={s.value}>
                   {s.label}
                 </MenuItem>
