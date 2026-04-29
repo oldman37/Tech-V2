@@ -161,8 +161,9 @@ export default function WorkOrderDetailPage() {
     try {
       await updateStatus.mutateAsync({ id, status: newStatus, notes: statusNote || undefined });
       setStatusOpen(false);
-    } catch {
-      setStatusError('Failed to update status.');
+    } catch (err: unknown) {
+      const apiMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setStatusError(apiMessage ?? 'Unable to update the work order status. Please try again or contact your supervisor.');
     }
   };
 
@@ -464,7 +465,7 @@ export default function WorkOrderDetailPage() {
             value={statusNote}
             onChange={(e) => setStatusNote(e.target.value)}
           />
-          {statusError && <Alert severity="error">{statusError}</Alert>}
+          {statusError && <Alert severity="error" onClose={() => setStatusError(null)}>{statusError}</Alert>}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setStatusOpen(false)}>Cancel</Button>

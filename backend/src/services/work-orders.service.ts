@@ -206,7 +206,7 @@ export class WorkOrderService {
 
     if (permLevel < rule.minLevel) {
       throw new AuthorizationError(
-        `Permission level ${rule.minLevel}+ required to move work order to ${toStatus}`,
+        'You do not have the required permissions to perform this action.',
       );
     }
   }
@@ -480,6 +480,24 @@ export class WorkOrderService {
     if (!ticket) throw new NotFoundError('Work order', id);
 
     this.assertValidTransition(ticket.status, data.status, permLevel);
+
+    // Level-3 technicians may only close or resolve work orders assigned to them or that they reported.
+    // If the work order is unassigned (assignedToId === null), any level-3 user may act on it.
+    if (
+      permLevel === 3 &&
+      (data.status === 'CLOSED' || data.status === 'RESOLVED') &&
+      ticket.assignedToId !== null &&
+      ticket.assignedToId !== userId &&
+      ticket.reportedById !== userId
+    ) {
+      logger.warn('Unauthorized work order close/resolve attempt', {
+        ticketId: id,
+        userId,
+      });
+      throw new AuthorizationError(
+        'You can only close or resolve work orders that are assigned to you or that you submitted. Please contact a supervisor if this work order needs to be reassigned.',
+      );
+    }
 
     const now = new Date();
     const timestamps: { resolvedAt?: Date | null; closedAt?: Date | null } = {};
