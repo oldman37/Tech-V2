@@ -258,10 +258,11 @@ export class WorkOrderService {
           OR: [
             { reportedById: userId },
             { officeLocationId: { in: locationIds } },
+            { assignedToId: userId },
           ],
         };
       } else {
-        scopeWhere = { reportedById: userId };
+        scopeWhere = { OR: [{ reportedById: userId }, { assignedToId: userId }] };
       }
     } else if (permLevel === 4) {
       // Supervisor scope — all supervised locations
