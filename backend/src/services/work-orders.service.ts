@@ -180,7 +180,7 @@ export class WorkOrderService {
       || 'Unknown';
 
     await sendWorkOrderAssigned(
-      { workOrderNumber, department, priority, locationName: location?.name },
+      { workOrderNumber, department, priority, locationName: location?.name, workOrderId },
       assignee.email,
       reporterName,
     );

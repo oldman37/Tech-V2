@@ -63,6 +63,7 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASS: ${SMTP_PASS:-}
       SMTP_FROM: ${SMTP_FROM:-}
+      APP_URL: ${APP_URL:-https://schoolworks.ocboe.com}
     volumes:
       - backend_logs:/app/logs
     expose:
