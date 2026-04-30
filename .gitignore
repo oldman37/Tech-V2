@@ -41,7 +41,7 @@ Thumbs.db
 coverage/
 
 # Prisma
-**/prisma/migrations/
+# Note: migrations/ must NOT be gitignored — they deploy via git pull → docker build → prisma migrate deploy
 
 # Temporary files
 tmp/

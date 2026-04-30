@@ -1,15 +1,23 @@
 import { Navigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
+import { useRoomAssignmentAccess } from '../hooks/useRoomAssignmentAccess';
 import AccessDenied from '../pages/AccessDenied';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
   requireAdmin?: boolean;
   requireTech?: boolean;
+  requireRoomAssignment?: boolean;
 }
 
-export const ProtectedRoute = ({ children, requireAdmin = false, requireTech = false }: ProtectedRouteProps) => {
+export const ProtectedRoute = ({
+  children,
+  requireAdmin = false,
+  requireTech = false,
+  requireRoomAssignment = false,
+}: ProtectedRouteProps) => {
   const { isAuthenticated, user } = useAuthStore();
+  const roomAssignmentAccess = useRoomAssignmentAccess();
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
@@ -22,7 +30,7 @@ export const ProtectedRoute = ({ children, requireAdmin = false, requireTech = f
 
   if (requireAdmin) {
     const isAdmin = user?.roles?.includes('ADMIN');
-    
+
     if (!isAdmin) {
       return <AccessDenied />;
     }
@@ -32,6 +40,16 @@ export const ProtectedRoute = ({ children, requireAdmin = false, requireTech = f
     const isAdmin = user?.roles?.includes('ADMIN');
     const hasTechAccess = isAdmin || (user?.permLevels?.TECHNOLOGY ?? 0) >= 2;
     if (!hasTechAccess) {
+      return <AccessDenied />;
+    }
+  }
+
+  if (requireRoomAssignment) {
+    // Still loading the primary-supervisor check — render nothing to avoid flicker
+    if (roomAssignmentAccess.isLoading) {
+      return null;
+    }
+    if (!roomAssignmentAccess.canAccess) {
       return <AccessDenied />;
     }
   }

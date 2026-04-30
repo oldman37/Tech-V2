@@ -178,4 +178,5 @@ export const loggers = {
   server: createLogger('Server'),
   error: createLogger('ErrorHandler'),
   config: createLogger('Configuration'),
+  roomAssignments: createLogger('UserRoomAssignmentService'),
 };

@@ -150,3 +150,44 @@ export interface RoomWithLocation extends Room {
     type: LocationType;
   };
 }
+
+// ============================================================
+// User Room Assignment types
+// ============================================================
+
+export interface UserSummary {
+  id: string;
+  firstName: string | null;
+  lastName: string | null;
+  displayName: string | null;
+  email: string;
+  jobTitle: string | null;
+}
+
+export interface RoomSummary {
+  id: string;
+  name: string;
+  type: string | null;
+  locationId: string;
+}
+
+export interface UserRoomAssignment {
+  id: string;
+  userId: string;
+  roomId: string;
+  assignedBy: string;
+  assignedAt: string;
+  notes: string | null;
+  user?: UserSummary;
+  room?: RoomSummary;
+  assignedByUser?: Pick<UserSummary, 'id' | 'displayName'>;
+}
+
+export interface RoomWithAssignments extends Room {
+  location: {
+    id: string;
+    name: string;
+    type: LocationType;
+  };
+  userAssignments: UserRoomAssignment[];
+}

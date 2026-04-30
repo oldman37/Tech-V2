@@ -18,6 +18,7 @@ import WorkOrderListPage from './pages/WorkOrderListPage'
 import NewWorkOrderPage from './pages/NewWorkOrderPage'
 import WorkOrderDetailPage from './pages/WorkOrderDetailPage'
 import AccessDenied from './pages/AccessDenied'
+import { RoomAssignmentsPage } from './pages/RoomAssignments'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import AppLayout from './components/layout/AppLayout'
 import './App.css'
@@ -186,6 +187,16 @@ function App() {
           }
         />
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route
+          path="/room-assignments"
+          element={
+            <ProtectedRoute requireRoomAssignment>
+              <AppLayout>
+                <RoomAssignmentsPage />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/access-denied"
           element={

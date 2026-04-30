@@ -36,6 +36,15 @@ export const queryKeys = {
     list: () => [...queryKeys.locations.lists()] as const,
     details: () => [...queryKeys.locations.all, 'detail'] as const,
     detail: (id: string) => [...queryKeys.locations.details(), id] as const,
+    supervisedByMe: () => [...queryKeys.locations.all, 'supervisedByMe'] as const,
+  },
+
+  // Room assignment queries
+  roomAssignments: {
+    all: ['roomAssignments'] as const,
+    byLocation: (locationId: string) => ['roomAssignments', 'location', locationId] as const,
+    byRoom: (roomId: string) => ['roomAssignments', 'room', roomId] as const,
+    byUser: (userId: string) => ['roomAssignments', 'user', userId] as const,
   },
 
   // Supervisor queries

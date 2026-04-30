@@ -45,6 +45,7 @@ export interface UserWithPermissions {
   lastSync: Date | null;
   lastLogin: Date | null;
   primaryRoom?: { id: string; name: string; locationId: string } | null;
+  assignedRooms?: { id: string; name: string; locationId: string }[];
 }
 
 /**
@@ -145,10 +146,11 @@ export class UserService {
         take: limit,
         include: {
           primaryRoom: {
-            select: {
-              id: true,
-              name: true,
-              locationId: true,
+            select: { id: true, name: true, locationId: true },
+          },
+          roomAssignments: {
+            include: {
+              room: { select: { id: true, name: true, locationId: true } },
             },
           },
         },
@@ -180,10 +182,11 @@ export class UserService {
       where: { id: userId },
       include: {
         primaryRoom: {
-          select: {
-            id: true,
-            name: true,
-            locationId: true,
+          select: { id: true, name: true, locationId: true },
+        },
+        roomAssignments: {
+          include: {
+            room: { select: { id: true, name: true, locationId: true } },
           },
         },
       },
@@ -619,7 +622,7 @@ export class UserService {
    * Format user with permissions for API response
    * @private
    */
-  private formatUserWithPermissions(user: User & { primaryRoom?: { id: string; name: string; locationId: string } | null }): UserWithPermissions {
+  private formatUserWithPermissions(user: User & { primaryRoom?: { id: string; name: string; locationId: string } | null; roomAssignments?: { room: { id: string; name: string; locationId: string } }[] }): UserWithPermissions {
     return {
       id: user.id,
       entraId: user.entraId,
@@ -635,6 +638,21 @@ export class UserService {
       lastSync: user.lastSync,
       lastLogin: user.lastLogin,
       primaryRoom: user.primaryRoom ?? null,
+      assignedRooms: (() => {
+        const seen = new Set<string>();
+        const rooms: { id: string; name: string; locationId: string }[] = [];
+        if (user.primaryRoom) {
+          seen.add(user.primaryRoom.id);
+          rooms.push(user.primaryRoom);
+        }
+        for (const a of user.roomAssignments ?? []) {
+          if (!seen.has(a.room.id)) {
+            seen.add(a.room.id);
+            rooms.push(a.room);
+          }
+        }
+        return rooms;
+      })(),
     };
   }
 }

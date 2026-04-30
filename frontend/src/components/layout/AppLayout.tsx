@@ -4,6 +4,7 @@ import { ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 import { authApi } from '../../services/authService';
+import { useRoomAssignmentAccess } from '../../hooks/useRoomAssignmentAccess';
 import './AppLayout.css';
 
 interface NavItem {
@@ -13,6 +14,7 @@ interface NavItem {
   disabled?: boolean;
   adminOnly?: boolean;
   requireTech?: boolean;
+  requireRoomAssignment?: boolean;
 }
 
 interface NavSection {
@@ -48,6 +50,7 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { label: 'Users', icon: '👥', path: '/users', adminOnly: true },
       { label: 'Locations & Supervisors', icon: '🏢', path: '/supervisors', adminOnly: true },
+      { label: 'Room Assignments', icon: '🚪', path: '/room-assignments', requireRoomAssignment: true },
       { label: 'Admin Settings', icon: '⚙️', path: '/admin/settings', adminOnly: true },
     ],
   },
@@ -68,6 +71,7 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
   const location = useLocation();
   const isAdmin = user?.roles?.includes('ADMIN');
   const hasTechAccess = isAdmin || (user?.permLevels?.TECHNOLOGY ?? 0) >= 2;
+  const { canAccess: canAccessRoomAssignments } = useRoomAssignmentAccess();
 
   const handleLogout = async () => {
     try {
@@ -104,7 +108,9 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
         <nav className="shell-sidebar">
           {NAV_SECTIONS.map((section, si) => {
             const visibleItems = section.items.filter((item) =>
-              (!item.adminOnly || isAdmin) && (!item.requireTech || hasTechAccess)
+              (!item.adminOnly || isAdmin) &&
+              (!item.requireTech || hasTechAccess) &&
+              (!item.requireRoomAssignment || canAccessRoomAssignments)
             );
             if (visibleItems.length === 0) return null;
             return (

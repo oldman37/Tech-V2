@@ -16,6 +16,7 @@ import referenceDataRoutes from './routes/referenceData.routes';
 import purchaseOrderRoutes from './routes/purchaseOrder.routes';
 import settingsRoutes from './routes/settings.routes';
 import workOrderRoutes from './routes/work-orders.routes';
+import userRoomAssignmentRoutes from './routes/userRoomAssignment.routes';
 import { cronJobsService } from './services/cronJobs.service';
 import { provideCsrfToken, getCsrfToken } from './middleware/csrf';
 import { logger, loggers } from './lib/logger';
@@ -117,6 +118,7 @@ app.use('/api', referenceDataRoutes);
 app.use('/api/purchase-orders', purchaseOrderRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/work-orders', workOrderRoutes);
+app.use('/api', userRoomAssignmentRoutes);
 
 // API info endpoint
 app.get('/api', (req: Request, res: Response) => {

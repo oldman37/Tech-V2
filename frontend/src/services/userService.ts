@@ -15,6 +15,7 @@ export interface User {
   lastSync?: string;
   lastLogin?: string;
   primaryRoom?: { id: string; name: string; locationId: string } | null;
+  assignedRooms?: { id: string; name: string; locationId: string }[];
 }
 
 export interface UserSearchResult {

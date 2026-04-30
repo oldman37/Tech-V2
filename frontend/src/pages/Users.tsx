@@ -376,7 +376,9 @@ const Users: React.FC = () => {
                         </div>
                       </td>
                       <td>
-                        {user.primaryRoom?.name ?? '—'}
+                        {user.assignedRooms && user.assignedRooms.length > 0
+                          ? user.assignedRooms.map((r) => r.name).join(', ')
+                          : (user.primaryRoom?.name ?? '—')}
                       </td>
                       <td>
                         <select

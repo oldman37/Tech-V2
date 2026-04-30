@@ -385,29 +385,50 @@ model purchase_orders {
 }
 
 model Room {
-  id         String         @id @default(uuid())
-  locationId String
-  name       String
-  type       String?
-  building   String?
-  floor      Int?
-  capacity   Int?
-  isActive   Boolean        @default(true)
-  notes      String?
-  createdAt  DateTime       @default(now())
-  updatedAt  DateTime       @updatedAt
-  createdBy  String?
-  updatedBy  String?
-  location   OfficeLocation @relation(fields: [locationId], references: [id])
-  equipment  equipment[]
-  tickets    Ticket[]
-  primaryUsers User[]       @relation("UserPrimaryRoom")
+  id              String               @id @default(uuid())
+  locationId      String
+  name            String
+  type            String?
+  building        String?
+  floor           Int?
+  capacity        Int?
+  isActive        Boolean              @default(true)
+  notes           String?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  createdBy       String?
+  updatedBy       String?
+  location        OfficeLocation       @relation(fields: [locationId], references: [id])
+  equipment       equipment[]
+  tickets         Ticket[]
+  primaryUsers    User[]               @relation("UserPrimaryRoom")
+  userAssignments UserRoomAssignment[] @relation("RoomUserAssignments")
 
   @@unique([locationId, name])
   @@index([isActive])
   @@index([locationId])
   @@index([type])
   @@map("rooms")
+}
+
+model UserRoomAssignment {
+  id         String   @id @default(uuid())
+  userId     String
+  roomId     String
+  assignedAt DateTime @default(now())
+  assignedBy String
+  notes      String?
+
+  user           User @relation("UserRoomAssignments", fields: [userId], references: [id], onDelete: Cascade)
+  room           Room @relation("RoomUserAssignments", fields: [roomId], references: [id], onDelete: Cascade)
+  assignedByUser User @relation("UserRoomAssignmentsMadeBy", fields: [assignedBy], references: [id])
+
+  @@unique([userId, roomId])
+  @@index([userId])
+  @@index([roomId])
+  @@index([assignedBy])
+  @@index([assignedAt])
+  @@map("user_room_assignments")
 }
 
 model user_rooms {
@@ -479,6 +500,8 @@ model User {
   ticketStatusHistory                                       TicketStatusHistory[]  @relation("TicketStatusChangedBy")
   primaryRoomId                                             String?
   primaryRoom                                               Room?                  @relation("UserPrimaryRoom", fields: [primaryRoomId], references: [id])
+  roomAssignments                                           UserRoomAssignment[]   @relation("UserRoomAssignments")
+  roomAssignmentsMade                                       UserRoomAssignment[]   @relation("UserRoomAssignmentsMadeBy")
 
   @@map("users")
 }

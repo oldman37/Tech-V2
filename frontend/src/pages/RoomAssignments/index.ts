@@ -1,0 +1,1 @@
+export { RoomAssignmentsPage } from './RoomAssignmentsPage';
