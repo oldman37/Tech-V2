@@ -105,6 +105,12 @@ export interface FieldTripRequest {
   // Relations
   approvals?:     FieldTripApproval[];
   statusHistory?: FieldTripStatusHistory[];
+  transportationRequest?: {
+    id:         string;
+    status:     TransportationStatus;
+    busCount:   number;
+    submittedAt: string | null;
+  } | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -173,4 +179,121 @@ export const FIELD_TRIP_STATUS_COLORS: Record<FieldTripStatus, StatusChipColor> 
   PENDING_FINANCE_DIRECTOR: 'warning',
   APPROVED:                 'success',
   DENIED:                   'error',
+};
+
+// ---------------------------------------------------------------------------
+// Transportation Request types
+// ---------------------------------------------------------------------------
+
+export type TransportationStatus =
+  | 'DRAFT'
+  | 'SUBMITTED'
+  | 'PENDING_TRANSPORTATION'
+  | 'TRANSPORTATION_APPROVED'
+  | 'TRANSPORTATION_DENIED';
+
+export type TransportationType =
+  | 'DISTRICT_BUS'
+  | 'CHARTER'
+  | 'PARENT_TRANSPORT'
+  | 'WALKING';
+
+export interface AdditionalDestination {
+  name:       string;
+  arriveTime: string;
+  leaveTime:  string;
+}
+
+export interface TransportApproverSnap {
+  id:          string;
+  displayName: string | null;
+  firstName:   string;
+  lastName:    string;
+}
+
+export interface FieldTripTransportationRequest {
+  id:                      string;
+  fieldTripRequestId:      string;
+  busCount:                number;
+  chaperoneCount?:         number | null;
+  needsDriver:             boolean;
+  driverName?:             string | null;
+  loadingLocation:         string;
+  loadingTime:             string;
+  arriveLocation?:         string | null;
+  arriveFirstDestTime?:    string | null;
+  leaveLocation?:          string | null;
+  leaveLastDestTime?:      string | null;
+  returnToSchoolTime?:     string | null;
+  additionalDestinations?: AdditionalDestination[] | null;
+  spedBusNeeded?:          boolean | null;
+  tripItinerary?:          string | null;
+  transportationType?:     TransportationType | null;
+  transportationCost?:     number | null;
+  transportationNotes?:    string | null;
+  denialReason?:           string | null;
+  status:                  TransportationStatus;
+  approvedById?:           string | null;
+  approvedAt?:             string | null;
+  deniedById?:             string | null;
+  deniedAt?:               string | null;
+  submittedAt?:            string | null;
+  createdAt:               string;
+  updatedAt:               string;
+  approvedBy?:             TransportApproverSnap | null;
+  deniedBy?:               TransportApproverSnap | null;
+  fieldTripRequest?:       FieldTripRequest;
+}
+
+export interface CreateTransportationDto {
+  busCount:                number;
+  chaperoneCount?:         number | null;
+  needsDriver:             boolean;
+  driverName?:             string | null;
+  loadingLocation:         string;
+  loadingTime:             string;
+  arriveLocation?:         string | null;
+  arriveFirstDestTime?:    string | null;
+  leaveLocation?:          string | null;
+  leaveLastDestTime?:      string | null;
+  returnToSchoolTime?:     string | null;
+  additionalDestinations?: AdditionalDestination[] | null;
+  spedBusNeeded?:          boolean | null;
+  tripItinerary?:          string | null;
+}
+
+export type UpdateTransportationDto = Partial<CreateTransportationDto>;
+
+export interface ApproveTransportationDto {
+  transportationType:  TransportationType;
+  transportationCost?: number | null;
+  notes?:              string | null;
+}
+
+export interface DenyTransportationDto {
+  reason: string;
+  notes?: string | null;
+}
+
+export const TRANSPORTATION_STATUS_LABELS: Record<TransportationStatus, string> = {
+  DRAFT:                   'Draft',
+  SUBMITTED:               'Submitted',
+  PENDING_TRANSPORTATION:  'Pending Transportation Review',
+  TRANSPORTATION_APPROVED: 'Transportation Approved',
+  TRANSPORTATION_DENIED:   'Transportation Denied',
+};
+
+export const TRANSPORTATION_STATUS_COLORS: Record<TransportationStatus, StatusChipColor> = {
+  DRAFT:                   'default',
+  SUBMITTED:               'info',
+  PENDING_TRANSPORTATION:  'warning',
+  TRANSPORTATION_APPROVED: 'success',
+  TRANSPORTATION_DENIED:   'error',
+};
+
+export const TRANSPORTATION_TYPE_LABELS: Record<TransportationType, string> = {
+  DISTRICT_BUS:     'District Bus',
+  CHARTER:          'Chartered Bus',
+  PARENT_TRANSPORT: 'Parent/Guardian Transport',
+  WALKING:          'Walking',
 };

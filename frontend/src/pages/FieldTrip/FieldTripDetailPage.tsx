@@ -37,6 +37,7 @@ import {
   FIELD_TRIP_STATUS_LABELS,
   FIELD_TRIP_STATUS_COLORS,
 } from '../../types/fieldTrip.types';
+
 import { useAuthStore } from '../../store/authStore';
 
 // ---------------------------------------------------------------------------
@@ -314,7 +315,7 @@ export function FieldTripDetailPage() {
 
       {/* Approval history */}
       {trip.approvals && trip.approvals.length > 0 && (
-        <Paper sx={{ p: 3 }}>
+        <Paper sx={{ p: 3, mb: 3 }}>
           <Typography variant="h6" gutterBottom>Approval History</Typography>
           <Divider sx={{ mb: 2 }} />
           {trip.approvals.map((approval: FieldTripApproval) => (

@@ -24,6 +24,8 @@ import {
   FieldTripRequestPage,
   FieldTripDetailPage,
   FieldTripApprovalPage,
+  FieldTripTransportationPage,
+  FieldTripTransportationDetail,
 } from './pages/FieldTrip'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import AppLayout from './components/layout/AppLayout'
@@ -239,6 +241,26 @@ function App() {
             <ProtectedRoute>
               <AppLayout>
                 <FieldTripRequestPage />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/field-trips/:id/transportation/view"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <FieldTripTransportationDetail />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/field-trips/:id/transportation"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <FieldTripTransportationPage />
               </AppLayout>
             </ProtectedRoute>
           }

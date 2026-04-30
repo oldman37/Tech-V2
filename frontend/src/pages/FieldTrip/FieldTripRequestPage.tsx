@@ -42,6 +42,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SaveIcon      from '@mui/icons-material/Save';
 import SendIcon      from '@mui/icons-material/Send';
 import { fieldTripService }                          from '../../services/fieldTrip.service';
+import { fieldTripTransportationService }            from '../../services/fieldTripTransportation.service';
 import { locationService }                           from '../../services/location.service';
 import type { CreateFieldTripDto, FieldTripRequest } from '../../types/fieldTrip.types';
 import type { OfficeLocation }                       from '../../types/location.types';
@@ -114,6 +115,19 @@ interface FormState {
   departureTime:         string;
   returnTime:            string;
   transportationDetails: string;
+  // Transportation Step 2 fields
+  transportNeedsDriver:         string;
+  transportDriverName:          string;
+  transportLoadingLocation:     string;
+  transportLoadingTime:         string;
+  transportArriveLocation:      string;
+  transportArriveFirstDestTime: string;
+  transportLeaveLocation:       string;
+  transportLeaveLastDestTime:   string;
+  transportReturnToSchoolTime:  string;
+  transportSpedBus:             string;
+  transportItinerary:           string;
+  transportAdditionalDests:     Array<{ name: string; arriveTime: string; leaveTime: string }>;
   costPerStudent:        string;
   totalCost:             string;
   fundingSource:         string;
@@ -141,6 +155,18 @@ const EMPTY_FORM: FormState = {
   departureTime:         '',
   returnTime:            '',
   transportationDetails: '',
+  transportNeedsDriver:         'true',
+  transportDriverName:          '',
+  transportLoadingLocation:     '',
+  transportLoadingTime:         '',
+  transportArriveLocation:      '',
+  transportArriveFirstDestTime: '',
+  transportLeaveLocation:       '',
+  transportLeaveLastDestTime:   '',
+  transportReturnToSchoolTime:  '',
+  transportSpedBus:             'false',
+  transportItinerary:           '',
+  transportAdditionalDests:     [],
   costPerStudent:        '',
   totalCost:             '',
   fundingSource:         '',
@@ -169,6 +195,18 @@ function tripToFormState(trip: FieldTripRequest): FormState {
     departureTime:         trip.departureTime,
     returnTime:            trip.returnTime,
     transportationDetails: trip.transportationDetails ?? '',
+    transportNeedsDriver:         'true',
+    transportDriverName:          '',
+    transportLoadingLocation:     '',
+    transportLoadingTime:         '',
+    transportArriveLocation:      '',
+    transportArriveFirstDestTime: '',
+    transportLeaveLocation:       '',
+    transportLeaveLastDestTime:   '',
+    transportReturnToSchoolTime:  '',
+    transportSpedBus:             'false',
+    transportItinerary:           '',
+    transportAdditionalDests:     [],
     costPerStudent:        trip.costPerStudent != null ? String(trip.costPerStudent) : '',
     totalCost:             trip.totalCost      != null ? String(trip.totalCost)      : '',
     fundingSource:         trip.fundingSource  ?? '',
@@ -195,8 +233,8 @@ function formToDto(form: FormState): CreateFieldTripDto {
     isOvernightTrip:       form.isOvernightTrip,
     returnDate:            form.isOvernightTrip ? new Date(form.returnDate + 'T12:00:00').toISOString() : null,
     alternateTransportation: form.transportationNeeded ? null : (form.alternateTransportation.trim() || null),
-    departureTime:         form.departureTime.trim(),
-    returnTime:            form.returnTime.trim(),
+    departureTime:         form.transportationNeeded ? (form.transportLoadingTime || '') : form.departureTime.trim(),
+    returnTime:            form.transportationNeeded ? (form.transportReturnToSchoolTime || '') : form.returnTime.trim(),
     transportationDetails: form.transportationNeeded ? (form.transportationDetails.trim() || null) : null,
     costPerStudent:        parseFloat(form.costPerStudent),
     totalCost:             parseFloat(form.totalCost),
@@ -242,15 +280,19 @@ function validateStep(step: number, form: FormState): FieldErrors {
     if (form.isOvernightTrip && !form.returnDate) errors.returnDate = 'Return date is required for overnight trips';
     if (form.isOvernightTrip && form.returnDate && form.tripDate && form.returnDate <= form.tripDate)
       errors.returnDate = 'Return date must be after the trip date';
-    if (!form.departureTime.trim()) errors.departureTime = 'Departure time is required';
-    if (!form.returnTime.trim())    errors.returnTime    = 'Return time is required';
+    if (!form.transportationNeeded && !form.departureTime.trim()) errors.departureTime = 'Departure time is required';
+    if (!form.transportationNeeded && !form.returnTime.trim())    errors.returnTime    = 'Return time is required';
     if (!form.transportationNeeded && !form.alternateTransportation.trim())
       errors.alternateTransportation = 'Please describe how students will be transported';
   }
 
-  if (step === 1) {
-    if (form.transportationNeeded && !form.transportationDetails.trim())
-      errors.transportationDetails = 'Transportation details are required';
+  if (step === 1 && form.transportationNeeded) {
+    if (!form.transportLoadingLocation.trim())
+      errors.transportLoadingLocation = 'Loading location is required';
+    if (!form.transportLoadingTime)
+      errors.transportLoadingTime = 'Loading time is required';
+    if (form.transportNeedsDriver === 'false' && !form.transportDriverName.trim())
+      errors.transportDriverName = 'Driver name is required when not using district driver';
   }
 
   if (step === 2) {
@@ -334,8 +376,30 @@ export function FieldTripRequestPage() {
 
   const submitMutation = useMutation({
     mutationFn: (id: string) => fieldTripService.submit(id),
-    onSuccess:  (trip) => {
+    onSuccess:  async (trip) => {
       queryClient.invalidateQueries({ queryKey: ['field-trips', 'my-requests'] });
+      if (trip.transportationNeeded) {
+        try {
+          const busCount = Math.ceil((parseInt(form.studentCount) || 0) / 52) || 1;
+          await fieldTripTransportationService.create(trip.id.toString(), {
+            busCount,
+            needsDriver: form.transportNeedsDriver === 'true',
+            driverName: form.transportDriverName || undefined,
+            loadingLocation: form.transportLoadingLocation,
+            loadingTime: form.transportLoadingTime,
+            arriveLocation: form.transportArriveLocation || undefined,
+            arriveFirstDestTime: form.transportArriveFirstDestTime || undefined,
+            leaveLocation: form.transportLeaveLocation || undefined,
+            leaveLastDestTime: form.transportLeaveLastDestTime || undefined,
+            returnToSchoolTime: form.transportReturnToSchoolTime || undefined,
+            additionalDestinations: form.transportAdditionalDests.filter(d => d.name.trim()),
+            spedBusNeeded: form.transportSpedBus === 'true',
+            tripItinerary: form.transportItinerary || undefined,
+          });
+        } catch (e) {
+          // Transportation creation failure is non-fatal — trip was submitted, log it
+        }
+      }
       navigate(`/field-trips/${trip.id}`);
     },
   });
@@ -344,9 +408,9 @@ export function FieldTripRequestPage() {
   // Handlers
   // ---------------------------------------------------------------------------
 
-  const handleChange = (field: keyof FormState, value: string | boolean) => {
+  const handleChange = (field: keyof FormState, value: string | boolean | Array<{ name: string; arriveTime: string; leaveTime: string }>) => {
     setForm((prev) => {
-      const next = { ...prev, [field]: value };
+      const next = { ...prev, [field]: value } as FormState;
       if (field === 'gradeClass' && value !== 'High School') next.subjectArea = '';
       return next;
     });
@@ -732,40 +796,44 @@ export function FieldTripRequestPage() {
               </Grid>
             )}
 
-            {/* Departure / Return Time */}
-            <Grid size={{ xs: 12, sm: 6 }}>
-              <FormControl fullWidth required error={!!errors.departureTime} disabled={isReadOnly}>
-                <InputLabel id="departure-time-label">Departure Time</InputLabel>
-                <Select
-                  labelId="departure-time-label"
-                  label="Departure Time"
-                  value={form.departureTime}
-                  onChange={(e) => handleChange('departureTime', e.target.value)}
-                >
-                  {TIME_OPTIONS.map((t) => (
-                    <MenuItem key={t} value={t}>{t}</MenuItem>
-                  ))}
-                </Select>
-                {errors.departureTime && <FormHelperText>{errors.departureTime}</FormHelperText>}
-              </FormControl>
-            </Grid>
+            {/* Departure / Return Time — only shown when no district bus is needed */}
+            {!form.transportationNeeded && (
+              <>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <FormControl fullWidth required error={!!errors.departureTime} disabled={isReadOnly}>
+                    <InputLabel id="departure-time-label">Departure Time</InputLabel>
+                    <Select
+                      labelId="departure-time-label"
+                      label="Departure Time"
+                      value={form.departureTime}
+                      onChange={(e) => handleChange('departureTime', e.target.value)}
+                    >
+                      {TIME_OPTIONS.map((t) => (
+                        <MenuItem key={t} value={t}>{t}</MenuItem>
+                      ))}
+                    </Select>
+                    {errors.departureTime && <FormHelperText>{errors.departureTime}</FormHelperText>}
+                  </FormControl>
+                </Grid>
 
-            <Grid size={{ xs: 12, sm: 6 }}>
-              <FormControl fullWidth required error={!!errors.returnTime} disabled={isReadOnly}>
-                <InputLabel id="return-time-label">Return Time</InputLabel>
-                <Select
-                  labelId="return-time-label"
-                  label="Return Time"
-                  value={form.returnTime}
-                  onChange={(e) => handleChange('returnTime', e.target.value)}
-                >
-                  {TIME_OPTIONS.map((t) => (
-                    <MenuItem key={t} value={t}>{t}</MenuItem>
-                  ))}
-                </Select>
-                {errors.returnTime && <FormHelperText>{errors.returnTime}</FormHelperText>}
-              </FormControl>
-            </Grid>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <FormControl fullWidth required error={!!errors.returnTime} disabled={isReadOnly}>
+                    <InputLabel id="return-time-label">Return Time</InputLabel>
+                    <Select
+                      labelId="return-time-label"
+                      label="Return Time"
+                      value={form.returnTime}
+                      onChange={(e) => handleChange('returnTime', e.target.value)}
+                    >
+                      {TIME_OPTIONS.map((t) => (
+                        <MenuItem key={t} value={t}>{t}</MenuItem>
+                      ))}
+                    </Select>
+                    {errors.returnTime && <FormHelperText>{errors.returnTime}</FormHelperText>}
+                  </FormControl>
+                </Grid>
+              </>
+            )}
 
           </Grid>
         )}
@@ -774,18 +842,254 @@ export function FieldTripRequestPage() {
         {activeStep === 1 && (
           <Grid container spacing={2}>
 
+            {/* Auto-calculated bus count — read only */}
+            <Grid size={12}>
+              <Box sx={{ p: 2, bgcolor: 'primary.light', color: 'primary.contrastText', borderRadius: 1, display: 'inline-flex', alignItems: 'center', gap: 1 }}>
+                <Typography variant="subtitle1" fontWeight="bold">
+                  Buses Required: {Math.ceil((parseInt(form.studentCount) || 0) / 52) || 1}
+                </Typography>
+                <Typography variant="body2">
+                  (based on {form.studentCount || '0'} students, 52 per bus)
+                </Typography>
+              </Box>
+            </Grid>
+
+            {/* Needs driver */}
+            <Grid size={6}>
+              <FormControl error={!!errors.transportNeedsDriver}>
+                <FormLabel>Do you need a driver?</FormLabel>
+                <RadioGroup
+                  row
+                  value={form.transportNeedsDriver}
+                  onChange={(e) => handleChange('transportNeedsDriver', e.target.value)}
+                >
+                  <FormControlLabel value="true"  control={<Radio />} label="Yes" disabled={isReadOnly} />
+                  <FormControlLabel value="false" control={<Radio />} label="No"  disabled={isReadOnly} />
+                </RadioGroup>
+              </FormControl>
+            </Grid>
+
+            {/* SPED bus */}
+            <Grid size={6}>
+              <FormControl>
+                <FormLabel>Will a SPED bus be needed?</FormLabel>
+                <RadioGroup
+                  row
+                  value={form.transportSpedBus}
+                  onChange={(e) => handleChange('transportSpedBus', e.target.value)}
+                >
+                  <FormControlLabel value="true"  control={<Radio />} label="Yes" disabled={isReadOnly} />
+                  <FormControlLabel value="false" control={<Radio />} label="No"  disabled={isReadOnly} />
+                </RadioGroup>
+              </FormControl>
+            </Grid>
+
+            {/* Driver name — only shown when needsDriver === 'false' */}
+            {form.transportNeedsDriver === 'false' && (
+              <Grid size={12}>
+                <TextField
+                  fullWidth
+                  label="Who is driving?"
+                  value={form.transportDriverName}
+                  onChange={(e) => handleChange('transportDriverName', e.target.value)}
+                  error={!!errors.transportDriverName}
+                  helperText={errors.transportDriverName}
+                  disabled={isReadOnly}
+                  required
+                />
+              </Grid>
+            )}
+
+            {/* ── Stop 1: Loading ── */}
+            <Grid size={12}>
+              <Typography variant="subtitle2" sx={{ mt: 1, mb: 0.5, fontWeight: 600 }}>Loading</Typography>
+            </Grid>
+            <Grid size={8}>
+              <TextField
+                fullWidth
+                label="Loading Location"
+                value={form.transportLoadingLocation}
+                onChange={(e) => handleChange('transportLoadingLocation', e.target.value)}
+                error={!!errors.transportLoadingLocation}
+                helperText={errors.transportLoadingLocation ?? 'Where students will board'}
+                disabled={isReadOnly}
+                required
+              />
+            </Grid>
+            <Grid size={4}>
+              <FormControl fullWidth error={!!errors.transportLoadingTime} required>
+                <InputLabel>Loading Time</InputLabel>
+                <Select
+                  label="Loading Time"
+                  value={form.transportLoadingTime}
+                  onChange={(e) => handleChange('transportLoadingTime', e.target.value)}
+                  disabled={isReadOnly}
+                >
+                  {TIME_OPTIONS.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
+                </Select>
+                {errors.transportLoadingTime && <FormHelperText>{errors.transportLoadingTime}</FormHelperText>}
+              </FormControl>
+            </Grid>
+
+            {/* ── Stop 2: Arrive at Location ── */}
+            <Grid size={12}>
+              <Typography variant="subtitle2" sx={{ mt: 1, mb: 0.5, fontWeight: 600 }}>Arrive at Location</Typography>
+            </Grid>
+            <Grid size={8}>
+              <TextField
+                fullWidth
+                label="Arrival Location"
+                value={form.transportArriveLocation}
+                onChange={(e) => handleChange('transportArriveLocation', e.target.value)}
+                disabled={isReadOnly}
+                placeholder="e.g. Carson Center"
+              />
+            </Grid>
+            <Grid size={4}>
+              <FormControl fullWidth>
+                <InputLabel>Arrive Time</InputLabel>
+                <Select
+                  label="Arrive Time"
+                  value={form.transportArriveFirstDestTime}
+                  onChange={(e) => handleChange('transportArriveFirstDestTime', e.target.value)}
+                  disabled={isReadOnly}
+                >
+                  <MenuItem value=""><em>None</em></MenuItem>
+                  {TIME_OPTIONS.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
+                </Select>
+              </FormControl>
+            </Grid>
+
+            {/* ── Stop 3: Leave Location ── */}
+            <Grid size={12}>
+              <Typography variant="subtitle2" sx={{ mt: 1, mb: 0.5, fontWeight: 600 }}>Leave Location</Typography>
+            </Grid>
+            <Grid size={8}>
+              <TextField
+                fullWidth
+                label="Leaving Location"
+                value={form.transportLeaveLocation}
+                onChange={(e) => handleChange('transportLeaveLocation', e.target.value)}
+                disabled={isReadOnly}
+                placeholder="e.g. Carson Center"
+              />
+            </Grid>
+            <Grid size={4}>
+              <FormControl fullWidth>
+                <InputLabel>Leave Time</InputLabel>
+                <Select
+                  label="Leave Time"
+                  value={form.transportLeaveLastDestTime}
+                  onChange={(e) => handleChange('transportLeaveLastDestTime', e.target.value)}
+                  disabled={isReadOnly}
+                >
+                  <MenuItem value=""><em>None</em></MenuItem>
+                  {TIME_OPTIONS.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
+                </Select>
+              </FormControl>
+            </Grid>
+
+            {/* ── Return to School ── */}
+            <Grid size={12}>
+              <Typography variant="subtitle2" sx={{ mt: 1, mb: 0.5, fontWeight: 600 }}>Return to School</Typography>
+            </Grid>
+            <Grid size={4}>
+              <FormControl fullWidth>
+                <InputLabel>Return Time</InputLabel>
+                <Select
+                  label="Return Time"
+                  value={form.transportReturnToSchoolTime}
+                  onChange={(e) => handleChange('transportReturnToSchoolTime', e.target.value)}
+                  disabled={isReadOnly}
+                >
+                  <MenuItem value=""><em>None</em></MenuItem>
+                  {TIME_OPTIONS.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
+                </Select>
+              </FormControl>
+            </Grid>
+
+            {/* ── Additional Stops / Breaks ── */}
+            <Grid size={12}>
+              <Typography variant="subtitle2" sx={{ mt: 2, mb: 0.5, fontWeight: 600 }}>Additional Stops / Breaks</Typography>
+              {form.transportAdditionalDests.map((stop, idx) => (
+                <Box key={idx} sx={{ display: 'flex', gap: 1, mb: 1, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                  <TextField
+                    label={`Stop ${idx + 1} Name`}
+                    value={stop.name}
+                    onChange={(e) => {
+                      const updated = [...form.transportAdditionalDests];
+                      updated[idx] = { ...updated[idx], name: e.target.value };
+                      handleChange('transportAdditionalDests', updated);
+                    }}
+                    size="small"
+                    sx={{ flex: 2, minWidth: 160 }}
+                    disabled={isReadOnly}
+                  />
+                  <FormControl size="small" sx={{ flex: 1, minWidth: 120 }}>
+                    <InputLabel>Arrive</InputLabel>
+                    <Select
+                      label="Arrive"
+                      value={stop.arriveTime}
+                      onChange={(e) => {
+                        const updated = [...form.transportAdditionalDests];
+                        updated[idx] = { ...updated[idx], arriveTime: e.target.value };
+                        handleChange('transportAdditionalDests', updated);
+                      }}
+                      disabled={isReadOnly}
+                    >
+                      <MenuItem value=""><em>None</em></MenuItem>
+                      {TIME_OPTIONS.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
+                    </Select>
+                  </FormControl>
+                  <FormControl size="small" sx={{ flex: 1, minWidth: 120 }}>
+                    <InputLabel>Leave</InputLabel>
+                    <Select
+                      label="Leave"
+                      value={stop.leaveTime}
+                      onChange={(e) => {
+                        const updated = [...form.transportAdditionalDests];
+                        updated[idx] = { ...updated[idx], leaveTime: e.target.value };
+                        handleChange('transportAdditionalDests', updated);
+                      }}
+                      disabled={isReadOnly}
+                    >
+                      <MenuItem value=""><em>None</em></MenuItem>
+                      {TIME_OPTIONS.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
+                    </Select>
+                  </FormControl>
+                  {!isReadOnly && (
+                    <Button
+                      size="small"
+                      color="error"
+                      sx={{ mt: 0.5 }}
+                      onClick={() => handleChange('transportAdditionalDests', form.transportAdditionalDests.filter((_, i) => i !== idx))}
+                    >Remove</Button>
+                  )}
+                </Box>
+              ))}
+              {!isReadOnly && form.transportAdditionalDests.length < 10 && (
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={() => handleChange('transportAdditionalDests', [...form.transportAdditionalDests, { name: '', arriveTime: '', leaveTime: '' }])}
+                >
+                  + Add Stop / Break
+                </Button>
+              )}
+            </Grid>
+
+            {/* Other Information */}
             <Grid size={12}>
               <TextField
                 fullWidth
                 multiline
-                minRows={3}
-                label="Transportation Details"
-                value={form.transportationDetails}
-                onChange={(e) => handleChange('transportationDetails', e.target.value)}
-                error={!!errors.transportationDetails}
-                helperText={errors.transportationDetails ?? 'Describe transportation needs (bus type, number of buses, etc.)'}
+                minRows={4}
+                label="Other Information Needed"
+                value={form.transportItinerary}
+                onChange={(e) => handleChange('transportItinerary', e.target.value)}
+                helperText={`${form.transportItinerary.length}/3000 characters`}
+                inputProps={{ maxLength: 3000 }}
                 disabled={isReadOnly}
-                required
               />
             </Grid>
 

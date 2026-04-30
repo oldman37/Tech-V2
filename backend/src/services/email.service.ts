@@ -602,3 +602,135 @@ export async function sendFieldTripTransportationNotice(
     `,
   });
 }
+
+// ---------------------------------------------------------------------------
+// Transportation Step 2 notification emails
+// ---------------------------------------------------------------------------
+
+/**
+ * Notify the Transportation Director group that a Step 2 transportation form has been submitted.
+ */
+export async function sendTransportationStep2SubmittedNotice(
+  emails: string[],
+  trip: {
+    id: string; destination: string; tripDate: Date | string;
+    teacherName: string; schoolBuilding: string; gradeClass: string;
+    studentCount: number; purpose: string;
+    departureTime: string; returnTime: string;
+  },
+  transportRequest: {
+    busCount: number; chaperoneCount: number; loadingLocation: string; loadingTime: string;
+  },
+  submitterName: string,
+): Promise<void> {
+  if (emails.length === 0) return;
+
+  const dateStr = new Date(trip.tripDate).toLocaleDateString('en-US', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+  });
+
+  await sendMail({
+    to:      emails,
+    subject: `Transportation Form Ready for Review — ${escapeHtml(trip.destination)} on ${dateStr}`,
+    html: `
+      <h2 style="color:#1565C0;">Step 2 Transportation Form Ready for Review</h2>
+      <p><strong>${escapeHtml(submitterName)}</strong> has submitted the transportation form for a field trip
+         requiring your review and approval (Part C).</p>
+      ${fieldTripDetailHtml(trip)}
+      <table style="border-collapse:collapse;width:100%;margin-top:8px;">
+        <tr><td style="padding:4px 8px;font-weight:bold;">Buses Requested:</td>
+            <td style="padding:4px 8px;">${transportRequest.busCount}</td></tr>
+        <tr><td style="padding:4px 8px;font-weight:bold;">Chaperones:</td>
+            <td style="padding:4px 8px;">${transportRequest.chaperoneCount}</td></tr>
+        <tr><td style="padding:4px 8px;font-weight:bold;">Loading Location:</td>
+            <td style="padding:4px 8px;">${escapeHtml(transportRequest.loadingLocation)}</td></tr>
+        <tr><td style="padding:4px 8px;font-weight:bold;">Loading Time:</td>
+            <td style="padding:4px 8px;">${escapeHtml(transportRequest.loadingTime)}</td></tr>
+        <tr><td style="padding:4px 8px;font-weight:bold;">Trip Departure:</td>
+            <td style="padding:4px 8px;">${escapeHtml(trip.departureTime)}</td></tr>
+        <tr><td style="padding:4px 8px;font-weight:bold;">Trip Return:</td>
+            <td style="padding:4px 8px;">${escapeHtml(trip.returnTime)}</td></tr>
+      </table>
+      <p style="margin-top:24px;">Please log in to the system to review and approve or deny this transportation request.</p>
+    `,
+  });
+}
+
+/**
+ * Notify the submitter that their transportation request has been approved.
+ */
+export async function sendTransportationApproved(
+  submitterEmail: string,
+  trip: {
+    id: string; destination: string; tripDate: Date | string;
+    teacherName: string; schoolBuilding: string; gradeClass: string;
+    studentCount: number; purpose: string;
+  },
+  transportRequest: {
+    transportationType: string | null; transportationCost: unknown;
+    transportationNotes: string | null;
+  },
+): Promise<void> {
+  const typeLabels: Record<string, string> = {
+    DISTRICT_BUS:     'District Bus',
+    CHARTER:          'Charter Bus',
+    PARENT_TRANSPORT: 'Parent/Staff Transport',
+    WALKING:          'Walking',
+  };
+  const typeLabel = transportRequest.transportationType
+    ? (typeLabels[transportRequest.transportationType] ?? transportRequest.transportationType)
+    : 'Not specified';
+
+  const costStr = transportRequest.transportationCost != null
+    ? `$${Number(transportRequest.transportationCost).toFixed(2)}`
+    : 'TBD';
+
+  await sendMail({
+    to:      submitterEmail,
+    subject: `Transportation Approved — Field Trip: ${trip.destination}`,
+    html: `
+      <h2 style="color:#2E7D32;">Your Transportation Request Has Been Approved</h2>
+      <p>The Transportation Director has approved the transportation for your field trip.</p>
+      ${fieldTripDetailHtml(trip)}
+      <table style="border-collapse:collapse;width:100%;margin-top:8px;">
+        <tr><td style="padding:4px 8px;font-weight:bold;">Transportation Type:</td>
+            <td style="padding:4px 8px;">${escapeHtml(typeLabel)}</td></tr>
+        <tr><td style="padding:4px 8px;font-weight:bold;">Assessed Cost:</td>
+            <td style="padding:4px 8px;">${escapeHtml(costStr)}</td></tr>
+        ${transportRequest.transportationNotes ? `<tr><td style="padding:4px 8px;font-weight:bold;vertical-align:top;">Notes:</td>
+            <td style="padding:4px 8px;">${escapeHtml(transportRequest.transportationNotes)}</td></tr>` : ''}
+      </table>
+      <p style="margin-top:24px;">Please ensure all school policies and procedures are followed when conducting the field trip.</p>
+    `,
+  });
+}
+
+/**
+ * Notify the submitter that their transportation request has been denied.
+ */
+export async function sendTransportationDenied(
+  submitterEmail: string,
+  trip: {
+    id: string; destination: string; tripDate: Date | string;
+    teacherName: string; schoolBuilding: string; gradeClass: string;
+    studentCount: number; purpose: string;
+  },
+  transportRequest: { transportationNotes: string | null },
+  reason: string,
+): Promise<void> {
+  await sendMail({
+    to:      submitterEmail,
+    subject: `Transportation Denied — Field Trip: ${trip.destination}`,
+    html: `
+      <h2 style="color:#C62828;">Your Transportation Request Has Been Denied</h2>
+      <p>The Transportation Director has denied the transportation request for your field trip.</p>
+      ${fieldTripDetailHtml(trip)}
+      <p style="margin-top:16px;"><strong>Reason for denial:</strong></p>
+      <blockquote style="border-left:4px solid #C62828;margin:8px 0;padding:8px 16px;background:#FFEBEE;">
+        ${escapeHtml(reason)}
+      </blockquote>
+      ${transportRequest.transportationNotes ? `<p><strong>Additional notes:</strong> ${escapeHtml(transportRequest.transportationNotes)}</p>` : ''}
+      <p style="margin-top:16px;">If you have questions, please contact the Transportation Director.</p>
+    `,
+  });
+}

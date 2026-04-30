@@ -506,6 +506,8 @@ model User {
   submittedFieldTrips                                       FieldTripRequest[]     @relation("FieldTripSubmitter")
   fieldTripApprovals                                        FieldTripApproval[]    @relation("FieldTripApprover")
   fieldTripStatusChanges                                    FieldTripStatusHistory[] @relation("FieldTripStatusChangedBy")
+  transportationApprovals                                   FieldTripTransportationRequest[] @relation("TransportationApprover")
+  transportationDenials                                     FieldTripTransportationRequest[] @relation("TransportationDenier")
 
   @@map("users")
 }
@@ -565,8 +567,9 @@ model FieldTripRequest {
   updatedAt             DateTime                @updatedAt
 
   // Relations
-  approvals             FieldTripApproval[]
-  statusHistory         FieldTripStatusHistory[]
+  approvals               FieldTripApproval[]
+  statusHistory           FieldTripStatusHistory[]
+  transportationRequest   FieldTripTransportationRequest?
 
   @@index([status])
   @@index([submittedById])
@@ -613,6 +616,53 @@ model FieldTripStatusHistory {
   @@index([changedById])
   @@index([changedAt])
   @@map("field_trip_status_history")
+}
+
+model FieldTripTransportationRequest {
+  id                      String    @id @default(uuid())
+  fieldTripRequestId      String    @unique
+
+  // Part A — Submitter fields
+  busCount                Int                           // ceil(studentCount / 52), submitter may increase
+  chaperoneCount          Int                           // numeric chaperone count
+  needsDriver             Boolean                       // true = district driver requested
+  driverName              String?   @db.VarChar(200)    // required when needsDriver = false
+  loadingLocation         String    @db.VarChar(500)    // specific loading place
+  loadingTime             String    @db.VarChar(20)     // when buses arrive / students board
+  arriveFirstDestTime     String?   @db.VarChar(20)     // estimated arrival at first stop
+  leaveLastDestTime       String?   @db.VarChar(20)     // estimated departure from last stop
+  additionalDestinations  Json?                         // [{name, address}, ...] for multi-stop trips
+  tripItinerary           String?   @db.Text            // narrative day schedule
+
+  // Part C — Transportation office (set by Transportation Director on approve/deny)
+  transportationType      String?   @db.VarChar(100)    // 'DISTRICT_BUS' | 'CHARTER' | 'PARENT_TRANSPORT' | 'WALKING'
+  transportationCost      Decimal?  @db.Decimal(10, 2)  // cost assessed by transportation office
+  transportationNotes     String?   @db.Text
+  denialReason            String?   @db.Text
+
+  // Workflow
+  status                  String    @default("DRAFT")
+  // DRAFT | SUBMITTED | PENDING_TRANSPORTATION | TRANSPORTATION_APPROVED | TRANSPORTATION_DENIED
+
+  // Who processed Part C
+  approvedById            String?
+  approvedAt              DateTime?
+  deniedById              String?
+  deniedAt                DateTime?
+
+  // Timestamps
+  submittedAt             DateTime?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+
+  // Relations
+  fieldTripRequest        FieldTripRequest @relation(fields: [fieldTripRequestId], references: [id], onDelete: Cascade)
+  approvedBy              User?           @relation("TransportationApprover", fields: [approvedById], references: [id])
+  deniedBy                User?           @relation("TransportationDenier", fields: [deniedById], references: [id])
+
+  @@index([fieldTripRequestId])
+  @@index([status])
+  @@map("field_trip_transportation_requests")
 }
 
 model vendors {

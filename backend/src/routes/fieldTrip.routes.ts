@@ -25,7 +25,14 @@ import {
   ApproveTripSchema,
   DenyTripSchema,
 } from '../validators/fieldTrip.validators';
+import {
+  CreateTransportationSchema,
+  UpdateTransportationSchema,
+  ApproveTransportationSchema,
+  DenyTransportationSchema,
+} from '../validators/fieldTripTransportation.validators';
 import * as fieldTripController from '../controllers/fieldTrip.controller';
+import * as fieldTripTransportationController from '../controllers/fieldTripTransportation.controller';
 
 const router = Router();
 
@@ -158,6 +165,92 @@ router.post(
   validateRequest(DenyTripSchema, 'body'),
   requireModule('FIELD_TRIPS', 3),
   fieldTripController.deny,
+);
+
+// ---------------------------------------------------------------------------
+// Transportation sub-resource routes (/api/field-trips/:id/transportation/*)
+// NOTE: /transportation/pending must be registered BEFORE /:id/transportation
+//       to avoid the literal 'transportation' being parsed as an :id param.
+// ---------------------------------------------------------------------------
+
+/**
+ * GET /api/field-trips/transportation/pending
+ * List transportation requests pending Part C approval (Transportation Director).
+ */
+router.get(
+  '/transportation/pending',
+  requireModule('FIELD_TRIPS', 3),
+  fieldTripTransportationController.listPending,
+);
+
+/**
+ * POST /api/field-trips/:id/transportation
+ * Create a new Step 2 transportation form (DRAFT).
+ */
+router.post(
+  '/:id/transportation',
+  validateRequest(FieldTripIdParamSchema, 'params'),
+  validateRequest(CreateTransportationSchema, 'body'),
+  requireModule('FIELD_TRIPS', 2),
+  fieldTripTransportationController.create,
+);
+
+/**
+ * GET /api/field-trips/:id/transportation
+ * Fetch Step 2 form with parent trip data pre-populated.
+ */
+router.get(
+  '/:id/transportation',
+  validateRequest(FieldTripIdParamSchema, 'params'),
+  requireModule('FIELD_TRIPS', 2),
+  fieldTripTransportationController.getByTripId,
+);
+
+/**
+ * PUT /api/field-trips/:id/transportation
+ * Update a DRAFT transportation form. Only the submitter may edit.
+ */
+router.put(
+  '/:id/transportation',
+  validateRequest(FieldTripIdParamSchema, 'params'),
+  validateRequest(UpdateTransportationSchema, 'body'),
+  requireModule('FIELD_TRIPS', 2),
+  fieldTripTransportationController.update,
+);
+
+/**
+ * POST /api/field-trips/:id/transportation/submit
+ * Submit Step 2 (DRAFT → PENDING_TRANSPORTATION).
+ */
+router.post(
+  '/:id/transportation/submit',
+  validateRequest(FieldTripIdParamSchema, 'params'),
+  requireModule('FIELD_TRIPS', 2),
+  fieldTripTransportationController.submit,
+);
+
+/**
+ * POST /api/field-trips/:id/transportation/approve
+ * Transportation Director approves Part C.
+ */
+router.post(
+  '/:id/transportation/approve',
+  validateRequest(FieldTripIdParamSchema, 'params'),
+  validateRequest(ApproveTransportationSchema, 'body'),
+  requireModule('FIELD_TRIPS', 3),
+  fieldTripTransportationController.approve,
+);
+
+/**
+ * POST /api/field-trips/:id/transportation/deny
+ * Transportation Director denies Part C.
+ */
+router.post(
+  '/:id/transportation/deny',
+  validateRequest(FieldTripIdParamSchema, 'params'),
+  validateRequest(DenyTransportationSchema, 'body'),
+  requireModule('FIELD_TRIPS', 3),
+  fieldTripTransportationController.deny,
 );
 
 export default router;
