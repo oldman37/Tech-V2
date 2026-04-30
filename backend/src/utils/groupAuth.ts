@@ -12,7 +12,7 @@
 import { Response, NextFunction } from 'express';
 import { AuthRequest } from '../middleware/auth';
 
-type PermissionModuleType = 'TECHNOLOGY' | 'MAINTENANCE' | 'REQUISITIONS' | 'WORK_ORDERS';
+type PermissionModuleType = 'TECHNOLOGY' | 'MAINTENANCE' | 'REQUISITIONS' | 'WORK_ORDERS' | 'FIELD_TRIPS';
 
 /**
  * Maps each env var name to the permission level it grants per module.
@@ -77,6 +77,22 @@ const GROUP_MODULE_MAP: Record<PermissionModuleType, Array<[string, number]>> = 
     ['ENTRA_TECH_ASSISTANTS_GROUP_ID', 3],
     ['ENTRA_FINANCE_DIRECTOR_GROUP_ID', 2],
     ['ENTRA_FOOD_SERVICES_PO_ENTRY_GROUP_ID', 2],
+    ['ENTRA_ALL_STAFF_GROUP_ID', 2],
+  ],
+  FIELD_TRIPS: [
+    ['ENTRA_ADMIN_GROUP_ID', 6],
+    ['ENTRA_FINANCE_DIRECTOR_GROUP_ID', 6],
+    ['ENTRA_DIRECTOR_OF_SCHOOLS_GROUP_ID', 5],
+    ['ENTRA_ASST_DIRECTOR_OF_SCHOOLS_GROUP_ID', 4],
+    ['ENTRA_PRINCIPALS_GROUP_ID', 3],
+    ['ENTRA_VICE_PRINCIPALS_GROUP_ID', 3],
+    ['ENTRA_TECHNOLOGY_DIRECTOR_GROUP_ID', 3],
+    ['ENTRA_SPED_DIRECTOR_GROUP_ID', 3],
+    ['ENTRA_AFTERSCHOOL_DIRECTOR_GROUP_ID', 3],
+    ['ENTRA_NURSE_DIRECTOR_GROUP_ID', 3],
+    ['ENTRA_TRANSPORTATION_DIRECTOR_GROUP_ID', 3],
+    ['ENTRA_MAINTENANCE_DIRECTOR_GROUP_ID', 3],
+    ['ENTRA_MAINTENANCE_ADMIN_GROUP_ID', 3],
     ['ENTRA_ALL_STAFF_GROUP_ID', 2],
   ],
 };

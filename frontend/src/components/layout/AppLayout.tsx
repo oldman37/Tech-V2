@@ -43,6 +43,8 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { label: 'Purchase Orders', icon: '📋', path: '/purchase-orders' },
       { label: 'Work Orders', icon: '🔧', path: '/work-orders' },
+      { label: 'Field Trips', icon: '🚌', path: '/field-trips' },
+      { label: 'Field Trip Approvals', icon: '✅', path: '/field-trips/approvals' },
     ],
   },
   {
@@ -119,7 +121,11 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
                   <div className="nav-section-title">{section.title}</div>
                 )}
                 {visibleItems.map((item) => {
-                  const isActive = item.path ? location.pathname === item.path : false;
+                  const isActive = item.path
+                    ? (item.path === '/field-trips'
+                        ? location.pathname === item.path
+                        : location.pathname === item.path || location.pathname.startsWith(item.path + '/'))
+                    : false;
                   if (item.disabled) {
                     return (
                       <div key={item.label} className="nav-item nav-item--disabled">

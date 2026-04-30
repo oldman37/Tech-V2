@@ -7,6 +7,7 @@ import { UserSyncService } from '../services/userSync.service';
 import { getCookieConfig } from '../config/cookies';
 import { loggers } from '../lib/logger';
 import { redactEmail, redactEntraId } from '../utils/redact';
+import { derivePermLevelFromGroups } from '../utils/groupAuth';
 import { 
   GraphUser, 
   GraphCollectionResponse, 
@@ -252,12 +253,14 @@ export const callback = async (
     res.cookie('refresh_token', refreshToken, getCookieConfig('refresh'));
 
     // Build permLevels map from roleMapping for the response
-    const permLevels = { TECHNOLOGY: 0, MAINTENANCE: 0, REQUISITIONS: 0 };
+    const permLevels = { TECHNOLOGY: 0, MAINTENANCE: 0, REQUISITIONS: 0, FIELD_TRIPS: 0 };
     for (const p of roleMapping.permissions) {
       if (p.module in permLevels) {
         permLevels[p.module as keyof typeof permLevels] = p.level;
       }
     }
+    // FIELD_TRIPS level is derived directly from groups (not via roleMapping)
+    permLevels.FIELD_TRIPS = derivePermLevelFromGroups(groupIds, 'FIELD_TRIPS');
 
     // Compute explicit group-based approval flags (mirrors backend service checks)
     const fdGroupId     = process.env.ENTRA_FINANCE_DIRECTOR_GROUP_ID;

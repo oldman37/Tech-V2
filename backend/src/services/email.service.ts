@@ -122,7 +122,7 @@ interface GraphMembersResponse {
   '@odata.nextLink'?: string;
 }
 
-async function fetchGroupEmails(groupId: string): Promise<string[]> {
+export async function fetchGroupEmails(groupId: string): Promise<string[]> {
   const emails: string[] = [];
   let nextLink: string | null = `/groups/${groupId}/members?$select=mail,userPrincipalName`;
 
@@ -356,6 +356,249 @@ export async function sendWorkOrderAssigned(
             <td style="padding:4px 8px;">${escapeHtml(reportedByName)}</td></tr>
       </table>
       <p style="margin-top:24px;">Please log in to the system to review the work order details and begin work.</p>
+    `,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Field Trip approver email snapshot
+// ---------------------------------------------------------------------------
+
+export interface FieldTripApproverSnapshot {
+  supervisorEmails: string[];
+  asstDirectorEmails: string[];
+  directorEmails: string[];
+  financeDirectorEmails: string[];
+}
+
+/**
+ * Build a snapshot of approver email addresses for a field trip submission.
+ * Supervisor emails come from the DB; group emails are fetched from Microsoft Graph.
+ * Throws ExternalAPIError if Graph is unreachable.
+ */
+export async function buildFieldTripApproverSnapshot(
+  submitterId: string,
+): Promise<FieldTripApproverSnapshot> {
+  const user = await prisma.user.findUnique({
+    where: { id: submitterId },
+    include: {
+      user_supervisors_user_supervisors_userIdTousers: {
+        include: {
+          supervisor: { select: { email: true } },
+        },
+      },
+    },
+  });
+
+  const supervisorEmails: string[] = user
+    ? user.user_supervisors_user_supervisors_userIdTousers
+        .map((us) => us.supervisor.email)
+        .filter(Boolean)
+    : [];
+
+  const asstDosGroupId   = process.env.ENTRA_ASST_DIRECTOR_OF_SCHOOLS_GROUP_ID;
+  const dosGroupId       = process.env.ENTRA_DIRECTOR_OF_SCHOOLS_GROUP_ID;
+  const financeGroupId   = process.env.ENTRA_FINANCE_DIRECTOR_GROUP_ID;
+
+  try {
+    const [asstDirectorEmails, directorEmails, financeDirectorEmails] = await Promise.all([
+      asstDosGroupId ? fetchGroupEmails(asstDosGroupId) : Promise.resolve([]),
+      dosGroupId     ? fetchGroupEmails(dosGroupId)     : Promise.resolve([]),
+      financeGroupId ? fetchGroupEmails(financeGroupId) : Promise.resolve([]),
+    ]);
+
+    return { supervisorEmails, asstDirectorEmails, directorEmails, financeDirectorEmails };
+  } catch (error) {
+    logger.error('Failed to fetch field trip approver emails from Microsoft Graph', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    throw new ExternalAPIError(
+      'Microsoft Graph',
+      'Failed to retrieve field trip approver group members',
+      error,
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Field Trip detail HTML snippet (shared across templates)
+// ---------------------------------------------------------------------------
+
+function fieldTripDetailHtml(trip: {
+  id:             string;
+  destination:    string;
+  tripDate:       Date | string;
+  teacherName:    string;
+  schoolBuilding: string;
+  gradeClass:     string;
+  studentCount:   number;
+  purpose:        string;
+}): string {
+  const dateStr = new Date(trip.tripDate).toLocaleDateString('en-US', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+  });
+  return `
+    <table style="border-collapse:collapse;width:100%;margin-top:16px;">
+      <tr><td style="padding:4px 8px;font-weight:bold;">Destination:</td>
+          <td style="padding:4px 8px;">${escapeHtml(trip.destination)}</td></tr>
+      <tr><td style="padding:4px 8px;font-weight:bold;">Trip Date:</td>
+          <td style="padding:4px 8px;">${dateStr}</td></tr>
+      <tr><td style="padding:4px 8px;font-weight:bold;">Teacher / Sponsor:</td>
+          <td style="padding:4px 8px;">${escapeHtml(trip.teacherName)}</td></tr>
+      <tr><td style="padding:4px 8px;font-weight:bold;">School / Building:</td>
+          <td style="padding:4px 8px;">${escapeHtml(trip.schoolBuilding)}</td></tr>
+      <tr><td style="padding:4px 8px;font-weight:bold;">Grade / Class:</td>
+          <td style="padding:4px 8px;">${escapeHtml(trip.gradeClass)}</td></tr>
+      <tr><td style="padding:4px 8px;font-weight:bold;">Number of Students:</td>
+          <td style="padding:4px 8px;">${trip.studentCount}</td></tr>
+      <tr><td style="padding:4px 8px;font-weight:bold;vertical-align:top;">Educational Purpose:</td>
+          <td style="padding:4px 8px;">${escapeHtml(trip.purpose)}</td></tr>
+    </table>
+  `;
+}
+
+// ---------------------------------------------------------------------------
+// Field Trip notification emails
+// ---------------------------------------------------------------------------
+
+/**
+ * Notify the supervisor that a new field trip is awaiting their approval.
+ */
+export async function sendFieldTripToSupervisor(
+  supervisorEmail: string | string[],
+  trip: {
+    id: string; destination: string; tripDate: Date | string;
+    teacherName: string; schoolBuilding: string; gradeClass: string;
+    studentCount: number; purpose: string;
+  },
+  submitterName: string,
+): Promise<void> {
+  await sendMail({
+    to:      supervisorEmail,
+    subject: `Field Trip Approval Required: ${trip.destination} — ${new Date(trip.tripDate).toLocaleDateString('en-US')}`,
+    html: `
+      <h2 style="color:#1565C0;">Field Trip Request Awaiting Your Approval</h2>
+      <p><strong>${escapeHtml(submitterName)}</strong> has submitted a field trip request that requires your approval.</p>
+      ${fieldTripDetailHtml(trip)}
+      <p style="margin-top:24px;">Please log in to the system to review and approve or deny this field trip request.</p>
+    `,
+  });
+}
+
+/**
+ * Notify an approver that a field trip has advanced to their stage.
+ * Used for Asst. Director, Director, and Finance Director stages.
+ */
+export async function sendFieldTripAdvancedToApprover(
+  approverEmail: string | string[],
+  trip: {
+    id: string; destination: string; tripDate: Date | string;
+    teacherName: string; schoolBuilding: string; gradeClass: string;
+    studentCount: number; purpose: string;
+  },
+  submitterName: string,
+  stageName: string,
+): Promise<void> {
+  await sendMail({
+    to:      approverEmail,
+    subject: `Field Trip Approval Required (${stageName}): ${trip.destination}`,
+    html: `
+      <h2 style="color:#1565C0;">Field Trip Request Awaiting ${escapeHtml(stageName)} Approval</h2>
+      <p>A field trip request submitted by <strong>${escapeHtml(submitterName)}</strong> has advanced to
+         the <strong>${escapeHtml(stageName)}</strong> stage and requires your review.</p>
+      ${fieldTripDetailHtml(trip)}
+      <p style="margin-top:24px;">Please log in to the system to review and approve or deny this field trip request.</p>
+    `,
+  });
+}
+
+/**
+ * Notify the submitter that their field trip request has been fully approved.
+ */
+export async function sendFieldTripFinalApproved(
+  submitterEmail: string,
+  trip: {
+    id: string; destination: string; tripDate: Date | string;
+    teacherName: string; schoolBuilding: string; gradeClass: string;
+    studentCount: number; purpose: string;
+  },
+): Promise<void> {
+  await sendMail({
+    to:      submitterEmail,
+    subject: `Field Trip Approved: ${trip.destination} — ${new Date(trip.tripDate).toLocaleDateString('en-US')}`,
+    html: `
+      <h2 style="color:#2E7D32;">Your Field Trip Request Has Been Approved</h2>
+      <p>Congratulations! Your field trip request has been fully approved by all required approvers.</p>
+      ${fieldTripDetailHtml(trip)}
+      <p style="margin-top:24px;">Please ensure all school policies and procedures are followed when conducting the field trip.</p>
+    `,
+  });
+}
+
+/**
+ * Notify the submitter that their field trip request has been denied.
+ */
+export async function sendFieldTripDenied(
+  submitterEmail: string,
+  trip: {
+    id: string; destination: string; tripDate: Date | string;
+    teacherName: string; schoolBuilding: string; gradeClass: string;
+    studentCount: number; purpose: string;
+  },
+  denierName: string,
+  reason: string,
+): Promise<void> {
+  await sendMail({
+    to:      submitterEmail,
+    subject: `Field Trip Denied: ${trip.destination} — ${new Date(trip.tripDate).toLocaleDateString('en-US')}`,
+    html: `
+      <h2 style="color:#C62828;">Your Field Trip Request Has Been Denied</h2>
+      <p>We regret to inform you that your field trip request has been denied by <strong>${escapeHtml(denierName)}</strong>.</p>
+      ${fieldTripDetailHtml(trip)}
+      <p style="margin-top:16px;"><strong>Reason for denial:</strong></p>
+      <blockquote style="border-left:4px solid #C62828;margin:8px 0;padding:8px 16px;background:#FFEBEE;">
+        ${escapeHtml(reason)}
+      </blockquote>
+      <p style="margin-top:16px;">If you believe this decision was made in error, please contact your supervisor.</p>
+    `,
+  });
+}
+
+/**
+ * Notify the Transportation Secretary group that a field trip requiring transportation has been submitted.
+ */
+export async function sendFieldTripTransportationNotice(
+  emails: string[],
+  trip: {
+    id: string; destination: string; tripDate: Date | string;
+    teacherName: string; schoolBuilding: string; gradeClass: string;
+    studentCount: number; purpose: string; transportationDetails?: string | null;
+    departureTime: string; returnTime: string;
+  },
+  submitterName: string,
+): Promise<void> {
+  if (emails.length === 0) return;
+
+  const dateStr = new Date(trip.tripDate).toLocaleDateString('en-US', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+  });
+
+  await sendMail({
+    to:      emails,
+    subject: `Transportation Needed — Field Trip: ${trip.destination} on ${dateStr}`,
+    html: `
+      <h2 style="color:#E65100;">Field Trip Transportation Request</h2>
+      <p>A field trip requiring transportation has been submitted by <strong>${escapeHtml(submitterName)}</strong>.</p>
+      ${fieldTripDetailHtml(trip)}
+      <table style="border-collapse:collapse;width:100%;margin-top:8px;">
+        <tr><td style="padding:4px 8px;font-weight:bold;">Departure Time:</td>
+            <td style="padding:4px 8px;">${escapeHtml(trip.departureTime)}</td></tr>
+        <tr><td style="padding:4px 8px;font-weight:bold;">Return Time:</td>
+            <td style="padding:4px 8px;">${escapeHtml(trip.returnTime)}</td></tr>
+        ${trip.transportationDetails ? `<tr><td style="padding:4px 8px;font-weight:bold;vertical-align:top;">Transportation Details:</td>
+            <td style="padding:4px 8px;">${escapeHtml(trip.transportationDetails)}</td></tr>` : ''}
+      </table>
+      <p style="margin-top:24px;">Please log in to the system to view the full field trip details and coordinate transportation.</p>
     `,
   });
 }

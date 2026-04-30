@@ -19,6 +19,12 @@ import NewWorkOrderPage from './pages/NewWorkOrderPage'
 import WorkOrderDetailPage from './pages/WorkOrderDetailPage'
 import AccessDenied from './pages/AccessDenied'
 import { RoomAssignmentsPage } from './pages/RoomAssignments'
+import {
+  FieldTripListPage,
+  FieldTripRequestPage,
+  FieldTripDetailPage,
+  FieldTripApprovalPage,
+} from './pages/FieldTrip'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import AppLayout from './components/layout/AppLayout'
 import './App.css'
@@ -193,6 +199,56 @@ function App() {
             <ProtectedRoute requireRoomAssignment>
               <AppLayout>
                 <RoomAssignmentsPage />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/field-trips"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <FieldTripListPage />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/field-trips/new"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <FieldTripRequestPage />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/field-trips/approvals"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <FieldTripApprovalPage />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/field-trips/:id/edit"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <FieldTripRequestPage />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/field-trips/:id"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <FieldTripDetailPage />
               </AppLayout>
             </ProtectedRoute>
           }

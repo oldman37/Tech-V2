@@ -502,8 +502,117 @@ model User {
   primaryRoom                                               Room?                  @relation("UserPrimaryRoom", fields: [primaryRoomId], references: [id])
   roomAssignments                                           UserRoomAssignment[]   @relation("UserRoomAssignments")
   roomAssignmentsMade                                       UserRoomAssignment[]   @relation("UserRoomAssignmentsMadeBy")
+  // Field Trip relations
+  submittedFieldTrips                                       FieldTripRequest[]     @relation("FieldTripSubmitter")
+  fieldTripApprovals                                        FieldTripApproval[]    @relation("FieldTripApprover")
+  fieldTripStatusChanges                                    FieldTripStatusHistory[] @relation("FieldTripStatusChangedBy")
 
   @@map("users")
+}
+
+// ============================================
+// FIELD TRIP REQUESTS
+// ============================================
+
+model FieldTripRequest {
+  id                    String                  @id @default(uuid())
+
+  // Submitter (auto-populated from JWT)
+  submittedById         String
+  submittedBy           User                    @relation("FieldTripSubmitter", fields: [submittedById], references: [id])
+
+  // Form Fields
+  teacherName           String                  @db.VarChar(200)
+  schoolBuilding        String                  @db.VarChar(200)
+  gradeClass            String                  @db.VarChar(100)
+  studentCount          Int
+  tripDate              DateTime
+  destination           String                  @db.VarChar(500)
+  destinationAddress    String?                 @db.VarChar(500)
+  purpose               String                  @db.Text
+  departureTime         String                  @db.VarChar(20)
+  returnTime            String                  @db.VarChar(20)
+  transportationNeeded  Boolean                 @default(false)
+  transportationDetails String?                 @db.Text
+  costPerStudent        Decimal?                @db.Decimal(10, 2)
+  totalCost             Decimal?                @db.Decimal(10, 2)
+  fundingSource         String?                 @db.VarChar(200)
+  chaperoneInfo         String?                 @db.Text
+  emergencyContact      String?                 @db.VarChar(500)
+  additionalNotes       String?                 @db.Text
+  subjectArea           String?                 @db.VarChar(100)
+  preliminaryActivities String?                 @db.Text
+  followUpActivities    String?                 @db.Text
+  isOvernightTrip       Boolean                 @default(false)
+  returnDate            DateTime?
+  alternateTransportation String?               @db.Text
+
+  // Workflow State
+  status                String                  @default("DRAFT")
+  submitterEmail        String                  // Snapshot of submitter email for final notification
+  denialReason          String?                 @db.Text
+
+  // Snapshot of approver emails captured at submit time (prevent stale lookups)
+  approverEmailsSnapshot Json?
+
+  // Fiscal year (from SystemSettings.currentFiscalYear at submit time)
+  fiscalYear            String?
+
+  // Timestamps
+  submittedAt           DateTime?               // Set when status moves from DRAFT → PENDING_SUPERVISOR
+  approvedAt            DateTime?               // Set when status moves to APPROVED
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+
+  // Relations
+  approvals             FieldTripApproval[]
+  statusHistory         FieldTripStatusHistory[]
+
+  @@index([status])
+  @@index([submittedById])
+  @@index([tripDate])
+  @@index([fiscalYear])
+  @@index([status, submittedById])
+  @@map("field_trip_requests")
+}
+
+model FieldTripApproval {
+  id                    String            @id @default(uuid())
+  fieldTripRequestId    String
+  stage                 String            // 'SUPERVISOR' | 'ASST_DIRECTOR' | 'DIRECTOR' | 'FINANCE_DIRECTOR'
+  action                String            // 'APPROVED' | 'DENIED'
+  actedById             String
+  actedByName           String            // Cached display name
+  actedAt               DateTime          @default(now())
+  notes                 String?           @db.Text
+  denialReason          String?           @db.Text
+
+  fieldTripRequest      FieldTripRequest   @relation(fields: [fieldTripRequestId], references: [id], onDelete: Cascade)
+  actedBy               User              @relation("FieldTripApprover", fields: [actedById], references: [id])
+
+  @@index([fieldTripRequestId])
+  @@index([actedById])
+  @@index([stage])
+  @@map("field_trip_approvals")
+}
+
+model FieldTripStatusHistory {
+  id                    String            @id @default(uuid())
+  fieldTripRequestId    String
+  fromStatus            String
+  toStatus              String
+  changedById           String
+  changedByName         String            // Cached
+  changedAt             DateTime          @default(now())
+  notes                 String?           @db.Text
+
+  fieldTripRequest      FieldTripRequest   @relation(fields: [fieldTripRequestId], references: [id], onDelete: Cascade)
+  changedBy             User              @relation("FieldTripStatusChangedBy", fields: [changedById], references: [id])
+
+  @@index([fieldTripRequestId])
+  @@index([changedById])
+  @@index([changedAt])
+  @@map("field_trip_status_history")
 }
 
 model vendors {
