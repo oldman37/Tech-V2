@@ -42,7 +42,7 @@ The paper "Request for Transportation" form is a **separate document** from the 
 
 - The Step 1 `FieldTripRequest` model, routes, validators, controller, and frontend pages are **unchanged**.
 - The existing 4-stage approval chain (SUPERVISOR → ASST_DIRECTOR → DIRECTOR → FINANCE_DIRECTOR) is **unchanged**.
-- The existing email notification to Transportation Secretary at Step 1 submission is **unchanged** (it stays as the notification trigger for transportation awareness).
+- The Transportation Secretary email notification (`sendFieldTripTransportationNotice`) trigger has **changed**: it is now sent when Step 1 reaches `APPROVED` status (Finance Director approval), not at submission. This is enforced in `fieldTrip.controller.ts`.
 
 ---
 
@@ -486,6 +486,7 @@ if (!principalApproval) {
 
 | Trigger | Recipient(s) | Template |
 |---|---|---|
+| Step 1 fully `APPROVED` with `transportationNeeded = true` | Transportation Secretary group emails (`ENTRA_TRANSPORTATION_SECRETARY_GROUP_ID`) | "Field trip approved — transportation setup required" |
 | Step 2 submitted (`DRAFT → PENDING_TRANSPORTATION`) | Transportation Director group emails (`ENTRA_TRANSPORTATION_DIRECTOR_GROUP_ID`) | "Transportation form ready for review" |
 | Transportation Director approves | Trip submitter email | "Your transportation request has been approved" |
 | Transportation Director denies | Trip submitter email | "Your transportation request was denied — reason" |
@@ -620,6 +621,8 @@ Follow this exact sequence to avoid broken build states:
    - `sendTransportationStep2SubmittedNotice(emails, trip, transportRequest, submitterName)`
    - `sendTransportationApproved(submitterEmail, trip, transportRequest)`
    - `sendTransportationDenied(submitterEmail, trip, transportRequest, reason)`
+
+   > **Note:** `sendFieldTripTransportationNotice` (already implemented) is now triggered in the `fieldTrip.controller.ts` `approve` handler when `result.status === 'APPROVED'` and `result.transportationNeeded === true`. It is **no longer** called at Step 1 submission.
 
 7. **`backend/src/routes/fieldTrip.routes.ts`** — add 6 new route registrations (see §7)
 

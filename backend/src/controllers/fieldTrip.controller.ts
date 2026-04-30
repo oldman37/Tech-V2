@@ -177,24 +177,6 @@ export const submit = async (req: AuthRequest, res: Response): Promise<void> => 
       });
     }
 
-    // Transportation notice (non-critical)
-    if (result.transportationNeeded) {
-      const transportGroupId = process.env.ENTRA_TRANSPORTATION_SECRETARY_GROUP_ID;
-      if (transportGroupId) {
-        try {
-          const transportEmails = await fetchGroupEmails(transportGroupId);
-          if (transportEmails.length > 0) {
-            await sendFieldTripTransportationNotice(transportEmails, result, submitterName);
-          }
-        } catch (transportErr) {
-          logger.error('Failed to send transportation notice email', {
-            id,
-            error: transportErr instanceof Error ? transportErr.message : String(transportErr),
-          });
-        }
-      }
-    }
-
     res.json(result);
   } catch (error) {
     handleControllerError(error, res);
@@ -226,6 +208,14 @@ export const approve = async (req: AuthRequest, res: Response): Promise<void> =>
 
       if (result.status === 'APPROVED') {
         await sendFieldTripFinalApproved(result.submitterEmail, result);
+        // Notify Transportation Secretary now that all approvals are complete
+        if (result.transportationNeeded) {
+          const transportGroupId = process.env.ENTRA_TRANSPORTATION_SECRETARY_GROUP_ID;
+          if (transportGroupId) {
+            const transportEmails = await fetchGroupEmails(transportGroupId);
+            await sendFieldTripTransportationNotice(transportEmails, result, result.teacherName ?? '');
+          }
+        }
       } else {
         const nextEmails = getEmailsForStatus(result.status, snapshot);
         if (nextEmails.length > 0) {

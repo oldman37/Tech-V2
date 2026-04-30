@@ -32,7 +32,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import { fieldTripService } from '../../services/fieldTrip.service';
-import type { FieldTripApproval, FieldTripRequest, FieldTripStatus, StatusChipColor } from '../../types/fieldTrip.types';
+import type { ChaperoneEntry, FieldTripApproval, FieldTripRequest, FieldTripStatus, StatusChipColor } from '../../types/fieldTrip.types';
 import {
   FIELD_TRIP_STATUS_LABELS,
   FIELD_TRIP_STATUS_COLORS,
@@ -265,16 +265,69 @@ export function FieldTripDetailPage() {
       </Paper>
 
       {/* Additional details */}
-      {(trip.chaperoneInfo || trip.emergencyContact || trip.additionalNotes) && (
+      {(trip.chaperoneInfo || trip.chaperones || trip.emergencyContact || trip.additionalNotes ||
+        trip.rainAlternateDate || trip.substituteCount != null || trip.plansForNonParticipants ||
+        trip.instructionalTimeMissed || (trip.reimbursementExpenses && trip.reimbursementExpenses.length > 0) ||
+        trip.overnightSafetyPrecautions) && (
         <Paper sx={{ p: 3, mb: 3 }}>
           <Typography variant="h6" gutterBottom>Additional Details</Typography>
           <Divider sx={{ mb: 2 }} />
           <Grid container spacing={2}>
-            {trip.chaperoneInfo && (
+            {trip.rainAlternateDate && (
+              <DetailField
+                label="Rain / Alternate Date"
+                value={new Date(trip.rainAlternateDate).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' })}
+              />
+            )}
+            {trip.substituteCount != null && (
+              <DetailField label="Substitutes Needed" value={String(trip.substituteCount)} />
+            )}
+            <DetailField
+              label="Parental Permission Forms Received"
+              value={trip.parentalPermissionReceived ? 'Yes' : 'No'}
+            />
+            {trip.plansForNonParticipants && (
+              <DetailField label="Plans for Non-Participating Students" value={trip.plansForNonParticipants} xs={12} multiline />
+            )}
+            {/* Chaperones — structured list */}
+            {Array.isArray(trip.chaperones) && (trip.chaperones as ChaperoneEntry[]).length > 0 && (
+              <Grid size={12}>
+                <Typography variant="caption" color="text.secondary" display="block">Chaperones</Typography>
+                {(trip.chaperones as ChaperoneEntry[]).map((c, idx) => (
+                  <Box key={idx} sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+                    <Typography variant="body1">{c.name}</Typography>
+                    {c.backgroundCheckComplete
+                      ? <CheckCircleIcon color="success" fontSize="small" />
+                      : <CancelIcon color="disabled" fontSize="small" />}
+                    <Typography variant="caption" color="text.secondary">
+                      {c.backgroundCheckComplete ? 'Background check complete' : 'Background check pending'}
+                    </Typography>
+                  </Box>
+                ))}
+              </Grid>
+            )}
+            {/* Legacy chaperoneInfo (old records) */}
+            {trip.chaperoneInfo && !(Array.isArray(trip.chaperones) && (trip.chaperones as ChaperoneEntry[]).length > 0) && (
               <DetailField label="Chaperone Info" value={trip.chaperoneInfo} xs={12} multiline />
             )}
             {trip.emergencyContact && (
               <DetailField label="Emergency Contact" value={trip.emergencyContact} />
+            )}
+            {trip.instructionalTimeMissed && (
+              <DetailField label="Instructional Time Missed" value={trip.instructionalTimeMissed} />
+            )}
+            {trip.reimbursementExpenses && trip.reimbursementExpenses.length > 0 && (
+              <Grid size={12}>
+                <Typography variant="caption" color="text.secondary" display="block">Reimbursement Expenses</Typography>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
+                  {trip.reimbursementExpenses.map((exp) => (
+                    <Chip key={exp} label={exp} size="small" />
+                  ))}
+                </Box>
+              </Grid>
+            )}
+            {trip.isOvernightTrip && trip.overnightSafetyPrecautions && (
+              <DetailField label="Overnight Safety Precautions" value={trip.overnightSafetyPrecautions} xs={12} multiline />
             )}
             {trip.additionalNotes && (
               <DetailField label="Additional Notes" value={trip.additionalNotes} xs={12} multiline />

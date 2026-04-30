@@ -6,6 +6,15 @@
  */
 
 // ---------------------------------------------------------------------------
+// Chaperone entry
+// ---------------------------------------------------------------------------
+
+export interface ChaperoneEntry {
+  name:                    string;
+  backgroundCheckComplete: boolean;
+}
+
+// ---------------------------------------------------------------------------
 // Status enum
 // ---------------------------------------------------------------------------
 
@@ -90,6 +99,16 @@ export interface FieldTripRequest {
   returnDate?:           string | null;
   alternateTransportation?: string | null;
 
+  // Step 3 — new fields
+  rainAlternateDate?:          string | null;
+  substituteCount?:            number | null;
+  parentalPermissionReceived?: boolean;
+  plansForNonParticipants?:    string | null;
+  chaperones?:                 ChaperoneEntry[] | null;
+  instructionalTimeMissed?:    string | null;
+  reimbursementExpenses?:      string[];
+  overnightSafetyPrecautions?: string | null;
+
   // Workflow
   status:        FieldTripStatus;
   submitterEmail: string;
@@ -133,7 +152,7 @@ export interface CreateFieldTripDto {
   costPerStudent:        number;
   totalCost:             number;
   fundingSource:         string;
-  chaperoneInfo:         string;
+  chaperoneInfo?:        string | null;
   emergencyContact:      string;
   additionalNotes:       string;
   subjectArea?:          string | null;
@@ -142,6 +161,15 @@ export interface CreateFieldTripDto {
   isOvernightTrip:       boolean;
   returnDate?:           string | null;
   alternateTransportation?: string | null;
+  // New Step 3 fields
+  rainAlternateDate?:          string | null;
+  substituteCount:             number;
+  parentalPermissionReceived:  boolean;
+  plansForNonParticipants:     string;
+  chaperones:                  ChaperoneEntry[];
+  instructionalTimeMissed:     string;
+  reimbursementExpenses?:      string[];
+  overnightSafetyPrecautions?: string | null;
 }
 
 export type UpdateFieldTripDto = Partial<CreateFieldTripDto>;

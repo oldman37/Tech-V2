@@ -19,12 +19,14 @@ import {
   Alert,
   Box,
   Button,
+  Checkbox,
   CircularProgress,
   FormControl,
   FormHelperText,
   FormLabel,
   Grid,
   InputAdornment,
+  ListItemText,
   MenuItem,
   Paper,
   Radio,
@@ -44,7 +46,7 @@ import SendIcon      from '@mui/icons-material/Send';
 import { fieldTripService }                          from '../../services/fieldTrip.service';
 import { fieldTripTransportationService }            from '../../services/fieldTripTransportation.service';
 import { locationService }                           from '../../services/location.service';
-import type { CreateFieldTripDto, FieldTripRequest } from '../../types/fieldTrip.types';
+import type { CreateFieldTripDto, FieldTripRequest, ChaperoneEntry } from '../../types/fieldTrip.types';
 import type { OfficeLocation }                       from '../../types/location.types';
 import { useAuthStore }                              from '../../store/authStore';
 import { FieldTripDatePicker }                       from '../../components/FieldTripDatePicker';
@@ -77,6 +79,8 @@ const SUBJECT_OPTIONS = [
   'Fine Art / Music / Band',
   'CTE',
 ];
+
+const REIMBURSEMENT_OPTIONS = ['Registration', 'Meals', 'Mileage', 'Lodging', 'Other'] as const;
 
 // Times in 15-minute increments, 5:00 AM – 11:45 PM
 const TIME_OPTIONS: string[] = (() => {
@@ -134,6 +138,15 @@ interface FormState {
   chaperoneInfo:         string;
   emergencyContact:      string;
   additionalNotes:       string;
+  // Step 3 new fields
+  rainAlternateDate:           string;
+  substituteCount:             string;
+  parentalPermissionReceived:  boolean;
+  plansForNonParticipants:     string;
+  chaperones:                  ChaperoneEntry[];
+  instructionalTimeMissed:     string;
+  reimbursementExpenses:       string[];
+  overnightSafetyPrecautions:  string;
 }
 
 const EMPTY_FORM: FormState = {
@@ -173,6 +186,14 @@ const EMPTY_FORM: FormState = {
   chaperoneInfo:         '',
   emergencyContact:      '',
   additionalNotes:       '',
+  rainAlternateDate:           '',
+  substituteCount:             '0',
+  parentalPermissionReceived:  false,
+  plansForNonParticipants:     '',
+  chaperones:                  [],
+  instructionalTimeMissed:     '',
+  reimbursementExpenses:       [],
+  overnightSafetyPrecautions:  '',
 };
 
 function tripToFormState(trip: FieldTripRequest): FormState {
@@ -213,6 +234,14 @@ function tripToFormState(trip: FieldTripRequest): FormState {
     chaperoneInfo:         trip.chaperoneInfo  ?? '',
     emergencyContact:      trip.emergencyContact ?? '',
     additionalNotes:       trip.additionalNotes  ?? '',
+    rainAlternateDate:          trip.rainAlternateDate ? trip.rainAlternateDate.slice(0, 10) : '',
+    substituteCount:            trip.substituteCount != null ? String(trip.substituteCount) : '0',
+    parentalPermissionReceived: trip.parentalPermissionReceived ?? false,
+    plansForNonParticipants:    trip.plansForNonParticipants ?? '',
+    chaperones:                 Array.isArray(trip.chaperones) ? (trip.chaperones as ChaperoneEntry[]) : [],
+    instructionalTimeMissed:    trip.instructionalTimeMissed ?? '',
+    reimbursementExpenses:      trip.reimbursementExpenses ?? [],
+    overnightSafetyPrecautions: trip.overnightSafetyPrecautions ?? '',
   };
 }
 
@@ -239,9 +268,23 @@ function formToDto(form: FormState): CreateFieldTripDto {
     costPerStudent:        parseFloat(form.costPerStudent),
     totalCost:             parseFloat(form.totalCost),
     fundingSource:         form.fundingSource.trim(),
-    chaperoneInfo:         form.chaperoneInfo.trim(),
+    chaperoneInfo:         form.chaperoneInfo.trim() || null,
     emergencyContact:      form.emergencyContact.trim(),
     additionalNotes:       form.additionalNotes.trim(),
+    rainAlternateDate:          form.rainAlternateDate
+                                  ? new Date(form.rainAlternateDate + 'T12:00:00').toISOString()
+                                  : null,
+    substituteCount:            parseInt(form.substituteCount, 10),
+    parentalPermissionReceived: form.parentalPermissionReceived,
+    plansForNonParticipants:    form.plansForNonParticipants.trim(),
+    chaperones:                 form.chaperones
+                                  .filter(c => c.name.trim())
+                                  .map(c => ({ name: c.name.trim(), backgroundCheckComplete: c.backgroundCheckComplete })),
+    instructionalTimeMissed:    form.instructionalTimeMissed.trim(),
+    reimbursementExpenses:      form.reimbursementExpenses,
+    overnightSafetyPrecautions: form.isOvernightTrip
+                                  ? (form.overnightSafetyPrecautions.trim() || null)
+                                  : null,
   };
 }
 
@@ -296,16 +339,43 @@ function validateStep(step: number, form: FormState): FieldErrors {
   }
 
   if (step === 2) {
+    // Rain alternate date
+    if (form.rainAlternateDate && form.tripDate) {
+      const rain = new Date(form.rainAlternateDate + 'T00:00:00');
+      const trip = new Date(form.tripDate + 'T00:00:00');
+      if (rain <= trip) errors.rainAlternateDate = 'Alternate date must be after the trip date';
+    }
+    // Substitutes
+    const subs = parseInt(form.substituteCount, 10);
+    if (form.substituteCount === '' || isNaN(subs) || subs < 0 || subs > 50)
+      errors.substituteCount = 'Enter a number between 0 and 50';
+    // Plans for non-participants
+    if (!form.plansForNonParticipants.trim())
+      errors.plansForNonParticipants = 'Plans for non-participating students are required';
+    // Chaperones
+    if (form.chaperones.length === 0)
+      errors.chaperones = 'At least one chaperone is required';
+    else if (form.chaperones.some(c => !c.name.trim()))
+      errors.chaperones = 'All chaperone entries must have a name';
+    // Emergency contact
+    if (!form.emergencyContact.trim()) errors.emergencyContact = 'Emergency contact is required';
+    // Instructional time missed
+    if (!form.instructionalTimeMissed.trim())
+      errors.instructionalTimeMissed = 'Instructional time missed is required';
+    // Funding source
+    if (!form.fundingSource.trim()) errors.fundingSource = 'Funding source / account number is required';
+    // Cost / total
     const costPS = parseFloat(form.costPerStudent);
     if (form.costPerStudent === '' || isNaN(costPS) || costPS < 0)
       errors.costPerStudent = 'Enter a valid cost (0 or greater)';
     const totalC = parseFloat(form.totalCost);
     if (form.totalCost === '' || isNaN(totalC) || totalC < 0)
       errors.totalCost = 'Enter a valid total cost (0 or greater)';
-    if (!form.fundingSource.trim()) errors.fundingSource = 'Funding source / account number is required';
-    if (!form.chaperoneInfo.trim())   errors.chaperoneInfo   = 'Chaperone information is required';
-    if (!form.emergencyContact.trim()) errors.emergencyContact = 'Emergency contact is required';
-    if (!form.additionalNotes.trim()) errors.additionalNotes  = 'Additional notes are required';
+    // Overnight safety precautions
+    if (form.isOvernightTrip && !form.overnightSafetyPrecautions.trim())
+      errors.overnightSafetyPrecautions = 'Safety precautions are required for overnight trips';
+    // Additional notes
+    if (!form.additionalNotes.trim()) errors.additionalNotes = 'Additional notes are required';
   }
 
   return errors;
@@ -408,7 +478,7 @@ export function FieldTripRequestPage() {
   // Handlers
   // ---------------------------------------------------------------------------
 
-  const handleChange = (field: keyof FormState, value: string | boolean | Array<{ name: string; arriveTime: string; leaveTime: string }>) => {
+  const handleChange = (field: keyof FormState, value: string | boolean | ChaperoneEntry[] | string[] | Array<{ name: string; arriveTime: string; leaveTime: string }>) => {
     setForm((prev) => {
       const next = { ...prev, [field]: value } as FormState;
       if (field === 'gradeClass' && value !== 'High School') next.subjectArea = '';
@@ -1100,6 +1170,178 @@ export function FieldTripRequestPage() {
         {activeStep === 2 && (
           <Grid container spacing={2}>
 
+            {/* 1. Rain / Alternate Date */}
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                fullWidth
+                label="Rain / Alternate Date (optional)"
+                type="date"
+                value={form.rainAlternateDate}
+                onChange={(e) => handleChange('rainAlternateDate', e.target.value)}
+                error={!!errors.rainAlternateDate}
+                helperText={errors.rainAlternateDate ?? 'If the trip may be rescheduled in case of bad weather, enter the backup date'}
+                disabled={isReadOnly}
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+
+            {/* 2. Number of Substitutes Needed */}
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                fullWidth
+                label="Number of Substitutes Needed"
+                type="number"
+                inputProps={{ min: 0, max: 50 }}
+                value={form.substituteCount}
+                onChange={(e) => handleChange('substituteCount', e.target.value)}
+                error={!!errors.substituteCount}
+                helperText={errors.substituteCount ?? 'Enter 0 if no substitutes are required'}
+                disabled={isReadOnly}
+                required
+              />
+            </Grid>
+
+            {/* 3. Parental Permission Forms Received */}
+            <Grid size={12}>
+              <FormControl component="fieldset" disabled={isReadOnly}>
+                <FormLabel component="legend" sx={{ fontWeight: 500, color: 'text.primary', mb: 0.5 }}>
+                  Have parental permission forms been received from all participating students?
+                </FormLabel>
+                <RadioGroup
+                  row
+                  value={form.parentalPermissionReceived ? 'yes' : 'no'}
+                  onChange={(e) => handleChange('parentalPermissionReceived', e.target.value === 'yes')}
+                >
+                  <FormControlLabel value="yes" control={<Radio />} label="Yes" />
+                  <FormControlLabel value="no"  control={<Radio />} label="No"  />
+                </RadioGroup>
+              </FormControl>
+            </Grid>
+
+            {/* 4. Plans for Students Not Attending */}
+            <Grid size={12}>
+              <TextField
+                fullWidth
+                multiline
+                minRows={3}
+                label="Plans for Students Not Attending This Trip"
+                value={form.plansForNonParticipants}
+                onChange={(e) => handleChange('plansForNonParticipants', e.target.value)}
+                error={!!errors.plansForNonParticipants}
+                helperText={errors.plansForNonParticipants ?? 'Describe what non-participating students will be doing during the trip'}
+                disabled={isReadOnly}
+                required
+              />
+            </Grid>
+
+            {/* 5. Chaperone List (dynamic) */}
+            <Grid size={12}>
+              <Typography variant="subtitle2" gutterBottom>
+                Chaperones
+                <Box component="span" sx={{ color: 'error.main' }}> *</Box>
+              </Typography>
+              {errors.chaperones && (
+                <FormHelperText error sx={{ mb: 1 }}>{errors.chaperones}</FormHelperText>
+              )}
+              {form.chaperones.map((chaperone, idx) => (
+                <Box key={idx} sx={{ display: 'flex', gap: 1, mb: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <TextField
+                    label={`Chaperone ${idx + 1} Name`}
+                    value={chaperone.name}
+                    onChange={(e) => {
+                      const updated = [...form.chaperones];
+                      updated[idx] = { ...updated[idx], name: e.target.value };
+                      handleChange('chaperones', updated);
+                    }}
+                    size="small"
+                    sx={{ flex: 2, minWidth: 200 }}
+                    disabled={isReadOnly}
+                    required
+                  />
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={chaperone.backgroundCheckComplete}
+                        onChange={(e) => {
+                          const updated = [...form.chaperones];
+                          updated[idx] = { ...updated[idx], backgroundCheckComplete: e.target.checked };
+                          handleChange('chaperones', updated);
+                        }}
+                        disabled={isReadOnly}
+                      />
+                    }
+                    label="Background Check Complete"
+                  />
+                  {!isReadOnly && (
+                    <Button
+                      size="small"
+                      color="error"
+                      onClick={() => handleChange('chaperones', form.chaperones.filter((_, i) => i !== idx))}
+                    >
+                      Remove
+                    </Button>
+                  )}
+                </Box>
+              ))}
+              {!isReadOnly && form.chaperones.length < 20 && (
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={() =>
+                    handleChange('chaperones', [
+                      ...form.chaperones,
+                      { name: '', backgroundCheckComplete: false },
+                    ])
+                  }
+                >
+                  + Add Chaperone
+                </Button>
+              )}
+            </Grid>
+
+            {/* 6. Emergency Contact */}
+            <Grid size={12}>
+              <TextField
+                fullWidth
+                label="Emergency Contact"
+                value={form.emergencyContact}
+                onChange={(e) => handleChange('emergencyContact', e.target.value)}
+                error={!!errors.emergencyContact}
+                helperText={errors.emergencyContact ?? 'Name and phone number of main emergency contact'}
+                disabled={isReadOnly}
+                required
+              />
+            </Grid>
+
+            {/* 7. Regular Classroom Instructional Time Missed */}
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                fullWidth
+                label="Regular Classroom Instructional Time Missed"
+                value={form.instructionalTimeMissed}
+                onChange={(e) => handleChange('instructionalTimeMissed', e.target.value)}
+                error={!!errors.instructionalTimeMissed}
+                helperText={errors.instructionalTimeMissed ?? 'e.g. 2 class periods, 3 hours, half day'}
+                disabled={isReadOnly}
+                required
+              />
+            </Grid>
+
+            {/* 8. Funding Source / Account Number */}
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                fullWidth
+                label="Funding Source / Account Number"
+                value={form.fundingSource}
+                onChange={(e) => handleChange('fundingSource', e.target.value)}
+                error={!!errors.fundingSource}
+                helperText={errors.fundingSource}
+                disabled={isReadOnly}
+                required
+              />
+            </Grid>
+
+            {/* 9. Cost Per Student */}
             <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 fullWidth
@@ -1116,6 +1358,7 @@ export function FieldTripRequestPage() {
               />
             </Grid>
 
+            {/* 10. Total Cost */}
             <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 fullWidth
@@ -1132,47 +1375,56 @@ export function FieldTripRequestPage() {
               />
             </Grid>
 
+            {/* 11. Reimbursement Expenses */}
             <Grid size={12}>
-              <TextField
-                fullWidth
-                label="Funding Source / Account Number"
-                value={form.fundingSource}
-                onChange={(e) => handleChange('fundingSource', e.target.value)}
-                error={!!errors.fundingSource}
-                helperText={errors.fundingSource}
-                disabled={isReadOnly}
-                required
-              />
+              <FormControl fullWidth disabled={isReadOnly}>
+                <InputLabel id="reimbursement-label">Reimbursement Expenses Requested</InputLabel>
+                <Select
+                  labelId="reimbursement-label"
+                  label="Reimbursement Expenses Requested"
+                  multiple
+                  value={form.reimbursementExpenses}
+                  onChange={(e) => handleChange('reimbursementExpenses',
+                    typeof e.target.value === 'string'
+                      ? e.target.value.split(',')
+                      : e.target.value as string[]
+                  )}
+                  renderValue={(selected) => (selected as string[]).join(', ')}
+                >
+                  {REIMBURSEMENT_OPTIONS.map((opt) => (
+                    <MenuItem key={opt} value={opt}>
+                      <Checkbox checked={form.reimbursementExpenses.includes(opt)} />
+                      <ListItemText primary={opt} />
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              {form.reimbursementExpenses.includes('Lodging') && (
+                <Alert severity="info" sx={{ mt: 1 }}>
+                  If requesting lodging reimbursement, please email hotel information to the Finance office.
+                </Alert>
+              )}
             </Grid>
 
-            <Grid size={12}>
-              <TextField
-                fullWidth
-                multiline
-                minRows={3}
-                label="Chaperone Names & Contact Information"
-                value={form.chaperoneInfo}
-                onChange={(e) => handleChange('chaperoneInfo', e.target.value)}
-                error={!!errors.chaperoneInfo}
-                helperText={errors.chaperoneInfo ?? 'List all chaperones with their phone numbers'}
-                disabled={isReadOnly}
-                required
-              />
-            </Grid>
+            {/* 12. Overnight Trip Safety Precautions (conditional) */}
+            {form.isOvernightTrip && (
+              <Grid size={12}>
+                <TextField
+                  fullWidth
+                  multiline
+                  minRows={3}
+                  label="Overnight Trip Safety Precautions"
+                  value={form.overnightSafetyPrecautions}
+                  onChange={(e) => handleChange('overnightSafetyPrecautions', e.target.value)}
+                  error={!!errors.overnightSafetyPrecautions}
+                  helperText={errors.overnightSafetyPrecautions ?? 'Describe safety precautions, supervision plan, and emergency procedures for the overnight portion'}
+                  disabled={isReadOnly}
+                  required
+                />
+              </Grid>
+            )}
 
-            <Grid size={12}>
-              <TextField
-                fullWidth
-                label="Emergency Contact"
-                value={form.emergencyContact}
-                onChange={(e) => handleChange('emergencyContact', e.target.value)}
-                error={!!errors.emergencyContact}
-                helperText={errors.emergencyContact ?? 'Name and phone number of main emergency contact'}
-                disabled={isReadOnly}
-                required
-              />
-            </Grid>
-
+            {/* 13. Additional Notes */}
             <Grid size={12}>
               <TextField
                 fullWidth

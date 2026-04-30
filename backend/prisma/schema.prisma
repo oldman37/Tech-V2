@@ -549,6 +549,16 @@ model FieldTripRequest {
   returnDate            DateTime?
   alternateTransportation String?               @db.Text
 
+  // Step 3 — Costs & Additional Details (new fields)
+  rainAlternateDate            DateTime?
+  substituteCount              Int?
+  parentalPermissionReceived   Boolean                 @default(false)
+  plansForNonParticipants      String?                 @db.Text
+  chaperones                   Json?                   // Array of { name: string, backgroundCheckComplete: boolean }
+  instructionalTimeMissed      String?                 @db.VarChar(200)
+  reimbursementExpenses        String[]                @default([])
+  overnightSafetyPrecautions   String?                 @db.Text
+
   // Workflow State
   status                String                  @default("DRAFT")
   submitterEmail        String                  // Snapshot of submitter email for final notification

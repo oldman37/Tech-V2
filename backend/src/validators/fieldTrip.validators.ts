@@ -155,8 +155,9 @@ const FieldTripBodyShape = {
     .max(200, 'Funding source must be 200 characters or less'),
   chaperoneInfo: z
     .string()
-    .min(1, 'Chaperone information is required')
-    .max(2000, 'Chaperone info must be 2000 characters or less'),
+    .max(2000, 'Chaperone info must be 2000 characters or less')
+    .nullable()
+    .optional(),
   emergencyContact: z
     .string()
     .min(1, 'Emergency contact is required')
@@ -187,6 +188,49 @@ const FieldTripBodyShape = {
     .string()
     .nullable()
     .optional(),
+  // Step 3 — new fields
+  rainAlternateDate: z
+    .string()
+    .nullable()
+    .optional()
+    .refine(
+      (val) => !val || !isNaN(Date.parse(val)),
+      'Rain alternate date must be a valid date',
+    ),
+  substituteCount: z
+    .number()
+    .int('Number of substitutes must be a whole number')
+    .min(0, 'Number of substitutes must be 0 or greater')
+    .max(50, 'Number of substitutes must be 50 or less'),
+  parentalPermissionReceived: z.boolean(),
+  plansForNonParticipants: z
+    .string()
+    .min(1, 'Plans for non-participating students are required')
+    .max(2000, 'Plans for non-participating students must be 2000 characters or less'),
+  chaperones: z
+    .array(
+      z.object({
+        name: z
+          .string()
+          .min(1, 'Chaperone name is required')
+          .max(200, 'Chaperone name must be 200 characters or less'),
+        backgroundCheckComplete: z.boolean(),
+      }),
+    )
+    .min(1, 'At least one chaperone is required'),
+  instructionalTimeMissed: z
+    .string()
+    .min(1, 'Instructional time missed is required')
+    .max(200, 'Instructional time missed must be 200 characters or less'),
+  reimbursementExpenses: z
+    .array(z.enum(['Registration', 'Meals', 'Mileage', 'Lodging', 'Other']))
+    .optional()
+    .default([]),
+  overnightSafetyPrecautions: z
+    .string()
+    .max(3000, 'Overnight safety precautions must be 3000 characters or less')
+    .nullable()
+    .optional(),
 };
 
 // ---------------------------------------------------------------------------
@@ -214,6 +258,13 @@ export const CreateFieldTripSchema = z
     {
       message: 'Please describe how students will be transported',
       path: ['alternateTransportation'],
+    },
+  )
+  .refine(
+    (data) => !data.isOvernightTrip || (data.overnightSafetyPrecautions && data.overnightSafetyPrecautions.trim().length > 0),
+    {
+      message: 'Overnight safety precautions are required for overnight trips',
+      path: ['overnightSafetyPrecautions'],
     },
   );
 
@@ -263,6 +314,28 @@ export const UpdateFieldTripSchema = z
     isOvernightTrip: z.boolean().optional(),
     returnDate: z.string().nullable().optional(),
     alternateTransportation: z.string().nullable().optional(),
+    rainAlternateDate: z.string().nullable().optional().refine(
+      (val) => !val || !isNaN(Date.parse(val)),
+      'Rain alternate date must be a valid date',
+    ),
+    substituteCount: z.number().int().min(0).max(50).nullable().optional(),
+    parentalPermissionReceived: z.boolean().optional(),
+    plansForNonParticipants: z.string().max(2000).nullable().optional(),
+    chaperones: z
+      .array(
+        z.object({
+          name: z.string().min(1).max(200),
+          backgroundCheckComplete: z.boolean(),
+        }),
+      )
+      .nullable()
+      .optional(),
+    instructionalTimeMissed: z.string().max(200).nullable().optional(),
+    reimbursementExpenses: z
+      .array(z.enum(['Registration', 'Meals', 'Mileage', 'Lodging', 'Other']))
+      .optional()
+      .default([]),
+    overnightSafetyPrecautions: z.string().max(3000).nullable().optional(),
   })
   .refine(
     (data) => {
