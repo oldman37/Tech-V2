@@ -239,7 +239,7 @@
 
 ---
 
-#### M-3: `uuid` v13.0.0 (backend)
+#### ~~M-3: `uuid` v13.0.0 (backend)~~ ✅ COMPLETED — Updated to v14.0.0 on 2026-05-01
 
 | Field | Detail |
 |---|---|
@@ -248,7 +248,7 @@
 | **Fix** | Update to `uuid@14.0.0` |
 | **`npm audit fix --force`** | Available but **breaking change** — v14 changes the import API |
 | **Risk** | Moderate. Only triggered when the optional `buf` parameter is passed to `v3()`, `v5()`, or `v6()`. If the project only calls `uuid.v4()` without `buf`, the vulnerability is not triggered. Review usage before upgrading. |
-| **Side effect** | `@azure/msal-node` and `@azure/identity` transitively depend on `uuid <14.0.0`. Updating the direct dependency does NOT fix the azure packages' internal copy — they must be updated separately (see M-4). |
+| **Side effect** | `@azure/msal-node` and `@azure/identity` transitively depend on `uuid <14.0.0`. Updating the direct dependency does NOT fix the azure packages' internal copy — they must be updated separately (see M-4). `exceljs` also has an internal transitive dependency on `uuid <14.0.0` — awaiting upstream exceljs fix. |
 
 ---
 
@@ -545,7 +545,7 @@ After items 2–5: run `npm audit fix` from the project root to clean transitive
 |---|---|---|---|---|
 | 6 | `vite` | Update to ≥7.3.2 | LOW | ✅ Done (v8.0.10) |
 | 7 | `axios` | Update to ≥1.15.0 | LOW | ✅ Done (v1.15.2) |
-| 8 | `uuid` | Audit buf-param usage, then update to v14 | MEDIUM | ⬜ Pending |
+| 8 | `uuid` | Audit buf-param usage, then update to v14 | MEDIUM | ✅ Done (v14.0.0) |
 
 ---
 
@@ -594,7 +594,7 @@ npm audit
 
 **Expected result after Phase 1+2 fixes:** Reduction from 29 vulnerabilities to approximately 4–6 (only the azure/uuid breaking-change items and any unfixable transitive remainders).
 
-**✅ ACTUAL RESULT (2026-05-01):** Reduced from **29 → 6 vulnerabilities**. All Phase 1 and Phase 2 items (except uuid) are complete. Remaining 6 are moderate (uuid/azure transitive, prisma transitive — require breaking changes or upstream fixes).
+**✅ ACTUAL RESULT (2026-05-01):** Reduced from **29 → 6 vulnerabilities**. All Phase 1 and Phase 2 items are complete. Remaining 6 are moderate transitive-only (uuid inside `@azure/msal-node`, uuid inside `exceljs`, and prisma transitives — all require upstream package releases or breaking major version jumps).
 
 ---
 
