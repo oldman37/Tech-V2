@@ -8,7 +8,7 @@ COPY package.json package-lock.json* ./
 COPY prisma ./prisma/
 
 # Install all dependencies (including dev for build)
-RUN npm ci
+RUN npm install
 
 # Copy Prisma config after npm ci to preserve layer cache
 COPY prisma.config.ts ./
@@ -32,7 +32,7 @@ WORKDIR /app
 COPY package.json package-lock.json* ./
 COPY prisma ./prisma/
 COPY prisma.config.ts ./
-RUN npm ci --omit=dev
+RUN npm install --omit=dev
 
 # Generate Prisma client in production image
 RUN npx prisma generate
