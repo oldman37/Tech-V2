@@ -3,7 +3,7 @@
 **Auditor:** GitHub Copilot (Claude Sonnet 4.6)  
 **Scope:** All package.json files in the Tech-V2 monorepo  
 **npm audit result:** 29 vulnerabilities (13 moderate, 16 high) at time of audit  
-**npm audit result (current):** 6 vulnerabilities remaining (all moderate — uuid/azure transitive chain, prisma transitive)
+**npm audit result (current):** 5 vulnerabilities remaining (all moderate — exceljs→uuid transitive, prisma→hono transitive; both awaiting upstream fixes)
 
 ---
 
@@ -114,9 +114,9 @@
 
 | Package | Version Pinned | Notes |
 |---|---|---|
-| `typescript` | `^5.3.3` | TypeScript compiler — older pin than backend/frontend |
+| ~~`typescript`~~ | ~~`^5.3.3`~~ → `^5.9.3` | TypeScript compiler — ✅ Aligned with backend/frontend on 2026-05-01 |
 
-> **Note:** `shared` has no runtime dependencies. The TypeScript version pinned here (`^5.3.3`) is older than backend/frontend (`^5.9.3`). Should be aligned but is a LOW concern since it only affects the shared type build.
+> **Note:** `shared` has no runtime dependencies. The TypeScript version has been aligned to `^5.9.3` to match backend/frontend.
 
 ---
 
@@ -252,7 +252,7 @@
 
 ---
 
-#### M-4: `@azure/msal-node` v3.8.4 / `@azure/identity` v4.13.0 (backend)
+#### ~~M-4: `@azure/msal-node` v3.8.4 / `@azure/identity` v4.13.0 (backend)~~ ✅ COMPLETED — msal-node updated to v5.1.5 on 2026-05-01
 
 | Field | Detail |
 |---|---|
@@ -275,7 +275,7 @@
 
 ---
 
-#### M-6: `concurrently` v8.2.2 (root devDependency)
+#### M-6: ~~`concurrently` v8.2.2 (root devDependency)~~ ✅ COMPLETED — Updated to v9.2.1 on 2026-05-01
 
 | Field | Detail |
 |---|---|
@@ -553,9 +553,9 @@ After items 2–5: run `npm audit fix` from the project root to clean transitive
 
 | Priority | Package | Action | Effort | Status |
 |---|---|---|---|---|
-| 9 | `@azure/msal-node` + `@azure/identity` | Research v5 + v4.14.0 GA migration path; plan with testing window | HIGH | ⬜ Pending |
-| 10 | `concurrently` | Update to v9 in root (verify Node version) | LOW | ⬜ Pending |
-| 11 | `shared` TypeScript | Align to `^5.9.3` | LOW | ⬜ Pending |
+| 9 | `@azure/msal-node` + `@azure/identity` | Research v5 + v4.14.0 GA migration path; plan with testing window | HIGH | ✅ Done (msal-node v5.1.5; identity already resolved) |
+| 10 | `concurrently` | Update to v9 in root (verify Node version) | LOW | ✅ Done (v9.2.1) |
+| 11 | `shared` TypeScript | Align to `^5.9.3` | LOW | ✅ Done |
 | 12 | Root `xlsx` | Remove duplicate entry (after Phase 1 xlsx replacement) | LOW | ✅ Done |
 
 ---
@@ -594,7 +594,7 @@ npm audit
 
 **Expected result after Phase 1+2 fixes:** Reduction from 29 vulnerabilities to approximately 4–6 (only the azure/uuid breaking-change items and any unfixable transitive remainders).
 
-**✅ ACTUAL RESULT (2026-05-01):** Reduced from **29 → 6 vulnerabilities**. All Phase 1 and Phase 2 items are complete. Remaining 6 are moderate transitive-only (uuid inside `@azure/msal-node`, uuid inside `exceljs`, and prisma transitives — all require upstream package releases or breaking major version jumps).
+**✅ ACTUAL RESULT (2026-05-01, after all phases):** Reduced from **29 → 5 moderate vulnerabilities**. All Phases 1, 2, and 3 complete. Remaining 5 are transitive-only (exceljs → uuid internal, prisma → hono internal — both awaiting upstream package releases).
 
 ---
 
