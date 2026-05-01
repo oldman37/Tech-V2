@@ -12,7 +12,7 @@
 import { Response, NextFunction } from 'express';
 import { AuthRequest } from '../middleware/auth';
 
-type PermissionModuleType = 'TECHNOLOGY' | 'MAINTENANCE' | 'REQUISITIONS' | 'WORK_ORDERS' | 'FIELD_TRIPS';
+type PermissionModuleType = 'TECHNOLOGY' | 'MAINTENANCE' | 'REQUISITIONS' | 'WORK_ORDERS' | 'FIELD_TRIPS' | 'TRANSPORTATION_REQUESTS';
 
 /**
  * Maps each env var name to the permission level it grants per module.
@@ -91,9 +91,17 @@ const GROUP_MODULE_MAP: Record<PermissionModuleType, Array<[string, number]>> = 
     ['ENTRA_AFTERSCHOOL_DIRECTOR_GROUP_ID', 3],
     ['ENTRA_NURSE_DIRECTOR_GROUP_ID', 3],
     ['ENTRA_TRANSPORTATION_DIRECTOR_GROUP_ID', 3],
+    ['ENTRA_TRANSPORTATION_SECRETARY_GROUP_ID', 3],  // Secretary: can approve Part C transportation
     ['ENTRA_MAINTENANCE_DIRECTOR_GROUP_ID', 3],
     ['ENTRA_MAINTENANCE_ADMIN_GROUP_ID', 3],
     ['ENTRA_ALL_STAFF_GROUP_ID', 2],
+  ],
+  TRANSPORTATION_REQUESTS: [
+    ['ENTRA_ADMIN_GROUP_ID',                      2],
+    ['ENTRA_TRANSPORTATION_SECRETARY_GROUP_ID',    2],  // Secretary: can approve/deny all
+    ['ENTRA_TRANSPORTATION_DIRECTOR_GROUP_ID',     2],  // Director also gets secretary access
+    ['ENTRA_DIRECTOR_OF_SCHOOLS_GROUP_ID',         2],
+    ['ENTRA_ALL_STAFF_GROUP_ID',                   1],  // All staff: submit + view own
   ],
 };
 

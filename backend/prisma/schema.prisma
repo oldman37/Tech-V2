@@ -508,6 +508,10 @@ model User {
   fieldTripStatusChanges                                    FieldTripStatusHistory[] @relation("FieldTripStatusChangedBy")
   transportationApprovals                                   FieldTripTransportationRequest[] @relation("TransportationApprover")
   transportationDenials                                     FieldTripTransportationRequest[] @relation("TransportationDenier")
+  // Standalone Transportation Request relations
+  transportationRequests                                    TransportationRequest[]          @relation("TransportationRequestSubmitter")
+  transportationRequestApprovals                            TransportationRequest[]          @relation("TransportationRequestApprover")
+  transportationRequestDenials                              TransportationRequest[]          @relation("TransportationRequestDenier")
 
   @@map("users")
 }
@@ -966,4 +970,74 @@ model TicketStatusHistory {
   @@index([ticketId])
   @@index([changedAt])
   @@map("ticket_status_history")
+}
+
+// ============================================
+// STANDALONE TRANSPORTATION REQUESTS
+// ============================================
+
+model TransportationRequest {
+  id            String   @id @default(uuid())
+
+  // Submitter (auto-populated from JWT)
+  submittedById String
+  submittedBy   User     @relation("TransportationRequestSubmitter", fields: [submittedById], references: [id])
+
+  // Part A — Requestor fills out (mirrors PDF form)
+  dateSubmitted          DateTime  @default(now())
+  school                 String    @db.VarChar(200)
+  groupOrActivity        String    @db.VarChar(300)
+  sponsorName            String    @db.VarChar(200)
+  chargedTo              String?   @db.VarChar(300)
+  tripDate               DateTime
+  busCount               Int
+  studentCount           Int
+  chaperoneCount         Int
+  needsDriver            Boolean   @default(true)
+  driverName             String?   @db.VarChar(200)
+
+  // Location & times
+  loadingLocation        String    @db.VarChar(500)
+  loadingTime            String    @db.VarChar(20)
+  leavingSchoolTime      String    @db.VarChar(20)
+  arriveFirstDestTime    String?   @db.VarChar(20)
+  leaveLastDestTime      String?   @db.VarChar(20)
+  returnToSchoolTime     String    @db.VarChar(20)
+
+  // Destinations (supports multiple stops)
+  primaryDestinationName    String  @db.VarChar(500)
+  primaryDestinationAddress String  @db.VarChar(500)
+  additionalDestinations    Json?   // Array of { name: string; address: string }
+
+  // Free-text notes
+  tripItinerary          String?   @db.Text
+
+  // Workflow
+  status                 String    @default("PENDING")
+  // PENDING | APPROVED | DENIED
+
+  // Approval/Denial fields (set by Transportation Secretary)
+  approvalComments       String?   @db.Text
+  approvedById           String?
+  approvedAt             DateTime?
+  deniedById             String?
+  deniedAt               DateTime?
+  denialReason           String?   @db.Text
+
+  // Snapshot of submitter email (for notifications at approval/denial time)
+  submitterEmail         String
+
+  // Timestamps
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  // Relations
+  approvedBy             User?     @relation("TransportationRequestApprover", fields: [approvedById], references: [id])
+  deniedBy               User?     @relation("TransportationRequestDenier", fields: [deniedById], references: [id])
+
+  @@index([status])
+  @@index([submittedById])
+  @@index([tripDate])
+  @@index([status, submittedById])
+  @@map("transportation_requests")
 }

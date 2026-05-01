@@ -734,3 +734,146 @@ export async function sendTransportationDenied(
     `,
   });
 }
+
+// ---------------------------------------------------------------------------
+// Standalone Transportation Request notification emails
+// ---------------------------------------------------------------------------
+
+/**
+ * Notify the Transportation Secretary group that a new standalone
+ * transportation request has been submitted and needs review.
+ */
+export async function sendTransportationRequestSubmitted(
+  emails: string[],
+  request: {
+    id:                     string;
+    school:                 string;
+    groupOrActivity:        string;
+    sponsorName:            string;
+    tripDate:               Date | string;
+    primaryDestinationName: string;
+    busCount:               number;
+    studentCount:           number;
+  },
+  submitterName: string,
+): Promise<void> {
+  if (emails.length === 0) return;
+
+  const dateStr = new Date(request.tripDate).toLocaleDateString('en-US', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+  });
+
+  await sendMail({
+    to:      emails,
+    subject: `Transportation Request Submitted: ${request.groupOrActivity} — ${dateStr}`,
+    html: `
+      <h2 style="color:#E65100;">New Transportation Request Awaiting Review</h2>
+      <p><strong>${escapeHtml(submitterName)}</strong> has submitted a transportation request that needs your review.</p>
+      <table style="border-collapse:collapse;width:100%;margin-top:16px;">
+        <tr><td style="padding:4px 8px;font-weight:bold;">School:</td>
+            <td style="padding:4px 8px;">${escapeHtml(request.school)}</td></tr>
+        <tr><td style="padding:4px 8px;font-weight:bold;">Group / Activity:</td>
+            <td style="padding:4px 8px;">${escapeHtml(request.groupOrActivity)}</td></tr>
+        <tr><td style="padding:4px 8px;font-weight:bold;">Sponsor:</td>
+            <td style="padding:4px 8px;">${escapeHtml(request.sponsorName)}</td></tr>
+        <tr><td style="padding:4px 8px;font-weight:bold;">Trip Date:</td>
+            <td style="padding:4px 8px;">${dateStr}</td></tr>
+        <tr><td style="padding:4px 8px;font-weight:bold;">Destination:</td>
+            <td style="padding:4px 8px;">${escapeHtml(request.primaryDestinationName)}</td></tr>
+        <tr><td style="padding:4px 8px;font-weight:bold;">Buses Requested:</td>
+            <td style="padding:4px 8px;">${request.busCount}</td></tr>
+        <tr><td style="padding:4px 8px;font-weight:bold;">Students:</td>
+            <td style="padding:4px 8px;">${request.studentCount}</td></tr>
+      </table>
+      <p style="margin-top:24px;">
+        <a href="${escapeHtml(process.env.APP_URL ?? '')}/transportation-requests/${escapeHtml(request.id)}"
+           style="display:inline-block;padding:10px 20px;background-color:#E65100;color:#ffffff;text-decoration:none;border-radius:4px;font-weight:bold;">
+          Review Request
+        </a>
+      </p>
+    `,
+  });
+}
+
+/**
+ * Notify the submitter their standalone transportation request was approved.
+ */
+export async function sendTransportationRequestApproved(
+  submitterEmail: string,
+  request: {
+    id:                     string;
+    school:                 string;
+    groupOrActivity:        string;
+    tripDate:               Date | string;
+    primaryDestinationName: string;
+    approvalComments?:      string | null;
+  },
+): Promise<void> {
+  const dateStr = new Date(request.tripDate).toLocaleDateString('en-US', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+  });
+
+  await sendMail({
+    to:      submitterEmail,
+    subject: `Transportation Request Approved: ${request.groupOrActivity} — ${dateStr}`,
+    html: `
+      <h2 style="color:#2E7D32;">Your Transportation Request Has Been Approved</h2>
+      <p>Your transportation request for <strong>${escapeHtml(request.groupOrActivity)}</strong> on ${dateStr} has been approved by the Transportation Secretary.</p>
+      <table style="border-collapse:collapse;width:100%;margin-top:16px;">
+        <tr><td style="padding:4px 8px;font-weight:bold;">School:</td>
+            <td style="padding:4px 8px;">${escapeHtml(request.school)}</td></tr>
+        <tr><td style="padding:4px 8px;font-weight:bold;">Destination:</td>
+            <td style="padding:4px 8px;">${escapeHtml(request.primaryDestinationName)}</td></tr>
+        <tr><td style="padding:4px 8px;font-weight:bold;">Trip Date:</td>
+            <td style="padding:4px 8px;">${dateStr}</td></tr>
+      </table>
+      ${request.approvalComments ? `
+      <p style="margin-top:16px;"><strong>Notes from Transportation Secretary:</strong></p>
+      <blockquote style="border-left:4px solid #2E7D32;margin:8px 0;padding:8px 16px;background:#E8F5E9;">
+        ${escapeHtml(request.approvalComments)}
+      </blockquote>` : ''}
+      <p style="margin-top:24px;">Please ensure all transportation arrangements are confirmed before the trip date.</p>
+    `,
+  });
+}
+
+/**
+ * Notify the submitter their standalone transportation request was denied.
+ */
+export async function sendTransportationRequestDenied(
+  submitterEmail: string,
+  request: {
+    id:                     string;
+    school:                 string;
+    groupOrActivity:        string;
+    tripDate:               Date | string;
+    primaryDestinationName: string;
+  },
+  denialReason: string,
+): Promise<void> {
+  const dateStr = new Date(request.tripDate).toLocaleDateString('en-US', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+  });
+
+  await sendMail({
+    to:      submitterEmail,
+    subject: `Transportation Request Denied: ${request.groupOrActivity} — ${dateStr}`,
+    html: `
+      <h2 style="color:#C62828;">Your Transportation Request Has Been Denied</h2>
+      <p>We regret to inform you that your transportation request for <strong>${escapeHtml(request.groupOrActivity)}</strong> has been denied.</p>
+      <table style="border-collapse:collapse;width:100%;margin-top:16px;">
+        <tr><td style="padding:4px 8px;font-weight:bold;">School:</td>
+            <td style="padding:4px 8px;">${escapeHtml(request.school)}</td></tr>
+        <tr><td style="padding:4px 8px;font-weight:bold;">Destination:</td>
+            <td style="padding:4px 8px;">${escapeHtml(request.primaryDestinationName)}</td></tr>
+        <tr><td style="padding:4px 8px;font-weight:bold;">Trip Date:</td>
+            <td style="padding:4px 8px;">${dateStr}</td></tr>
+      </table>
+      <p style="margin-top:16px;"><strong>Reason for denial:</strong></p>
+      <blockquote style="border-left:4px solid #C62828;margin:8px 0;padding:8px 16px;background:#FFEBEE;">
+        ${escapeHtml(denialReason)}
+      </blockquote>
+      <p style="margin-top:16px;">If you believe this decision was made in error, please contact the Transportation department directly.</p>
+    `,
+  });
+}

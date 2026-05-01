@@ -70,6 +70,7 @@ export interface AuthUserInfo {
     TECHNOLOGY: number;
     MAINTENANCE: number;
     REQUISITIONS: number;
+    FIELD_TRIPS: number;
     /** True if user is in the Finance Director group — can approve supervisor_approved POs */
     isFinanceDirectorApprover: boolean;
     /** True if user is strictly in the Finance Director group — can assign account codes */
@@ -82,6 +83,8 @@ export interface AuthUserInfo {
     isFoodServiceSupervisor: boolean;
     /** True if user is in the Food Services PO Entry group — can issue food service POs */
     isFoodServicePoEntry: boolean;
+    /** True if user is in the Transportation Secretary group — can approve standalone transportation requests */
+    isTransportationSecretary: boolean;
   };
   /** True if user belongs to at least ALL_STAFF or ALL_STUDENTS base groups */
   hasBaseAccess: boolean;

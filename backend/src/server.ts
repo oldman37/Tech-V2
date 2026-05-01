@@ -18,6 +18,7 @@ import settingsRoutes from './routes/settings.routes';
 import workOrderRoutes from './routes/work-orders.routes';
 import userRoomAssignmentRoutes from './routes/userRoomAssignment.routes';
 import fieldTripRoutes from './routes/fieldTrip.routes';
+import transportationRequestRoutes from './routes/transportationRequest.routes';
 import { cronJobsService } from './services/cronJobs.service';
 import { provideCsrfToken, getCsrfToken } from './middleware/csrf';
 import { logger, loggers } from './lib/logger';
@@ -121,6 +122,7 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api/work-orders', workOrderRoutes);
 app.use('/api', userRoomAssignmentRoutes);
 app.use('/api/field-trips', fieldTripRoutes);
+app.use('/api/transportation-requests', transportationRequestRoutes);
 
 // API info endpoint
 app.get('/api', (req: Request, res: Response) => {

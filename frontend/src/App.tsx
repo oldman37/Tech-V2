@@ -27,6 +27,11 @@ import {
   FieldTripTransportationPage,
   FieldTripTransportationDetail,
 } from './pages/FieldTrip'
+import {
+  TransportationRequestsPage,
+  TransportationRequestFormPage,
+  TransportationRequestDetailPage,
+} from './pages/TransportationRequests'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import AppLayout from './components/layout/AppLayout'
 import './App.css'
@@ -281,6 +286,36 @@ function App() {
             <ProtectedRoute>
               <AppLayout>
                 <AccessDenied />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/transportation-requests"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <TransportationRequestsPage />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/transportation-requests/new"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <TransportationRequestFormPage />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/transportation-requests/:id"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <TransportationRequestDetailPage />
               </AppLayout>
             </ProtectedRoute>
           }

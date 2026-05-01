@@ -17,12 +17,14 @@ interface User {
     TECHNOLOGY: number;
     MAINTENANCE: number;
     REQUISITIONS: number;
+    FIELD_TRIPS: number;
     isFinanceDirectorApprover: boolean;
     isStrictFinanceDirector: boolean;
     isDosApprover: boolean;
     isPoEntryUser: boolean;
     isFoodServiceSupervisor: boolean;
     isFoodServicePoEntry: boolean;
+    isTransportationSecretary: boolean;
   };
 }
 

@@ -15,6 +15,7 @@ interface NavItem {
   adminOnly?: boolean;
   requireTech?: boolean;
   requireRoomAssignment?: boolean;
+  requireFieldTripApprover?: boolean;
 }
 
 interface NavSection {
@@ -44,7 +45,8 @@ const NAV_SECTIONS: NavSection[] = [
       { label: 'Purchase Orders', icon: '📋', path: '/purchase-orders' },
       { label: 'Work Orders', icon: '🔧', path: '/work-orders' },
       { label: 'Field Trips', icon: '🚌', path: '/field-trips' },
-      { label: 'Field Trip Approvals', icon: '✅', path: '/field-trips/approvals' },
+      { label: 'Field Trip Approvals', icon: '✅', path: '/field-trips/approvals', requireFieldTripApprover: true },
+      { label: 'Transportation Requests', icon: '🚐', path: '/transportation-requests' },
     ],
   },
   {
@@ -73,6 +75,7 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
   const location = useLocation();
   const isAdmin = user?.roles?.includes('ADMIN');
   const hasTechAccess = isAdmin || (user?.permLevels?.TECHNOLOGY ?? 0) >= 2;
+  const hasFieldTripApproverAccess = isAdmin || (user?.permLevels?.FIELD_TRIPS ?? 0) >= 3;
   const { canAccess: canAccessRoomAssignments } = useRoomAssignmentAccess();
 
   const handleLogout = async () => {
@@ -112,6 +115,7 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
             const visibleItems = section.items.filter((item) =>
               (!item.adminOnly || isAdmin) &&
               (!item.requireTech || hasTechAccess) &&
+              (!item.requireFieldTripApprover || hasFieldTripApproverAccess) &&
               (!item.requireRoomAssignment || canAccessRoomAssignments)
             );
             if (visibleItems.length === 0) return null;

@@ -286,6 +286,10 @@ export const callback = async (
     const isFoodServiceSupervisor = fsSupGroupId ? groupIds.includes(fsSupGroupId) : false;
     const isFoodServicePoEntry    = fsPoEntryGroupId ? groupIds.includes(fsPoEntryGroupId) : false;
 
+    // Transportation Secretary flag
+    const transportSecretaryGroupId = process.env.ENTRA_TRANSPORTATION_SECRETARY_GROUP_ID;
+    const isTransportationSecretary = transportSecretaryGroupId ? groupIds.includes(transportSecretaryGroupId) : false;
+
     // Check whether the user belongs to ANY recognised Entra group from .env.
     // At minimum they need ALL_STAFF or ALL_STUDENTS, but any configured
     // ENTRA_*_GROUP_ID grants access to the system.
@@ -308,7 +312,7 @@ export const callback = async (
         department: user.department,
         roles: roles,
         groups: groupIds,
-        permLevels: { ...permLevels, isFinanceDirectorApprover, isStrictFinanceDirector, isDosApprover, isPoEntryUser, isFoodServiceSupervisor, isFoodServicePoEntry },
+        permLevels: { ...permLevels, isFinanceDirectorApprover, isStrictFinanceDirector, isDosApprover, isPoEntryUser, isFoodServiceSupervisor, isFoodServicePoEntry, isTransportationSecretary },
         hasBaseAccess,
       },
     };
