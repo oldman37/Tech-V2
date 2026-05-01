@@ -1,4 +1,4 @@
-import { ConfidentialClientApplication, Configuration } from '@azure/msal-node';
+import { ConfidentialClientApplication, Configuration, LogLevel } from '@azure/msal-node';
 import { Client } from '@microsoft/microsoft-graph-client';
 import { ClientSecretCredential } from '@azure/identity';
 import { TokenCredentialAuthenticationProvider } from '@microsoft/microsoft-graph-client/authProviders/azureTokenCredentials';
@@ -23,7 +23,7 @@ const msalConfig: Configuration = {
         }
       },
       piiLoggingEnabled: false,
-      logLevel: 'Verbose' as any,
+      logLevel: LogLevel.Verbose,
     },
   },
 };
