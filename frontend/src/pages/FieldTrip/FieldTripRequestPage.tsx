@@ -463,7 +463,7 @@ export function FieldTripRequestPage() {
             leaveLastDestTime: form.transportLeaveLastDestTime || undefined,
             additionalDestinations: form.transportAdditionalDests
               .filter(d => d.name.trim())
-              .map(d => ({ name: d.name.trim(), address: '' })),
+              .map(d => ({ name: d.name.trim(), arriveTime: d.arriveTime, leaveTime: d.leaveTime })),
             tripItinerary: form.transportItinerary || undefined,
           });
         } catch (e) {
