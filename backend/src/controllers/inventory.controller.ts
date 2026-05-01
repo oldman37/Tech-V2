@@ -12,7 +12,7 @@ import { InventoryImportService } from '../services/inventoryImport.service';
 import { handleControllerError } from '../utils/errorHandler';
 import { prisma } from '../lib/prisma';
 import { logger } from '../lib/logger';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 
 // Instantiate services
 const inventoryService = new InventoryService(prisma);
@@ -487,18 +487,21 @@ export const exportInventory = async (req: AuthRequest, res: Response) => {
       'Created At': new Date(item.createdAt).toLocaleDateString(),
     }));
 
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.json_to_sheet(rows);
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Inventory');
 
-    // Auto-width columns
-    const colWidths = Object.keys(rows[0] || {}).map((key) => ({
-      wch: Math.max(key.length, 15),
+    // Define columns with header labels, keys, and widths in one pass
+    const columnKeys = Object.keys(rows[0] || {});
+    worksheet.columns = columnKeys.map((key) => ({
+      header: key,
+      key: key,
+      width: Math.max(key.length, 15),
     }));
-    ws['!cols'] = colWidths;
 
-    XLSX.utils.book_append_sheet(wb, ws, 'Inventory');
+    // Add all data rows
+    worksheet.addRows(rows);
 
-    const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    const buf = Buffer.from(await workbook.xlsx.writeBuffer());
 
     const dateStr = new Date().toISOString().split('T')[0];
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');

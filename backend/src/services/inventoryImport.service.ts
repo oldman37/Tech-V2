@@ -6,7 +6,8 @@
  */
 
 import { PrismaClient, InventoryImportJob, InventoryImportItem } from '@prisma/client';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
+import { parse as parseCSV } from 'csv-parse/sync';
 import { z } from 'zod';
 import { logger } from '../lib/logger';
 import { ValidationError } from '../utils/errors';
@@ -119,8 +120,8 @@ export class InventoryImportService {
     });
 
     try {
-      // Parse Excel file
-      const rows = await this.parseExcelFile(fileBuffer);
+      // Parse file (Excel or CSV)
+      const rows = await this.parseFile(fileBuffer, fileName);
       
       // Update total rows
       await this.prisma.inventoryImportJob.update({
@@ -222,45 +223,126 @@ export class InventoryImportService {
   }
 
   /**
-   * Parse Excel file buffer to array of row data
+   * Route file to CSV or Excel parser based on extension
    */
-  private async parseExcelFile(fileBuffer: Buffer): Promise<ExcelRowData[]> {
+  private async parseFile(fileBuffer: Buffer, fileName: string): Promise<ExcelRowData[]> {
+    const ext = fileName.split('.').pop()?.toLowerCase();
+    if (ext === 'csv') {
+      return this.parseCSVBuffer(fileBuffer);
+    }
+    return this.parseExcelBuffer(fileBuffer);
+  }
+
+  /**
+   * Parse CSV buffer using csv-parse/sync
+   */
+  private parseCSVBuffer(fileBuffer: Buffer): ExcelRowData[] {
     try {
-      const workbook = XLSX.read(fileBuffer, { type: 'buffer', raw: false, cellDates: true });
-      
-      // Get first sheet (or find "Non-disposed Equipment" sheet)
-      let sheetName = workbook.SheetNames[0];
-      
-      // Try to find the specific sheet
-      const targetSheet = workbook.SheetNames.find(name => 
-        name.toLowerCase().includes('non-disposed') || 
-        name.toLowerCase().includes('equipment')
-      );
-      
-      if (targetSheet) {
-        sheetName = targetSheet;
-      }
+      const rows = parseCSV(fileBuffer, {
+        columns: true,
+        skip_empty_lines: true,
+        trim: true,
+        cast: true,
+      }) as ExcelRowData[];
 
-      const worksheet = workbook.Sheets[sheetName];
-      
-      // Convert to JSON with header row
-      const rows = XLSX.utils.sheet_to_json<ExcelRowData>(worksheet, {
-        raw: false, // Format dates and numbers
-        defval: null, // Use null for empty cells
-      });
-
-      logger.info('Excel sheet parsed', {
-        sheetName,
-        rowCount: rows.length,
-      });
-
+      logger.info('CSV file parsed', { rowCount: rows.length });
       return rows;
     } catch (error) {
+      logger.error('Failed to parse CSV file', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+      throw new ValidationError('Failed to parse file. Please ensure it is a valid .xlsx, .xls, or .csv file.');
+    }
+  }
+
+  /**
+   * Parse Excel buffer using ExcelJS
+   */
+  private async parseExcelBuffer(fileBuffer: Buffer): Promise<ExcelRowData[]> {
+    try {
+      const workbook = new ExcelJS.Workbook();
+      // ExcelJS type defs use legacy Buffer (no generic); Node 20+ Buffer<ArrayBufferLike> is structurally incompatible.
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-expect-error TS2345: ExcelJS Buffer typedef mismatch with Node 20+ Buffer<ArrayBufferLike>
+      await workbook.xlsx.load(fileBuffer);
+
+      // Find preferred sheet, fall back to first
+      const worksheet =
+        workbook.worksheets.find(
+          (ws) =>
+            ws.name.toLowerCase().includes('non-disposed') ||
+            ws.name.toLowerCase().includes('equipment')
+        ) ?? workbook.worksheets[0];
+
+      if (!worksheet) {
+        throw new ValidationError('No worksheets found in the uploaded file.');
+      }
+
+      const rows = this.worksheetToJson<ExcelRowData>(worksheet);
+
+      logger.info('Excel sheet parsed', {
+        sheetName: worksheet.name,
+        rowCount: rows.length,
+      });
+      return rows;
+    } catch (error) {
+      if (error instanceof ValidationError) throw error;
       logger.error('Failed to parse Excel file', {
         error: error instanceof Error ? error.message : 'Unknown error',
       });
       throw new ValidationError('Failed to parse file. Please ensure it is a valid .xlsx, .xls, or .csv file.');
     }
+  }
+
+  /**
+   * Convert an ExcelJS worksheet to a typed JSON array (replaces XLSX.utils.sheet_to_json)
+   */
+  private worksheetToJson<T extends object>(worksheet: ExcelJS.Worksheet): T[] {
+    const headerRow = worksheet.getRow(1);
+    const headers: string[] = [];
+    headerRow.eachCell((cell, colNumber) => {
+      headers[colNumber] = cell.value?.toString() ?? '';
+    });
+
+    const rows: T[] = [];
+    worksheet.eachRow((row, rowNumber) => {
+      if (rowNumber === 1) return; // skip header row
+
+      const rowData: Record<string, unknown> = {};
+      row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+        const header = headers[colNumber];
+        if (!header) return;
+
+        let value: unknown = null;
+        if (cell.value !== null && cell.value !== undefined) {
+          if (cell.value instanceof Date) {
+            value = cell.value;
+          } else if (
+            typeof cell.value === 'object' &&
+            'richText' in (cell.value as object)
+          ) {
+            value = (cell.value as ExcelJS.CellRichTextValue).richText
+              .map((r) => r.text)
+              .join('');
+          } else if (
+            typeof cell.value === 'object' &&
+            'result' in (cell.value as object)
+          ) {
+            value = (cell.value as ExcelJS.CellFormulaValue).result as
+              | number
+              | string
+              | null;
+          } else {
+            value = cell.value;
+          }
+        }
+        rowData[header] = value;
+      });
+
+      rows.push(rowData as T);
+    });
+
+    return rows;
   }
 
   /**
