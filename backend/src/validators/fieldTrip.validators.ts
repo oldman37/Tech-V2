@@ -240,13 +240,6 @@ const FieldTripBodyShape = {
 export const CreateFieldTripSchema = z
   .object(FieldTripBodyShape)
   .refine(
-    (data) => !data.transportationNeeded || (data.transportationDetails && data.transportationDetails.trim().length > 0),
-    {
-      message: 'Transportation details are required when transportation is needed',
-      path: ['transportationDetails'],
-    },
-  )
-  .refine(
     (data) => !data.isOvernightTrip || (data.returnDate && data.returnDate.trim().length > 0),
     {
       message: 'Return date is required for overnight trips',

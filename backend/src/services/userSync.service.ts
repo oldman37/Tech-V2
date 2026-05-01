@@ -99,6 +99,16 @@ export class UserSyncService {
       ],
     });
 
+    // Assistant Director of Schools - Senior administrative authority; field trip approval stage 4
+    addMapping('ENTRA_ASST_DIRECTOR_OF_SCHOOLS_GROUP_ID', process.env.ENTRA_ASST_DIRECTOR_OF_SCHOOLS_GROUP_ID, {
+      role: 'USER',
+      permissions: [
+        { module: 'TECHNOLOGY', level: 2 },
+        { module: 'MAINTENANCE', level: 3 },
+        { module: 'REQUISITIONS', level: 4 },
+      ],
+    });
+
     // Director of Finance - Financial approval (dos_approved stage)
     addMapping('ENTRA_FINANCE_DIRECTOR_GROUP_ID', process.env.ENTRA_FINANCE_DIRECTOR_GROUP_ID, {
       role: 'USER',

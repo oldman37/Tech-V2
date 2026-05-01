@@ -125,6 +125,15 @@ export class FieldTripService {
         isOvernightTrip:      data.isOvernightTrip,
         returnDate:           data.isOvernightTrip && data.returnDate ? new Date(data.returnDate) : null,
         alternateTransportation: data.transportationNeeded ? null : (data.alternateTransportation ?? null),
+        // Step 3 fields
+        rainAlternateDate:           data.rainAlternateDate ? new Date(data.rainAlternateDate) : null,
+        substituteCount:             data.substituteCount ?? 0,
+        parentalPermissionReceived:  data.parentalPermissionReceived ?? false,
+        plansForNonParticipants:     data.plansForNonParticipants ?? null,
+        chaperones:                  data.chaperones ?? [],
+        instructionalTimeMissed:     data.instructionalTimeMissed ?? null,
+        reimbursementExpenses:       data.reimbursementExpenses ?? [],
+        overnightSafetyPrecautions:  data.isOvernightTrip ? (data.overnightSafetyPrecautions ?? null) : null,
         status:               'DRAFT',
       },
       include: TRIP_LIST_INCLUDE,
@@ -172,6 +181,15 @@ export class FieldTripService {
     if (data.isOvernightTrip       !== undefined) updateData.isOvernightTrip       = data.isOvernightTrip;
     if (data.returnDate            !== undefined) updateData.returnDate            = data.returnDate ? new Date(data.returnDate) : null;
     if (data.alternateTransportation !== undefined) updateData.alternateTransportation = data.alternateTransportation ?? null;
+    // Step 3 fields
+    if (data.rainAlternateDate          !== undefined) updateData.rainAlternateDate          = data.rainAlternateDate ? new Date(data.rainAlternateDate) : null;
+    if (data.substituteCount            !== undefined) updateData.substituteCount            = data.substituteCount ?? null;
+    if (data.parentalPermissionReceived !== undefined) updateData.parentalPermissionReceived = data.parentalPermissionReceived ?? false;
+    if (data.plansForNonParticipants    !== undefined) updateData.plansForNonParticipants    = data.plansForNonParticipants ?? null;
+    if (data.chaperones                 !== undefined) updateData.chaperones                 = data.chaperones ?? [];
+    if (data.instructionalTimeMissed    !== undefined) updateData.instructionalTimeMissed    = data.instructionalTimeMissed ?? null;
+    if (data.reimbursementExpenses      !== undefined) updateData.reimbursementExpenses      = data.reimbursementExpenses ?? [];
+    if (data.overnightSafetyPrecautions !== undefined) updateData.overnightSafetyPrecautions = data.overnightSafetyPrecautions ?? null;
 
     return prisma.fieldTripRequest.update({
       where: { id },
@@ -434,7 +452,10 @@ export class FieldTripService {
 
     if (eligibleStatuses.length === 0) return [];
 
-    // For PENDING_SUPERVISOR, scope to trips submitted by this user's direct reports only.
+    // For PENDING_SUPERVISOR:
+    //   - Exact supervisor level (3): scope to direct reports only.
+    //   - Higher authority (Asst Director, Director, etc.): see ALL PENDING_SUPERVISOR trips
+    //     so they have full visibility and can act as backup approvers.
     // For all other stages (ASST_DIRECTOR, DIRECTOR, FINANCE_DIRECTOR) no additional scoping
     // is required — those approvers see all trips at their stage.
     const nonSupervisorStatuses = eligibleStatuses.filter(s => s !== 'PENDING_SUPERVISOR');
@@ -443,16 +464,22 @@ export class FieldTripService {
     const orConditions: Array<{ status: string; submittedById?: { in: string[] } } | { status: { in: string[] } }> = [];
 
     if (includesSupervisor) {
-      const directReports = await prisma.userSupervisor.findMany({
-        where:  { supervisorId: userId },
-        select: { userId: true },
-      });
-      const directReportIds = directReports.map(r => r.userId);
-      if (directReportIds.length > 0) {
-        orConditions.push({
-          status:        'PENDING_SUPERVISOR',
-          submittedById: { in: directReportIds },
+      if (permLevel === STAGE_MIN_LEVEL['PENDING_SUPERVISOR']) {
+        // Pure supervisor level — scope PENDING_SUPERVISOR to direct reports only
+        const directReports = await prisma.userSupervisor.findMany({
+          where:  { supervisorId: userId },
+          select: { userId: true },
         });
+        const directReportIds = directReports.map(r => r.userId);
+        if (directReportIds.length > 0) {
+          orConditions.push({
+            status:        'PENDING_SUPERVISOR',
+            submittedById: { in: directReportIds },
+          });
+        }
+      } else {
+        // Higher authority (Asst Director+) — see ALL trips at PENDING_SUPERVISOR
+        orConditions.push({ status: 'PENDING_SUPERVISOR' });
       }
     }
 

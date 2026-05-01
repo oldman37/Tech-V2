@@ -450,20 +450,20 @@ export function FieldTripRequestPage() {
       queryClient.invalidateQueries({ queryKey: ['field-trips', 'my-requests'] });
       if (trip.transportationNeeded) {
         try {
-          const busCount = Math.ceil((parseInt(form.studentCount) || 0) / 52) || 1;
+          const busCount       = Math.ceil((parseInt(form.studentCount) || 0) / 52) || 1;
+          const chaperoneCount = form.chaperones.filter(c => c.name.trim()).length;
           await fieldTripTransportationService.create(trip.id.toString(), {
             busCount,
+            chaperoneCount,
             needsDriver: form.transportNeedsDriver === 'true',
             driverName: form.transportDriverName || undefined,
             loadingLocation: form.transportLoadingLocation,
             loadingTime: form.transportLoadingTime,
-            arriveLocation: form.transportArriveLocation || undefined,
             arriveFirstDestTime: form.transportArriveFirstDestTime || undefined,
-            leaveLocation: form.transportLeaveLocation || undefined,
             leaveLastDestTime: form.transportLeaveLastDestTime || undefined,
-            returnToSchoolTime: form.transportReturnToSchoolTime || undefined,
-            additionalDestinations: form.transportAdditionalDests.filter(d => d.name.trim()),
-            spedBusNeeded: form.transportSpedBus === 'true',
+            additionalDestinations: form.transportAdditionalDests
+              .filter(d => d.name.trim())
+              .map(d => ({ name: d.name.trim(), address: '' })),
             tripItinerary: form.transportItinerary || undefined,
           });
         } catch (e) {
