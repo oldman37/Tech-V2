@@ -93,6 +93,46 @@ export const getWorkOrderById = async (req: AuthRequest, res: Response): Promise
 export const createWorkOrder = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const data   = CreateWorkOrderSchema.parse(req.body);
+
+    // Students (ALL_STUDENTS group) may only submit TECHNOLOGY work orders.
+    // Check by seeing if the user is exclusively in the students group and
+    // NOT in any group that grants MAINTENANCE access.
+    if (data.department === 'MAINTENANCE') {
+      const studentGroupId    = process.env.ENTRA_ALL_STUDENTS_GROUP_ID;
+      const userGroups        = req.user!.groups ?? [];
+      const isStudentOnly =
+        studentGroupId &&
+        userGroups.includes(studentGroupId) &&
+        (req.user!.permLevel ?? 1) <= 2;
+
+      // Staff also have permLevel 2 for WORK_ORDERS — further differentiate
+      // by checking they are NOT in ANY maintenance-granting group.
+      const maintenanceGroupEnvVars = [
+        'ENTRA_ADMIN_GROUP_ID',
+        'ENTRA_DIRECTOR_OF_SCHOOLS_GROUP_ID',
+        'ENTRA_MAINTENANCE_DIRECTOR_GROUP_ID',
+        'ENTRA_MAINTENANCE_ADMIN_GROUP_ID',
+        'ENTRA_TECH_ASSISTANTS_GROUP_ID',
+        'ENTRA_FINANCE_DIRECTOR_GROUP_ID',
+        'ENTRA_PRINCIPALS_GROUP_ID',
+        'ENTRA_VICE_PRINCIPALS_GROUP_ID',
+        'ENTRA_TRANSPORTATION_DIRECTOR_GROUP_ID',
+        'ENTRA_ALL_STAFF_GROUP_ID',
+      ];
+      const hasMaintenanceAccess = maintenanceGroupEnvVars.some((envVar) => {
+        const gid = process.env[envVar];
+        return gid && userGroups.includes(gid);
+      });
+
+      if (isStudentOnly && !hasMaintenanceAccess) {
+        res.status(403).json({
+          error: 'Forbidden',
+          message: 'Students may only submit Technology work orders.',
+        });
+        return;
+      }
+    }
+
     const ticket = await service.createWorkOrder(data, req.user!.id);
     res.status(201).json(mapTicket(ticket));
   } catch (error) {

@@ -10,6 +10,7 @@ export const Dashboard = () => {
   const navigate = useNavigate();
   const isAdmin = user?.roles?.includes('ADMIN');
   const hasTechAccess = isAdmin || (user?.permLevels?.TECHNOLOGY ?? 0) >= 2;
+  const isStaff = isAdmin || (user?.permLevels?.REQUISITIONS ?? 0) >= 2;
 
   const { data: stats } = useQuery({
     queryKey: queryKeys.inventory.stats(),
@@ -67,12 +68,14 @@ export const Dashboard = () => {
           </div>
         )}
 
-        <div className="card">
-          <div className="feature-icon purchase">PO</div>
-          <h3 style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '0.5rem', color: 'var(--slate-900)' }}>Purchase Orders</h3>
-          <p style={{ fontSize: '0.875rem', color: 'var(--slate-600)', marginBottom: '1.25rem', lineHeight: 1.5 }}>Create and track purchase orders</p>
-          <button onClick={() => navigate('/purchase-orders')} className="btn btn-primary" style={{ width: '100%' }}>Manage Purchase Orders</button>
-        </div>
+        {isStaff && (
+          <div className="card">
+            <div className="feature-icon purchase">PO</div>
+            <h3 style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '0.5rem', color: 'var(--slate-900)' }}>Purchase Orders</h3>
+            <p style={{ fontSize: '0.875rem', color: 'var(--slate-600)', marginBottom: '1.25rem', lineHeight: 1.5 }}>Create and track purchase orders</p>
+            <button onClick={() => navigate('/purchase-orders')} className="btn btn-primary" style={{ width: '100%' }}>Manage Purchase Orders</button>
+          </div>
+        )}
 
         <div className="card">
           <div className="feature-icon maintenance">WO</div>

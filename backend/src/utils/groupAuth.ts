@@ -31,7 +31,6 @@ const GROUP_MODULE_MAP: Record<PermissionModuleType, Array<[string, number]>> = 
     ['ENTRA_VICE_PRINCIPALS_GROUP_ID', 2],
     ['ENTRA_MAINTENANCE_ADMIN_GROUP_ID', 2],
     ['ENTRA_ALL_STAFF_GROUP_ID', 1],
-    ['ENTRA_ALL_STUDENTS_GROUP_ID', 1],
   ],
   MAINTENANCE: [
     ['ENTRA_ADMIN_GROUP_ID', 3],
@@ -78,6 +77,7 @@ const GROUP_MODULE_MAP: Record<PermissionModuleType, Array<[string, number]>> = 
     ['ENTRA_FINANCE_DIRECTOR_GROUP_ID', 2],
     ['ENTRA_FOOD_SERVICES_PO_ENTRY_GROUP_ID', 2],
     ['ENTRA_ALL_STAFF_GROUP_ID', 2],
+    ['ENTRA_ALL_STUDENTS_GROUP_ID', 2],  // Students: submit + view own work orders only
   ],
   FIELD_TRIPS: [
     ['ENTRA_ADMIN_GROUP_ID', 6],

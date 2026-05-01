@@ -16,6 +16,7 @@ interface NavItem {
   requireTech?: boolean;
   requireRoomAssignment?: boolean;
   requireFieldTripApprover?: boolean;
+  staffOnly?: boolean;  // Hidden from students (ALL_STUDENTS group)
 }
 
 interface NavSection {
@@ -27,7 +28,7 @@ const NAV_SECTIONS: NavSection[] = [
   {
     items: [
       { label: 'Dashboard', icon: '🏠', path: '/dashboard' },
-      { label: 'My Equipment', icon: '💻', path: '/my-equipment' },
+      { label: 'My Equipment', icon: '💻', path: '/my-equipment', staffOnly: true },
     ],
   },
   {
@@ -42,11 +43,11 @@ const NAV_SECTIONS: NavSection[] = [
   {
     title: 'Operations',
     items: [
-      { label: 'Purchase Orders', icon: '📋', path: '/purchase-orders' },
+      { label: 'Purchase Orders', icon: '📋', path: '/purchase-orders', staffOnly: true },
       { label: 'Work Orders', icon: '🔧', path: '/work-orders' },
-      { label: 'Field Trips', icon: '🚌', path: '/field-trips' },
+      { label: 'Field Trips', icon: '🚌', path: '/field-trips', staffOnly: true },
       { label: 'Field Trip Approvals', icon: '✅', path: '/field-trips/approvals', requireFieldTripApprover: true },
-      { label: 'Transportation Requests', icon: '🚐', path: '/transportation-requests' },
+      { label: 'Transportation Requests', icon: '🚐', path: '/transportation-requests', staffOnly: true },
     ],
   },
   {
@@ -76,6 +77,7 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
   const isAdmin = user?.roles?.includes('ADMIN');
   const hasTechAccess = isAdmin || (user?.permLevels?.TECHNOLOGY ?? 0) >= 2;
   const hasFieldTripApproverAccess = isAdmin || (user?.permLevels?.FIELD_TRIPS ?? 0) >= 3;
+  const isStaff = isAdmin || (user?.permLevels?.REQUISITIONS ?? 0) >= 2;
   const { canAccess: canAccessRoomAssignments } = useRoomAssignmentAccess();
 
   const handleLogout = async () => {
@@ -116,6 +118,7 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
               (!item.adminOnly || isAdmin) &&
               (!item.requireTech || hasTechAccess) &&
               (!item.requireFieldTripApprover || hasFieldTripApproverAccess) &&
+              (!item.staffOnly || isStaff) &&
               (!item.requireRoomAssignment || canAccessRoomAssignments)
             );
             if (visibleItems.length === 0) return null;

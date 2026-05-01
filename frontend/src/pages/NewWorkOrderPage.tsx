@@ -32,6 +32,7 @@ import { useRoomsByLocation } from '@/hooks/queries/useRooms';
 import { useCreateWorkOrder } from '@/hooks/mutations/useWorkOrderMutations';
 import { useUserDefaultLocation } from '@/hooks/queries/useUserDefaultLocation';
 import { DepartmentSelector } from '@/components/work-orders/DepartmentSelector';
+import { useAuthStore } from '@/store/authStore';
 import {
   TECH_CATEGORIES,
   MAINT_CATEGORIES,
@@ -84,11 +85,18 @@ function validate(form: FormState): FormErrors {
 
 export default function NewWorkOrderPage() {
   const navigate = useNavigate();
+  const { user } = useAuthStore();
   const [form, setForm] = useState<FormState>(INITIAL);
   const [touched, setTouched] = useState<Partial<Record<keyof FormState, boolean>>>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [locationOverridden, setLocationOverridden] = useState(false);
   const defaultsApplied = useRef(false);
+
+  // Staff have REQUISITIONS >= 2; students do not — use that to gate MAINTENANCE
+  const isStaff = (user?.permLevels?.REQUISITIONS ?? 0) >= 2 || user?.roles?.includes('ADMIN');
+  const allowedDepartments: WorkOrderDepartment[] = isStaff
+    ? ['TECHNOLOGY', 'MAINTENANCE']
+    : ['TECHNOLOGY'];
 
   const { data: locations = [] } = useLocations();
   const { rooms } = useRoomsByLocation(form.officeLocationId);
@@ -172,6 +180,7 @@ export default function NewWorkOrderPage() {
           value={form.department}
           onChange={handleDepartmentChange}
           disabled={createWorkOrder.isPending}
+          allowedDepartments={allowedDepartments}
         />
       </Paper>
 

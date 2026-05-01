@@ -8,6 +8,7 @@ interface DepartmentSelectorProps {
   value: WorkOrderDepartment | null;
   onChange: (dept: WorkOrderDepartment) => void;
   disabled?: boolean;
+  allowedDepartments?: WorkOrderDepartment[];
 }
 
 const DEPARTMENTS: {
@@ -30,12 +31,15 @@ const DEPARTMENTS: {
   },
 ];
 
-export function DepartmentSelector({ value, onChange, disabled = false }: DepartmentSelectorProps) {
+export function DepartmentSelector({ value, onChange, disabled = false, allowedDepartments }: DepartmentSelectorProps) {
   const theme = useTheme();
+  const visible = allowedDepartments
+    ? DEPARTMENTS.filter((d) => allowedDepartments.includes(d.value))
+    : DEPARTMENTS;
 
   return (
     <Box sx={{ display: 'flex', gap: 2 }}>
-      {DEPARTMENTS.map(({ value: deptValue, label, subtitle, Icon }) => {
+      {visible.map(({ value: deptValue, label, subtitle, Icon }) => {
         const isSelected = value === deptValue;
         return (
           <Card
