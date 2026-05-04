@@ -330,19 +330,7 @@ export const UpdateFieldTripSchema = z
       .optional()
       .default([]),
     overnightSafetyPrecautions: z.string().max(3000).nullable().optional(),
-  })
-  .refine(
-    (data) => {
-      if (data.transportationNeeded === true) {
-        return data.transportationDetails && data.transportationDetails.trim().length > 0;
-      }
-      return true;
-    },
-    {
-      message: 'Transportation details are required when transportation is needed',
-      path: ['transportationDetails'],
-    },
-  );
+  });
 
 export type UpdateFieldTripDto = z.infer<typeof UpdateFieldTripSchema>;
 
