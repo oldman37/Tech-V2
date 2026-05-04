@@ -75,12 +75,12 @@ export const FieldTripQuerySchema = z.object({
   fiscalYear: z.string().max(20, 'Fiscal year filter too long').optional(),
   onlyMine: z.preprocess(
     (val) => val === 'true' || val === '1',
-    z.boolean().optional(),
-  ),
+    z.boolean(),
+  ).optional(),
   pendingMyApproval: z.preprocess(
     (val) => val === 'true' || val === '1',
-    z.boolean().optional(),
-  ),
+    z.boolean(),
+  ).optional(),
 });
 
 export type FieldTripQueryDto = z.infer<typeof FieldTripQuerySchema>;
