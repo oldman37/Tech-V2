@@ -563,7 +563,7 @@ export function FieldTripRequestPage() {
 
   const isSaving     = createMutation.isPending || updateMutation.isPending;
   const isSubmitting = submitMutation.isPending;
-  const isReadOnly   = existingTrip && existingTrip.status !== 'DRAFT';
+  const isReadOnly   = existingTrip && existingTrip.status !== 'DRAFT' && existingTrip.status !== 'NEEDS_REVISION';
 
   // ---------------------------------------------------------------------------
   // Render

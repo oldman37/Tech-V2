@@ -21,6 +21,7 @@ import {
   sendFieldTripAdvancedToApprover,
   sendFieldTripFinalApproved,
   sendFieldTripDenied,
+  sendFieldTripSentBack,
   sendFieldTripTransportationNotice,
 } from '../services/email.service';
 import type { FieldTripApproverSnapshot } from '../services/email.service';
@@ -30,6 +31,7 @@ import {
   UpdateFieldTripSchema,
   ApproveTripSchema,
   DenyTripSchema,
+  SendBackTripSchema,
 } from '../validators/fieldTrip.validators';
 
 // ---------------------------------------------------------------------------
@@ -272,6 +274,86 @@ export const deny = async (req: AuthRequest, res: Response): Promise<void> => {
 };
 
 // ---------------------------------------------------------------------------
+// POST /api/field-trips/:id/send-back
+// ---------------------------------------------------------------------------
+
+export const sendBack = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const data      = SendBackTripSchema.parse(req.body);
+    const userId    = req.user!.id;
+    const permLevel = req.user!.permLevel ?? 1;
+    const id        = req.params.id as string;
+
+    const { updated, senderName } = await fieldTripService.sendBack(
+      userId, id, permLevel, data.reason, data.notes,
+    );
+
+    // Notify submitter (non-critical)
+    try {
+      await sendFieldTripSentBack(updated.submitterEmail, updated, senderName, data.reason);
+    } catch (emailErr) {
+      logger.error('Failed to send field trip send-back email', {
+        id,
+        error: emailErr instanceof Error ? emailErr.message : String(emailErr),
+      });
+    }
+
+    res.json(updated);
+  } catch (error) {
+    handleControllerError(error, res);
+  }
+};
+
+// ---------------------------------------------------------------------------
+// POST /api/field-trips/:id/resubmit
+// ---------------------------------------------------------------------------
+
+export const resubmit = async (req: AuthRequest, res: Response): Promise<void> => {
+  const userId        = req.user!.id;
+  const submitterName = req.user!.name;
+  const id            = req.params.id as string;
+
+  // Rebuild approver snapshot — abort if Graph unavailable
+  let snapshot: FieldTripApproverSnapshot;
+  try {
+    snapshot = await buildFieldTripApproverSnapshot(userId);
+  } catch {
+    res.status(503).json({
+      error:   'SERVICE_UNAVAILABLE',
+      message: 'Unable to resolve approver emails. Please try again in a few minutes.',
+    });
+    return;
+  }
+
+  try {
+    const result = await fieldTripService.resubmit(userId, id, submitterName, snapshot);
+
+    // Notify next approver (non-critical)
+    try {
+      if (result.status === 'PENDING_SUPERVISOR' && snapshot.supervisorEmails.length > 0) {
+        await sendFieldTripToSupervisor(snapshot.supervisorEmails, result, submitterName);
+      } else if (result.status === 'PENDING_ASST_DIRECTOR' && snapshot.asstDirectorEmails.length > 0) {
+        await sendFieldTripAdvancedToApprover(
+          snapshot.asstDirectorEmails,
+          result,
+          submitterName,
+          getStageName('PENDING_ASST_DIRECTOR'),
+        );
+      }
+    } catch (emailErr) {
+      logger.error('Failed to send field trip resubmit email', {
+        id,
+        error: emailErr instanceof Error ? emailErr.message : String(emailErr),
+      });
+    }
+
+    res.json(result);
+  } catch (error) {
+    handleControllerError(error, res);
+  }
+};
+
+// ---------------------------------------------------------------------------
 // DELETE /api/field-trips/:id
 // ---------------------------------------------------------------------------
 
@@ -283,3 +365,25 @@ export const deleteTrip = async (req: AuthRequest, res: Response): Promise<void>
     handleControllerError(error, res);
   }
 };
+
+// ---------------------------------------------------------------------------
+// GET /api/field-trips/:id/pdf
+// ---------------------------------------------------------------------------
+
+export const getFieldTripPdf = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const id        = req.params.id as string;
+    const userId    = req.user!.id;
+    const permLevel = req.user!.permLevel ?? 1;
+
+    const buffer = await fieldTripService.getFieldTripPdf(userId, id, permLevel);
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="field-trip-${id.slice(-8)}.pdf"`);
+    res.setHeader('Content-Length', buffer.length);
+    res.send(buffer);
+  } catch (error) {
+    handleControllerError(error, res);
+  }
+};
+

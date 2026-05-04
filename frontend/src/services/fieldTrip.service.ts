@@ -13,6 +13,7 @@ import type {
   UpdateFieldTripDto,
   ApproveTripDto,
   DenyTripDto,
+  SendBackTripDto,
 } from '../types/fieldTrip.types';
 
 const BASE = '/field-trips';
@@ -78,6 +79,16 @@ export const fieldTripService = {
     return res.data;
   },
 
+  sendBack: async (id: string, data: SendBackTripDto): Promise<FieldTripRequest> => {
+    const res = await api.post<FieldTripRequest>(`${BASE}/${id}/send-back`, data);
+    return res.data;
+  },
+
+  resubmit: async (id: string): Promise<FieldTripRequest> => {
+    const res = await api.post<FieldTripRequest>(`${BASE}/${id}/resubmit`, {});
+    return res.data;
+  },
+
   // ---------------------------------------------------------------------------
   // Date counts (calendar availability)
   // ---------------------------------------------------------------------------
@@ -95,5 +106,21 @@ export const fieldTripService = {
 
   delete: async (id: string): Promise<void> => {
     await api.delete(`${BASE}/${id}`);
+  },
+
+  // ---------------------------------------------------------------------------
+  // PDF export
+  // ---------------------------------------------------------------------------
+
+  downloadPdf: async (id: string): Promise<void> => {
+    const res = await api.get(`${BASE}/${id}/pdf`, { responseType: 'blob' });
+    const url = window.URL.createObjectURL(new Blob([res.data as BlobPart], { type: 'application/pdf' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `field-trip-${id.slice(-8)}.pdf`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
   },
 };

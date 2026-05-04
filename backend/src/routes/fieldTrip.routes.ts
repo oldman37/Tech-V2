@@ -24,6 +24,7 @@ import {
   UpdateFieldTripSchema,
   ApproveTripSchema,
   DenyTripSchema,
+  SendBackTripSchema,
 } from '../validators/fieldTrip.validators';
 import {
   CreateTransportationSchema,
@@ -126,6 +127,18 @@ router.delete(
   fieldTripController.deleteTrip,
 );
 
+/**
+ * GET /api/field-trips/:id/pdf
+ * Download a PDF export of the field trip request.
+ * Own request visible to level 2+; all others need level 3+.
+ */
+router.get(
+  '/:id/pdf',
+  validateRequest(FieldTripIdParamSchema, 'params'),
+  requireModule('FIELD_TRIPS', 2),
+  fieldTripController.getFieldTripPdf,
+);
+
 // ---------------------------------------------------------------------------
 // Workflow action routes
 // ---------------------------------------------------------------------------
@@ -165,6 +178,31 @@ router.post(
   validateRequest(DenyTripSchema, 'body'),
   requireModule('FIELD_TRIPS', 3),
   fieldTripController.deny,
+);
+
+/**
+ * POST /api/field-trips/:id/send-back
+ * Current-stage approver sends back for revision (NEEDS_REVISION).
+ * Minimum level 3 required; service validates exact level for the stage.
+ */
+router.post(
+  '/:id/send-back',
+  validateRequest(FieldTripIdParamSchema, 'params'),
+  validateRequest(SendBackTripSchema, 'body'),
+  requireModule('FIELD_TRIPS', 3),
+  fieldTripController.sendBack,
+);
+
+/**
+ * POST /api/field-trips/:id/resubmit
+ * Submitter resubmits a NEEDS_REVISION request. Restarts approval chain.
+ * Minimum level 2 (all staff with field trips access).
+ */
+router.post(
+  '/:id/resubmit',
+  validateRequest(FieldTripIdParamSchema, 'params'),
+  requireModule('FIELD_TRIPS', 2),
+  fieldTripController.resubmit,
 );
 
 // ---------------------------------------------------------------------------

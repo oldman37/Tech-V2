@@ -31,13 +31,15 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import EditIcon from '@mui/icons-material/Edit';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
+import UndoIcon from '@mui/icons-material/Undo';
+import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import { fieldTripService } from '../../services/fieldTrip.service';
-import type { ChaperoneEntry, FieldTripApproval, FieldTripRequest, FieldTripStatus, StatusChipColor } from '../../types/fieldTrip.types';
+import type { ChaperoneEntry, FieldTripRequest, FieldTripStatus, StatusChipColor } from '../../types/fieldTrip.types';
 import {
   FIELD_TRIP_STATUS_LABELS,
   FIELD_TRIP_STATUS_COLORS,
 } from '../../types/fieldTrip.types';
-
+import { FieldTripApprovalStepper } from '../../components/fieldtrip/FieldTripApprovalStepper';
 import { useAuthStore } from '../../store/authStore';
 
 // ---------------------------------------------------------------------------
@@ -61,11 +63,15 @@ export function FieldTripDetailPage() {
   const queryClient  = useQueryClient();
   const { user }     = useAuthStore();
 
-  const [denyDialogOpen, setDenyDialogOpen]   = useState(false);
+  const [denyDialogOpen, setDenyDialogOpen]     = useState(false);
   const [approveDialogOpen, setApproveDialogOpen] = useState(false);
-  const [denyReason, setDenyReason]           = useState('');
-  const [approveNotes, setApproveNotes]       = useState('');
-  const [actionError, setActionError]         = useState<string | null>(null);
+  const [denyReason, setDenyReason]               = useState('');
+  const [approveNotes, setApproveNotes]           = useState('');
+  const [actionError, setActionError]             = useState<string | null>(null);
+  const [pdfLoading, setPdfLoading]               = useState(false);
+  const [sendBackDialogOpen, setSendBackDialogOpen] = useState(false);
+  const [sendBackReason, setSendBackReason]         = useState('');
+  const [resubmitDialogOpen, setResubmitDialogOpen] = useState(false);
 
   const { data: trip, isLoading, error } = useQuery<FieldTripRequest>({
     queryKey: ['field-trips', id],
@@ -105,6 +111,35 @@ export function FieldTripDetailPage() {
     },
   });
 
+  const sendBackMutation = useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason: string }) =>
+      fieldTripService.sendBack(id, { reason }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['field-trips', id] });
+      queryClient.invalidateQueries({ queryKey: ['field-trips', 'pending-approvals'] });
+      setSendBackDialogOpen(false);
+      setSendBackReason('');
+      setActionError(null);
+    },
+    onError: (err: unknown) => {
+      const msg = err instanceof Error ? err.message : 'Failed to send back for revision';
+      setActionError(msg);
+    },
+  });
+
+  const resubmitMutation = useMutation({
+    mutationFn: (tripId: string) => fieldTripService.resubmit(tripId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['field-trips', id] });
+      setResubmitDialogOpen(false);
+      setActionError(null);
+    },
+    onError: (err: unknown) => {
+      const msg = err instanceof Error ? err.message : 'Failed to resubmit';
+      setActionError(msg);
+    },
+  });
+
   // ---------------------------------------------------------------------------
   // Render guards
   // ---------------------------------------------------------------------------
@@ -129,10 +164,12 @@ export function FieldTripDetailPage() {
   // Access control for action buttons
   // ---------------------------------------------------------------------------
 
-  const isPending   = PENDING_STATUSES.has(trip.status);
-  const isOwner     = trip.submittedById === user?.id;
+  const isPending        = PENDING_STATUSES.has(trip.status);
+  const isOwner          = trip.submittedById === user?.id;
+  const isNeedsRevision  = trip.status === 'NEEDS_REVISION';
 
   const showActionButtons = isPending && !isOwner;
+  const canResubmit       = isNeedsRevision && isOwner;
 
   // ---------------------------------------------------------------------------
   // Render helpers
@@ -144,6 +181,17 @@ export function FieldTripDetailPage() {
   const tripDateStr = new Date(trip.tripDate).toLocaleDateString('en-US', {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
   });
+
+  const handleDownloadPdf = async () => {
+    setPdfLoading(true);
+    try {
+      await fieldTripService.downloadPdf(trip.id);
+    } catch {
+      setActionError('Failed to generate PDF. Please try again.');
+    } finally {
+      setPdfLoading(false);
+    }
+  };
 
   return (
     <Box sx={{ p: 3, maxWidth: 900, mx: 'auto' }}>
@@ -170,6 +218,25 @@ export function FieldTripDetailPage() {
               Edit
             </Button>
           )}
+          {isNeedsRevision && isOwner && (
+            <Button
+              variant="outlined"
+              startIcon={<EditIcon />}
+              onClick={() => navigate(`/field-trips/${trip.id}/edit`)}
+              size="small"
+            >
+              Edit &amp; Revise
+            </Button>
+          )}
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={pdfLoading ? <CircularProgress size={14} /> : <PictureAsPdfIcon />}
+            disabled={pdfLoading}
+            onClick={handleDownloadPdf}
+          >
+            {pdfLoading ? 'Generating…' : 'Download PDF'}
+          </Button>
         </Box>
       </Box>
 
@@ -179,7 +246,7 @@ export function FieldTripDetailPage() {
       {showActionButtons && (
         <Paper sx={{ p: 2, mb: 3, bgcolor: 'action.hover' }}>
           <Typography variant="subtitle2" gutterBottom>Actions</Typography>
-          <Box sx={{ display: 'flex', gap: 2 }}>
+          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
             <Button
               variant="contained"
               color="success"
@@ -196,7 +263,29 @@ export function FieldTripDetailPage() {
             >
               Deny
             </Button>
+            <Button
+              variant="outlined"
+              color="warning"
+              startIcon={<UndoIcon />}
+              onClick={() => setSendBackDialogOpen(true)}
+            >
+              Send Back for Revision
+            </Button>
           </Box>
+        </Paper>
+      )}
+
+      {/* Resubmit button for submitter when NEEDS_REVISION */}
+      {canResubmit && (
+        <Paper sx={{ p: 2, mb: 3, bgcolor: 'action.hover' }}>
+          <Typography variant="subtitle2" gutterBottom>Revision Required</Typography>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={() => setResubmitDialogOpen(true)}
+          >
+            Resubmit Request
+          </Button>
         </Paper>
       )}
 
@@ -206,6 +295,15 @@ export function FieldTripDetailPage() {
           <strong>Denial Reason:</strong> {trip.denialReason}
         </Alert>
       )}
+
+      {/* Approval Progress stepper */}
+      <FieldTripApprovalStepper
+        status={trip.status}
+        approvals={trip.approvals}
+        statusHistory={trip.statusHistory}
+        revisionNote={trip.revisionNote}
+        denialReason={trip.denialReason}
+      />
 
       {/* Trip details */}
       <Paper sx={{ p: 3, mb: 3 }}>
@@ -366,17 +464,6 @@ export function FieldTripDetailPage() {
         </Grid>
       </Paper>
 
-      {/* Approval history */}
-      {trip.approvals && trip.approvals.length > 0 && (
-        <Paper sx={{ p: 3, mb: 3 }}>
-          <Typography variant="h6" gutterBottom>Approval History</Typography>
-          <Divider sx={{ mb: 2 }} />
-          {trip.approvals.map((approval: FieldTripApproval) => (
-            <ApprovalRow key={approval.id} approval={approval} />
-          ))}
-        </Paper>
-      )}
-
       {/* Approve dialog */}
       <Dialog open={approveDialogOpen} onClose={() => setApproveDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Approve Field Trip</DialogTitle>
@@ -443,6 +530,66 @@ export function FieldTripDetailPage() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Send Back for Revision dialog */}
+      <Dialog open={sendBackDialogOpen} onClose={() => setSendBackDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Send Back for Revision</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" gutterBottom>
+            You are sending the field trip to <strong>{trip.destination}</strong> back for revision.
+            The submitter will be notified and can edit and resubmit the request.
+          </Typography>
+          <TextField
+            fullWidth
+            multiline
+            minRows={3}
+            label="Reason for Revision (required)"
+            value={sendBackReason}
+            onChange={(e) => setSendBackReason(e.target.value)}
+            error={sendBackMutation.isError && sendBackReason.trim().length < 10}
+            helperText={sendBackReason.trim().length > 0 && sendBackReason.trim().length < 10 ? 'Reason must be at least 10 characters' : ''}
+            sx={{ mt: 2 }}
+            required
+            inputProps={{ maxLength: 1000 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => { setSendBackDialogOpen(false); setSendBackReason(''); }}>Cancel</Button>
+          <Button
+            variant="contained"
+            color="warning"
+            onClick={() => {
+              if (sendBackReason.trim().length < 10) return;
+              sendBackMutation.mutate({ id: trip.id, reason: sendBackReason.trim() });
+            }}
+            disabled={sendBackMutation.isPending || sendBackReason.trim().length < 10}
+          >
+            {sendBackMutation.isPending ? <CircularProgress size={20} /> : 'Send Back'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Resubmit confirm dialog */}
+      <Dialog open={resubmitDialogOpen} onClose={() => setResubmitDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Resubmit Request</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">
+            Are you sure you want to resubmit this request? The approval process will restart
+            from the beginning.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setResubmitDialogOpen(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={() => resubmitMutation.mutate(trip.id)}
+            disabled={resubmitMutation.isPending}
+          >
+            {resubmitMutation.isPending ? <CircularProgress size={20} /> : 'Resubmit'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
@@ -471,37 +618,5 @@ function DetailField({ label, value, xs = 6, multiline }: DetailFieldProps) {
         {value || <span style={{ color: '#9e9e9e' }}>—</span>}
       </Typography>
     </Grid>
-  );
-}
-
-function ApprovalRow({ approval }: { approval: FieldTripApproval }) {
-  const stageLabels: Record<string, string> = {
-    SUPERVISOR:       'Supervisor',
-    ASST_DIRECTOR:    'Asst. Director of Schools',
-    DIRECTOR:         'Director of Schools',
-    FINANCE_DIRECTOR: 'Finance Director',
-  };
-  const stageLabel = stageLabels[approval.stage] ?? approval.stage;
-  const color      = approval.action === 'APPROVED' ? 'success' : 'error';
-
-  return (
-    <Box sx={{ py: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Box>
-          <Typography variant="body2" fontWeight="medium">
-            {stageLabel} — {approval.actedByName}
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            {new Date(approval.actedAt).toLocaleString('en-US')}
-          </Typography>
-        </Box>
-        <Chip label={approval.action} color={color} size="small" />
-      </Box>
-      {(approval.denialReason || approval.notes) && (
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-          {approval.denialReason ?? approval.notes}
-        </Typography>
-      )}
-    </Box>
   );
 }

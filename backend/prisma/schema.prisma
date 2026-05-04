@@ -567,6 +567,8 @@ model FieldTripRequest {
   status                String                  @default("DRAFT")
   submitterEmail        String                  // Snapshot of submitter email for final notification
   denialReason          String?                 @db.Text
+  revisionNote          String?                 @db.Text
+  submissionCount       Int                     @default(0)
 
   // Snapshot of approver emails captured at submit time (prevent stale lookups)
   approverEmailsSnapshot Json?

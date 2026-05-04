@@ -565,6 +565,37 @@ export async function sendFieldTripDenied(
 }
 
 /**
+ * Notify the submitter that their field trip request has been sent back for revision.
+ */
+export async function sendFieldTripSentBack(
+  submitterEmail: string,
+  trip: {
+    id: string; destination: string; tripDate: Date | string;
+    teacherName: string; schoolBuilding: string; gradeClass: string;
+    studentCount: number; purpose: string;
+  },
+  senderName: string,
+  reason: string,
+): Promise<void> {
+  const appUrl = process.env.APP_URL ?? '';
+  await sendMail({
+    to:      submitterEmail,
+    subject: `Field Trip Sent Back for Revision: ${trip.destination} — ${new Date(trip.tripDate).toLocaleDateString('en-US')}`,
+    html: `
+      <h2 style="color:#E65100;">Your Field Trip Request Has Been Sent Back for Revision</h2>
+      <p><strong>${escapeHtml(senderName)}</strong> has sent your field trip request back for revision.</p>
+      ${fieldTripDetailHtml(trip)}
+      <p style="margin-top:16px;"><strong>Revision reason:</strong></p>
+      <blockquote style="border-left:4px solid #E65100;margin:8px 0;padding:8px 16px;background:#FFF3E0;">
+        ${escapeHtml(reason)}
+      </blockquote>
+      <p style="margin-top:16px;">Please log in to the system to review the feedback, make the necessary changes, and resubmit your request.</p>
+      ${appUrl ? `<p style="margin-top:16px;"><a href="${escapeHtml(appUrl)}/field-trips/${escapeHtml(trip.id)}/edit" style="display:inline-block;padding:10px 20px;background-color:#E65100;color:#ffffff;text-decoration:none;border-radius:4px;font-weight:bold;">Edit &amp; Resubmit</a></p>` : ''}
+    `,
+  });
+}
+
+/**
  * Notify the Transportation Secretary group that a field trip requiring transportation has been submitted.
  */
 export async function sendFieldTripTransportationNotice(

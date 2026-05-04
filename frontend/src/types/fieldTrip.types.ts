@@ -25,7 +25,8 @@ export type FieldTripStatus =
   | 'PENDING_DIRECTOR'
   | 'PENDING_FINANCE_DIRECTOR'
   | 'APPROVED'
-  | 'DENIED';
+  | 'DENIED'
+  | 'NEEDS_REVISION';
 
 // ---------------------------------------------------------------------------
 // Approval record
@@ -35,7 +36,7 @@ export interface FieldTripApproval {
   id:          string;
   fieldTripRequestId: string;
   stage:       string;  // 'SUPERVISOR' | 'ASST_DIRECTOR' | 'DIRECTOR' | 'FINANCE_DIRECTOR'
-  action:      'APPROVED' | 'DENIED';
+  action:      'APPROVED' | 'DENIED' | 'SENT_BACK';
   actedById:   string;
   actedByName: string;
   actedAt:     string;
@@ -113,6 +114,8 @@ export interface FieldTripRequest {
   status:        FieldTripStatus;
   submitterEmail: string;
   denialReason?: string | null;
+  revisionNote?: string | null;
+  submissionCount?: number;
   fiscalYear?:   string | null;
 
   // Timestamps
@@ -183,6 +186,11 @@ export interface DenyTripDto {
   notes?: string;
 }
 
+export interface SendBackTripDto {
+  reason: string;
+  notes?: string;
+}
+
 // ---------------------------------------------------------------------------
 // Status helpers
 // ---------------------------------------------------------------------------
@@ -195,6 +203,7 @@ export const FIELD_TRIP_STATUS_LABELS: Record<FieldTripStatus, string> = {
   PENDING_FINANCE_DIRECTOR: 'Pending Finance Director',
   APPROVED:                 'Approved',
   DENIED:                   'Denied',
+  NEEDS_REVISION:           'Needs Revision',
 };
 
 export type StatusChipColor = 'default' | 'warning' | 'success' | 'error' | 'info';
@@ -207,6 +216,7 @@ export const FIELD_TRIP_STATUS_COLORS: Record<FieldTripStatus, StatusChipColor> 
   PENDING_FINANCE_DIRECTOR: 'warning',
   APPROVED:                 'success',
   DENIED:                   'error',
+  NEEDS_REVISION:           'warning',
 };
 
 // ---------------------------------------------------------------------------

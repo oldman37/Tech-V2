@@ -15,6 +15,7 @@ import { logger } from '../lib/logger';
 import { NotFoundError, ValidationError, AuthorizationError } from '../utils/errors';
 import type { FieldTripApproverSnapshot } from './email.service';
 import type { CreateFieldTripDto, UpdateFieldTripDto } from '../validators/fieldTrip.validators';
+import { generateFieldTripPdf } from './fieldTripPdf.service';
 
 // ---------------------------------------------------------------------------
 // Workflow constants
@@ -150,8 +151,8 @@ export class FieldTripService {
     if (trip.submittedById !== userId) {
       throw new AuthorizationError('You can only edit your own field trip requests');
     }
-    if (trip.status !== 'DRAFT') {
-      throw new ValidationError('Only draft requests can be edited');
+    if (trip.status !== 'DRAFT' && trip.status !== 'NEEDS_REVISION') {
+      throw new ValidationError('Only draft or revision-pending requests can be edited');
     }
 
     logger.info('Updating field trip draft', { userId, id });
@@ -405,6 +406,139 @@ export class FieldTripService {
   }
 
   // -------------------------------------------------------------------------
+  // Send Back for Revision
+  // -------------------------------------------------------------------------
+
+  async sendBack(
+    userId:    string,
+    id:        string,
+    permLevel: number,
+    reason:    string,
+    notes?:    string,
+  ) {
+    const trip = await this.findOrThrow(id);
+
+    const minLevel = STAGE_MIN_LEVEL[trip.status];
+    if (!minLevel) {
+      throw new ValidationError(
+        `Field trip is not in an approvable state (current status: ${trip.status})`,
+      );
+    }
+    if (permLevel < minLevel) {
+      throw new AuthorizationError(
+        `Insufficient permission to send back at the ${trip.status} stage`,
+      );
+    }
+
+    const stage = STATUS_TO_STAGE[trip.status];
+
+    const sender = await prisma.user.findUnique({
+      where:  { id: userId },
+      select: { displayName: true, firstName: true, lastName: true },
+    });
+    const senderName = sender ? resolveDisplayName(sender) : 'Unknown';
+
+    logger.info('Sending field trip back for revision', { userId, id, stage });
+
+    const fromStatus = trip.status;
+
+    const updated = await prisma.$transaction(async (tx) => {
+      await tx.fieldTripApproval.create({
+        data: {
+          fieldTripRequestId: id,
+          stage,
+          action:             'SENT_BACK',
+          actedById:          userId,
+          actedByName:        senderName,
+          notes:              notes ?? null,
+          denialReason:       reason,
+        },
+      });
+
+      const updated = await tx.fieldTripRequest.update({
+        where: { id },
+        data: {
+          status:       'NEEDS_REVISION',
+          revisionNote: reason,
+          approvedAt:   null,
+        },
+        include: TRIP_WITH_RELATIONS,
+      });
+
+      await tx.fieldTripStatusHistory.create({
+        data: {
+          fieldTripRequestId: id,
+          fromStatus,
+          toStatus:           'NEEDS_REVISION',
+          changedById:        userId,
+          changedByName:      senderName,
+          notes:              reason,
+        },
+      });
+
+      return updated;
+    });
+
+    return { updated, senderName };
+  }
+
+  // -------------------------------------------------------------------------
+  // Resubmit (after NEEDS_REVISION)
+  // -------------------------------------------------------------------------
+
+  async resubmit(
+    userId:        string,
+    id:            string,
+    submitterName: string,
+    snapshot:      FieldTripApproverSnapshot,
+  ) {
+    const trip = await this.findOrThrow(id);
+
+    if (trip.status !== 'NEEDS_REVISION') {
+      throw new ValidationError(
+        `Only requests in NEEDS_REVISION status can be resubmitted (current status: ${trip.status})`,
+      );
+    }
+    if (trip.submittedById !== userId) {
+      throw new AuthorizationError('You can only resubmit your own field trip requests');
+    }
+
+    const firstStatus =
+      snapshot.supervisorEmails.length > 0 ? 'PENDING_SUPERVISOR' : 'PENDING_ASST_DIRECTOR';
+
+    logger.info('Resubmitting field trip for revision', { userId, id, firstStatus });
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const updated = await tx.fieldTripRequest.update({
+        where: { id },
+        data: {
+          status:                 firstStatus,
+          submittedAt:            new Date(),
+          submissionCount:        { increment: 1 },
+          revisionNote:           null,
+          approverEmailsSnapshot: snapshot as object,
+        },
+        include: TRIP_WITH_RELATIONS,
+      });
+
+      await tx.fieldTripStatusHistory.create({
+        data: {
+          fieldTripRequestId: id,
+          fromStatus:         'NEEDS_REVISION',
+          toStatus:           firstStatus,
+          changedById:        userId,
+          changedByName:      submitterName,
+          notes:              'Resubmitted by submitter',
+        },
+      });
+
+      return updated;
+    });
+
+    return updated;
+  }
+
+  // -------------------------------------------------------------------------
   // Get by ID
   // -------------------------------------------------------------------------
 
@@ -519,6 +653,38 @@ export class FieldTripService {
       counts[key] = (counts[key] ?? 0) + 1;
     }
     return counts;
+  }
+
+  // -------------------------------------------------------------------------
+  // Generate PDF
+  // -------------------------------------------------------------------------
+
+  async getFieldTripPdf(userId: string, id: string, permLevel: number): Promise<Buffer> {
+    const trip = await prisma.fieldTripRequest.findUnique({
+      where:   { id },
+      include: {
+        submittedBy: {
+          select: { id: true, firstName: true, lastName: true, displayName: true, email: true },
+        },
+        approvals: {
+          orderBy: { actedAt: 'asc' },
+        },
+        statusHistory: {
+          orderBy: { changedAt: 'asc' },
+        },
+        transportationRequest: true,
+      },
+    });
+
+    if (!trip) throw new NotFoundError('Field Trip Request', id);
+
+    if (trip.submittedById !== userId && permLevel < 3) {
+      throw new AuthorizationError('You do not have permission to view this field trip request');
+    }
+
+    logger.info('Generating field trip PDF', { userId, id });
+
+    return generateFieldTripPdf(trip);
   }
 
   // -------------------------------------------------------------------------

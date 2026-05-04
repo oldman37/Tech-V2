@@ -19,6 +19,7 @@ export const FIELD_TRIP_STATUSES = [
   'PENDING_FINANCE_DIRECTOR',
   'APPROVED',
   'DENIED',
+  'NEEDS_REVISION',
 ] as const;
 
 export type FieldTripStatus = (typeof FIELD_TRIP_STATUSES)[number];
@@ -368,3 +369,24 @@ export const DenyTripSchema = z.object({
 });
 
 export type DenyTripDto = z.infer<typeof DenyTripSchema>;
+
+// ---------------------------------------------------------------------------
+// POST /field-trips/:id/send-back
+// ---------------------------------------------------------------------------
+
+export const SendBackTripSchema = z.object({
+  reason: z
+    .string()
+    .min(10, 'Reason must be at least 10 characters')
+    .max(1000, 'Reason must be 1000 characters or less'),
+  notes: z.string().max(500, 'Notes must be 500 characters or less').optional(),
+});
+
+export type SendBackTripDto = z.infer<typeof SendBackTripSchema>;
+
+// ---------------------------------------------------------------------------
+// POST /field-trips/:id/resubmit  (no body required)
+// ---------------------------------------------------------------------------
+
+export const ResubmitTripSchema = z.object({}).strict();
+export type ResubmitTripDto = z.infer<typeof ResubmitTripSchema>;
