@@ -87,7 +87,7 @@ export const locationService = {
     userId: string
   ): Promise<LocationSupervisorWithDetails[]> {
     const response = await api.get<LocationSupervisorWithDetails[]>(
-      `/users/${userId}/supervised-locations`
+      `/location-supervisors/user/${userId}`
     );
     return response.data;
   },

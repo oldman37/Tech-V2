@@ -10,11 +10,7 @@ import { redactEmail, redactEntraId } from '../utils/redact';
 import { derivePermLevelFromGroups } from '../utils/groupAuth';
 import { 
   GraphUser, 
-  GraphCollectionResponse, 
-  GraphGroup,
   isGraphUser,
-  isGraphCollection,
-  isGraphGroup
 } from '../types/microsoft-graph.types';
 import {
   RefreshTokenRequestBody,
@@ -113,30 +109,23 @@ export const callback = async (
     }
     const userInfo = userInfoData; // ✅ Now properly typed as GraphUser
 
-    // Get user's group memberships (transitiveMemberOf includes nested group memberships)
-    const groupsResponse = await fetch('https://graph.microsoft.com/v1.0/me/transitiveMemberOf?$select=id,displayName', {
-      headers: {
-        'Authorization': `Bearer ${response.accessToken}`,
-      },
-    });
+    // Get user's group memberships using app-level Graph client (application permissions)
+    // This ensures ALL transitive memberships are resolved, regardless of delegated token scope.
+    // Handles pagination to capture all groups for users with many memberships.
+    const groupIds: string[] = [];
+    let groupsNextLink: string | null = `/users/${userInfo.id}/transitiveMemberOf?$select=id&$top=999`;
 
-    if (!groupsResponse.ok) {
-      throw new ExternalAPIError(
-        'Microsoft Graph API',
-        `Failed to fetch groups: ${groupsResponse.statusText}`
-      );
+    while (groupsNextLink) {
+      const groupsPage = await graphClient.api(groupsNextLink).get();
+      if (groupsPage?.value && Array.isArray(groupsPage.value)) {
+        for (const item of groupsPage.value) {
+          if (item.id) groupIds.push(item.id);
+        }
+      }
+      groupsNextLink = groupsPage['@odata.nextLink']
+        ? groupsPage['@odata.nextLink'].split('/v1.0')[1] ?? null
+        : null;
     }
-
-    // Validate groups response structure using type guard
-    const groupsData = await groupsResponse.json();
-    if (!isGraphCollection(groupsData, isGraphGroup)) {
-      throw new ExternalAPIError(
-        'Microsoft Graph API',
-        'Invalid groups data structure received'
-      );
-    }
-    const groups = groupsData; // ✅ Now properly typed as GraphCollectionResponse<GraphGroup>
-    const groupIds = groups.value.map((g: GraphGroup) => g.id);
 
     // Use UserSyncService to determine role from groups
     const userSyncService = new UserSyncService(prisma, graphClient);

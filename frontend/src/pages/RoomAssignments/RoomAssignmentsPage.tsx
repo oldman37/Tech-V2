@@ -24,22 +24,23 @@ import { RoomAssignmentDialog } from './RoomAssignmentDialog';
 import { RoomWithAssignments } from '@/types/userRoomAssignment.types';
 
 export function RoomAssignmentsPage() {
-  const { isAdmin, isPrimarySupervisor, primarySupervisorLocationIds } =
+  const { isAdmin, isPrincipalOrVP, isPrimarySupervisor, primarySupervisorLocationIds } =
     useRoomAssignmentAccess();
 
   const [selectedLocationId, setSelectedLocationId] = useState<string>('');
   const [dialogRoom, setDialogRoom] = useState<RoomWithAssignments | null>(null);
 
-  // For primary supervisors (non-admin): auto-select their location
+  // For primary supervisors / principals (non-admin): auto-select their location
   useEffect(() => {
     if (!isAdmin && isPrimarySupervisor && primarySupervisorLocationIds.length > 0) {
       setSelectedLocationId(primarySupervisorLocationIds[0]);
     }
   }, [isAdmin, isPrimarySupervisor, primarySupervisorLocationIds]);
 
-  // Admins: fetch all locations for the selector
+  // Admins and Principals/VPs without a primary location: fetch all locations for the selector
+  const showLocationSelector = isAdmin || (isPrincipalOrVP && !isPrimarySupervisor);
   const { data: allLocations = [], isLoading: locationsLoading } = useLocations({
-    enabled: isAdmin,
+    enabled: showLocationSelector,
   });
 
   // Fetch rooms + assignments once a location is chosen
@@ -59,8 +60,8 @@ export function RoomAssignmentsPage() {
         </Typography>
       </Box>
 
-      {/* Location selector — admins only */}
-      {isAdmin && (
+      {/* Location selector — admins and principals/VPs without a primary supervised location */}
+      {showLocationSelector && (
         <FormControl size="small" sx={{ minWidth: 300, mb: 3 }}>
           <InputLabel>Select Location</InputLabel>
           <Select
@@ -82,7 +83,7 @@ export function RoomAssignmentsPage() {
       )}
 
       {/* Show location name for primary supervisors */}
-      {!isAdmin && isPrimarySupervisor && assignmentData && (
+      {!showLocationSelector && isPrimarySupervisor && assignmentData && (
         <Typography variant="subtitle1" color="text.secondary" mb={2}>
           {assignmentData.location.name}
         </Typography>
@@ -91,7 +92,7 @@ export function RoomAssignmentsPage() {
       {/* Prompt to select a location */}
       {!selectedLocationId && (
         <Alert severity="info" sx={{ maxWidth: 500 }}>
-          {isAdmin
+          {showLocationSelector
             ? 'Select a location above to manage room assignments.'
             : 'Loading your assigned location…'}
         </Alert>

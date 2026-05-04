@@ -38,7 +38,7 @@ router.delete(
 );
 
 // Supervisor query routes
-router.get('/users/:userId/supervised-locations', validateRequest(UserSupervisedLocationsParamSchema, 'params'), locationController.getUserSupervisedLocations);
+router.get('/location-supervisors/user/:userId', validateRequest(UserSupervisedLocationsParamSchema, 'params'), locationController.getUserSupervisedLocations);
 router.get('/supervisors/type/:type', validateRequest(SupervisorTypeParamSchema, 'params'), locationController.getSupervisorsByType);
 router.get(
   '/locations/:locationId/supervisor/:supervisorType',

@@ -29,11 +29,18 @@ export const requireAdminOrPrimarySupervisor = (
 
     // Admins bypass the location scope check
     const adminGroupId = process.env.ENTRA_ADMIN_GROUP_ID;
+    const principalsGroupId = process.env.ENTRA_PRINCIPALS_GROUP_ID;
+    const vicePrincipalsGroupId = process.env.ENTRA_VICE_PRINCIPALS_GROUP_ID;
     const isAdmin =
       req.user.roles.includes('ADMIN') ||
       (adminGroupId != null && req.user.groups.includes(adminGroupId));
 
-    if (isAdmin) {
+    // Principals and Vice Principals also get access (scoped to their own location via primary supervisor)
+    const isPrincipalOrVP =
+      (principalsGroupId != null && req.user.groups.includes(principalsGroupId)) ||
+      (vicePrincipalsGroupId != null && req.user.groups.includes(vicePrincipalsGroupId));
+
+    if (isAdmin || isPrincipalOrVP) {
       next();
       return;
     }

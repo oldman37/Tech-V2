@@ -28,11 +28,20 @@ async function assertAdminOrPrimarySupervisor(
   }
 
   const adminGroupId = process.env.ENTRA_ADMIN_GROUP_ID;
+  const principalsGroupId = process.env.ENTRA_PRINCIPALS_GROUP_ID;
+  const vicePrincipalsGroupId = process.env.ENTRA_VICE_PRINCIPALS_GROUP_ID;
   const isAdmin =
     req.user.roles.includes('ADMIN') ||
     (adminGroupId != null && req.user.groups.includes(adminGroupId));
 
   if (isAdmin) return;
+
+  // Principals and Vice Principals can manage room assignments
+  const isPrincipalOrVP =
+    (principalsGroupId != null && req.user.groups.includes(principalsGroupId)) ||
+    (vicePrincipalsGroupId != null && req.user.groups.includes(vicePrincipalsGroupId));
+
+  if (isPrincipalOrVP) return;
 
   const record = await prisma.locationSupervisor.findFirst({
     where: {
