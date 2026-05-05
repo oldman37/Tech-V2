@@ -240,7 +240,7 @@ export interface AssignAccountCodeInput {
 }
 
 export interface IssuePOInput {
-  poNumber: string;
+  poNumber?: string;   // optional — backend auto-generates when absent
 }
 
 // ---------------------------------------------------------------------------

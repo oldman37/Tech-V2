@@ -125,7 +125,6 @@ export default function PurchaseOrderDetail() {
   const [accountDialogOpen, setAccountDialogOpen]   = useState(false);
   const [accountCode, setAccountCode]               = useState('');
   const [issueDialogOpen, setIssueDialogOpen]       = useState(false);
-  const [poNumber, setPoNumber]                     = useState('');
   const [actionError, setActionError]               = useState<string | null>(null);
 
   if (isLoading) {
@@ -302,12 +301,11 @@ export default function PurchaseOrderDetail() {
   };
 
   const handleIssuePO = () => {
-    if (!poNumber.trim()) return;
     setActionError(null);
     issueMutation.mutate(
-      { id: po.id, data: { poNumber: poNumber.trim() } },
+      { id: po.id, data: {} },
       {
-        onSuccess: () => { setIssueDialogOpen(false); setPoNumber(''); },
+        onSuccess: () => { setIssueDialogOpen(false); },
         onError: (err: unknown) => {
           const e = err as { response?: { data?: { message?: string } } };
           setActionError(e?.response?.data?.message ?? 'Failed to issue PO');
@@ -866,21 +864,9 @@ export default function PurchaseOrderDetail() {
       <Dialog open={issueDialogOpen} onClose={() => setIssueDialogOpen(false)} maxWidth="xs" fullWidth>
         <DialogTitle>Issue PO Number</DialogTitle>
         <DialogContent>
-          <Typography variant="body2" color="text.secondary" gutterBottom>
-            This finalizes the purchase order. Assign a unique PO number.
+          <Typography variant="body2" color="text.secondary">
+            Are you sure you want to issue this Purchase Order? The PO number will be automatically assigned.
           </Typography>
-          <TextField
-            label="PO Number *"
-            value={poNumber}
-            onChange={(e) => setPoNumber(e.target.value)}
-            fullWidth
-            sx={{ mt: 2 }}
-            required
-            error={poNumber.trim().length === 0}
-            inputProps={{ maxLength: 100 }}
-            autoFocus
-            helperText="Example: PO-2026-001"
-          />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setIssueDialogOpen(false)} disabled={issueMutation.isPending}>
@@ -890,7 +876,7 @@ export default function PurchaseOrderDetail() {
             variant="contained"
             color="secondary"
             onClick={handleIssuePO}
-            disabled={issueMutation.isPending || poNumber.trim().length === 0}
+            disabled={issueMutation.isPending}
           >
             {issueMutation.isPending ? <CircularProgress size={20} /> : 'Issue PO'}
           </Button>
