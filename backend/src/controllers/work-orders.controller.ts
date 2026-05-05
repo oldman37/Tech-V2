@@ -111,7 +111,6 @@ export const createWorkOrder = async (req: AuthRequest, res: Response): Promise<
         'ENTRA_ADMIN_GROUP_ID',
         'ENTRA_DIRECTOR_OF_SCHOOLS_GROUP_ID',
         'ENTRA_MAINTENANCE_DIRECTOR_GROUP_ID',
-        'ENTRA_MAINTENANCE_ADMIN_GROUP_ID',
         'ENTRA_TECH_ASSISTANTS_GROUP_ID',
         'ENTRA_FINANCE_DIRECTOR_GROUP_ID',
         'ENTRA_PRINCIPALS_GROUP_ID',

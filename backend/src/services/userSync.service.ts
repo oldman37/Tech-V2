@@ -129,16 +129,6 @@ export class UserSyncService {
       ],
     });
 
-    // Maintenance Admin - Maintenance oversight
-    addMapping('ENTRA_MAINTENANCE_ADMIN_GROUP_ID', process.env.ENTRA_MAINTENANCE_ADMIN_GROUP_ID, {
-      role: 'USER',
-      permissions: [
-        { module: 'TECHNOLOGY', level: 2 },
-        { module: 'MAINTENANCE', level: 3 },
-        { module: 'REQUISITIONS', level: 3 },
-      ],
-    });
-
     // Principals - School-level management
     addMapping('ENTRA_PRINCIPALS_GROUP_ID', process.env.ENTRA_PRINCIPALS_GROUP_ID, {
       role: 'USER',
@@ -171,6 +161,7 @@ export class UserSyncService {
     addMapping('ENTRA_MAINTENANCE_DIRECTOR_GROUP_ID', process.env.ENTRA_MAINTENANCE_DIRECTOR_GROUP_ID, {
       role: 'USER',
       permissions: [
+        { module: 'TECHNOLOGY', level: 2 },
         { module: 'MAINTENANCE', level: 3 },
         { module: 'REQUISITIONS', level: 3 },
       ],
