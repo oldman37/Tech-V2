@@ -564,9 +564,9 @@ export async function generateFieldTripPdf(trip: FieldTripForPdf): Promise<Buffe
           doc.font(FONT_BLD).fontSize(9).fillColor(actionColor)
             .text(`Action: ${approval.action}`, rightX, rowY, { width: colW });
 
-          const actorLabel = (approval.action === 'DENY' || approval.action === 'REJECT')
+          const actorLabel = (approval.action === 'DENIED' || approval.action === 'REJECT')
             ? 'Denied by'
-            : (approval.action === 'APPROVE' || approval.action === 'APPROVED')
+            : (approval.action === 'APPROVED')
               ? 'Approved by'
               : 'Action by';
           doc.font(FONT_REG).fontSize(9).fillColor('#212121')
