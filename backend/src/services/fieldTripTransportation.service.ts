@@ -303,12 +303,14 @@ export class FieldTripTransportationService {
     return prisma.fieldTripTransportationRequest.update({
       where: { fieldTripRequestId: fieldTripId },
       data: {
-        status:             'TRANSPORTATION_APPROVED',
-        transportationType: data.transportationType,
-        transportationCost: data.transportationCost ?? null,
-        transportationNotes: data.notes ?? null,
-        approvedById:       userId,
-        approvedAt:         new Date(),
+        status:                 'TRANSPORTATION_APPROVED',
+        transportationType:     data.transportationType,
+        transportationCost:     data.transportationCost ?? null,
+        transportationBusCount: data.transportationBusCount ?? null,
+        driverNames:            data.driverNames ?? Prisma.DbNull,
+        transportationNotes:    data.notes ?? null,
+        approvedById:           userId,
+        approvedAt:             new Date(),
       },
       include: TRANSPORT_WITH_TRIP,
     });

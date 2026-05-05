@@ -698,8 +698,11 @@ export async function sendTransportationApproved(
     studentCount: number; purpose: string;
   },
   transportRequest: {
-    transportationType: string | null; transportationCost: unknown;
-    transportationNotes: string | null;
+    transportationType:     string | null;
+    transportationCost:     unknown;
+    transportationBusCount: number | null;
+    driverNames:            string[] | null;
+    transportationNotes:    string | null;
   },
 ): Promise<void> {
   const typeLabels: Record<string, string> = {
@@ -716,6 +719,17 @@ export async function sendTransportationApproved(
     ? `$${Number(transportRequest.transportationCost).toFixed(2)}`
     : 'TBD';
 
+  const driversHtml = (() => {
+    if (!transportRequest.driverNames?.length) return '';
+    return transportRequest.driverNames
+      .map(
+        (name, i) =>
+          `<tr><td style="padding:4px 8px;font-weight:bold;">Bus ${i + 1} Driver:</td>` +
+          `<td style="padding:4px 8px;">${escapeHtml(name || '\u2014')}</td></tr>`,
+      )
+      .join('');
+  })();
+
   await sendMail({
     to:      submitterEmail,
     subject: `Transportation Approved — Field Trip: ${trip.destination}`,
@@ -728,6 +742,8 @@ export async function sendTransportationApproved(
             <td style="padding:4px 8px;">${escapeHtml(typeLabel)}</td></tr>
         <tr><td style="padding:4px 8px;font-weight:bold;">Assessed Cost:</td>
             <td style="padding:4px 8px;">${escapeHtml(costStr)}</td></tr>
+        ${transportRequest.transportationBusCount != null ? `<tr><td style="padding:4px 8px;font-weight:bold;">Number of Buses:</td><td style="padding:4px 8px;">${transportRequest.transportationBusCount}</td></tr>` : ''}
+        ${driversHtml}
         ${transportRequest.transportationNotes ? `<tr><td style="padding:4px 8px;font-weight:bold;vertical-align:top;">Notes:</td>
             <td style="padding:4px 8px;">${escapeHtml(transportRequest.transportationNotes)}</td></tr>` : ''}
       </table>

@@ -268,6 +268,8 @@ export interface FieldTripTransportationRequest {
   tripItinerary?:          string | null;
   transportationType?:     TransportationType | null;
   transportationCost?:     number | null;
+  transportationBusCount?: number | null;
+  driverNames?:            string[] | null;
   transportationNotes?:    string | null;
   denialReason?:           string | null;
   status:                  TransportationStatus;
@@ -303,9 +305,11 @@ export interface CreateTransportationDto {
 export type UpdateTransportationDto = Partial<CreateTransportationDto>;
 
 export interface ApproveTransportationDto {
-  transportationType:  TransportationType;
-  transportationCost?: number | null;
-  notes?:              string | null;
+  transportationType:      TransportationType;
+  transportationCost?:     number | null;
+  transportationBusCount?: number | null;
+  driverNames?:            string[] | null;
+  notes?:                  string | null;
 }
 
 export interface DenyTransportationDto {
@@ -334,4 +338,11 @@ export const TRANSPORTATION_TYPE_LABELS: Record<TransportationType, string> = {
   CHARTER:          'Chartered Bus',
   PARENT_TRANSPORT: 'Parent/Guardian Transport',
   WALKING:          'Walking',
+};
+
+// Subset used by the Part C approval form — transportation secretary cannot assign PARENT_TRANSPORT
+export const PART_C_TRANSPORTATION_TYPE_LABELS: Partial<Record<TransportationType, string>> = {
+  DISTRICT_BUS: 'District Bus',
+  CHARTER:      'Charter Bus',
+  WALKING:      'Walking',
 };

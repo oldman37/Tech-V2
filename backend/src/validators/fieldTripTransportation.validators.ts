@@ -29,6 +29,15 @@ export const TRANSPORTATION_TYPES = [
 
 export type TransportationTypeValue = (typeof TRANSPORTATION_TYPES)[number];
 
+// Types allowed when the transportation office sets Part C (PARENT_TRANSPORT excluded)
+export const PART_C_TRANSPORTATION_TYPES = [
+  'DISTRICT_BUS',
+  'CHARTER',
+  'WALKING',
+] as const;
+
+export type PartCTransportationType = (typeof PART_C_TRANSPORTATION_TYPES)[number];
+
 // ---------------------------------------------------------------------------
 // Shared destination schema
 // ---------------------------------------------------------------------------
@@ -70,10 +79,29 @@ export type UpdateTransportationDto = z.infer<typeof UpdateTransportationSchema>
 // ---------------------------------------------------------------------------
 
 export const ApproveTransportationSchema = z.object({
-  transportationType: z.enum(TRANSPORTATION_TYPES),
-  transportationCost: z.number().min(0).optional().nullable(),
-  notes:              z.string().max(3000).optional().nullable(),
-});
+  transportationType:     z.enum(PART_C_TRANSPORTATION_TYPES),
+  transportationCost:     z.number().min(0).optional().nullable(),
+  transportationBusCount: z.number().int().min(1).max(99).optional().nullable(),
+  driverNames:            z.array(z.string().max(200)).max(99).optional().nullable(),
+  notes:                  z.string().max(3000).optional().nullable(),
+}).refine(
+  (d) => {
+    const isBus = d.transportationType === 'DISTRICT_BUS' || d.transportationType === 'CHARTER';
+    if (isBus && d.transportationBusCount != null && d.driverNames != null) {
+      return d.driverNames.length === d.transportationBusCount;
+    }
+    return true;
+  },
+  { message: 'Number of driver names must equal the number of buses' },
+).refine(
+  (d) => {
+    if (d.transportationType === 'WALKING') {
+      return d.transportationBusCount == null && (d.driverNames == null || d.driverNames.length === 0);
+    }
+    return true;
+  },
+  { message: 'Bus and driver information should not be provided for walking trips' },
+);
 
 export type ApproveTransportationDto = z.infer<typeof ApproveTransportationSchema>;
 

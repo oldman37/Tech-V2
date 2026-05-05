@@ -41,6 +41,7 @@ import {
   TRANSPORTATION_STATUS_LABELS as STATUS_LABELS,
   TRANSPORTATION_STATUS_COLORS,
   TRANSPORTATION_TYPE_LABELS,
+  PART_C_TRANSPORTATION_TYPE_LABELS,
 } from '../../types/fieldTrip.types';
 
 // ---------------------------------------------------------------------------
@@ -75,11 +76,39 @@ export function TransportationPartCForm({ tripId, transport, isOwner, onUpdated 
   // Part C form state
   const [transportationType, setTransportationType] = useState<TransportationType | ''>('');
   const [transportationCost, setTransportationCost] = useState('');
+  const [transportationBusCount, setTransportationBusCount] = useState<string>('');
+  const [driverNames, setDriverNames]               = useState<string[]>([]);
   const [notes, setNotes]                           = useState('');
   const [denyDialogOpen, setDenyDialogOpen]         = useState(false);
   const [denialReason, setDenialReason]             = useState('');
   const [loading, setLoading]                       = useState(false);
   const [error, setError]                           = useState<string | null>(null);
+
+  const isBusTrip =
+    transportationType === 'DISTRICT_BUS' || transportationType === 'CHARTER';
+
+  const handleBusCountChange = (value: string) => {
+    setTransportationBusCount(value);
+    const n = parseInt(value, 10);
+    if (!isNaN(n) && n >= 1 && n <= 99) {
+      setDriverNames((prev) => {
+        const next = [...prev];
+        while (next.length < n) next.push('');
+        next.length = n;
+        return next;
+      });
+    } else {
+      setDriverNames([]);
+    }
+  };
+
+  const handleDriverNameChange = (index: number, value: string) => {
+    setDriverNames((prev) => {
+      const next = [...prev];
+      next[index] = value;
+      return next;
+    });
+  };
 
   const canActOnPartC =
     !isOwner &&
@@ -91,13 +120,24 @@ export function TransportationPartCForm({ tripId, transport, isOwner, onUpdated 
       setError('Please select the transportation type before approving.');
       return;
     }
+    if (isBusTrip && !transportationBusCount) {
+      setError('Please enter the number of buses.');
+      return;
+    }
     try {
       setError(null);
       setLoading(true);
+      const cleanedDriverNames = driverNames.map((n) => n.trim()).filter(Boolean);
       const dto: ApproveTransportationDto = {
-        transportationType: transportationType as TransportationType,
-        transportationCost: transportationCost ? parseFloat(transportationCost) : null,
-        notes:              notes.trim() || null,
+        transportationType:     transportationType as TransportationType,
+        transportationCost:     transportationCost ? parseFloat(transportationCost) : null,
+        transportationBusCount: isBusTrip && transportationBusCount
+          ? parseInt(transportationBusCount, 10)
+          : null,
+        driverNames: isBusTrip && cleanedDriverNames.length > 0
+          ? cleanedDriverNames
+          : null,
+        notes: notes.trim() || null,
       };
       const result = await fieldTripTransportationService.approve(tripId, dto);
       onUpdated(result);
@@ -257,8 +297,12 @@ export function TransportationPartCForm({ tripId, transport, isOwner, onUpdated 
           )}
           {transport.transportationCost != null && (
             <> — Assessed cost: ${Number(transport.transportationCost).toFixed(2)}</>
+          )}          {transport.transportationBusCount != null && (
+            <><br />Buses: {transport.transportationBusCount}</>
           )}
-          {transport.transportationNotes && (
+          {transport.driverNames?.length ? (
+            <><br />Drivers: {transport.driverNames.join(', ')}</>
+          ) : null}          {transport.transportationNotes && (
             <><br />{transport.transportationNotes}</>
           )}
           {transport.approvedBy && (
@@ -294,7 +338,7 @@ export function TransportationPartCForm({ tripId, transport, isOwner, onUpdated 
                   value={transportationType}
                   onChange={(e) => setTransportationType(e.target.value as TransportationType)}
                 >
-                  {(Object.entries(TRANSPORTATION_TYPE_LABELS) as [TransportationType, string][]).map(
+                  {(Object.entries(PART_C_TRANSPORTATION_TYPE_LABELS) as [TransportationType, string][]).map(
                     ([value, label]) => (
                       <FormControlLabel key={value} value={value} control={<Radio />} label={label} />
                     ),
@@ -314,6 +358,44 @@ export function TransportationPartCForm({ tripId, transport, isOwner, onUpdated 
                 InputProps={{ startAdornment: <Typography sx={{ mr: 0.5 }}>$</Typography> }}
               />
             </Grid>
+
+            {/* Number of Buses — only for District/Charter */}
+            {isBusTrip && (
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField
+                  fullWidth
+                  required
+                  label="Number of Buses Assigned"
+                  type="number"
+                  value={transportationBusCount}
+                  onChange={(e) => handleBusCountChange(e.target.value)}
+                  inputProps={{ min: 1, max: 99, step: 1 }}
+                />
+              </Grid>
+            )}
+
+            {/* Driver Names — one per bus */}
+            {isBusTrip && driverNames.length > 0 && (
+              <Grid size={{ xs: 12 }}>
+                <Typography variant="subtitle2" gutterBottom>
+                  Driver Names
+                </Typography>
+                <Grid container spacing={2}>
+                  {driverNames.map((name, idx) => (
+                    <Grid key={idx} size={{ xs: 12, sm: 6, md: 4 }}>
+                      <TextField
+                        fullWidth
+                        required
+                        label={`Bus ${idx + 1} Driver`}
+                        value={name}
+                        onChange={(e) => handleDriverNameChange(idx, e.target.value)}
+                        inputProps={{ maxLength: 200 }}
+                      />
+                    </Grid>
+                  ))}
+                </Grid>
+              </Grid>
+            )}
 
             <Grid size={{ xs: 12 }}>
               <TextField

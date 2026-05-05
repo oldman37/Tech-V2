@@ -173,9 +173,11 @@ export const approve = async (req: AuthRequest, res: Response): Promise<void> =>
           purpose:        trip.purpose,
         },
         {
-          transportationType:  result.transportationType,
-          transportationCost:  result.transportationCost,
-          transportationNotes: result.transportationNotes,
+          transportationType:     result.transportationType,
+          transportationCost:     result.transportationCost,
+          transportationBusCount: result.transportationBusCount ?? null,
+          driverNames:            Array.isArray(result.driverNames) ? result.driverNames as string[] : null,
+          transportationNotes:    result.transportationNotes,
         },
       ).catch((err) => {
         logger.warn('Failed to send transportation approved email', {

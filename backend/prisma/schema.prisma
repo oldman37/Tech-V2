@@ -651,8 +651,10 @@ model FieldTripTransportationRequest {
   tripItinerary           String?   @db.Text            // narrative day schedule
 
   // Part C — Transportation office (set by Transportation Director on approve/deny)
-  transportationType      String?   @db.VarChar(100)    // 'DISTRICT_BUS' | 'CHARTER' | 'PARENT_TRANSPORT' | 'WALKING'
+  transportationType      String?   @db.VarChar(100)    // 'DISTRICT_BUS' | 'CHARTER' | 'WALKING'
   transportationCost      Decimal?  @db.Decimal(10, 2)  // cost assessed by transportation office
+  transportationBusCount  Int?                           // Part C — buses dispatched (nil = not yet set or WALKING)
+  driverNames             Json?                          // Part C — string[] driver names, one per bus
   transportationNotes     String?   @db.Text
   denialReason            String?   @db.Text
 
