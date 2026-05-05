@@ -266,6 +266,7 @@ export class FieldTripService {
     userId:    string,
     id:        string,
     permLevel: number,
+    isAdmin:   boolean,
     notes?:    string,
   ) {
     const trip = await this.findOrThrow(id);
@@ -276,7 +277,7 @@ export class FieldTripService {
         `Field trip is not in an approvable state (current status: ${trip.status})`,
       );
     }
-    if (permLevel < minLevel) {
+    if (!isAdmin && permLevel !== minLevel) {
       throw new AuthorizationError(
         `Insufficient permission to approve at the ${trip.status} stage`,
       );
@@ -352,6 +353,7 @@ export class FieldTripService {
     userId:    string,
     id:        string,
     permLevel: number,
+    isAdmin:   boolean,
     reason:    string,
     notes?:    string,
   ) {
@@ -363,7 +365,7 @@ export class FieldTripService {
         `Field trip is not in a deniable state (current status: ${trip.status})`,
       );
     }
-    if (permLevel < minLevel) {
+    if (!isAdmin && permLevel !== minLevel) {
       throw new AuthorizationError(
         `Insufficient permission to deny at the ${trip.status} stage`,
       );
@@ -426,6 +428,7 @@ export class FieldTripService {
     userId:    string,
     id:        string,
     permLevel: number,
+    isAdmin:   boolean,
     reason:    string,
     notes?:    string,
   ) {
@@ -437,7 +440,7 @@ export class FieldTripService {
         `Field trip is not in an approvable state (current status: ${trip.status})`,
       );
     }
-    if (permLevel < minLevel) {
+    if (!isAdmin && permLevel !== minLevel) {
       throw new AuthorizationError(
         `Insufficient permission to send back at the ${trip.status} stage`,
       );

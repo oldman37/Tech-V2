@@ -194,9 +194,10 @@ export const approve = async (req: AuthRequest, res: Response): Promise<void> =>
     const data      = ApproveTripSchema.parse(req.body);
     const userId    = req.user!.id;
     const permLevel = req.user!.permLevel ?? 1;
+    const isAdmin   = req.user!.roles?.includes('ADMIN') ?? false;
     const id        = req.params.id as string;
 
-    const result = await fieldTripService.approve(userId, id, permLevel, data.notes);
+    const result = await fieldTripService.approve(userId, id, permLevel, isAdmin, data.notes);
 
     // Resolve submitter display name from snapshot for all notification branches
     const snapshot = result.approverEmailsSnapshot as FieldTripApproverSnapshot | null;
@@ -268,10 +269,11 @@ export const deny = async (req: AuthRequest, res: Response): Promise<void> => {
     const data      = DenyTripSchema.parse(req.body);
     const userId    = req.user!.id;
     const permLevel = req.user!.permLevel ?? 1;
+    const isAdmin   = req.user!.roles?.includes('ADMIN') ?? false;
     const id        = req.params.id as string;
 
     const { updated, denierName } = await fieldTripService.deny(
-      userId, id, permLevel, data.reason, data.notes,
+      userId, id, permLevel, isAdmin, data.reason, data.notes,
     );
 
     // Send denial notification to submitter (non-critical)
@@ -299,10 +301,11 @@ export const sendBack = async (req: AuthRequest, res: Response): Promise<void> =
     const data      = SendBackTripSchema.parse(req.body);
     const userId    = req.user!.id;
     const permLevel = req.user!.permLevel ?? 1;
+    const isAdmin   = req.user!.roles?.includes('ADMIN') ?? false;
     const id        = req.params.id as string;
 
     const { updated, senderName } = await fieldTripService.sendBack(
-      userId, id, permLevel, data.reason, data.notes,
+      userId, id, permLevel, isAdmin, data.reason, data.notes,
     );
 
     // Notify submitter (non-critical)
