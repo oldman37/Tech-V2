@@ -63,8 +63,7 @@ export class FieldTripTransportationService {
 
   async create(userId: string, fieldTripId: string, data: CreateTransportationDto) {
     const trip = await prisma.fieldTripRequest.findUnique({
-      where:   { id: fieldTripId },
-      include: { approvals: { orderBy: { actedAt: 'asc' as const } } },
+      where: { id: fieldTripId },
     });
 
     if (!trip) {

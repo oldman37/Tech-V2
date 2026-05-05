@@ -229,6 +229,25 @@ export function FieldTripDetailPage() {
 
       {actionError && <Alert severity="error" sx={{ mb: 2 }}>{actionError}</Alert>}
 
+      {/* Transportation CTA — shown only to the trip owner once approved but before Part A is submitted */}
+      {isOwner && trip.status === 'APPROVED' && trip.transportationNeeded && !trip.transportationRequest && (
+        <Alert
+          severity="info"
+          sx={{ mb: 2 }}
+          action={
+            <Button
+              color="inherit"
+              size="small"
+              onClick={() => navigate(`/field-trips/${trip.id}/transportation`)}
+            >
+              Complete Form
+            </Button>
+          }
+        >
+          Your field trip has been approved. Please complete the Transportation Request form to schedule your trip.
+        </Alert>
+      )}
+
       {/* Action buttons for approvers */}
       {showActionButtons && (
         <Paper sx={{ p: 2, mb: 3, bgcolor: 'action.hover' }}>
