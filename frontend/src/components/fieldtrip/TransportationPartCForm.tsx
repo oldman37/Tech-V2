@@ -67,6 +67,11 @@ export function TransportationPartCForm({ tripId, transport, isOwner, onUpdated 
     (a) => a.stage === 'SUPERVISOR' && a.action === 'APPROVED',
   );
 
+  // Part B is satisfied either normally (approval record exists) or because the
+  // submitter was the supervisor/principal and the SUPERVISOR stage was bypassed
+  // (indicated by the parent trip already being APPROVED with no approval record).
+  const partBSatisfied = !!principalApproval || trip?.status === 'APPROVED';
+
   // Part C form state
   const [transportationType, setTransportationType] = useState<TransportationType | ''>('');
   const [transportationCost, setTransportationCost] = useState('');
@@ -79,7 +84,7 @@ export function TransportationPartCForm({ tripId, transport, isOwner, onUpdated 
   const canActOnPartC =
     !isOwner &&
     transport.status === 'PENDING_TRANSPORTATION' &&
-    !!principalApproval;
+    partBSatisfied;
 
   const handleApprove = async () => {
     if (!transportationType) {
@@ -154,6 +159,12 @@ export function TransportationPartCForm({ tripId, transport, isOwner, onUpdated 
             icon={<CheckCircleIcon />}
             label={`Approved by ${principalApproval.actedByName} on ${new Date(principalApproval.actedAt).toLocaleDateString('en-US')}`}
             color="success"
+            variant="outlined"
+          />
+        ) : trip?.status === 'APPROVED' ? (
+          <Chip
+            label="Bypassed — Submitted by supervisor/principal"
+            color="default"
             variant="outlined"
           />
         ) : (
@@ -348,7 +359,7 @@ export function TransportationPartCForm({ tripId, transport, isOwner, onUpdated 
       )}
 
       {/* Pending but Part B not complete (approver, can't act yet) */}
-      {!isOwner && transport.status === 'PENDING_TRANSPORTATION' && !principalApproval && (
+      {!isOwner && transport.status === 'PENDING_TRANSPORTATION' && !partBSatisfied && (
         <Alert severity="warning">
           Part C cannot be processed until the Building Principal approves the field trip (Part B).
         </Alert>
