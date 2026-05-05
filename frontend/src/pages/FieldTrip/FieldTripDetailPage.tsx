@@ -71,7 +71,6 @@ export function FieldTripDetailPage() {
   const [pdfLoading, setPdfLoading]               = useState(false);
   const [sendBackDialogOpen, setSendBackDialogOpen] = useState(false);
   const [sendBackReason, setSendBackReason]         = useState('');
-  const [resubmitDialogOpen, setResubmitDialogOpen] = useState(false);
 
   const { data: trip, isLoading, error } = useQuery<FieldTripRequest>({
     queryKey: ['field-trips', id],
@@ -127,18 +126,7 @@ export function FieldTripDetailPage() {
     },
   });
 
-  const resubmitMutation = useMutation({
-    mutationFn: (tripId: string) => fieldTripService.resubmit(tripId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['field-trips', id] });
-      setResubmitDialogOpen(false);
-      setActionError(null);
-    },
-    onError: (err: unknown) => {
-      const msg = err instanceof Error ? err.message : 'Failed to resubmit';
-      setActionError(msg);
-    },
-  });
+
 
   // ---------------------------------------------------------------------------
   // Render guards
@@ -169,7 +157,6 @@ export function FieldTripDetailPage() {
   const isNeedsRevision  = trip.status === 'NEEDS_REVISION';
 
   const showActionButtons = isPending && !isOwner;
-  const canResubmit       = isNeedsRevision && isOwner;
 
   // ---------------------------------------------------------------------------
   // Render helpers
@@ -275,19 +262,7 @@ export function FieldTripDetailPage() {
         </Paper>
       )}
 
-      {/* Resubmit button for submitter when NEEDS_REVISION */}
-      {canResubmit && (
-        <Paper sx={{ p: 2, mb: 3, bgcolor: 'action.hover' }}>
-          <Typography variant="subtitle2" gutterBottom>Revision Required</Typography>
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={() => setResubmitDialogOpen(true)}
-          >
-            Resubmit Request
-          </Button>
-        </Paper>
-      )}
+
 
       {/* Denial reason banner */}
       {trip.status === 'DENIED' && trip.denialReason && (
@@ -569,27 +544,7 @@ export function FieldTripDetailPage() {
         </DialogActions>
       </Dialog>
 
-      {/* Resubmit confirm dialog */}
-      <Dialog open={resubmitDialogOpen} onClose={() => setResubmitDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Resubmit Request</DialogTitle>
-        <DialogContent>
-          <Typography variant="body2">
-            Are you sure you want to resubmit this request? The approval process will restart
-            from the beginning.
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setResubmitDialogOpen(false)}>Cancel</Button>
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={() => resubmitMutation.mutate(trip.id)}
-            disabled={resubmitMutation.isPending}
-          >
-            {resubmitMutation.isPending ? <CircularProgress size={20} /> : 'Resubmit'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+
     </Box>
   );
 }

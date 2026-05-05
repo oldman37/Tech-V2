@@ -444,6 +444,14 @@ export function FieldTripRequestPage() {
     },
   });
 
+  const resubmitMutation = useMutation({
+    mutationFn: (id: string) => fieldTripService.resubmit(id),
+    onSuccess: (trip) => {
+      queryClient.invalidateQueries({ queryKey: ['field-trips', 'my-requests'] });
+      navigate(`/field-trips/${trip.id}`);
+    },
+  });
+
   const submitMutation = useMutation({
     mutationFn: (id: string) => fieldTripService.submit(id),
     onSuccess:  async (trip) => {
@@ -561,9 +569,10 @@ export function FieldTripRequestPage() {
     );
   }
 
-  const isSaving     = createMutation.isPending || updateMutation.isPending;
-  const isSubmitting = submitMutation.isPending;
-  const isReadOnly   = existingTrip && existingTrip.status !== 'DRAFT' && existingTrip.status !== 'NEEDS_REVISION';
+  const isSaving       = createMutation.isPending || updateMutation.isPending;
+  const isSubmitting   = submitMutation.isPending || resubmitMutation.isPending;
+  const isNeedsRevision = existingTrip?.status === 'NEEDS_REVISION';
+  const isReadOnly     = existingTrip && existingTrip.status !== 'DRAFT' && !isNeedsRevision;
 
   // ---------------------------------------------------------------------------
   // Render
@@ -1471,15 +1480,39 @@ export function FieldTripRequestPage() {
             </Button>
           ) : (
             !isReadOnly && (
-              <Button
-                variant="contained"
-                color="success"
-                startIcon={isSubmitting ? <CircularProgress size={16} /> : <SendIcon />}
-                onClick={handleSubmit}
-                disabled={isSaving || isSubmitting}
-              >
-                Submit for Approval
-              </Button>
+              isNeedsRevision ? (
+                <Button
+                  variant="contained"
+                  color="primary"
+                  startIcon={isSubmitting ? <CircularProgress size={16} /> : <SendIcon />}
+                  onClick={async () => {
+                    const allErrors: FieldErrors = {};
+                    for (let s = 0; s < STEPS.length; s++) Object.assign(allErrors, validateStep(s, form));
+                    if (Object.keys(allErrors).length > 0) { setErrors(allErrors); setSaveError('Please fix the errors above before submitting.'); return; }
+                    setSaveError(null);
+                    try {
+                      const currentId = savedId!;
+                      await updateMutation.mutateAsync({ id: currentId, data: formToDto(form) });
+                      await resubmitMutation.mutateAsync(currentId);
+                    } catch (err: unknown) {
+                      setSaveError(err instanceof Error ? err.message : 'Failed to resubmit');
+                    }
+                  }}
+                  disabled={isSaving || isSubmitting}
+                >
+                  Resubmit Request
+                </Button>
+              ) : (
+                <Button
+                  variant="contained"
+                  color="success"
+                  startIcon={isSubmitting ? <CircularProgress size={16} /> : <SendIcon />}
+                  onClick={handleSubmit}
+                  disabled={isSaving || isSubmitting}
+                >
+                  Submit for Approval
+                </Button>
+              )
             )
           )}
         </Box>
