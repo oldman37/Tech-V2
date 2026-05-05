@@ -370,7 +370,7 @@ function validateStep(step: number, form: FormState): FieldErrors {
       errors.costPerStudent = 'Enter a valid cost (0 or greater)';
     const totalC = parseFloat(form.totalCost);
     if (form.totalCost === '' || isNaN(totalC) || totalC < 0)
-      errors.totalCost = 'Enter a valid total cost (0 or greater)';
+      errors.totalCost = 'Total cost could not be calculated — enter a valid Cost Per Student';
     // Overnight safety precautions
     if (form.isOvernightTrip && !form.overnightSafetyPrecautions.trim())
       errors.overnightSafetyPrecautions = 'Safety precautions are required for overnight trips';
@@ -490,6 +490,16 @@ export function FieldTripRequestPage() {
     setForm((prev) => {
       const next = { ...prev, [field]: value } as FormState;
       if (field === 'gradeClass' && value !== 'High School') next.subjectArea = '';
+      // Auto-calculate total cost when costPerStudent or studentCount changes
+      if (field === 'costPerStudent' || field === 'studentCount') {
+        const perStudent = parseFloat(field === 'costPerStudent' ? (value as string) : next.costPerStudent);
+        const count      = parseInt(field === 'studentCount'    ? (value as string) : next.studentCount, 10);
+        if (!isNaN(perStudent) && perStudent >= 0 && !isNaN(count) && count > 0) {
+          next.totalCost = (perStudent * count).toFixed(2);
+        } else {
+          next.totalCost = '';
+        }
+      }
       return next;
     });
     setErrors((prev) => ({ ...prev, [field]: undefined }));
@@ -781,7 +791,7 @@ export function FieldTripRequestPage() {
                 value={form.destinationAddress}
                 onChange={(e) => handleChange('destinationAddress', e.target.value)}
                 error={!!errors.destinationAddress}
-                helperText={errors.destinationAddress ?? 'Street address of the destination'}
+                helperText={errors.destinationAddress}
                 disabled={isReadOnly}
                 required
               />
@@ -1367,20 +1377,20 @@ export function FieldTripRequestPage() {
               />
             </Grid>
 
-            {/* 10. Total Cost */}
+            {/* 10. Total Cost — auto-calculated from Cost Per Student × Student Count */}
             <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 fullWidth
-                label="Total Cost"
+                label="Total Cost (auto-calculated)"
                 type="number"
-                inputProps={{ min: 0, step: '0.01' }}
+                inputProps={{ min: 0, step: '0.01', readOnly: true }}
                 InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
                 value={form.totalCost}
-                onChange={(e) => handleChange('totalCost', e.target.value)}
                 error={!!errors.totalCost}
-                helperText={errors.totalCost}
+                helperText={errors.totalCost ?? `Cost Per Student × ${form.studentCount || 0} students`}
                 disabled={isReadOnly}
                 required
+                sx={{ '& .MuiInputBase-input': { bgcolor: 'action.hover', cursor: 'default' } }}
               />
             </Grid>
 

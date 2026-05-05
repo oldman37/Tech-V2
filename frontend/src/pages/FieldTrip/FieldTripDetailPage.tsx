@@ -53,6 +53,9 @@ const PENDING_STATUSES = new Set([
   'PENDING_FINANCE_DIRECTOR',
 ]);
 
+// Statuses where the approval workflow is complete — no further approver actions are possible.
+const TERMINAL_STATUSES = new Set(['APPROVED', 'DENIED']);
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -155,8 +158,9 @@ export function FieldTripDetailPage() {
   const isPending        = PENDING_STATUSES.has(trip.status);
   const isOwner          = trip.submittedById === user?.id;
   const isNeedsRevision  = trip.status === 'NEEDS_REVISION';
+  const isTerminal       = TERMINAL_STATUSES.has(trip.status);
 
-  const showActionButtons = isPending && !isOwner;
+  const showActionButtons = isPending && !isOwner && !isTerminal;
 
   // ---------------------------------------------------------------------------
   // Render helpers
