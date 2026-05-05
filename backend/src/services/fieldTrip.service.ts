@@ -314,6 +314,19 @@ export class FieldTripService {
         include: TRIP_WITH_RELATIONS,
       });
 
+      if (nextStatus === 'APPROVED') {
+        await tx.fieldTripTransportationRequest.updateMany({
+          where: {
+            fieldTripRequestId: id,
+            status: 'DRAFT',
+          },
+          data: {
+            status: 'PENDING_TRANSPORTATION',
+            submittedAt: new Date(),
+          },
+        });
+      }
+
       await tx.fieldTripStatusHistory.create({
         data: {
           fieldTripRequestId: id,
