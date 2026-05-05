@@ -198,27 +198,44 @@ export const approve = async (req: AuthRequest, res: Response): Promise<void> =>
 
     const result = await fieldTripService.approve(userId, id, permLevel, data.notes);
 
-    // Send email to next approver or final approved notification (non-critical)
-    try {
-      const snapshot = result.approverEmailsSnapshot as FieldTripApproverSnapshot | null;
-      const submittedBy = result.submittedBy as {
-        displayName?: string | null; firstName: string; lastName: string;
-      } | null;
-      const submitterName = submittedBy
-        ? (submittedBy.displayName ?? `${submittedBy.firstName} ${submittedBy.lastName}`)
-        : 'Unknown';
+    // Resolve submitter display name from snapshot for all notification branches
+    const snapshot = result.approverEmailsSnapshot as FieldTripApproverSnapshot | null;
+    const submittedBy = result.submittedBy as {
+      displayName?: string | null; firstName: string; lastName: string;
+    } | null;
+    const submitterName = submittedBy
+      ? (submittedBy.displayName ?? `${submittedBy.firstName} ${submittedBy.lastName}`)
+      : 'Unknown';
 
-      if (result.status === 'APPROVED') {
+    if (result.status === 'APPROVED') {
+      // Notify submitter of full approval (non-critical)
+      try {
         await sendFieldTripFinalApproved(result.submitterEmail, result);
-        // Notify Transportation Secretary now that all approvals are complete
-        if (result.transportationNeeded) {
+      } catch (finalApprovedErr) {
+        logger.error('Failed to send field trip final-approved email', {
+          id,
+          error: finalApprovedErr instanceof Error ? finalApprovedErr.message : String(finalApprovedErr),
+        });
+      }
+
+      // Notify Transportation Secretary group if transportation is needed (non-critical)
+      if (result.transportationNeeded) {
+        try {
           const transportGroupId = process.env.ENTRA_TRANSPORTATION_SECRETARY_GROUP_ID;
           if (transportGroupId) {
             const transportEmails = await fetchGroupEmails(transportGroupId);
-            await sendFieldTripTransportationNotice(transportEmails, result, result.teacherName ?? '');
+            await sendFieldTripTransportationNotice(transportEmails, result, submitterName);
           }
+        } catch (transportNoticeErr) {
+          logger.error('Failed to send field trip transportation secretary notice', {
+            id,
+            error: transportNoticeErr instanceof Error ? transportNoticeErr.message : String(transportNoticeErr),
+          });
         }
-      } else {
+      }
+    } else {
+      // Notify next approver in the chain (non-critical)
+      try {
         const nextEmails = getEmailsForStatus(result.status, snapshot);
         if (nextEmails.length > 0) {
           await sendFieldTripAdvancedToApprover(
@@ -228,12 +245,12 @@ export const approve = async (req: AuthRequest, res: Response): Promise<void> =>
             getStageName(result.status),
           );
         }
+      } catch (advanceErr) {
+        logger.error('Failed to send field trip advance-to-approver email', {
+          id,
+          error: advanceErr instanceof Error ? advanceErr.message : String(advanceErr),
+        });
       }
-    } catch (emailErr) {
-      logger.error('Failed to send field trip approval email', {
-        id,
-        error: emailErr instanceof Error ? emailErr.message : String(emailErr),
-      });
     }
 
     res.json(result);

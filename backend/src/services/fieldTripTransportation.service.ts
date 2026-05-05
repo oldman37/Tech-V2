@@ -286,13 +286,16 @@ export class FieldTripTransportationService {
       );
     }
 
-    // Enforce Part B: principal must have already approved Step 1
-    const principalApproval = transportRequest.fieldTripRequest.approvals.find(
+    // Enforce Part B: principal must have approved, OR the trip bypassed the supervisor stage
+    // (i.e., submitted by a user with no supervisor assigned) and is now fully APPROVED.
+    const hasPrincipalApproval = transportRequest.fieldTripRequest.approvals.some(
       (a) => a.stage === 'SUPERVISOR' && a.action === 'APPROVED',
     );
-    if (!principalApproval) {
+    const tripIsFullyApproved = transportRequest.fieldTripRequest.status === 'APPROVED';
+
+    if (!hasPrincipalApproval && !tripIsFullyApproved) {
       throw new ValidationError(
-        'Transportation cannot be processed until the Building Principal has approved the field trip (Part B)',
+        'Transportation cannot be processed until the field trip has been approved by the Building Principal',
       );
     }
 
@@ -345,12 +348,14 @@ export class FieldTripTransportationService {
       );
     }
 
-    const principalApproval = transportRequest.fieldTripRequest.approvals.find(
+    const hasPrincipalApproval = transportRequest.fieldTripRequest.approvals.some(
       (a) => a.stage === 'SUPERVISOR' && a.action === 'APPROVED',
     );
-    if (!principalApproval) {
+    const tripIsFullyApproved = transportRequest.fieldTripRequest.status === 'APPROVED';
+
+    if (!hasPrincipalApproval && !tripIsFullyApproved) {
       throw new ValidationError(
-        'Transportation cannot be processed until the Building Principal has approved the field trip (Part B)',
+        'Transportation cannot be processed until the field trip has been approved by the Building Principal',
       );
     }
 
