@@ -24,7 +24,7 @@ import {
 import PersonRemoveIcon from '@mui/icons-material/PersonRemove';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import { useQuery } from '@tanstack/react-query';
-import { userService } from '@/services/userService';
+import { userRoomAssignmentService } from '@/services/userRoomAssignmentService';
 import { queryKeys } from '@/lib/queryKeys';
 import {
   useAssignUsersToRoom,
@@ -57,8 +57,8 @@ export function RoomAssignmentDialog({
 
   // Fetch all active users for this location
   const { data: usersData, isLoading: usersLoading } = useQuery({
-    queryKey: [...queryKeys.users.lists(), { locationId, accountType: 'staff', limit: 500 }],
-    queryFn: () => userService.getUsers(1, 500, '', 'staff', locationId),
+    queryKey: [...queryKeys.roomAssignments.byLocation(locationId), 'users'],
+    queryFn: () => userRoomAssignmentService.getUsersByLocation(locationId),
     enabled: open,
     staleTime: 60 * 1000,
   });

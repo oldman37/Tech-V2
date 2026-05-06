@@ -41,7 +41,38 @@ async function assertAdminOrPrimarySupervisor(
     (principalsGroupId != null && req.user.groups.includes(principalsGroupId)) ||
     (vicePrincipalsGroupId != null && req.user.groups.includes(vicePrincipalsGroupId));
 
-  if (isPrincipalOrVP) return;
+  if (isPrincipalOrVP) {
+    // Verify principal/VP is actually the primary supervisor of this location
+    const supervisorRecord = await prisma.locationSupervisor.findFirst({
+      where: {
+        locationId,
+        userId: req.user.id,
+        isPrimary: true,
+        user: { isActive: true },
+      },
+    });
+
+    if (!supervisorRecord) {
+      // Fallback: check if the user's officeLocation matches the location name
+      const [location, dbUser] = await Promise.all([
+        prisma.officeLocation.findUnique({ where: { id: locationId }, select: { name: true } }),
+        prisma.user.findUnique({ where: { id: req.user.id }, select: { officeLocation: true } }),
+      ]);
+
+      if (!location || !dbUser || dbUser.officeLocation !== location.name) {
+        logger.warn('Forbidden: principal/VP is not supervisor of requested location', {
+          requesterId: req.user.id,
+          targetLocationId: locationId,
+          action: 'room-assignment',
+        });
+        throw new AuthorizationError(
+          'You are not the primary supervisor of this location'
+        );
+      }
+    }
+
+    return;
+  }
 
   const record = await prisma.locationSupervisor.findFirst({
     where: {
@@ -283,6 +314,24 @@ export const setPrimaryRoom = async (req: AuthRequest, res: Response) => {
           }
         : null,
     });
+  } catch (error) {
+    handleControllerError(error, res);
+  }
+};
+
+/**
+ * GET /api/room-assignments/location/:locationId/users
+ * Get active staff users for a location.
+ * Auth enforced via requireAdminOrPrimarySupervisor middleware on the route.
+ */
+export const getUsersByLocation = async (
+  req: AuthRequest,
+  res: Response
+) => {
+  try {
+    const locationId = req.params.locationId as string;
+    const users = await service.getUsersByLocation(locationId);
+    res.json({ users });
   } catch (error) {
     handleControllerError(error, res);
   }

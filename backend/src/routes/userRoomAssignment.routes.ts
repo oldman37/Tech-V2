@@ -36,6 +36,18 @@ router.get(
 );
 
 /**
+ * GET /api/room-assignments/location/:locationId/users
+ * Get active staff users for a location (for the assignment dialog).
+ * Accessible to admins and the primary supervisor of that location.
+ */
+router.get(
+  '/room-assignments/location/:locationId/users',
+  validateRequest(LocationIdParamSchema, 'params'),
+  requireAdminOrPrimarySupervisor('params'),
+  controller.getUsersByLocation
+);
+
+/**
  * GET /api/room-assignments/room/:roomId
  * Get assignments for a specific room.
  * Accessible to admins and the primary supervisor of the room's location (checked inline).

@@ -396,4 +396,37 @@ export class UserRoomAssignmentService {
     logger.info('Primary room updated', { userId, roomId });
     return updated;
   }
+
+  /**
+   * Get active staff users for a given location.
+   * Used by principals/supervisors for room assignment dialogs.
+   */
+  async getUsersByLocation(locationId: string) {
+    const location = await this.prisma.officeLocation.findUnique({
+      where: { id: locationId },
+      select: { id: true, name: true },
+    });
+
+    if (!location) {
+      throw new NotFoundError('OfficeLocation', locationId);
+    }
+
+    return this.prisma.user.findMany({
+      where: {
+        officeLocation: location.name,
+        email: { endsWith: '@ocboe.com' },
+        NOT: { email: { endsWith: '@students.ocboe.com' } },
+        isActive: true,
+      },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        displayName: true,
+        email: true,
+        jobTitle: true,
+      },
+      orderBy: { displayName: 'asc' },
+    });
+  }
 }

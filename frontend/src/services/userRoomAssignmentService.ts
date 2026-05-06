@@ -95,4 +95,17 @@ export const userRoomAssignmentService = {
   ): Promise<void> => {
     await api.put(`/room-assignments/user/${userId}/primary-room`, { roomId });
   },
+
+  /**
+   * Get active staff users for a location (for the assignment dialog).
+   * GET /api/room-assignments/location/:locationId/users
+   */
+  getUsersByLocation: async (
+    locationId: string
+  ): Promise<{ users: Array<{ id: string; firstName: string | null; lastName: string | null; displayName: string | null; email: string; jobTitle: string | null }> }> => {
+    const response = await api.get<{ users: Array<{ id: string; firstName: string | null; lastName: string | null; displayName: string | null; email: string; jobTitle: string | null }> }>(
+      `/room-assignments/location/${locationId}/users`
+    );
+    return response.data;
+  },
 };
