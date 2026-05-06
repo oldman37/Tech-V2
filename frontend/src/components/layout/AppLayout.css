@@ -149,9 +149,32 @@
   padding: 1.5rem;
 }
 
-/* Responsive: hide sidebar on small screens */
+/* Responsive: mobile adjustments
+   Breakpoint: 768px here matches JS useMediaQuery('(min-width:769px)') in AppLayout.tsx */
 @media (max-width: 768px) {
-  .shell-sidebar {
+  .shell-sidebar--mobile {
+    display: block;
+    width: 100%;
+    border-right: none;
+    height: 100%;
+    overflow-y: auto;
+    padding: 0.75rem 0;
+    background: #fff;
+  }
+
+  .shell-title {
+    font-size: 0.875rem;
+  }
+
+  .shell-user-info {
     display: none;
   }
+
+  .shell-content {
+    padding: 1rem;
+  }
+}
+
+.hamburger-btn {
+  margin-right: 0.25rem;
 }

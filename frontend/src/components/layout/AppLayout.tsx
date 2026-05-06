@@ -1,7 +1,9 @@
 // c:\Tech-V2\frontend\src\components\layout\AppLayout.tsx
 
-import { ReactNode } from 'react';
+import { ReactNode, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { Drawer, IconButton, useMediaQuery } from '@mui/material';
+import MenuIcon from '@mui/icons-material/Menu';
 import { useAuthStore } from '../../store/authStore';
 import { authApi } from '../../services/authService';
 import { useRoomAssignmentAccess } from '../../hooks/useRoomAssignmentAccess';
@@ -80,6 +82,10 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
   const isStaff = isAdmin || (user?.permLevels?.REQUISITIONS ?? 0) >= 2;
   const { canAccess: canAccessRoomAssignments } = useRoomAssignmentAccess();
 
+  // Breakpoint: 769px here complements CSS @media (max-width: 768px) in AppLayout.css
+  const isDesktop = useMediaQuery('(min-width:769px)');
+  const [mobileOpen, setMobileOpen] = useState(false);
+
   const handleLogout = async () => {
     try {
       await authApi.logout();
@@ -91,11 +97,77 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
     }
   };
 
+  const handleNavClick = (path: string) => {
+    navigate(path);
+    if (!isDesktop) {
+      setMobileOpen(false);
+    }
+  };
+
+  const sidebarContent = (
+    <>
+      {NAV_SECTIONS.map((section, si) => {
+        const visibleItems = section.items.filter((item) =>
+          (!item.adminOnly || isAdmin) &&
+          (!item.requireTech || hasTechAccess) &&
+          (!item.requireFieldTripApprover || hasFieldTripApproverAccess) &&
+          (!item.staffOnly || isStaff) &&
+          (!item.requireRoomAssignment || canAccessRoomAssignments)
+        );
+        if (visibleItems.length === 0) return null;
+        return (
+          <div key={si} className="nav-section">
+            {section.title && (
+              <div className="nav-section-title">{section.title}</div>
+            )}
+            {visibleItems.map((item) => {
+              const isActive = item.path
+                ? (item.path === '/field-trips'
+                    ? location.pathname === item.path
+                    : location.pathname === item.path || location.pathname.startsWith(item.path + '/'))
+                : false;
+              if (item.disabled) {
+                return (
+                  <div key={item.label} className="nav-item nav-item--disabled">
+                    <span className="nav-icon">{item.icon}</span>
+                    <span>{item.label}</span>
+                    <span className="nav-soon">Soon</span>
+                  </div>
+                );
+              }
+              return (
+                <button
+                  key={item.label}
+                  className={`nav-item${isActive ? ' nav-item--active' : ''}`}
+                  onClick={() => item.path && handleNavClick(item.path)}
+                >
+                  <span className="nav-icon">{item.icon}</span>
+                  <span>{item.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        );
+      })}
+    </>
+  );
+
   return (
     <div className="app-shell">
       {/* Top Header */}
       <header className="shell-header">
         <div className="shell-header-left">
+          {!isDesktop && (
+            <IconButton
+              color="inherit"
+              aria-label="open navigation menu"
+              edge="start"
+              onClick={() => setMobileOpen(true)}
+              className="hamburger-btn"
+            >
+              <MenuIcon />
+            </IconButton>
+          )}
           <span className="shell-logo">⚙️</span>
           <span className="shell-title">Tech Management System</span>
         </div>
@@ -111,52 +183,33 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
       </header>
 
       <div className="shell-body">
-        {/* Sidebar */}
-        <nav className="shell-sidebar">
-          {NAV_SECTIONS.map((section, si) => {
-            const visibleItems = section.items.filter((item) =>
-              (!item.adminOnly || isAdmin) &&
-              (!item.requireTech || hasTechAccess) &&
-              (!item.requireFieldTripApprover || hasFieldTripApproverAccess) &&
-              (!item.staffOnly || isStaff) &&
-              (!item.requireRoomAssignment || canAccessRoomAssignments)
-            );
-            if (visibleItems.length === 0) return null;
-            return (
-              <div key={si} className="nav-section">
-                {section.title && (
-                  <div className="nav-section-title">{section.title}</div>
-                )}
-                {visibleItems.map((item) => {
-                  const isActive = item.path
-                    ? (item.path === '/field-trips'
-                        ? location.pathname === item.path
-                        : location.pathname === item.path || location.pathname.startsWith(item.path + '/'))
-                    : false;
-                  if (item.disabled) {
-                    return (
-                      <div key={item.label} className="nav-item nav-item--disabled">
-                        <span className="nav-icon">{item.icon}</span>
-                        <span>{item.label}</span>
-                        <span className="nav-soon">Soon</span>
-                      </div>
-                    );
-                  }
-                  return (
-                    <button
-                      key={item.label}
-                      className={`nav-item${isActive ? ' nav-item--active' : ''}`}
-                      onClick={() => item.path && navigate(item.path)}
-                    >
-                      <span className="nav-icon">{item.icon}</span>
-                      <span>{item.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            );
-          })}
-        </nav>
+        {/* Desktop Sidebar */}
+        {isDesktop && (
+          <nav className="shell-sidebar">
+            {sidebarContent}
+          </nav>
+        )}
+
+        {/* Mobile Drawer */}
+        {!isDesktop && (
+          <Drawer
+            variant="temporary"
+            open={mobileOpen}
+            onClose={() => setMobileOpen(false)}
+            ModalProps={{ keepMounted: true }}
+            sx={{
+              '& .MuiDrawer-paper': {
+                width: 260,
+                top: '56px',
+                height: 'calc(100% - 56px)',
+              },
+            }}
+          >
+            <nav className="shell-sidebar shell-sidebar--mobile">
+              {sidebarContent}
+            </nav>
+          </Drawer>
+        )}
 
         {/* Main Content */}
         <main className="shell-content">

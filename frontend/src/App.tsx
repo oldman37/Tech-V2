@@ -33,12 +33,14 @@ import {
   TransportationRequestDetailPage,
 } from './pages/TransportationRequests'
 import { ProtectedRoute } from './components/ProtectedRoute'
+import { PwaUpdatePrompt } from './components/layout/PwaUpdatePrompt'
 import AppLayout from './components/layout/AppLayout'
 import './App.css'
 
 function App() {
   return (
     <BrowserRouter>
+      <PwaUpdatePrompt />
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route
