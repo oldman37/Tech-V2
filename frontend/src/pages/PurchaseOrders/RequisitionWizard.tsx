@@ -57,6 +57,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useCreatePurchaseOrder, useSubmitPurchaseOrder } from '@/hooks/mutations/usePurchaseOrderMutations';
 import type { PurchaseOrderItemInput, CreatePurchaseOrderInput, ShipToType, WorkflowType } from '@/types/purchaseOrder.types';
 import { api } from '@/services/api';
+import { useIsMobile } from '@/hooks/useResponsive';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -113,6 +114,7 @@ const formatCurrency = (n: number) =>
 export default function RequisitionWizard() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
+  const isMobile = useIsMobile();
   const createMutation = useCreatePurchaseOrder();
   const submitMutation = useSubmitPurchaseOrder();
 
@@ -333,7 +335,12 @@ export default function RequisitionWizard() {
       </Box>
 
       {/* Stepper */}
-      <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
+      <Stepper
+        activeStep={activeStep}
+        alternativeLabel={!isMobile}
+        orientation={isMobile ? 'vertical' : 'horizontal'}
+        sx={{ mb: isMobile ? 2 : 4 }}
+      >
         {STEPS.map((label) => (
           <Step key={label}>
             <StepLabel>{label}</StepLabel>
@@ -386,7 +393,7 @@ export default function RequisitionWizard() {
             />
             {selectedVendor && (
               <Box sx={{ bgcolor: 'grey.50', p: 2, borderRadius: 1 }}>
-                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5 }}>
+                <Box sx={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 1.5 }}>
                   {selectedVendor.address && (
                     <Box>
                       <Typography variant="caption" color="text.secondary">Address</Typography>
@@ -674,7 +681,7 @@ export default function RequisitionWizard() {
         <Paper sx={{ p: 3 }}>
           <Typography variant="h6" gutterBottom>Review</Typography>
 
-          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mb: 3 }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 2, mb: 3 }}>
             <Box>
               <Typography variant="caption" color="text.secondary">Vendor</Typography>
               <Typography>{selectedVendor?.name ?? '—'}</Typography>
@@ -832,7 +839,7 @@ export default function RequisitionWizard() {
         </Box>
       </Box>
 
-      <Dialog open={disregardDialogOpen} onClose={() => setDisregardDialogOpen(false)} aria-labelledby="disregard-dialog-title">
+      <Dialog open={disregardDialogOpen} onClose={() => setDisregardDialogOpen(false)} fullScreen={isMobile} aria-labelledby="disregard-dialog-title">
         <DialogTitle id="disregard-dialog-title">Disregard Requisition?</DialogTitle>
         <DialogContent>
           <DialogContentText>

@@ -17,14 +17,7 @@ import {
   FormControl,
   InputLabel,
   MenuItem,
-  Paper,
   Select,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   TextField,
   Typography,
 } from '@mui/material';
@@ -38,9 +31,70 @@ import {
   TRANSPORTATION_REQUEST_STATUS_LABELS,
   TRANSPORTATION_REQUEST_STATUS_COLORS,
 } from '../../types/transportationRequest.types';
+import { ResponsiveTable, Column } from '../../components/responsive';
+import { useIsMobile } from '../../hooks/useResponsive';
+
+const columns: Column<TransportationRequest>[] = [
+  {
+    key: 'tripDate',
+    label: 'Trip Date',
+    render: (row) =>
+      new Date(row.tripDate).toLocaleDateString('en-US', {
+        month: 'short', day: 'numeric', year: 'numeric',
+      }),
+  },
+  {
+    key: 'school',
+    label: 'School',
+    isPrimary: true,
+  },
+  {
+    key: 'groupOrActivity',
+    label: 'Group / Activity',
+    isSecondary: true,
+  },
+  {
+    key: 'sponsorName',
+    label: 'Sponsor',
+    hideOnMobile: true,
+  },
+  {
+    key: 'busCount',
+    label: 'Buses',
+  },
+  {
+    key: 'studentCount',
+    label: 'Students',
+    hideOnMobile: true,
+  },
+  {
+    key: 'submittedBy',
+    label: 'Submitter',
+    hideOnMobile: true,
+    render: (row) =>
+      row.submittedBy
+        ? (row.submittedBy.displayName ?? `${row.submittedBy.firstName} ${row.submittedBy.lastName}`)
+        : '—',
+  },
+  {
+    key: 'status',
+    label: 'Status',
+    render: (row) => {
+      const status = row.status as TransportationRequestStatus;
+      return (
+        <Chip
+          label={TRANSPORTATION_REQUEST_STATUS_LABELS[status] ?? status}
+          color={TRANSPORTATION_REQUEST_STATUS_COLORS[status] ?? 'default'}
+          size="small"
+        />
+      );
+    },
+  },
+];
 
 export function TransportationRequestsPage() {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
 
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [fromFilter,   setFromFilter]   = useState<string>('');
@@ -60,7 +114,7 @@ export function TransportationRequestsPage() {
   return (
     <Box sx={{ p: 3 }}>
       {/* Header */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 3 }}>
         <Typography variant="h4" component="h1">
           Transportation Requests
         </Typography>
@@ -68,6 +122,7 @@ export function TransportationRequestsPage() {
           variant="contained"
           startIcon={<AddIcon />}
           onClick={() => navigate('/transportation-requests/new')}
+          sx={{ ...(isMobile && { width: '100%' }) }}
         >
           New Request
         </Button>
@@ -75,7 +130,7 @@ export function TransportationRequestsPage() {
 
       {/* Filters */}
       <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
-        <FormControl size="small" sx={{ minWidth: 160 }}>
+        <FormControl size="small" sx={{ minWidth: isMobile ? '100%' : 160 }}>
           <InputLabel>Status</InputLabel>
           <Select
             value={statusFilter}
@@ -88,22 +143,26 @@ export function TransportationRequestsPage() {
             <MenuItem value="DENIED">Denied</MenuItem>
           </Select>
         </FormControl>
-        <TextField
-          size="small"
-          label="Trip Date From"
-          type="date"
-          value={fromFilter}
-          onChange={(e) => setFromFilter(e.target.value)}
-          InputLabelProps={{ shrink: true }}
-        />
-        <TextField
-          size="small"
-          label="Trip Date To"
-          type="date"
-          value={toFilter}
-          onChange={(e) => setToFilter(e.target.value)}
-          InputLabelProps={{ shrink: true }}
-        />
+        {!isMobile && (
+          <>
+            <TextField
+              size="small"
+              label="Trip Date From"
+              type="date"
+              value={fromFilter}
+              onChange={(e) => setFromFilter(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+            />
+            <TextField
+              size="small"
+              label="Trip Date To"
+              type="date"
+              value={toFilter}
+              onChange={(e) => setToFilter(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+            />
+          </>
+        )}
         {(statusFilter || fromFilter || toFilter) && (
           <Button
             variant="text"
@@ -114,13 +173,6 @@ export function TransportationRequestsPage() {
         )}
       </Box>
 
-      {/* Loading */}
-      {isLoading && (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-          <CircularProgress />
-        </Box>
-      )}
-
       {/* Error */}
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
@@ -128,68 +180,15 @@ export function TransportationRequestsPage() {
         </Alert>
       )}
 
-      {/* Table */}
-      {!isLoading && !error && (
-        <TableContainer component={Paper}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell sx={{ fontWeight: 'bold' }}>Trip Date</TableCell>
-                <TableCell sx={{ fontWeight: 'bold' }}>School</TableCell>
-                <TableCell sx={{ fontWeight: 'bold' }}>Group / Activity</TableCell>
-                <TableCell sx={{ fontWeight: 'bold' }}>Sponsor</TableCell>
-                <TableCell sx={{ fontWeight: 'bold' }}>Buses</TableCell>
-                <TableCell sx={{ fontWeight: 'bold' }}>Students</TableCell>
-                <TableCell sx={{ fontWeight: 'bold' }}>Submitter</TableCell>
-                <TableCell sx={{ fontWeight: 'bold' }}>Status</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {(!requests || requests.length === 0) && (
-                <TableRow>
-                  <TableCell colSpan={8} align="center" sx={{ py: 4, color: 'text.secondary' }}>
-                    No transportation requests found.
-                  </TableCell>
-                </TableRow>
-              )}
-              {requests?.map((req) => {
-                const status = req.status as TransportationRequestStatus;
-                return (
-                  <TableRow
-                    key={req.id}
-                    hover
-                    sx={{ cursor: 'pointer' }}
-                    onClick={() => navigate(`/transportation-requests/${req.id}`)}
-                  >
-                    <TableCell>
-                      {new Date(req.tripDate).toLocaleDateString('en-US', {
-                        month: 'short', day: 'numeric', year: 'numeric',
-                      })}
-                    </TableCell>
-                    <TableCell>{req.school}</TableCell>
-                    <TableCell>{req.groupOrActivity}</TableCell>
-                    <TableCell>{req.sponsorName}</TableCell>
-                    <TableCell>{req.busCount}</TableCell>
-                    <TableCell>{req.studentCount}</TableCell>
-                    <TableCell>
-                      {req.submittedBy
-                        ? (req.submittedBy.displayName ?? `${req.submittedBy.firstName} ${req.submittedBy.lastName}`)
-                        : '—'}
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={TRANSPORTATION_REQUEST_STATUS_LABELS[status] ?? status}
-                        color={TRANSPORTATION_REQUEST_STATUS_COLORS[status] ?? 'default'}
-                        size="small"
-                      />
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      )}
+      {/* Table / Cards */}
+      <ResponsiveTable<TransportationRequest>
+        columns={columns}
+        rows={requests ?? []}
+        getRowKey={(row) => row.id}
+        onRowClick={(row) => navigate(`/transportation-requests/${row.id}`)}
+        loading={isLoading}
+        emptyMessage="No transportation requests found."
+      />
     </Box>
   );
 }

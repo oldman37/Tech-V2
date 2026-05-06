@@ -16,6 +16,9 @@ import {
   Typography,
   Chip,
   Paper,
+  AppBar,
+  Toolbar,
+  IconButton,
 } from '@mui/material';
 import {
   Timeline,
@@ -31,7 +34,9 @@ import {
   AddCircle as AddIcon,
   Delete as DeleteIcon,
   Update as UpdateIcon,
+  Close as CloseIcon,
 } from '@mui/icons-material';
+import { useIsMobile } from '../../hooks/useResponsive';
 import inventoryService from '../../services/inventory.service';
 import { InventoryItem, InventoryHistoryEntry } from '../../types/inventory.types';
 
@@ -82,6 +87,7 @@ export const InventoryHistoryDialog = ({
   item,
   onClose,
 }: InventoryHistoryDialogProps) => {
+  const isMobile = useIsMobile();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [history, setHistory] = useState<InventoryHistoryEntry[]>([]);
@@ -128,15 +134,28 @@ export const InventoryHistoryDialog = ({
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>
-        Audit History
-        {item && (
-          <Typography variant="body2" color="text.secondary">
-            {item.name} ({item.assetTag})
-          </Typography>
-        )}
-      </DialogTitle>
+    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth fullScreen={isMobile}>
+      {isMobile ? (
+        <AppBar sx={{ position: 'relative' }}>
+          <Toolbar>
+            <IconButton edge="start" color="inherit" onClick={onClose} aria-label="close">
+              <CloseIcon />
+            </IconButton>
+            <Typography sx={{ ml: 2, flex: 1 }} variant="h6" component="div">
+              Audit History
+            </Typography>
+          </Toolbar>
+        </AppBar>
+      ) : (
+        <DialogTitle>
+          Audit History
+          {item && (
+            <Typography variant="body2" color="text.secondary">
+              {item.name} ({item.assetTag})
+            </Typography>
+          )}
+        </DialogTitle>
+      )}
       <DialogContent dividers>
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>

@@ -63,6 +63,7 @@ import {
   type POStatus,
   type WorkflowType,
 } from '@/types/purchaseOrder.types';
+import { useIsMobile } from '@/hooks/useResponsive';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -103,6 +104,7 @@ export default function PurchaseOrderDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuthStore();
+  const isMobile = useIsMobile();
   const { permLevel, isLoading: permLoading } = useRequisitionsPermLevel();
 
   // Data
@@ -758,7 +760,7 @@ export default function PurchaseOrderDetail() {
       ═══════════════════════════════════════════════════════════════ */}
 
       {/* ── Approve Dialog ── */}
-      <Dialog open={approveDialogOpen} onClose={() => setApproveDialogOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog open={approveDialogOpen} onClose={() => setApproveDialogOpen(false)} maxWidth="sm" fullWidth fullScreen={isMobile}>
         <DialogTitle>Approve Requisition</DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary" gutterBottom>
@@ -813,7 +815,7 @@ export default function PurchaseOrderDetail() {
       </Dialog>
 
       {/* ── Reject Dialog ── */}
-      <Dialog open={rejectDialogOpen} onClose={() => setRejectDialogOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog open={rejectDialogOpen} onClose={() => setRejectDialogOpen(false)} maxWidth="sm" fullWidth fullScreen={isMobile}>
         <DialogTitle>Reject Requisition</DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary" gutterBottom>
@@ -849,7 +851,7 @@ export default function PurchaseOrderDetail() {
       </Dialog>
 
       {/* ── Assign Account Code Dialog ── */}
-      <Dialog open={accountDialogOpen} onClose={() => setAccountDialogOpen(false)} maxWidth="xs" fullWidth>
+      <Dialog open={accountDialogOpen} onClose={() => setAccountDialogOpen(false)} maxWidth="xs" fullWidth fullScreen={isMobile}>
         <DialogTitle>Assign Account Code</DialogTitle>
         <DialogContent>
           <TextField
@@ -879,7 +881,7 @@ export default function PurchaseOrderDetail() {
       </Dialog>
 
       {/* ── Issue PO Dialog ── */}
-      <Dialog open={issueDialogOpen} onClose={() => setIssueDialogOpen(false)} maxWidth="xs" fullWidth>
+      <Dialog open={issueDialogOpen} onClose={() => setIssueDialogOpen(false)} maxWidth="xs" fullWidth fullScreen={isMobile}>
         <DialogTitle>Issue PO Number</DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary">

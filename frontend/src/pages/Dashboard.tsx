@@ -24,7 +24,7 @@ export const Dashboard = () => {
     <div className="container">
       <div className="page-header">
         <h2 className="page-title">Welcome, {user?.firstName || user?.name}</h2>
-        <p className="page-description">Tech Department Management Portal</p>
+        <p className="page-description">School Operations Management Portal</p>
       </div>
 
       {/* Inventory Stats Summary */}

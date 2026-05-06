@@ -39,6 +39,7 @@ import type {
   UpdateFundingSourceRequest,
 } from '../types/fundingSource.types';
 import { useSearchParams } from 'react-router-dom';
+import { useIsMobile } from '../hooks/useResponsive';
 import locationService from '../services/location.service';
 import roomService from '../services/roomService';
 import type { OfficeLocation, CreateLocationRequest, LocationType } from '../types/location.types';
@@ -138,6 +139,7 @@ function CrudTableShell({
 // ─── BRANDS TAB ────────────────────────────────────────────────────────────
 
 function BrandsTab() {
+  const isMobile = useIsMobile();
   const [items, setItems] = useState<Brand[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -232,7 +234,7 @@ function BrandsTab() {
           </tr>
         ))}
       </CrudTableShell>
-      <Dialog open={modalOpen} onClose={() => setModalOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog open={modalOpen} onClose={() => setModalOpen(false)} maxWidth="sm" fullWidth fullScreen={isMobile}>
         <DialogTitle>{editing ? 'Edit Brand' : 'Add Brand'}</DialogTitle>
         <DialogContent dividers>
           {formError && <Alert severity="error" sx={{ mb: 2 }}>{formError}</Alert>}
@@ -257,6 +259,7 @@ function BrandsTab() {
 // ─── VENDORS TAB ───────────────────────────────────────────────────────────
 
 function VendorsTab() {
+  const isMobile = useIsMobile();
   const [items, setItems] = useState<Vendor[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -365,7 +368,7 @@ function VendorsTab() {
           </tr>
         ))}
       </CrudTableShell>
-      <Dialog open={modalOpen} onClose={() => setModalOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog open={modalOpen} onClose={() => setModalOpen(false)} maxWidth="sm" fullWidth fullScreen={isMobile}>
         <DialogTitle>{editing ? 'Edit Vendor' : 'Add Vendor'}</DialogTitle>
         <DialogContent dividers>
           {formError && <Alert severity="error" sx={{ mb: 2 }}>{formError}</Alert>}
@@ -401,6 +404,7 @@ function VendorsTab() {
 // ─── CATEGORIES TAB ────────────────────────────────────────────────────────
 
 function CategoriesTab() {
+  const isMobile = useIsMobile();
   const [items, setItems] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -484,7 +488,7 @@ function CategoriesTab() {
           );
         })}
       </CrudTableShell>
-      <Dialog open={modalOpen} onClose={() => setModalOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog open={modalOpen} onClose={() => setModalOpen(false)} maxWidth="sm" fullWidth fullScreen={isMobile}>
         <DialogTitle>{editing ? 'Edit Category' : 'Add Category'}</DialogTitle>
         <DialogContent dividers>
           {formError && <Alert severity="error" sx={{ mb: 2 }}>{formError}</Alert>}
@@ -515,6 +519,7 @@ function CategoriesTab() {
 // ─── MODELS TAB ────────────────────────────────────────────────────────────
 
 function ModelsTab() {
+  const isMobile = useIsMobile();
   const [items, setItems] = useState<EquipmentModel[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
   const [loading, setLoading] = useState(false);
@@ -612,7 +617,7 @@ function ModelsTab() {
           </tr>
         ))}
       </CrudTableShell>
-      <Dialog open={modalOpen} onClose={() => setModalOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog open={modalOpen} onClose={() => setModalOpen(false)} maxWidth="sm" fullWidth fullScreen={isMobile}>
         <DialogTitle>{editing ? 'Edit Model' : 'Add Model'}</DialogTitle>
         <DialogContent dividers>
           {formError && <Alert severity="error" sx={{ mb: 2 }}>{formError}</Alert>}
@@ -645,6 +650,7 @@ const fsFormSchema = z.object({
 });
 
 function FundingSourcesTab() {
+  const isMobile = useIsMobile();
   const [fundingSources, setFundingSources] = useState<FundingSource[]>([]);
   const [loading, setLoading] = useState(false);
   const [pageError, setPageError] = useState<string | null>(null);
@@ -749,7 +755,7 @@ function FundingSourcesTab() {
           </tr>
         ))}
       </CrudTableShell>
-      <Dialog open={modalOpen} onClose={() => setModalOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog open={modalOpen} onClose={() => setModalOpen(false)} maxWidth="sm" fullWidth fullScreen={isMobile}>
         <DialogTitle>{editing ? 'Edit Funding Source' : 'Add Funding Source'}</DialogTitle>
         <DialogContent dividers>
           {formError && <Alert severity="error" sx={{ mb: 2 }}>{formError}</Alert>}
@@ -795,6 +801,7 @@ const US_STATES = [
 ];
 
 function LocationsTab() {
+  const isMobile = useIsMobile();
   const [items, setItems] = useState<OfficeLocation[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -934,7 +941,7 @@ function LocationsTab() {
         ))}
       </CrudTableShell>
 
-      <Dialog open={modalOpen} onClose={() => setModalOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog open={modalOpen} onClose={() => setModalOpen(false)} maxWidth="sm" fullWidth fullScreen={isMobile}>
         <DialogTitle>{editing ? 'Edit Location' : 'Add Location'}</DialogTitle>
         <DialogContent dividers>
           {formError && <Alert severity="error" sx={{ mb: 2 }}>{formError}</Alert>}
@@ -1171,6 +1178,7 @@ const TAB_NAMES = ['brands', 'vendors', 'categories', 'models', 'funding-sources
 type TabName = typeof TAB_NAMES[number];
 
 const ReferenceDataManagement = () => {
+  const isMobile = useIsMobile();
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab') as TabName | null;
   const tabIndex = TAB_NAMES.indexOf(tabParam as TabName);
@@ -1190,7 +1198,13 @@ const ReferenceDataManagement = () => {
       </div>
 
       <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-        <Tabs value={tab} onChange={handleTabChange} aria-label="reference data tabs">
+        <Tabs
+          value={tab}
+          onChange={handleTabChange}
+          aria-label="reference data tabs"
+          variant={isMobile ? 'scrollable' : 'standard'}
+          scrollButtons={isMobile ? 'auto' : undefined}
+        >
           <Tab label="Brands" />
           <Tab label="Vendors" />
           <Tab label="Categories" />

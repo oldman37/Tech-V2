@@ -53,6 +53,7 @@ import { WorkOrderStatusChip } from '@/components/work-orders/WorkOrderStatusChi
 import { WorkOrderPriorityChip } from '@/components/work-orders/WorkOrderPriorityChip';
 import { UserSearchAutocomplete } from '@/components/UserSearchAutocomplete';
 import type { WorkOrderStatus, WorkOrderComment } from '@/types/work-order.types';
+import { useIsMobile } from '@/hooks/useResponsive';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -132,6 +133,7 @@ function CommentCard({ comment }: { comment: WorkOrderComment }) {
 export default function WorkOrderDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
 
   const { data: workOrder, isLoading, error } = useWorkOrder(id);
 
@@ -480,7 +482,7 @@ export default function WorkOrderDetailPage() {
       </Box>
 
       {/* ── Update Status Dialog ──────────────────────────────────────────── */}
-      <Dialog open={statusOpen} onClose={() => setStatusOpen(false)} maxWidth="xs" fullWidth>
+      <Dialog open={statusOpen} onClose={() => setStatusOpen(false)} maxWidth="xs" fullWidth fullScreen={isMobile}>
         <DialogTitle>Update Work Order Status</DialogTitle>
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
           <FormControl size="small" fullWidth>
@@ -524,7 +526,7 @@ export default function WorkOrderDetailPage() {
       </Dialog>
 
       {/* ── Assign Dialog ─────────────────────────────────────────────────── */}
-      <Dialog open={assignOpen} onClose={() => setAssignOpen(false)} maxWidth="xs" fullWidth>
+      <Dialog open={assignOpen} onClose={() => setAssignOpen(false)} maxWidth="xs" fullWidth fullScreen={isMobile}>
         <DialogTitle>Assign Work Order</DialogTitle>
         <DialogContent sx={{ pt: 1 }}>
           <UserSearchAutocomplete

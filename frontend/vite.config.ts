@@ -11,9 +11,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg'],
       manifest: {
-        name: 'Tech Department Management System',
-        short_name: 'TechDMS',
-        description: 'Technology department operations management',
+        name: 'SchoolWorks',
+        short_name: 'SchoolWorks',
+        description: 'School operations management',
         theme_color: '#1e40af',
         background_color: '#f8fafc',
         display: 'standalone',

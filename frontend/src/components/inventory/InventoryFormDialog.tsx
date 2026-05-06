@@ -21,7 +21,13 @@ import {
   Box,
   Stack,
   Autocomplete,
+  AppBar,
+  Toolbar,
+  IconButton,
+  Typography,
 } from '@mui/material';
+import CloseIcon from '@mui/icons-material/Close';
+import { useIsMobile } from '../../hooks/useResponsive';
 import { z } from 'zod';
 import inventoryService from '../../services/inventory.service';
 import locationService from '../../services/location.service';
@@ -103,6 +109,7 @@ export const InventoryFormDialog = ({
   onClose,
   onSuccess,
 }: InventoryFormDialogProps) => {
+  const isMobile = useIsMobile();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
@@ -411,8 +418,21 @@ export const InventoryFormDialog = ({
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>{item ? 'Edit Inventory Item' : 'Create Inventory Item'}</DialogTitle>
+    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth fullScreen={isMobile}>
+      {isMobile ? (
+        <AppBar sx={{ position: 'relative' }}>
+          <Toolbar>
+            <IconButton edge="start" color="inherit" onClick={onClose} aria-label="close">
+              <CloseIcon />
+            </IconButton>
+            <Typography sx={{ ml: 2, flex: 1 }} variant="h6" component="div">
+              {item ? 'Edit Inventory Item' : 'Create Inventory Item'}
+            </Typography>
+          </Toolbar>
+        </AppBar>
+      ) : (
+        <DialogTitle>{item ? 'Edit Inventory Item' : 'Create Inventory Item'}</DialogTitle>
+      )}
       <DialogContent dividers>
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>

@@ -16,11 +16,16 @@ import {
   Typography,
   Button,
   Box,
+  AppBar,
+  Toolbar,
+  IconButton,
 } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import WarningIcon from '@mui/icons-material/Warning';
 import ErrorIcon from '@mui/icons-material/Error';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import CloseIcon from '@mui/icons-material/Close';
+import { useIsMobile } from '../../hooks/useResponsive';
 import { SyncResultDetail } from '../../services/adminService';
 
 interface SyncResultDialogProps {
@@ -50,6 +55,7 @@ export const SyncResultDialog: React.FC<SyncResultDialogProps> = ({
   summaryMessage,
   hasAttempted,
 }) => {
+  const isMobile = useIsMobile();
   const hasErrors = result ? result.errors > 0 : false;
   const durationSec = result ? (result.durationMs / 1000).toFixed(1) : null;
 
@@ -73,15 +79,29 @@ export const SyncResultDialog: React.FC<SyncResultDialogProps> = ({
       onClose={isLoading ? undefined : onClose}
       maxWidth="sm"
       fullWidth
+      fullScreen={isMobile}
     >
-      <DialogTitle>
-        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-          {titleIcon()}
-          <Typography variant="h6" component="span">
-            {syncTypeLabel[syncType]} — {titleText()}
+      {isMobile ? (
+        <AppBar sx={{ position: 'relative' }}>
+          <Toolbar>
+            <IconButton edge="start" color="inherit" onClick={onClose} disabled={isLoading} aria-label="close">
+              <CloseIcon />
+            </IconButton>
+            <Typography sx={{ ml: 2, flex: 1 }} variant="h6" component="div">
+              {titleText()}
+            </Typography>
+          </Toolbar>
+        </AppBar>
+      ) : (
+        <DialogTitle>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            {titleIcon()}
+            <Typography variant="h6" component="span">
+              {syncTypeLabel[syncType]} — {titleText()}
           </Typography>
         </Box>
       </DialogTitle>
+      )}
 
       <DialogContent>
         {isLoading || !hasAttempted ? (

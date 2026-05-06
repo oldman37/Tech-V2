@@ -22,7 +22,12 @@ import {
   Autocomplete,
   Box,
   Typography,
+  AppBar,
+  Toolbar,
+  IconButton,
 } from '@mui/material';
+import CloseIcon from '@mui/icons-material/Close';
+import { useIsMobile } from '../../hooks/useResponsive';
 import { InventoryItem } from '../../types/inventory.types';
 import assignmentService from '../../services/assignment.service';
 import { userService } from '../../services/userService';
@@ -43,6 +48,7 @@ export const AssignmentDialog = ({
   onClose,
   onSuccess,
 }: AssignmentDialogProps) => {
+  const isMobile = useIsMobile();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [assignmentType, setAssignmentType] = useState<'user' | 'room' | 'both'>('user');
@@ -164,13 +170,26 @@ export const AssignmentDialog = ({
   if (!equipment) return null;
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>
-        Assign Equipment
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-          {equipment.name} ({equipment.assetTag})
-        </Typography>
-      </DialogTitle>
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth fullScreen={isMobile}>
+      {isMobile ? (
+        <AppBar sx={{ position: 'relative' }}>
+          <Toolbar>
+            <IconButton edge="start" color="inherit" onClick={onClose} aria-label="close">
+              <CloseIcon />
+            </IconButton>
+            <Typography sx={{ ml: 2, flex: 1 }} variant="h6" component="div">
+              Assign Equipment
+            </Typography>
+          </Toolbar>
+        </AppBar>
+      ) : (
+        <DialogTitle>
+          Assign Equipment
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            {equipment.name} ({equipment.assetTag})
+          </Typography>
+        </DialogTitle>
+      )}
 
       <DialogContent>
         <Box sx={{ pt: 2 }}>

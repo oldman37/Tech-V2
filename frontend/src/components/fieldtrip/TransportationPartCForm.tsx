@@ -30,6 +30,7 @@ import {
 } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon      from '@mui/icons-material/Cancel';
+import { useIsMobile } from '../../hooks/useResponsive';
 import { fieldTripTransportationService } from '../../services/fieldTripTransportation.service';
 import type {
   AdditionalDestination,
@@ -60,6 +61,7 @@ interface Props {
 // ---------------------------------------------------------------------------
 
 export function TransportationPartCForm({ tripId, transport, isOwner, onUpdated }: Props) {
+  const isMobile = useIsMobile();
   const trip     = transport.fieldTripRequest;
   const approvals = trip?.approvals ?? [];
 
@@ -448,7 +450,7 @@ export function TransportationPartCForm({ tripId, transport, isOwner, onUpdated 
       )}
 
       {/* ── Deny dialog ── */}
-      <Dialog open={denyDialogOpen} onClose={() => setDenyDialogOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog open={denyDialogOpen} onClose={() => setDenyDialogOpen(false)} maxWidth="sm" fullWidth fullScreen={isMobile}>
         <DialogTitle>Deny Transportation Request</DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary" gutterBottom>

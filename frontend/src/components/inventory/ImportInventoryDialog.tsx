@@ -22,13 +22,18 @@ import {
   ListItem,
   ListItemText,
   Paper,
+  AppBar,
+  Toolbar,
+  IconButton,
 } from '@mui/material';
 import {
   CloudUpload as UploadIcon,
   CheckCircle as SuccessIcon,
   Error as ErrorIcon,
   Download as DownloadIcon,
+  Close as CloseIcon,
 } from '@mui/icons-material';
+import { useIsMobile } from '../../hooks/useResponsive';
 
 interface ImportInventoryDialogProps {
   open: boolean;
@@ -57,6 +62,7 @@ const ImportInventoryDialog = ({
   onClose,
   onSuccess,
 }: ImportInventoryDialogProps) => {
+  const isMobile = useIsMobile();
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -180,13 +186,26 @@ const ImportInventoryDialog = ({
   };
 
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
-      <DialogTitle>
-        Import Inventory
-        <Typography variant="body2" color="text.secondary">
-          Upload an Excel (.xlsx, .xls) or CSV (.csv) file to import multiple inventory items
-        </Typography>
-      </DialogTitle>
+    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth fullScreen={isMobile}>
+      {isMobile ? (
+        <AppBar sx={{ position: 'relative' }}>
+          <Toolbar>
+            <IconButton edge="start" color="inherit" onClick={handleClose} aria-label="close">
+              <CloseIcon />
+            </IconButton>
+            <Typography sx={{ ml: 2, flex: 1 }} variant="h6" component="div">
+              Import Inventory
+            </Typography>
+          </Toolbar>
+        </AppBar>
+      ) : (
+        <DialogTitle>
+          Import Inventory
+          <Typography variant="body2" color="text.secondary">
+            Upload an Excel (.xlsx, .xls) or CSV (.csv) file to import multiple inventory items
+          </Typography>
+        </DialogTitle>
+      )}
 
       <DialogContent dividers>
         {error && (

@@ -21,14 +21,7 @@ import {
   MenuItem,
   Paper,
   Select,
-  Skeleton,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
   TablePagination,
-  TableRow,
   TextField,
   Typography,
 } from '@mui/material';
@@ -44,7 +37,9 @@ import { WorkOrderPriorityChip } from '@/components/work-orders/WorkOrderPriorit
 import settingsService from '@/services/settingsService';
 import { queryKeys } from '@/lib/queryKeys';
 import AccessDenied from '@/pages/AccessDenied';
-import type { WorkOrderQuery, WorkOrderDepartment, WorkOrderStatus, WorkOrderPriority } from '@/types/work-order.types';
+import { ResponsiveTable, MobileFilterBar, Column } from '@/components/responsive';
+import { useIsMobile } from '@/hooks/useResponsive';
+import type { WorkOrderQuery, WorkOrderDepartment, WorkOrderStatus, WorkOrderPriority, WorkOrderSummary } from '@/types/work-order.types';
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -69,6 +64,9 @@ export default function WorkOrderListPage() {
   const [fiscalYearFilter, setFiscalYearFilter] = useState<string>('');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(25);
+  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
+
+  const isMobile = useIsMobile();
 
   // Fetch system settings for current fiscal year badge
   const { data: settingsData } = useQuery({
@@ -111,10 +109,71 @@ export default function WorkOrderListPage() {
 
   const handleRowClick = (id: string) => navigate(`/work-orders/${id}`);
 
+  // Column definitions for ResponsiveTable
+  const woColumns: Column<WorkOrderSummary>[] = [
+    {
+      key: 'workOrderNumber',
+      label: 'Work Order #',
+      isPrimary: true,
+      render: (wo) => (
+        <span style={{ fontWeight: 600, color: 'var(--primary)' }}>{wo.workOrderNumber}</span>
+      ),
+    },
+    {
+      key: 'department',
+      label: 'Department',
+      hideOnMobile: true,
+      render: (wo) => (
+        <Chip
+          label={wo.department === 'TECHNOLOGY' ? 'Tech' : 'Maint.'}
+          size="small"
+          color={wo.department === 'TECHNOLOGY' ? 'primary' : 'secondary'}
+          variant="outlined"
+        />
+      ),
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      isSecondary: true,
+      render: (wo) => <WorkOrderStatusChip status={wo.status} />,
+    },
+    {
+      key: 'priority',
+      label: 'Priority',
+      render: (wo) => <WorkOrderPriorityChip priority={wo.priority} />,
+    },
+    {
+      key: 'officeLocation',
+      label: 'Location',
+      render: (wo) => (
+        <span>
+          {wo.officeLocation?.name ?? '—'}
+          {wo.room ? ` / ${wo.room.name}` : ''}
+        </span>
+      ),
+    },
+    {
+      key: 'assignedTo',
+      label: 'Assigned To',
+      hideOnMobile: true,
+      render: (wo) => wo.assignedTo?.displayName ?? wo.assignedTo?.email ?? '—',
+    },
+    {
+      key: 'createdAt',
+      label: 'Created',
+      render: (wo) => formatDate(wo.createdAt),
+    },
+  ];
+
+  const activeFilterCount =
+    (department ? 1 : 0) + (status ? 1 : 0) + (priority ? 1 : 0) +
+    (locationFilter ? 1 : 0) + (fiscalYearFilter ? 1 : 0);
+
   return (
     <Box sx={{ p: 3 }}>
       {/* Page header */}
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1, mb: 3 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <ConfirmationNumberIcon color="primary" />
           <Typography variant="h5" fontWeight={600}>
@@ -135,100 +194,188 @@ export default function WorkOrderListPage() {
           variant="contained"
           startIcon={<AddIcon />}
           onClick={() => navigate('/work-orders/new')}
+          sx={{ ...(isMobile && { width: '100%' }) }}
         >
           New Work Order
         </Button>
       </Box>
 
       {/* Filter bar */}
-      <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap' }}>
-        <TextField
-          size="small"
-          placeholder="Search work orders…"
-          value={search}
-          onChange={(e) => { setSearch(e.target.value); setPage(0); }}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon fontSize="small" />
-              </InputAdornment>
-            ),
-          }}
-          sx={{ minWidth: 220 }}
-        />
+      {isMobile ? (
+        <Box sx={{ mb: 2 }}>
+          <MobileFilterBar
+            searchValue={search}
+            onSearchChange={(value) => { setSearch(value); setPage(0); }}
+            filterCount={activeFilterCount}
+            onOpenFilters={() => setFilterDrawerOpen(!filterDrawerOpen)}
+            searchPlaceholder="Search work orders…"
+          />
+          {filterDrawerOpen && (
+            <Paper sx={{ p: 2, mt: 1 }}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                <Select
+                  size="small"
+                  displayEmpty
+                  value={department}
+                  onChange={(e) => { setDepartment(e.target.value as WorkOrderDepartment | ''); setPage(0); }}
+                  fullWidth
+                >
+                  <MenuItem value="">All Departments</MenuItem>
+                  <MenuItem value="TECHNOLOGY">Technology</MenuItem>
+                  <MenuItem value="MAINTENANCE">Maintenance</MenuItem>
+                </Select>
+                <Select
+                  size="small"
+                  displayEmpty
+                  value={status}
+                  onChange={(e) => { setStatus(e.target.value as WorkOrderStatus | ''); setPage(0); }}
+                  fullWidth
+                >
+                  <MenuItem value="">All Statuses</MenuItem>
+                  <MenuItem value="OPEN">Open</MenuItem>
+                  <MenuItem value="IN_PROGRESS">In Progress</MenuItem>
+                  <MenuItem value="ON_HOLD">On Hold</MenuItem>
+                  <MenuItem value="RESOLVED">Resolved</MenuItem>
+                  <MenuItem value="CLOSED">Closed</MenuItem>
+                </Select>
+                <Select
+                  size="small"
+                  displayEmpty
+                  value={priority}
+                  onChange={(e) => { setPriority(e.target.value as WorkOrderPriority | ''); setPage(0); }}
+                  fullWidth
+                >
+                  <MenuItem value="">All Priorities</MenuItem>
+                  <MenuItem value="LOW">Low</MenuItem>
+                  <MenuItem value="MEDIUM">Medium</MenuItem>
+                  <MenuItem value="HIGH">High</MenuItem>
+                  <MenuItem value="URGENT">Urgent</MenuItem>
+                </Select>
+                <Select
+                  size="small"
+                  displayEmpty
+                  value={locationFilter}
+                  onChange={(e) => { setLocationFilter(e.target.value); setPage(0); }}
+                  fullWidth
+                >
+                  <MenuItem value="">All Schools</MenuItem>
+                  {locations
+                    .filter((loc) => loc.isActive)
+                    .sort((a, b) => a.name.localeCompare(b.name))
+                    .map((loc) => (
+                      <MenuItem key={loc.id} value={loc.id}>{loc.name}</MenuItem>
+                    ))}
+                </Select>
+                <Button
+                  size="small"
+                  variant="text"
+                  onClick={() => {
+                    setSearch('');
+                    setDepartment('');
+                    setStatus('');
+                    setPriority('');
+                    setLocationFilter('');
+                    setFiscalYearFilter('');
+                    setPage(0);
+                    setFilterDrawerOpen(false);
+                  }}
+                >
+                  Clear Filters
+                </Button>
+              </Box>
+            </Paper>
+          )}
+        </Box>
+      ) : (
+        <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap' }}>
+          <TextField
+            size="small"
+            placeholder="Search work orders…"
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setPage(0); }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon fontSize="small" />
+                </InputAdornment>
+              ),
+            }}
+            sx={{ minWidth: 220 }}
+          />
 
-        <Select
-          size="small"
-          displayEmpty
-          value={department}
-          onChange={(e) => { setDepartment(e.target.value as WorkOrderDepartment | ''); setPage(0); }}
-          sx={{ minWidth: 160 }}
-        >
-          <MenuItem value="">All Departments</MenuItem>
-          <MenuItem value="TECHNOLOGY">Technology</MenuItem>
-          <MenuItem value="MAINTENANCE">Maintenance</MenuItem>
-        </Select>
-
-        <Select
-          size="small"
-          displayEmpty
-          value={status}
-          onChange={(e) => { setStatus(e.target.value as WorkOrderStatus | ''); setPage(0); }}
-          sx={{ minWidth: 160 }}
-        >
-          <MenuItem value="">All Statuses</MenuItem>
-          <MenuItem value="OPEN">Open</MenuItem>
-          <MenuItem value="IN_PROGRESS">In Progress</MenuItem>
-          <MenuItem value="ON_HOLD">On Hold</MenuItem>
-          <MenuItem value="RESOLVED">Resolved</MenuItem>
-          <MenuItem value="CLOSED">Closed</MenuItem>
-        </Select>
-
-        <Select
-          size="small"
-          displayEmpty
-          value={priority}
-          onChange={(e) => { setPriority(e.target.value as WorkOrderPriority | ''); setPage(0); }}
-          sx={{ minWidth: 140 }}
-        >
-          <MenuItem value="">All Priorities</MenuItem>
-          <MenuItem value="LOW">Low</MenuItem>
-          <MenuItem value="MEDIUM">Medium</MenuItem>
-          <MenuItem value="HIGH">High</MenuItem>
-          <MenuItem value="URGENT">Urgent</MenuItem>
-        </Select>
-
-        <Select
-          size="small"
-          displayEmpty
-          value={locationFilter}
-          onChange={(e) => { setLocationFilter(e.target.value); setPage(0); }}
-          sx={{ minWidth: 180 }}
-        >
-          <MenuItem value="">All Schools</MenuItem>
-          {locations
-            .filter((loc) => loc.isActive)
-            .sort((a, b) => a.name.localeCompare(b.name))
-            .map((loc) => (
-              <MenuItem key={loc.id} value={loc.id}>{loc.name}</MenuItem>
-            ))}
-        </Select>
-
-        {workOrderFiscalYears.length > 0 && (
           <Select
             size="small"
             displayEmpty
-            value={activeFiscalYear}
-            onChange={(e) => { setFiscalYearFilter(e.target.value); setPage(0); }}
+            value={department}
+            onChange={(e) => { setDepartment(e.target.value as WorkOrderDepartment | ''); setPage(0); }}
             sx={{ minWidth: 160 }}
           >
-            <MenuItem value="">All Years</MenuItem>
-            {workOrderFiscalYears.map((fy) => (
-              <MenuItem key={fy} value={fy}>{fy}</MenuItem>
-            ))}
+            <MenuItem value="">All Departments</MenuItem>
+            <MenuItem value="TECHNOLOGY">Technology</MenuItem>
+            <MenuItem value="MAINTENANCE">Maintenance</MenuItem>
           </Select>
-        )}
-      </Box>
+
+          <Select
+            size="small"
+            displayEmpty
+            value={status}
+            onChange={(e) => { setStatus(e.target.value as WorkOrderStatus | ''); setPage(0); }}
+            sx={{ minWidth: 160 }}
+          >
+            <MenuItem value="">All Statuses</MenuItem>
+            <MenuItem value="OPEN">Open</MenuItem>
+            <MenuItem value="IN_PROGRESS">In Progress</MenuItem>
+            <MenuItem value="ON_HOLD">On Hold</MenuItem>
+            <MenuItem value="RESOLVED">Resolved</MenuItem>
+            <MenuItem value="CLOSED">Closed</MenuItem>
+          </Select>
+
+          <Select
+            size="small"
+            displayEmpty
+            value={priority}
+            onChange={(e) => { setPriority(e.target.value as WorkOrderPriority | ''); setPage(0); }}
+            sx={{ minWidth: 140 }}
+          >
+            <MenuItem value="">All Priorities</MenuItem>
+            <MenuItem value="LOW">Low</MenuItem>
+            <MenuItem value="MEDIUM">Medium</MenuItem>
+            <MenuItem value="HIGH">High</MenuItem>
+            <MenuItem value="URGENT">Urgent</MenuItem>
+          </Select>
+
+          <Select
+            size="small"
+            displayEmpty
+            value={locationFilter}
+            onChange={(e) => { setLocationFilter(e.target.value); setPage(0); }}
+            sx={{ minWidth: 180 }}
+          >
+            <MenuItem value="">All Schools</MenuItem>
+            {locations
+              .filter((loc) => loc.isActive)
+              .sort((a, b) => a.name.localeCompare(b.name))
+              .map((loc) => (
+                <MenuItem key={loc.id} value={loc.id}>{loc.name}</MenuItem>
+              ))}
+          </Select>
+
+          {workOrderFiscalYears.length > 0 && (
+            <Select
+              size="small"
+              displayEmpty
+              value={activeFiscalYear}
+              onChange={(e) => { setFiscalYearFilter(e.target.value); setPage(0); }}
+              sx={{ minWidth: 160 }}
+            >
+              <MenuItem value="">All Years</MenuItem>
+              {workOrderFiscalYears.map((fy) => (
+                <MenuItem key={fy} value={fy}>{fy}</MenuItem>
+              ))}
+            </Select>
+          )}
+        </Box>
+      )}
 
       {/* Error */}
       {error && (
@@ -237,86 +384,17 @@ export default function WorkOrderListPage() {
         </Alert>
       )}
 
-      {/* Table */}
-      <TableContainer component={Paper} variant="outlined">
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell sx={{ fontWeight: 600 }}>Work Order #</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Department</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Priority</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Location</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Assigned To</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Created</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {isLoading
-              ? Array.from({ length: 7 }).map((_, i) => (
-                  <TableRow key={i}>
-                    {Array.from({ length: 7 }).map((__, j) => (
-                      <TableCell key={j}>
-                        <Skeleton variant="text" />
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                ))
-              : rows.length === 0
-              ? (
-                  <TableRow>
-                    <TableCell colSpan={7} align="center" sx={{ py: 6, color: 'text.secondary' }}>
-                      No work orders found
-                    </TableCell>
-                  </TableRow>
-                )
-              : rows.map((workOrder) => (
-                  <TableRow
-                    key={workOrder.id}
-                    hover
-                    sx={{ cursor: 'pointer' }}
-                    onClick={() => handleRowClick(workOrder.id)}
-                  >
-                    <TableCell>
-                      <Typography variant="body2" fontWeight={600} color="primary">
-                        {workOrder.workOrderNumber}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={workOrder.department === 'TECHNOLOGY' ? 'Tech' : 'Maint.'}
-                        size="small"
-                        color={workOrder.department === 'TECHNOLOGY' ? 'primary' : 'secondary'}
-                        variant="outlined"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <WorkOrderStatusChip status={workOrder.status} />
-                    </TableCell>
-                    <TableCell>
-                      <WorkOrderPriorityChip priority={workOrder.priority} />
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" noWrap>
-                        {workOrder.officeLocation?.name ?? '—'}
-                        {workOrder.room ? ` / ${workOrder.room.name}` : ''}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" noWrap>
-                        {workOrder.assignedTo?.displayName ?? workOrder.assignedTo?.email ?? '—'}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" noWrap>
-                        {formatDate(workOrder.createdAt)}
-                      </Typography>
-                    </TableCell>
-                  </TableRow>
-                ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
+      {/* Table / Cards */}
+      <Paper variant="outlined">
+        <ResponsiveTable<WorkOrderSummary>
+          columns={woColumns}
+          rows={rows}
+          getRowKey={(wo) => wo.id}
+          onRowClick={(wo) => handleRowClick(wo.id)}
+          loading={isLoading}
+          emptyMessage="No work orders found."
+        />
+      </Paper>
 
       <TablePagination
         component="div"

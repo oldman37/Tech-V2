@@ -20,15 +20,8 @@ import {
   MenuItem,
   Paper,
   Select,
-  Skeleton,
   Tab,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
   TablePagination,
-  TableRow,
   Tabs,
   TextField,
   Tooltip,
@@ -43,10 +36,13 @@ import settingsService from '@/services/settingsService';
 import { queryKeys } from '@/lib/queryKeys';
 import AccessDenied from '@/pages/AccessDenied';
 import { useAuthStore } from '@/store/authStore';
+import { ResponsiveTable, MobileFilterBar, Column } from '@/components/responsive';
+import { useIsMobile } from '@/hooks/useResponsive';
 import {
   PO_STATUSES,
   PO_STATUS_LABELS,
   PO_STATUS_CHIP_COLOR,
+  type PurchaseOrderSummary,
   type PurchaseOrderFilters,
   type POStatus,
   type WorkflowType,
@@ -123,6 +119,9 @@ export default function PurchaseOrderList() {
   const [workflowTypeFilter, setWorkflowTypeFilter] = useState<WorkflowType | ''>('');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(25);
+  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
+
+  const isMobile = useIsMobile();
 
   // Build API filters from tab + explicit filters
   const buildFilters = (): PurchaseOrderFilters => {
@@ -196,10 +195,78 @@ export default function PurchaseOrderList() {
   const formatDate = (iso: string) =>
     new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
+  // Column definitions for ResponsiveTable
+  const poColumns: Column<PurchaseOrderSummary>[] = [
+    {
+      key: 'reqNumber',
+      label: 'Req #',
+      isPrimary: true,
+      render: (po) => (
+        <span style={{ fontFamily: 'monospace' }}>{po.reqNumber ?? '—'}</span>
+      ),
+    },
+    {
+      key: 'poNumber',
+      label: 'PO #',
+      hideOnMobile: true,
+      render: (po) => (
+        <span style={{ fontFamily: 'monospace' }}>{po.poNumber ?? '—'}</span>
+      ),
+    },
+    {
+      key: 'description',
+      label: 'Title / Description',
+      isSecondary: true,
+      render: (po) => (
+        <span style={{ maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'inline-block' }}>
+          {po.description}
+        </span>
+      ),
+    },
+    {
+      key: 'requestorId',
+      label: 'Requested By',
+      hideOnMobile: true,
+      render: (po) => `${po.User.firstName} ${po.User.lastName}`,
+    },
+    {
+      key: 'vendorId',
+      label: 'Vendor',
+      render: (po) => po.vendors?.name ?? '—',
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      render: (po) => (
+        <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center', flexWrap: 'wrap' }}>
+          <Chip
+            label={PO_STATUS_LABELS[po.status]}
+            color={PO_STATUS_CHIP_COLOR[po.status]}
+            size="small"
+          />
+          {po.workflowType === 'food_service' && (
+            <Chip label="Food Service" size="small" variant="outlined" color="secondary" />
+          )}
+        </Box>
+      ),
+    },
+    {
+      key: 'createdAt',
+      label: 'Date',
+      render: (po) => formatDate(po.createdAt),
+    },
+    {
+      key: 'amount',
+      label: 'Total',
+      align: 'right',
+      render: (po) => formatCurrency(po.amount),
+    },
+  ];
+
   return (
     <Box sx={{ p: 3 }}>
       {/* ── Page Header ── */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 3 }}>
         <Box>
           <Typography variant="h5" fontWeight={700}>Purchase Orders</Typography>
           <Typography variant="body2" color="text.secondary">
@@ -210,12 +277,13 @@ export default function PurchaseOrderList() {
           <Tooltip
             title={isFiscalYearExpired ? 'New requisitions are disabled — fiscal year rollover required' : ''}
           >
-            <span>
+            <span style={isMobile ? { width: '100%' } : undefined}>
               <Button
                 variant="contained"
                 startIcon={<AddIcon />}
                 onClick={() => navigate('/purchase-orders/new')}
                 disabled={isFiscalYearExpired}
+                fullWidth={isMobile}
               >
                 New Requisition
               </Button>
@@ -244,101 +312,189 @@ export default function PurchaseOrderList() {
       )}
 
       {/* ── Tabs ── */}
-      <Tabs value={activeTab} onChange={handleTabChange} sx={{ mb: 2 }}>
+      <Tabs
+        value={activeTab}
+        onChange={handleTabChange}
+        variant="scrollable"
+        scrollButtons="auto"
+        allowScrollButtonsMobile
+        sx={{
+          mb: 2,
+          ...(isMobile && {
+            '& .MuiTab-root': {
+              minWidth: 'auto',
+              px: 1.5,
+              fontSize: '0.8rem',
+            },
+          }),
+        }}
+      >
         {visibleTabs.map((t) => (
           <Tab key={t.key} value={t.key} label={t.label} />
         ))}
       </Tabs>
 
       {/* ── Filters ── */}
-      <Paper sx={{ p: 2, mb: 2 }}>
-        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
-          <TextField
-            size="small"
-            placeholder="Search PO#, title, program…"
-            value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(0); }}
-            slotProps={{
-              input: {
-                startAdornment: (
-                  <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment>
-                ),
-              },
-            }}
-            sx={{ minWidth: 240 }}
+      {isMobile ? (
+        <Box sx={{ mb: 2 }}>
+          <MobileFilterBar
+            searchValue={search}
+            onSearchChange={(value) => { setSearch(value); setPage(0); }}
+            filterCount={
+              (statusFilter ? 1 : 0) + (dateFrom ? 1 : 0) + (dateTo ? 1 : 0) +
+              (fiscalYearFilter ? 1 : 0) + (workflowTypeFilter ? 1 : 0)
+            }
+            onOpenFilters={() => setFilterDrawerOpen(!filterDrawerOpen)}
+            searchPlaceholder="Search PO#, title, program…"
           />
-          <Select
-            size="small"
-            value={statusFilter}
-            onChange={(e) => { setStatusFilter(e.target.value as POStatus | ''); setPage(0); }}
-            displayEmpty
-            sx={{ minWidth: 180 }}
-          >
-            <MenuItem value="">All Statuses</MenuItem>
-            {PO_STATUSES.map((s) => (
-              <MenuItem key={s} value={s}>{PO_STATUS_LABELS[s]}</MenuItem>
-            ))}
-          </Select>
-          <TextField
-            size="small"
-            type="date"
-            label="From"
-            value={dateFrom}
-            onChange={(e) => { setDateFrom(e.target.value); setPage(0); }}
-            slotProps={{ inputLabel: { shrink: true } }}
-            sx={{ width: 150 }}
-          />
-          <TextField
-            size="small"
-            type="date"
-            label="To"
-            value={dateTo}
-            onChange={(e) => { setDateTo(e.target.value); setPage(0); }}
-            slotProps={{ inputLabel: { shrink: true } }}
-            sx={{ width: 150 }}
-          />
-          <Select
-            size="small"
-            value={fiscalYearFilter || settings?.currentFiscalYear || ''}
-            onChange={(e) => { setFiscalYearFilter(e.target.value); setPage(0); }}
-            displayEmpty
-            sx={{ minWidth: 160 }}
-          >
-            <MenuItem value="">All Years</MenuItem>
-            {fiscalYears.map((fy) => (
-              <MenuItem key={fy} value={fy}>{fy}</MenuItem>
-            ))}
-          </Select>
-          <Select
-            size="small"
-            value={workflowTypeFilter}
-            onChange={(e) => { setWorkflowTypeFilter(e.target.value as WorkflowType | ''); setPage(0); }}
-            displayEmpty
-            sx={{ minWidth: 160 }}
-          >
-            <MenuItem value="">All Types</MenuItem>
-            <MenuItem value="standard">Standard</MenuItem>
-            <MenuItem value="food_service">Food Service</MenuItem>
-          </Select>
-          {(statusFilter || search || dateFrom || dateTo || fiscalYearFilter || workflowTypeFilter) && (
-            <Button
-              size="small"
-              variant="text"
-              onClick={() => {
-                setStatusFilter('');
-                setSearch('');
-                setDateFrom('');
-                setDateTo('');
-                setFiscalYearFilter('');
-                setWorkflowTypeFilter('');
-                setPage(0);
-              }}
-            >
-              Clear Filters
-            </Button>
+          {filterDrawerOpen && (
+            <Paper sx={{ p: 2, mt: 1 }}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                <Select
+                  size="small"
+                  value={statusFilter}
+                  onChange={(e) => { setStatusFilter(e.target.value as POStatus | ''); setPage(0); }}
+                  displayEmpty
+                  fullWidth
+                >
+                  <MenuItem value="">All Statuses</MenuItem>
+                  {PO_STATUSES.map((s) => (
+                    <MenuItem key={s} value={s}>{PO_STATUS_LABELS[s]}</MenuItem>
+                  ))}
+                </Select>
+                <Select
+                  size="small"
+                  value={fiscalYearFilter || settings?.currentFiscalYear || ''}
+                  onChange={(e) => { setFiscalYearFilter(e.target.value); setPage(0); }}
+                  displayEmpty
+                  fullWidth
+                >
+                  <MenuItem value="">All Years</MenuItem>
+                  {fiscalYears.map((fy) => (
+                    <MenuItem key={fy} value={fy}>{fy}</MenuItem>
+                  ))}
+                </Select>
+                <Select
+                  size="small"
+                  value={workflowTypeFilter}
+                  onChange={(e) => { setWorkflowTypeFilter(e.target.value as WorkflowType | ''); setPage(0); }}
+                  displayEmpty
+                  fullWidth
+                >
+                  <MenuItem value="">All Types</MenuItem>
+                  <MenuItem value="standard">Standard</MenuItem>
+                  <MenuItem value="food_service">Food Service</MenuItem>
+                </Select>
+                <Button
+                  size="small"
+                  variant="text"
+                  onClick={() => {
+                    setStatusFilter('');
+                    setSearch('');
+                    setDateFrom('');
+                    setDateTo('');
+                    setFiscalYearFilter('');
+                    setWorkflowTypeFilter('');
+                    setPage(0);
+                    setFilterDrawerOpen(false);
+                  }}
+                >
+                  Clear Filters
+                </Button>
+              </Box>
+            </Paper>
           )}
         </Box>
-      </Paper>
+      ) : (
+        <Paper sx={{ p: 2, mb: 2 }}>
+          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+            <TextField
+              size="small"
+              placeholder="Search PO#, title, program…"
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setPage(0); }}
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment>
+                  ),
+                },
+              }}
+              sx={{ minWidth: 240 }}
+            />
+            <Select
+              size="small"
+              value={statusFilter}
+              onChange={(e) => { setStatusFilter(e.target.value as POStatus | ''); setPage(0); }}
+              displayEmpty
+              sx={{ minWidth: 180 }}
+            >
+              <MenuItem value="">All Statuses</MenuItem>
+              {PO_STATUSES.map((s) => (
+                <MenuItem key={s} value={s}>{PO_STATUS_LABELS[s]}</MenuItem>
+              ))}
+            </Select>
+            <TextField
+              size="small"
+              type="date"
+              label="From"
+              value={dateFrom}
+              onChange={(e) => { setDateFrom(e.target.value); setPage(0); }}
+              slotProps={{ inputLabel: { shrink: true } }}
+              sx={{ width: 150 }}
+            />
+            <TextField
+              size="small"
+              type="date"
+              label="To"
+              value={dateTo}
+              onChange={(e) => { setDateTo(e.target.value); setPage(0); }}
+              slotProps={{ inputLabel: { shrink: true } }}
+              sx={{ width: 150 }}
+            />
+            <Select
+              size="small"
+              value={fiscalYearFilter || settings?.currentFiscalYear || ''}
+              onChange={(e) => { setFiscalYearFilter(e.target.value); setPage(0); }}
+              displayEmpty
+              sx={{ minWidth: 160 }}
+            >
+              <MenuItem value="">All Years</MenuItem>
+              {fiscalYears.map((fy) => (
+                <MenuItem key={fy} value={fy}>{fy}</MenuItem>
+              ))}
+            </Select>
+            <Select
+              size="small"
+              value={workflowTypeFilter}
+              onChange={(e) => { setWorkflowTypeFilter(e.target.value as WorkflowType | ''); setPage(0); }}
+              displayEmpty
+              sx={{ minWidth: 160 }}
+            >
+              <MenuItem value="">All Types</MenuItem>
+              <MenuItem value="standard">Standard</MenuItem>
+              <MenuItem value="food_service">Food Service</MenuItem>
+            </Select>
+            {(statusFilter || search || dateFrom || dateTo || fiscalYearFilter || workflowTypeFilter) && (
+              <Button
+                size="small"
+                variant="text"
+                onClick={() => {
+                  setStatusFilter('');
+                  setSearch('');
+                  setDateFrom('');
+                  setDateTo('');
+                  setFiscalYearFilter('');
+                  setWorkflowTypeFilter('');
+                  setPage(0);
+                }}
+              >
+                Clear Filters
+              </Button>
+            )}
+          </Box>
+        </Paper>
+      )}
 
       {/* ── Error ── */}
       {error && (
@@ -347,106 +503,25 @@ export default function PurchaseOrderList() {
         </Alert>
       )}
 
-      {/* ── Table ── */}
-      <TableContainer component={Paper}>
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell>Req #</TableCell>
-              <TableCell>PO #</TableCell>
-              <TableCell>Title / Description</TableCell>
-              <TableCell>Requested By</TableCell>
-              <TableCell>Vendor</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell>Date</TableCell>
-              <TableCell align="right">Total</TableCell>
-              <TableCell align="center">Actions</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {isLoading ? (
-              // Loading skeleton — 5 rows
-              Array.from({ length: 5 }).map((_, i) => (
-                <TableRow key={i}>
-                  {Array.from({ length: 9 }).map((__, j) => (
-                    <TableCell key={j}><Skeleton variant="text" /></TableCell>
-                  ))}
-                </TableRow>
-              ))
-            ) : rows.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={9} align="center" sx={{ py: 6 }}>
-                  <Typography color="text.secondary">
-                    No purchase orders found.
-                  </Typography>
-                </TableCell>
-              </TableRow>
-            ) : (
-              rows.map((po) => (
-                <TableRow key={po.id} hover>
-                  <TableCell>
-                    <Typography variant="body2" fontFamily="monospace">
-                      {po.reqNumber ?? '—'}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2" fontFamily="monospace">
-                      {po.poNumber ?? '—'}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Typography
-                      variant="body2"
-                      sx={{ maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                    >
-                      {po.description}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2">
-                      {po.User.firstName} {po.User.lastName}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2">{po.vendors?.name ?? '—'}</Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center', flexWrap: 'wrap' }}>
-                      <Chip
-                        label={PO_STATUS_LABELS[po.status]}
-                        color={PO_STATUS_CHIP_COLOR[po.status]}
-                        size="small"
-                      />
-                      {po.workflowType === 'food_service' && (
-                        <Chip
-                          label="Food Service"
-                          size="small"
-                          variant="outlined"
-                          color="secondary"
-                        />
-                      )}
-                    </Box>
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2">{formatDate(po.createdAt)}</Typography>
-                  </TableCell>
-                  <TableCell align="right">
-                    <Typography variant="body2">{formatCurrency(po.amount)}</Typography>
-                  </TableCell>
-                  <TableCell align="center">
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      onClick={() => navigate(`/purchase-orders/${po.id}`)}
-                    >
-                      View
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+      {/* ── Table / Cards ── */}
+      <Paper>
+        <ResponsiveTable<PurchaseOrderSummary>
+          columns={poColumns}
+          rows={rows}
+          getRowKey={(po) => po.id}
+          onRowClick={(po) => navigate(`/purchase-orders/${po.id}`)}
+          loading={isLoading}
+          emptyMessage="No purchase orders found."
+          rowActions={(po) => (
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={() => navigate(`/purchase-orders/${po.id}`)}
+            >
+              View
+            </Button>
+          )}
+        />
 
         {/* Pagination */}
         {!isLoading && totalCount > 0 && (
@@ -460,7 +535,7 @@ export default function PurchaseOrderList() {
             rowsPerPageOptions={[10, 25, 50, 100]}
           />
         )}
-      </TableContainer>
+      </Paper>
     </Box>
   );
 }

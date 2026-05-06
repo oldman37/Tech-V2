@@ -31,6 +31,7 @@ import CloseIcon      from '@mui/icons-material/Close';
 import DeleteIcon     from '@mui/icons-material/Delete';
 import { transportationRequestService } from '../../services/transportationRequest.service';
 import { useAuthStore } from '../../store/authStore';
+import { useIsMobile } from '../../hooks/useResponsive';
 import type { TransportationRequest, TransportationRequestStatus } from '../../types/transportationRequest.types';
 import {
   TRANSPORTATION_REQUEST_STATUS_LABELS,
@@ -66,6 +67,7 @@ export function TransportationRequestDetailPage() {
   const navigate    = useNavigate();
   const queryClient = useQueryClient();
   const { user }    = useAuthStore();
+  const isMobile = useIsMobile();
 
   // Dialog state
   const [approveOpen,   setApproveOpen]   = useState(false);
@@ -302,7 +304,7 @@ export function TransportationRequestDetailPage() {
       )}
 
       {/* Approve Dialog */}
-      <Dialog open={approveOpen} onClose={() => setApproveOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog open={approveOpen} onClose={() => setApproveOpen(false)} maxWidth="sm" fullWidth fullScreen={isMobile}>
         <DialogTitle>Approve Transportation Request</DialogTitle>
         <DialogContent>
           <TextField
@@ -331,7 +333,7 @@ export function TransportationRequestDetailPage() {
       </Dialog>
 
       {/* Deny Dialog */}
-      <Dialog open={denyOpen} onClose={() => setDenyOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog open={denyOpen} onClose={() => setDenyOpen(false)} maxWidth="sm" fullWidth fullScreen={isMobile}>
         <DialogTitle>Deny Transportation Request</DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
@@ -362,7 +364,7 @@ export function TransportationRequestDetailPage() {
       </Dialog>
 
       {/* Delete / Withdraw Dialog */}
-      <Dialog open={deleteOpen} onClose={() => setDeleteOpen(false)}>
+      <Dialog open={deleteOpen} onClose={() => setDeleteOpen(false)} fullScreen={isMobile}>
         <DialogTitle>Withdraw Request</DialogTitle>
         <DialogContent>
           <Typography>

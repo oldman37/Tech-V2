@@ -41,6 +41,7 @@ import {
 } from '../../types/fieldTrip.types';
 import { FieldTripApprovalStepper } from '../../components/fieldtrip/FieldTripApprovalStepper';
 import { useAuthStore } from '../../store/authStore';
+import { useIsMobile } from '../../hooks/useResponsive';
 
 // ---------------------------------------------------------------------------
 // Pending statuses that allow approve/deny actions
@@ -65,6 +66,7 @@ export function FieldTripDetailPage() {
   const { id }       = useParams<{ id: string }>();
   const queryClient  = useQueryClient();
   const { user }     = useAuthStore();
+  const isMobile = useIsMobile();
 
   const [denyDialogOpen, setDenyDialogOpen]     = useState(false);
   const [approveDialogOpen, setApproveDialogOpen] = useState(false);
@@ -463,7 +465,7 @@ export function FieldTripDetailPage() {
       </Paper>
 
       {/* Approve dialog */}
-      <Dialog open={approveDialogOpen} onClose={() => setApproveDialogOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog open={approveDialogOpen} onClose={() => setApproveDialogOpen(false)} maxWidth="sm" fullWidth fullScreen={isMobile}>
         <DialogTitle>Approve Field Trip</DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary" gutterBottom>
@@ -493,7 +495,7 @@ export function FieldTripDetailPage() {
       </Dialog>
 
       {/* Deny dialog */}
-      <Dialog open={denyDialogOpen} onClose={() => setDenyDialogOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog open={denyDialogOpen} onClose={() => setDenyDialogOpen(false)} maxWidth="sm" fullWidth fullScreen={isMobile}>
         <DialogTitle>Deny Field Trip</DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary" gutterBottom>
@@ -530,7 +532,7 @@ export function FieldTripDetailPage() {
       </Dialog>
 
       {/* Send Back for Revision dialog */}
-      <Dialog open={sendBackDialogOpen} onClose={() => setSendBackDialogOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog open={sendBackDialogOpen} onClose={() => setSendBackDialogOpen(false)} maxWidth="sm" fullWidth fullScreen={isMobile}>
         <DialogTitle>Send Back for Revision</DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary" gutterBottom>

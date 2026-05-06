@@ -1,4 +1,5 @@
 import React from 'react';
+import { useIsMobile } from '../hooks/useResponsive';
 
 interface PaginationControlsProps {
   currentPage: number;
@@ -23,6 +24,7 @@ interface PaginationControlsProps {
  * - Item count display
  * - Full keyboard accessibility
  * - ARIA labels for screen readers
+ * - Mobile-friendly: simplified to prev/next with page indicator
  */
 export const PaginationControls: React.FC<PaginationControlsProps> = ({
   currentPage,
@@ -34,6 +36,8 @@ export const PaginationControls: React.FC<PaginationControlsProps> = ({
   onPageSizeChange,
   itemLabel = 'items',
 }) => {
+  const isMobile = useIsMobile();
+
   // Calculate display range
   const startItem = totalItems === 0 ? 0 : (currentPage - 1) * pageSize + 1;
   const endItem = Math.min(currentPage * pageSize, totalItems);
@@ -68,6 +72,65 @@ export const PaginationControls: React.FC<PaginationControlsProps> = ({
 
   const pageNumbers = getPageNumbers();
 
+  // Mobile: simplified prev/next with page indicator
+  if (isMobile) {
+    return (
+      <nav
+        aria-label={`${itemLabel} pagination`}
+        className="card"
+        style={{ marginTop: '1.5rem' }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '0.75rem',
+            alignItems: 'center',
+          }}
+        >
+          {/* Item count */}
+          <div
+            style={{ fontSize: '0.8125rem', color: 'var(--slate-600)' }}
+            role="status"
+            aria-live="polite"
+          >
+            {startItem}–{endItem} of {totalItems} {itemLabel}
+          </div>
+
+          {/* Prev / Page indicator / Next */}
+          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', width: '100%', justifyContent: 'center' }}>
+            <button
+              onClick={() => onPageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+              className="btn btn-sm btn-secondary"
+              style={{ minHeight: '44px', minWidth: '44px', opacity: currentPage === 1 ? 0.5 : 1 }}
+              aria-label="Go to previous page"
+              aria-disabled={currentPage === 1}
+            >
+              ‹ Prev
+            </button>
+
+            <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--slate-700)' }}>
+              {currentPage} / {totalPages}
+            </span>
+
+            <button
+              onClick={() => onPageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              className="btn btn-sm btn-secondary"
+              style={{ minHeight: '44px', minWidth: '44px', opacity: currentPage === totalPages ? 0.5 : 1 }}
+              aria-label="Go to next page"
+              aria-disabled={currentPage === totalPages}
+            >
+              Next ›
+            </button>
+          </div>
+        </div>
+      </nav>
+    );
+  }
+
+  // Desktop: full pagination
   return (
     <nav 
       aria-label={`${itemLabel} pagination`}
@@ -142,7 +205,7 @@ export const PaginationControls: React.FC<PaginationControlsProps> = ({
             </button>
 
             {/* Page numbers */}
-            <div style={{ display: 'flex', gap: '0.25rem' }}>
+            <div className="page-numbers" style={{ display: 'flex', gap: '0.25rem' }}>
               {pageNumbers.map((pageNum) => (
                 <button
                   key={pageNum}

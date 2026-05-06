@@ -8,6 +8,8 @@ import inventoryService from '../services/inventory.service';
 import { locationService } from '../services/location.service';
 import { categoriesService, Category } from '../services/referenceDataService';
 import { InventoryItem, InventoryFilters } from '../types/inventory.types';
+import { ResponsiveTable, MobileFilterBar, Column } from '../components/responsive';
+import { useIsMobile } from '../hooks/useResponsive';
 
 interface PaginationModel {
   page: number;
@@ -52,6 +54,9 @@ const DisposedEquipment = () => {
 
   // Export state
   const [exporting, setExporting] = useState(false);
+  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
+
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     fetchDisposedItems();
@@ -157,6 +162,113 @@ const DisposedEquipment = () => {
     return `$${Number(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
+  // Count active filters for mobile badge
+  const activeFilterCount = [
+    filters.officeLocationId,
+    filters.categoryId,
+    filters.disposedDateFrom,
+    filters.disposedDateTo,
+  ].filter(Boolean).length;
+
+  // Column definitions for ResponsiveTable
+  const columns: Column<InventoryItem>[] = [
+    {
+      key: 'assetTag',
+      label: 'Asset Tag',
+      isPrimary: true,
+      render: (item) => <strong style={{ fontWeight: 600 }}>{item.assetTag}</strong>,
+    },
+    {
+      key: 'name',
+      label: 'Name',
+      isSecondary: true,
+    },
+    {
+      key: 'category',
+      label: 'Category',
+      render: (item) => item.category?.name || '—',
+    },
+    {
+      key: 'brand',
+      label: 'Brand',
+      hideOnMobile: true,
+      render: (item) => item.brand?.name || '—',
+    },
+    {
+      key: 'model',
+      label: 'Model',
+      hideOnMobile: true,
+      render: (item) => item.model?.name || '—',
+    },
+    {
+      key: 'serialNumber',
+      label: 'Serial #',
+      hideOnMobile: true,
+      render: (item) => item.serialNumber || '—',
+    },
+    {
+      key: 'officeLocation',
+      label: 'Location',
+      render: (item) => item.officeLocation?.name || '—',
+    },
+    {
+      key: 'disposedDate',
+      label: 'Disposal Date',
+      render: (item) => formatDate(item.disposedDate || item.disposalDate),
+    },
+    {
+      key: 'disposedReason',
+      label: 'Disposal Reason',
+      hideOnMobile: true,
+      render: (item) =>
+        item.disposedReason ? (
+          <span title={item.disposedReason}>
+            {item.disposedReason.length > 40
+              ? `${item.disposedReason.slice(0, 40)}…`
+              : item.disposedReason}
+          </span>
+        ) : (
+          <span style={{ color: 'var(--slate-400)' }}>—</span>
+        ),
+    },
+    {
+      key: 'poNumber',
+      label: 'PO #',
+      hideOnMobile: true,
+      render: (item) => item.poNumber || '—',
+    },
+    {
+      key: 'purchasePrice',
+      label: 'Purchase Price',
+      hideOnMobile: true,
+      align: 'right',
+      render: (item) => formatCurrency(item.purchasePrice),
+    },
+    {
+      key: 'fundingSource',
+      label: 'Funding Source',
+      hideOnMobile: true,
+      render: (item) => item.fundingSource || '—',
+    },
+    {
+      key: 'purchaseDate',
+      label: 'Purchase Date',
+      hideOnMobile: true,
+      render: (item) => formatDate(item.purchaseDate),
+    },
+  ];
+
+  const rowActions = (item: InventoryItem) => (
+    <button
+      onClick={() => handleReactivate(item)}
+      className="btn btn-sm btn-ghost"
+      title="Reactivate equipment"
+      style={{ color: 'var(--emerald-800)', minWidth: 44, minHeight: 44 }}
+    >
+      ♻️
+    </button>
+  );
+
   return (
     <div>
       <main className="page-content">
@@ -198,257 +310,208 @@ const DisposedEquipment = () => {
           )}
 
           {/* Filters */}
-          <div className="card mb-6">
-            <div className="grid grid-cols-4 gap-4">
-              <div style={{ gridColumn: '1 / 3' }}>
-                <label className="form-label">Search</label>
-                <input
-                  type="text"
-                  placeholder="Asset tag, name, serial number..."
-                  value={filters.search}
-                  onChange={(e) =>
-                    setFilters({ ...filters, search: e.target.value })
-                  }
-                  className="form-input"
-                />
-              </div>
-              <div>
-                <label className="form-label">Office Location</label>
-                <select
-                  value={filters.officeLocationId}
-                  onChange={(e) =>
-                    setFilters({ ...filters, officeLocationId: e.target.value })
-                  }
-                  className="form-select"
-                >
-                  <option value="">All Locations</option>
-                  {locations.map((loc) => (
-                    <option key={loc.id} value={loc.id}>
-                      {loc.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="form-label">Category</label>
-                <select
-                  value={filters.categoryId}
-                  onChange={(e) =>
-                    setFilters({ ...filters, categoryId: e.target.value })
-                  }
-                  className="form-select"
-                >
-                  <option value="">All Categories</option>
-                  {categories.map((cat) => (
-                    <option key={cat.id} value={cat.id}>
-                      {cat.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="form-label">Disposed Date From</label>
-                <input
-                  type="date"
-                  value={filters.disposedDateFrom}
-                  onChange={(e) =>
-                    setFilters({ ...filters, disposedDateFrom: e.target.value })
-                  }
-                  className="form-input"
-                />
-              </div>
-              <div>
-                <label className="form-label">Disposed Date To</label>
-                <input
-                  type="date"
-                  value={filters.disposedDateTo}
-                  onChange={(e) =>
-                    setFilters({ ...filters, disposedDateTo: e.target.value })
-                  }
-                  className="form-input"
-                />
-              </div>
-            </div>
-            <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'flex-end' }}>
-              <button
-                onClick={handleClearFilters}
-                className="btn btn-secondary btn-sm"
-              >
-                Clear Filters
-              </button>
-            </div>
-          </div>
-
-          {/* Data Table */}
-          <div className="card" style={{ padding: 0, overflowX: 'auto' }}>
-            {loading && (
-              <div style={{ padding: '2rem', textAlign: 'center' }}>
-                <div
-                  style={{
-                    width: '3rem',
-                    height: '3rem',
-                    border: '4px solid var(--slate-200)',
-                    borderTop: '4px solid var(--primary-blue)',
-                    borderRadius: '50%',
-                    margin: '0 auto 1rem',
-                    animation: 'spin 1s linear infinite',
-                  }}
-                />
-                <p style={{ color: 'var(--slate-600)' }}>Loading disposed equipment...</p>
-              </div>
-            )}
-
-            {!loading && (
-              <>
-                {items.length === 0 ? (
-                  <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--slate-500)' }}>
-                    No disposed equipment found matching current filters.
-                  </div>
-                ) : (
-                  <table className="table">
-                    <thead>
-                      <tr>
-                        <th>Asset Tag</th>
-                        <th>Name</th>
-                        <th>Category</th>
-                        <th>Brand</th>
-                        <th>Model</th>
-                        <th>Serial #</th>
-                        <th>Location</th>
-                        <th>Disposal Date</th>
-                        <th>Disposal Reason</th>
-                        <th>PO #</th>
-                        <th>Purchase Price</th>
-                        <th>Funding Source</th>
-                        <th>Purchase Date</th>
-                        <th>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {items.map((item) => (
-                        <tr key={item.id}>
-                          <td>
-                            <strong style={{ fontWeight: 600 }}>{item.assetTag}</strong>
-                          </td>
-                          <td>{item.name}</td>
-                          <td>{item.category?.name || '—'}</td>
-                          <td>{item.brand?.name || '—'}</td>
-                          <td>{item.model?.name || '—'}</td>
-                          <td>{item.serialNumber || '—'}</td>
-                          <td>{item.officeLocation?.name || '—'}</td>
-                          <td>{formatDate(item.disposedDate || item.disposalDate)}</td>
-                          <td>
-                            {item.disposedReason ? (
-                              <span title={item.disposedReason}>
-                                {item.disposedReason.length > 40
-                                  ? `${item.disposedReason.slice(0, 40)}…`
-                                  : item.disposedReason}
-                              </span>
-                            ) : (
-                              '—'
-                            )}
-                          </td>
-                          <td>{item.poNumber || '—'}</td>
-                          <td>{formatCurrency(item.purchasePrice)}</td>
-                          <td>
-                            {item.fundingSource || '—'}
-                          </td>
-                          <td>{formatDate(item.purchaseDate)}</td>
-                          <td>
-                            <button
-                              onClick={() => handleReactivate(item)}
-                              className="btn btn-sm btn-ghost"
-                              title="Reactivate equipment"
-                              style={{ color: 'var(--emerald-800)' }}
-                            >
-                              ♻️
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-
-                {/* Pagination Controls */}
-                <div
-                  style={{
-                    padding: '1rem 1.5rem',
-                    borderTop: '1px solid var(--slate-200)',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                  }}
-                >
-                  <div style={{ fontSize: '0.875rem', color: 'var(--slate-600)' }}>
-                    Showing {paginationModel.page * paginationModel.pageSize + 1} to{' '}
-                    {Math.min((paginationModel.page + 1) * paginationModel.pageSize, total)} of{' '}
-                    {total} items
-                  </div>
-                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                    <label className="form-label" style={{ marginBottom: 0 }}>
-                      Rows per page:
-                    </label>
-                    <select
-                      value={paginationModel.pageSize}
-                      onChange={(e) =>
-                        setPaginationModel({
-                          page: 0,
-                          pageSize: parseInt(e.target.value),
-                        })
-                      }
-                      className="form-select"
-                      style={{ width: 'auto' }}
-                    >
-                      <option value={25}>25</option>
-                      <option value={50}>50</option>
-                      <option value={100}>100</option>
-                    </select>
-                    <button
-                      onClick={() =>
-                        setPaginationModel({
-                          ...paginationModel,
-                          page: paginationModel.page - 1,
-                        })
-                      }
-                      disabled={paginationModel.page === 0}
-                      className="btn btn-secondary btn-sm"
-                    >
-                      ← Previous
-                    </button>
-                    <span style={{ fontSize: '0.875rem', color: 'var(--slate-600)' }}>
-                      Page {paginationModel.page + 1} of{' '}
-                      {Math.max(1, Math.ceil(total / paginationModel.pageSize))}
-                    </span>
-                    <button
-                      onClick={() =>
-                        setPaginationModel({
-                          ...paginationModel,
-                          page: paginationModel.page + 1,
-                        })
-                      }
-                      disabled={
-                        (paginationModel.page + 1) * paginationModel.pageSize >= total
-                      }
-                      className="btn btn-secondary btn-sm"
-                    >
-                      Next →
-                    </button>
+          {isMobile ? (
+            <div className="mb-6">
+              <MobileFilterBar
+                searchValue={filters.search}
+                onSearchChange={(value) => setFilters({ ...filters, search: value })}
+                filterCount={activeFilterCount}
+                onOpenFilters={() => setFilterDrawerOpen(!filterDrawerOpen)}
+                searchPlaceholder="Asset tag, name, serial #..."
+              />
+              {filterDrawerOpen && (
+                <div className="card" style={{ marginTop: '0.5rem' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    <div>
+                      <label className="form-label">Office Location</label>
+                      <select
+                        value={filters.officeLocationId}
+                        onChange={(e) => setFilters({ ...filters, officeLocationId: e.target.value })}
+                        className="form-select"
+                      >
+                        <option value="">All Locations</option>
+                        {locations.map((loc) => (
+                          <option key={loc.id} value={loc.id}>{loc.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="form-label">Category</label>
+                      <select
+                        value={filters.categoryId}
+                        onChange={(e) => setFilters({ ...filters, categoryId: e.target.value })}
+                        className="form-select"
+                      >
+                        <option value="">All Categories</option>
+                        {categories.map((cat) => (
+                          <option key={cat.id} value={cat.id}>{cat.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="form-label">Disposed Date From</label>
+                      <input
+                        type="date"
+                        value={filters.disposedDateFrom}
+                        onChange={(e) => setFilters({ ...filters, disposedDateFrom: e.target.value })}
+                        className="form-input"
+                      />
+                    </div>
+                    <div>
+                      <label className="form-label">Disposed Date To</label>
+                      <input
+                        type="date"
+                        value={filters.disposedDateTo}
+                        onChange={(e) => setFilters({ ...filters, disposedDateTo: e.target.value })}
+                        className="form-input"
+                      />
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                      <button onClick={handleClearFilters} className="btn btn-secondary btn-sm">
+                        Clear Filters
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </>
+              )}
+            </div>
+          ) : (
+            <div className="card mb-6">
+              <div className="grid grid-cols-4 gap-4">
+                <div style={{ gridColumn: '1 / 3' }}>
+                  <label className="form-label">Search</label>
+                  <input
+                    type="text"
+                    placeholder="Asset tag, name, serial number..."
+                    value={filters.search}
+                    onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+                    className="form-input"
+                  />
+                </div>
+                <div>
+                  <label className="form-label">Office Location</label>
+                  <select
+                    value={filters.officeLocationId}
+                    onChange={(e) => setFilters({ ...filters, officeLocationId: e.target.value })}
+                    className="form-select"
+                  >
+                    <option value="">All Locations</option>
+                    {locations.map((loc) => (
+                      <option key={loc.id} value={loc.id}>{loc.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="form-label">Category</label>
+                  <select
+                    value={filters.categoryId}
+                    onChange={(e) => setFilters({ ...filters, categoryId: e.target.value })}
+                    className="form-select"
+                  >
+                    <option value="">All Categories</option>
+                    {categories.map((cat) => (
+                      <option key={cat.id} value={cat.id}>{cat.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="form-label">Disposed Date From</label>
+                  <input
+                    type="date"
+                    value={filters.disposedDateFrom}
+                    onChange={(e) => setFilters({ ...filters, disposedDateFrom: e.target.value })}
+                    className="form-input"
+                  />
+                </div>
+                <div>
+                  <label className="form-label">Disposed Date To</label>
+                  <input
+                    type="date"
+                    value={filters.disposedDateTo}
+                    onChange={(e) => setFilters({ ...filters, disposedDateTo: e.target.value })}
+                    className="form-input"
+                  />
+                </div>
+              </div>
+              <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'flex-end' }}>
+                <button onClick={handleClearFilters} className="btn btn-secondary btn-sm">
+                  Clear Filters
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Data Table */}
+          <div className="card" style={{ padding: 0 }}>
+            <ResponsiveTable<InventoryItem>
+              columns={columns}
+              rows={items}
+              getRowKey={(item) => item.id}
+              loading={loading}
+              emptyMessage="No disposed equipment found matching current filters."
+              rowActions={rowActions}
+            />
+
+            {/* Pagination Controls */}
+            {!loading && items.length > 0 && (
+              <div
+                style={{
+                  padding: '1rem 1.5rem',
+                  borderTop: '1px solid var(--slate-200)',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: '0.5rem',
+                }}
+              >
+                <div style={{ fontSize: '0.875rem', color: 'var(--slate-600)' }}>
+                  Showing {paginationModel.page * paginationModel.pageSize + 1} to{' '}
+                  {Math.min((paginationModel.page + 1) * paginationModel.pageSize, total)} of{' '}
+                  {total} items
+                </div>
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                  {!isMobile && (
+                    <>
+                      <label className="form-label" style={{ marginBottom: 0 }}>
+                        Rows per page:
+                      </label>
+                      <select
+                        value={paginationModel.pageSize}
+                        onChange={(e) => setPaginationModel({ page: 0, pageSize: parseInt(e.target.value) })}
+                        className="form-select"
+                        style={{ width: 'auto' }}
+                      >
+                        <option value={25}>25</option>
+                        <option value={50}>50</option>
+                        <option value={100}>100</option>
+                      </select>
+                    </>
+                  )}
+                  <button
+                    onClick={() => setPaginationModel({ ...paginationModel, page: paginationModel.page - 1 })}
+                    disabled={paginationModel.page === 0}
+                    className="btn btn-secondary btn-sm"
+                  >
+                    ← Previous
+                  </button>
+                  <span style={{ fontSize: '0.875rem', color: 'var(--slate-600)' }}>
+                    Page {paginationModel.page + 1} of{' '}
+                    {Math.max(1, Math.ceil(total / paginationModel.pageSize))}
+                  </span>
+                  <button
+                    onClick={() => setPaginationModel({ ...paginationModel, page: paginationModel.page + 1 })}
+                    disabled={(paginationModel.page + 1) * paginationModel.pageSize >= total}
+                    className="btn btn-secondary btn-sm"
+                  >
+                    Next →
+                  </button>
+                </div>
+              </div>
             )}
           </div>
         </div>
       </main>
-
-      {/* CSS for spinner animation */}
-      <style>{`
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-      `}</style>
     </div>
   );
 };

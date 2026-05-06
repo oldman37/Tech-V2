@@ -13,19 +13,13 @@ import {
   Alert,
   Box,
   Chip,
-  CircularProgress,
-  Paper,
   Tab,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   Tabs,
   Typography,
 } from '@mui/material';
 import DirectionsBusIcon from '@mui/icons-material/DirectionsBus';
+import { useIsMobile } from '../../hooks/useResponsive';
+import { ResponsiveTable, Column } from '../../components/responsive';
 import { fieldTripService }               from '../../services/fieldTrip.service';
 import { fieldTripTransportationService } from '../../services/fieldTripTransportation.service';
 import type {
@@ -45,6 +39,7 @@ import {
 
 export function FieldTripApprovalPage() {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const [activeTab, setActiveTab] = useState(0);
 
   const { data: trips, isLoading, error } = useQuery<FieldTripRequest[]>({
@@ -73,7 +68,13 @@ export function FieldTripApprovalPage() {
         Field trip requests pending your review and approval.
       </Typography>
 
-      <Tabs value={activeTab} onChange={(_, v) => setActiveTab(v)} sx={{ mb: 3 }}>
+      <Tabs
+        value={activeTab}
+        onChange={(_, v) => setActiveTab(v)}
+        variant={isMobile ? 'scrollable' : 'standard'}
+        scrollButtons={isMobile ? 'auto' : undefined}
+        sx={{ mb: 3 }}
+      >
         <Tab label="Field Trip Approvals" />
         <Tab label="Transportation Pending" icon={<DirectionsBusIcon fontSize="small" />} iconPosition="start" />
       </Tabs>
@@ -81,159 +82,38 @@ export function FieldTripApprovalPage() {
       {/* ── Tab 0: Field Trip Approvals ── */}
       {activeTab === 0 && (
         <>
-          {isLoading && (
-            <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-              <CircularProgress />
-            </Box>
-          )}
           {error && (
             <Alert severity="error" sx={{ mb: 2 }}>
               Failed to load pending approvals. Please refresh the page.
             </Alert>
           )}
-          {!isLoading && !error && (
-            <TableContainer component={Paper}>
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: 'bold' }}>Destination</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold' }}>Trip Date</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold' }}>Submitted By</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold' }}>School</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold' }}>Students</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold' }}>Status</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold' }}>Submitted</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {(!trips || trips.length === 0) && (
-                    <TableRow>
-                      <TableCell colSpan={7} align="center" sx={{ py: 4, color: 'text.secondary' }}>
-                        No pending field trip requests require your approval at this time.
-                      </TableCell>
-                    </TableRow>
-                  )}
-                  {trips?.map((trip) => {
-                    const submitterName = trip.submittedBy
-                      ? (trip.submittedBy.displayName ?? `${trip.submittedBy.firstName} ${trip.submittedBy.lastName}`)
-                      : '—';
-                    return (
-                      <TableRow
-                        key={trip.id}
-                        hover
-                        sx={{ cursor: 'pointer' }}
-                        onClick={() => navigate(`/field-trips/${trip.id}`)}
-                      >
-                        <TableCell>
-                          <Typography variant="body2" fontWeight="medium">{trip.destination}</Typography>
-                        </TableCell>
-                        <TableCell>
-                          {new Date(trip.tripDate).toLocaleDateString('en-US', {
-                            month: 'short', day: 'numeric', year: 'numeric',
-                          })}
-                        </TableCell>
-                        <TableCell>{submitterName}</TableCell>
-                        <TableCell>{trip.schoolBuilding}</TableCell>
-                        <TableCell>{trip.studentCount}</TableCell>
-                        <TableCell>
-                          <StatusChip status={trip.status as FieldTripStatus} />
-                        </TableCell>
-                        <TableCell>
-                          {trip.submittedAt
-                            ? new Date(trip.submittedAt).toLocaleDateString('en-US', {
-                                month: 'short', day: 'numeric', year: 'numeric',
-                              })
-                            : '—'}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          )}
+          <ResponsiveTable<FieldTripRequest>
+            columns={approvalColumns}
+            rows={trips ?? []}
+            getRowKey={(row) => row.id}
+            onRowClick={(row) => navigate(`/field-trips/${row.id}`)}
+            loading={isLoading}
+            emptyMessage="No pending field trip requests require your approval at this time."
+          />
         </>
       )}
 
       {/* ── Tab 1: Transportation Pending ── */}
       {activeTab === 1 && (
         <>
-          {transportLoading && (
-            <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-              <CircularProgress />
-            </Box>
-          )}
           {transportError && (
             <Alert severity="error" sx={{ mb: 2 }}>
               Failed to load pending transportation requests.
             </Alert>
           )}
-          {!transportLoading && !transportError && (
-            <TableContainer component={Paper}>
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: 'bold' }}>Destination</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold' }}>Trip Date</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold' }}>Submitted By</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold' }}>School</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold' }}>Buses</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold' }}>Transport Status</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold' }}>Submitted</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {(!pendingTransport || pendingTransport.length === 0) && (
-                    <TableRow>
-                      <TableCell colSpan={7} align="center" sx={{ py: 4, color: 'text.secondary' }}>
-                        No transportation requests are pending review.
-                      </TableCell>
-                    </TableRow>
-                  )}
-                  {pendingTransport?.map((req) => {
-                    const trip = req.fieldTripRequest;
-                    const submitterName = trip?.submittedBy
-                      ? (trip.submittedBy.displayName ?? `${trip.submittedBy.firstName} ${trip.submittedBy.lastName}`)
-                      : '—';
-                    return (
-                      <TableRow
-                        key={req.id}
-                        hover
-                        sx={{ cursor: 'pointer' }}
-                        onClick={() => navigate(`/field-trips/${req.fieldTripRequestId}/transportation/view`)}
-                      >
-                        <TableCell>
-                          <Typography variant="body2" fontWeight="medium">
-                            {trip?.destination ?? '—'}
-                          </Typography>
-                        </TableCell>
-                        <TableCell>
-                          {trip?.tripDate
-                            ? new Date(trip.tripDate).toLocaleDateString('en-US', {
-                                month: 'short', day: 'numeric', year: 'numeric',
-                              })
-                            : '—'}
-                        </TableCell>
-                        <TableCell>{submitterName}</TableCell>
-                        <TableCell>{trip?.schoolBuilding ?? '—'}</TableCell>
-                        <TableCell>{req.busCount}</TableCell>
-                        <TableCell>
-                          <TransportStatusChip status={req.status as TransportationStatus} />
-                        </TableCell>
-                        <TableCell>
-                          {req.submittedAt
-                            ? new Date(req.submittedAt).toLocaleDateString('en-US', {
-                                month: 'short', day: 'numeric', year: 'numeric',
-                              })
-                            : '—'}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          )}
+          <ResponsiveTable<FieldTripTransportationRequest>
+            columns={transportColumns}
+            rows={pendingTransport ?? []}
+            getRowKey={(row) => row.id}
+            onRowClick={(row) => navigate(`/field-trips/${row.fieldTripRequestId}/transportation/view`)}
+            loading={transportLoading}
+            emptyMessage="No transportation requests are pending review."
+          />
         </>
       )}
     </Box>
@@ -241,7 +121,118 @@ export function FieldTripApprovalPage() {
 }
 
 // ---------------------------------------------------------------------------
-// Status chip
+// Column definitions
+// ---------------------------------------------------------------------------
+
+const approvalColumns: Column<FieldTripRequest>[] = [
+  {
+    key: 'destination',
+    label: 'Destination',
+    isPrimary: true,
+  },
+  {
+    key: 'tripDate',
+    label: 'Trip Date',
+    render: (row) =>
+      new Date(row.tripDate).toLocaleDateString('en-US', {
+        month: 'short', day: 'numeric', year: 'numeric',
+      }),
+  },
+  {
+    key: 'submittedBy',
+    label: 'Submitted By',
+    isSecondary: true,
+    render: (row) =>
+      row.submittedBy
+        ? (row.submittedBy.displayName ?? `${row.submittedBy.firstName} ${row.submittedBy.lastName}`)
+        : '—',
+  },
+  {
+    key: 'schoolBuilding',
+    label: 'School',
+    hideOnMobile: true,
+  },
+  {
+    key: 'studentCount',
+    label: 'Students',
+    hideOnMobile: true,
+  },
+  {
+    key: 'status',
+    label: 'Status',
+    render: (row) => <StatusChip status={row.status as FieldTripStatus} />,
+  },
+  {
+    key: 'submittedAt',
+    label: 'Submitted',
+    hideOnMobile: true,
+    render: (row) =>
+      row.submittedAt
+        ? new Date(row.submittedAt).toLocaleDateString('en-US', {
+            month: 'short', day: 'numeric', year: 'numeric',
+          })
+        : '—',
+  },
+];
+
+const transportColumns: Column<FieldTripTransportationRequest>[] = [
+  {
+    key: 'destination',
+    label: 'Destination',
+    isPrimary: true,
+    render: (row) => row.fieldTripRequest?.destination ?? '—',
+  },
+  {
+    key: 'tripDate',
+    label: 'Trip Date',
+    render: (row) =>
+      row.fieldTripRequest?.tripDate
+        ? new Date(row.fieldTripRequest.tripDate).toLocaleDateString('en-US', {
+            month: 'short', day: 'numeric', year: 'numeric',
+          })
+        : '—',
+  },
+  {
+    key: 'submittedBy',
+    label: 'Submitted By',
+    isSecondary: true,
+    render: (row) => {
+      const trip = row.fieldTripRequest;
+      return trip?.submittedBy
+        ? (trip.submittedBy.displayName ?? `${trip.submittedBy.firstName} ${trip.submittedBy.lastName}`)
+        : '—';
+    },
+  },
+  {
+    key: 'school',
+    label: 'School',
+    hideOnMobile: true,
+    render: (row) => row.fieldTripRequest?.schoolBuilding ?? '—',
+  },
+  {
+    key: 'busCount',
+    label: 'Buses',
+  },
+  {
+    key: 'status',
+    label: 'Transport Status',
+    render: (row) => <TransportStatusChip status={row.status as TransportationStatus} />,
+  },
+  {
+    key: 'submittedAt',
+    label: 'Submitted',
+    hideOnMobile: true,
+    render: (row) =>
+      row.submittedAt
+        ? new Date(row.submittedAt).toLocaleDateString('en-US', {
+            month: 'short', day: 'numeric', year: 'numeric',
+          })
+        : '—',
+  },
+];
+
+// ---------------------------------------------------------------------------
+// Status chips
 // ---------------------------------------------------------------------------
 
 function StatusChip({ status }: { status: FieldTripStatus }) {

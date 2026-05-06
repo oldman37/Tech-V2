@@ -91,7 +91,7 @@ export const Login = () => {
     <div className="login-container">
       <div className="login-card">
         <div className="login-header">
-          <h1>🛠️ Tech Management System</h1>
+          <img src="/logo.png" alt="SchoolWorks" className="login-logo" />
           <p>Sign in to continue</p>
         </div>
 

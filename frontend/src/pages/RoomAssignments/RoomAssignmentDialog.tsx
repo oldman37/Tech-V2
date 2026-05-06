@@ -20,9 +20,13 @@ import {
   Box,
   Tooltip,
   Alert,
+  AppBar,
+  Toolbar,
 } from '@mui/material';
 import PersonRemoveIcon from '@mui/icons-material/PersonRemove';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
+import CloseIcon from '@mui/icons-material/Close';
+import { useIsMobile } from '@/hooks/useResponsive';
 import { useQuery } from '@tanstack/react-query';
 import { userRoomAssignmentService } from '@/services/userRoomAssignmentService';
 import { queryKeys } from '@/lib/queryKeys';
@@ -48,6 +52,7 @@ export function RoomAssignmentDialog({
   locationId,
   isAdmin = false,
 }: RoomAssignmentDialogProps) {
+  const isMobile = useIsMobile();
   const [search, setSearch] = useState('');
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
 
@@ -121,18 +126,31 @@ export function RoomAssignmentDialog({
   };
 
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
-      <DialogTitle>
-        <Box display="flex" alignItems="center" gap={1}>
-          Manage Assignments —{' '}
-          <Typography component="span" fontWeight={700}>
-            {room.name}
-          </Typography>
-          {room.type && (
-            <Chip label={room.type} size="small" variant="outlined" />
-          )}
-        </Box>
-      </DialogTitle>
+    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth fullScreen={isMobile}>
+      {isMobile ? (
+        <AppBar sx={{ position: 'relative' }}>
+          <Toolbar>
+            <IconButton edge="start" color="inherit" onClick={handleClose} aria-label="close">
+              <CloseIcon />
+            </IconButton>
+            <Typography sx={{ ml: 2, flex: 1 }} variant="h6" component="div">
+              Manage Assignments — {room.name}
+            </Typography>
+          </Toolbar>
+        </AppBar>
+      ) : (
+        <DialogTitle>
+          <Box display="flex" alignItems="center" gap={1}>
+            Manage Assignments —{' '}
+            <Typography component="span" fontWeight={700}>
+              {room.name}
+            </Typography>
+            {room.type && (
+              <Chip label={room.type} size="small" variant="outlined" />
+            )}
+          </Box>
+        </DialogTitle>
+      )}
 
       <DialogContent dividers>
         {/* Section 1: Currently Assigned Users */}

@@ -58,6 +58,7 @@ import settingsService, {
   type StartNewFiscalYearResult,
 } from '../../services/settingsService';
 import { queryKeys } from '../../lib/queryKeys';
+import { useIsMobile } from '../../hooks/useResponsive';
 
 // ---------------------------------------------------------------------------
 // Tab hash helpers
@@ -201,6 +202,7 @@ const WORK_ORDER_STATUS_LABELS: Record<string, string> = {
 // ---------------------------------------------------------------------------
 
 export default function AdminSettings() {
+  const isMobile = useIsMobile();
   const location = useLocation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -1359,7 +1361,7 @@ function FiscalYearTab({ settings, isFiscalYearExpired }: FiscalYearTabProps) {
               </form>
 
               {/* Confirmation Dialog */}
-              <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)} maxWidth="sm" fullWidth>
+              <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)} maxWidth="sm" fullWidth fullScreen={isMobile}>
                 <DialogTitle>Confirm Fiscal Year Rollover</DialogTitle>
                 <DialogContent>
                   <DialogContentText component="div">

@@ -5,6 +5,8 @@ import { SyncResultDetail } from '../services/adminService';
 import SyncResultDialog from '../components/admin/SyncResultDialog';
 import { useAuthStore } from '../store/authStore';
 import { useNavigate } from 'react-router-dom';
+import { ResponsiveTable, MobileFilterBar, Column } from '../components/responsive';
+import { useIsMobile } from '../hooks/useResponsive';
 
 // TanStack Query hooks
 import { usePaginatedUsers } from '../hooks/queries/useUsers';
@@ -41,9 +43,11 @@ const Users: React.FC = () => {
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(50);
+  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
   
   const { user: currentUser } = useAuthStore();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
 
   // Debounce search term
   useEffect(() => {
@@ -168,6 +172,79 @@ const Users: React.FC = () => {
   const loading = usersLoading;
   const syncing = syncAllMutation.isPending || syncStaffMutation.isPending || syncStudentMutation.isPending;
 
+  // ========== COLUMN DEFINITIONS ==========
+
+  const userColumns: Column<User>[] = [
+    {
+      key: 'displayName',
+      label: 'User',
+      isPrimary: true,
+      render: (user) => (
+        <div>
+          <div style={{ fontWeight: 500 }}>
+            {user.displayName || `${user.firstName} ${user.lastName}`}
+          </div>
+          <div style={{ fontSize: '0.875rem', color: 'var(--slate-500)' }}>{user.email}</div>
+        </div>
+      ),
+    },
+    {
+      key: 'email',
+      label: 'Email',
+      isSecondary: true,
+      hideOnMobile: true,
+      render: (user) => user.email,
+    },
+    {
+      key: 'jobTitle',
+      label: 'Job Title / Location',
+      hideOnMobile: true,
+      render: (user) => (
+        <div>
+          <div>{user.jobTitle || '-'}</div>
+          <div style={{ fontSize: '0.875rem', color: 'var(--slate-500)' }}>
+            {user.officeLocation || user.department || '-'}
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'primaryRoom',
+      label: 'Room',
+      hideOnMobile: true,
+      render: (user) =>
+        user.assignedRooms && user.assignedRooms.length > 0
+          ? user.assignedRooms.map((r) => r.name).join(', ')
+          : (user.primaryRoom?.name ?? '—'),
+    },
+    {
+      key: 'role',
+      label: 'Role',
+      render: (user) => (
+        <select
+          value={user.role}
+          onChange={(e) => handleRoleChange(user.id, e.target.value)}
+          disabled={updateRoleMutation.isPending}
+          className="form-select"
+          style={{ fontSize: '0.875rem' }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <option value="ADMIN">Admin</option>
+          <option value="USER">User</option>
+        </select>
+      ),
+    },
+    {
+      key: 'isActive',
+      label: 'Status',
+      render: (user) => (
+        <span className={`badge ${user.isActive ? 'badge-success' : 'badge-error'}`}>
+          {user.isActive ? 'Active' : 'Inactive'}
+        </span>
+      ),
+    },
+  ];
+
   // ========== RENDER ==========
 
   if (loading && !users.length) {
@@ -288,56 +365,107 @@ const Users: React.FC = () => {
           </div>
 
           {/* Search and filter */}
-          <div className="card mb-6">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-              <input
-                type="text"
-                placeholder="Search users by name or email..."
-                value={searchTerm}
-                onChange={(e) => handleSearchChange(e.target.value)}
-                className="form-input"
-                style={{ flex: 1, minWidth: '250px' }}
+          {isMobile ? (
+            <div className="mb-6">
+              <MobileFilterBar
+                searchValue={searchTerm}
+                onSearchChange={(value) => handleSearchChange(value)}
+                filterCount={(accountType !== 'all' ? 1 : 0) + (locationFilter ? 1 : 0)}
+                onOpenFilters={() => setFilterDrawerOpen(!filterDrawerOpen)}
+                searchPlaceholder="Search users by name or email..."
               />
-              <select
-                value={accountType}
-                onChange={(e) => handleAccountTypeChange(e.target.value as 'all' | 'staff' | 'student')}
-                className="form-select"
-                style={{ width: 'auto', fontSize: '0.875rem' }}
-              >
-                <option value="all">All Accounts</option>
-                <option value="staff">Staff (@ocboe.com)</option>
-                <option value="student">Students (@students.ocboe.com)</option>
-              </select>
-              <select
-                value={locationFilter}
-                onChange={(e) => handleLocationFilterChange(e.target.value)}
-                className="form-select"
-                style={{ width: 'auto', fontSize: '0.875rem' }}
-              >
-                <option value="">All Locations</option>
-                {[...locations].sort((a, b) => a.name.localeCompare(b.name)).map((loc) => (
-                  <option key={loc.id} value={loc.id}>{loc.name}</option>
-                ))}
-              </select>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <label style={{ fontSize: '0.875rem', whiteSpace: 'nowrap' }}>Show:</label>
+              {filterDrawerOpen && (
+                <div className="card" style={{ marginTop: '0.5rem' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    <div>
+                      <label className="form-label">Account Type</label>
+                      <select
+                        value={accountType}
+                        onChange={(e) => handleAccountTypeChange(e.target.value as 'all' | 'staff' | 'student')}
+                        className="form-select"
+                      >
+                        <option value="all">All Accounts</option>
+                        <option value="staff">Staff (@ocboe.com)</option>
+                        <option value="student">Students (@students.ocboe.com)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="form-label">Location</label>
+                      <select
+                        value={locationFilter}
+                        onChange={(e) => handleLocationFilterChange(e.target.value)}
+                        className="form-select"
+                      >
+                        <option value="">All Locations</option>
+                        {[...locations].sort((a, b) => a.name.localeCompare(b.name)).map((loc) => (
+                          <option key={loc.id} value={loc.id}>{loc.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                      <button
+                        onClick={() => { handleAccountTypeChange('all'); handleLocationFilterChange(''); setFilterDrawerOpen(false); }}
+                        className="btn btn-secondary btn-sm"
+                      >
+                        Clear Filters
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="card mb-6">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+                <input
+                  type="text"
+                  placeholder="Search users by name or email..."
+                  value={searchTerm}
+                  onChange={(e) => handleSearchChange(e.target.value)}
+                  className="form-input"
+                  style={{ flex: 1, minWidth: '250px' }}
+                />
                 <select
-                  value={itemsPerPage}
-                  onChange={(e) => handleItemsPerPageChange(parseInt(e.target.value))}
+                  value={accountType}
+                  onChange={(e) => handleAccountTypeChange(e.target.value as 'all' | 'staff' | 'student')}
                   className="form-select"
                   style={{ width: 'auto', fontSize: '0.875rem' }}
                 >
-                  <option value={25}>25</option>
-                  <option value={50}>50</option>
-                  <option value={100}>100</option>
-                  <option value={200}>200</option>
+                  <option value="all">All Accounts</option>
+                  <option value="staff">Staff (@ocboe.com)</option>
+                  <option value="student">Students (@students.ocboe.com)</option>
                 </select>
-                <span style={{ fontSize: '0.875rem', color: 'var(--slate-600)' }}>
-                  per page
-                </span>
+                <select
+                  value={locationFilter}
+                  onChange={(e) => handleLocationFilterChange(e.target.value)}
+                  className="form-select"
+                  style={{ width: 'auto', fontSize: '0.875rem' }}
+                >
+                  <option value="">All Locations</option>
+                  {[...locations].sort((a, b) => a.name.localeCompare(b.name)).map((loc) => (
+                    <option key={loc.id} value={loc.id}>{loc.name}</option>
+                  ))}
+                </select>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <label style={{ fontSize: '0.875rem', whiteSpace: 'nowrap' }}>Show:</label>
+                  <select
+                    value={itemsPerPage}
+                    onChange={(e) => handleItemsPerPageChange(parseInt(e.target.value))}
+                    className="form-select"
+                    style={{ width: 'auto', fontSize: '0.875rem' }}
+                  >
+                    <option value={25}>25</option>
+                    <option value={50}>50</option>
+                    <option value={100}>100</option>
+                    <option value={200}>200</option>
+                  </select>
+                  <span style={{ fontSize: '0.875rem', color: 'var(--slate-600)' }}>
+                    per page
+                  </span>
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           {/* Users table */}
           <div className="card" style={{ padding: 0 }}>
@@ -346,85 +474,30 @@ const Users: React.FC = () => {
                 Loading new data...
               </div>
             )}
-            <div style={{ overflowX: 'auto' }}>
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>User</th>
-                    <th>Job Title / Location</th>
-                    <th>Room</th>
-                    <th>Role</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {users.map((user) => (
-                    <tr key={user.id}>
-                      <td>
-                        <div>
-                          <div style={{ fontWeight: 500 }}>
-                            {user.displayName || `${user.firstName} ${user.lastName}`}
-                          </div>
-                          <div style={{ fontSize: '0.875rem', color: 'var(--slate-500)' }}>{user.email}</div>
-                        </div>
-                      </td>
-                      <td>
-                        <div>{user.jobTitle || '-'}</div>
-                        <div style={{ fontSize: '0.875rem', color: 'var(--slate-500)' }}>
-                          {user.officeLocation || user.department || '-'}
-                        </div>
-                      </td>
-                      <td>
-                        {user.assignedRooms && user.assignedRooms.length > 0
-                          ? user.assignedRooms.map((r) => r.name).join(', ')
-                          : (user.primaryRoom?.name ?? '—')}
-                      </td>
-                      <td>
-                        <select
-                          value={user.role}
-                          onChange={(e) => handleRoleChange(user.id, e.target.value)}
-                          disabled={updateRoleMutation.isPending}
-                          className="form-select"
-                          style={{ fontSize: '0.875rem' }}
-                        >
-                          <option value="ADMIN">Admin</option>
-                          <option value="USER">User</option>
-                        </select>
-                      </td>
-                      <td>
-                        <span className={`badge ${user.isActive ? 'badge-success' : 'badge-error'}`}>
-                          {user.isActive ? 'Active' : 'Inactive'}
-                        </span>
-                      </td>
-                      <td>
-                        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                          <button
-                            onClick={() => openSupervisorModal(user)}
-                            className="btn btn-sm btn-secondary"
-                          >
-                            Supervisors
-                          </button>
-                          <button
-                            onClick={() => handleToggleStatus(user.id)}
-                            disabled={toggleStatusMutation.isPending}
-                            className="btn btn-sm btn-ghost"
-                          >
-                            {user.isActive ? 'Deactivate' : 'Activate'}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {users.length === 0 && (
-              <div className="text-center" style={{ padding: '3rem 0' }}>
-                <p style={{ color: 'var(--slate-500)' }}>No users found</p>
-              </div>
-            )}
+            <ResponsiveTable<User>
+              columns={userColumns}
+              rows={users}
+              getRowKey={(user) => user.id}
+              loading={loading && !users.length}
+              emptyMessage="No users found"
+              rowActions={(user) => (
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  <button
+                    onClick={() => openSupervisorModal(user)}
+                    className="btn btn-sm btn-secondary"
+                  >
+                    Supervisors
+                  </button>
+                  <button
+                    onClick={() => handleToggleStatus(user.id)}
+                    disabled={toggleStatusMutation.isPending}
+                    className="btn btn-sm btn-ghost"
+                  >
+                    {user.isActive ? 'Deactivate' : 'Activate'}
+                  </button>
+                </div>
+              )}
+            />
           </div>
 
           {/* Pagination Controls */}
@@ -453,31 +526,33 @@ const Users: React.FC = () => {
                     ‹ Prev
                   </button>
                   
-                  <div style={{ display: 'flex', gap: '0.25rem' }}>
-                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                      let pageNumber;
-                      if (totalPages <= 5) {
-                        pageNumber = i + 1;
-                      } else if (currentPage <= 3) {
-                        pageNumber = i + 1;
-                      } else if (currentPage >= totalPages - 2) {
-                        pageNumber = totalPages - 4 + i;
-                      } else {
-                        pageNumber = currentPage - 2 + i;
-                      }
-                      
-                      return (
-                        <button
-                          key={pageNumber}
-                          onClick={() => handlePageChange(pageNumber)}
-                          className={`btn btn-sm ${currentPage === pageNumber ? 'btn-primary' : 'btn-secondary'}`}
-                          style={{ minWidth: '2.5rem' }}
-                        >
-                          {pageNumber}
-                        </button>
-                      );
-                    })}
-                  </div>
+                  {!isMobile && (
+                    <div style={{ display: 'flex', gap: '0.25rem' }}>
+                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                        let pageNumber;
+                        if (totalPages <= 5) {
+                          pageNumber = i + 1;
+                        } else if (currentPage <= 3) {
+                          pageNumber = i + 1;
+                        } else if (currentPage >= totalPages - 2) {
+                          pageNumber = totalPages - 4 + i;
+                        } else {
+                          pageNumber = currentPage - 2 + i;
+                        }
+                        
+                        return (
+                          <button
+                            key={pageNumber}
+                            onClick={() => handlePageChange(pageNumber)}
+                            className={`btn btn-sm ${currentPage === pageNumber ? 'btn-primary' : 'btn-secondary'}`}
+                            style={{ minWidth: '2.5rem' }}
+                          >
+                            {pageNumber}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                   
                   <button
                     onClick={() => handlePageChange(currentPage + 1)}

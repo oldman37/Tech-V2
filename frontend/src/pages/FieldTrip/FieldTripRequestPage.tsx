@@ -43,6 +43,7 @@ import {
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SaveIcon      from '@mui/icons-material/Save';
 import SendIcon      from '@mui/icons-material/Send';
+import { useIsMobile } from '../../hooks/useResponsive';
 import { fieldTripService }                          from '../../services/fieldTrip.service';
 import { fieldTripTransportationService }            from '../../services/fieldTripTransportation.service';
 import { locationService }                           from '../../services/location.service';
@@ -390,6 +391,7 @@ export function FieldTripRequestPage() {
   const { id }      = useParams<{ id?: string }>();
   const queryClient = useQueryClient();
   const { user }    = useAuthStore();
+  const isMobile    = useIsMobile();
 
   const [activeStep, setActiveStep] = useState(0);
   const [form, setForm]             = useState<FormState>({ ...EMPTY_FORM, teacherName: user?.name ?? '' });
@@ -612,7 +614,12 @@ export function FieldTripRequestPage() {
       {saveError && <Alert severity="error" sx={{ mb: 2 }}>{saveError}</Alert>}
 
       {/* Stepper */}
-      <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
+      <Stepper
+        activeStep={activeStep}
+        alternativeLabel={!isMobile}
+        orientation={isMobile ? 'vertical' : 'horizontal'}
+        sx={{ mb: isMobile ? 2 : 4 }}
+      >
         {STEPS.map((label) => (
           <Step key={label}><StepLabel>{label}</StepLabel></Step>
         ))}

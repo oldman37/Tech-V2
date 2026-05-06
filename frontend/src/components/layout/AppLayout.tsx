@@ -7,6 +7,7 @@ import MenuIcon from '@mui/icons-material/Menu';
 import { useAuthStore } from '../../store/authStore';
 import { authApi } from '../../services/authService';
 import { useRoomAssignmentAccess } from '../../hooks/useRoomAssignmentAccess';
+import { OfflineIndicator } from '../responsive/OfflineIndicator';
 import './AppLayout.css';
 
 interface NavItem {
@@ -154,6 +155,7 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
 
   return (
     <div className="app-shell">
+      <OfflineIndicator />
       {/* Top Header */}
       <header className="shell-header">
         <div className="shell-header-left">
@@ -168,8 +170,8 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
               <MenuIcon />
             </IconButton>
           )}
-          <span className="shell-logo">⚙️</span>
-          <span className="shell-title">Tech Management System</span>
+          <img src="/logo.png" alt="SchoolWorks" className="shell-logo-img" />
+          <span className="shell-title">SchoolWorks</span>
         </div>
         <div className="shell-header-right">
           <div className="shell-user-info">

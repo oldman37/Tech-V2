@@ -13,26 +13,69 @@ import {
   Box,
   Button,
   Chip,
-  CircularProgress,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   Typography,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
+import { useIsMobile } from '../../hooks/useResponsive';
 import { fieldTripService } from '../../services/fieldTrip.service';
 import type { FieldTripRequest, FieldTripStatus, StatusChipColor } from '../../types/fieldTrip.types';
 import {
   FIELD_TRIP_STATUS_LABELS,
   FIELD_TRIP_STATUS_COLORS,
 } from '../../types/fieldTrip.types';
+import { ResponsiveTable, Column } from '../../components/responsive';
+
+const columns: Column<FieldTripRequest>[] = [
+  {
+    key: 'destination',
+    label: 'Destination',
+    isPrimary: true,
+    render: (row) => row.destination,
+  },
+  {
+    key: 'teacherName',
+    label: 'Teacher',
+    isSecondary: true,
+    hideOnMobile: true,
+  },
+  {
+    key: 'tripDate',
+    label: 'Trip Date',
+    render: (row) =>
+      new Date(row.tripDate).toLocaleDateString('en-US', {
+        month: 'short', day: 'numeric', year: 'numeric',
+      }),
+  },
+  {
+    key: 'schoolBuilding',
+    label: 'School / Building',
+    hideOnMobile: true,
+  },
+  {
+    key: 'studentCount',
+    label: 'Students',
+  },
+  {
+    key: 'status',
+    label: 'Status',
+    render: (row) => <StatusChip status={row.status as FieldTripStatus} />,
+  },
+  {
+    key: 'submittedAt',
+    label: 'Submitted',
+    hideOnMobile: true,
+    render: (row) =>
+      row.submittedAt
+        ? new Date(row.submittedAt).toLocaleDateString('en-US', {
+            month: 'short', day: 'numeric', year: 'numeric',
+          })
+        : '—',
+  },
+];
 
 export function FieldTripListPage() {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
 
   const { data: trips, isLoading, error } = useQuery<FieldTripRequest[]>({
     queryKey: ['field-trips', 'my-requests'],
@@ -47,7 +90,7 @@ export function FieldTripListPage() {
   return (
     <Box sx={{ p: 3 }}>
       {/* Header */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 3 }}>
         <Typography variant="h4" component="h1">
           My Field Trip Requests
         </Typography>
@@ -55,17 +98,11 @@ export function FieldTripListPage() {
           variant="contained"
           startIcon={<AddIcon />}
           onClick={() => navigate('/field-trips/new')}
+          sx={{ ...(isMobile && { width: '100%' }) }}
         >
           New Request
         </Button>
       </Box>
-
-      {/* Loading */}
-      {isLoading && (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-          <CircularProgress />
-        </Box>
-      )}
 
       {/* Error */}
       {error && (
@@ -74,68 +111,15 @@ export function FieldTripListPage() {
         </Alert>
       )}
 
-      {/* Table */}
-      {!isLoading && !error && (
-        <TableContainer component={Paper}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell sx={{ fontWeight: 'bold' }}>Destination</TableCell>
-                <TableCell sx={{ fontWeight: 'bold' }}>Trip Date</TableCell>
-                <TableCell sx={{ fontWeight: 'bold' }}>School / Building</TableCell>
-                <TableCell sx={{ fontWeight: 'bold' }}>Students</TableCell>
-                <TableCell sx={{ fontWeight: 'bold' }}>Status</TableCell>
-                <TableCell sx={{ fontWeight: 'bold' }}>Submitted</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {sortedTrips.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={6} align="center" sx={{ py: 4, color: 'text.secondary' }}>
-                    No field trip requests found. Click "New Request" to create one.
-                  </TableCell>
-                </TableRow>
-              )}
-              {sortedTrips.map((trip) => (
-                <TableRow
-                  key={trip.id}
-                  hover
-                  sx={{ cursor: 'pointer' }}
-                  onClick={() => navigate(`/field-trips/${trip.id}`)}
-                >
-                  <TableCell>
-                    <Typography variant="body2" fontWeight="medium">
-                      {trip.destination}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {trip.teacherName}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    {new Date(trip.tripDate).toLocaleDateString('en-US', {
-                      month: 'short',
-                      day:   'numeric',
-                      year:  'numeric',
-                    })}
-                  </TableCell>
-                  <TableCell>{trip.schoolBuilding}</TableCell>
-                  <TableCell>{trip.studentCount}</TableCell>
-                  <TableCell>
-                    <StatusChip status={trip.status as FieldTripStatus} />
-                  </TableCell>
-                  <TableCell>
-                    {trip.submittedAt
-                      ? new Date(trip.submittedAt).toLocaleDateString('en-US', {
-                          month: 'short', day: 'numeric', year: 'numeric',
-                        })
-                      : <Typography component="span" color="text.secondary" variant="body2">—</Typography>}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      )}
+      {/* Table / Cards */}
+      <ResponsiveTable<FieldTripRequest>
+        columns={columns}
+        rows={sortedTrips}
+        getRowKey={(row) => row.id}
+        onRowClick={(row) => navigate(`/field-trips/${row.id}`)}
+        loading={isLoading}
+        emptyMessage='No field trip requests found. Click "New Request" to create one.'
+      />
     </Box>
   );
 }
