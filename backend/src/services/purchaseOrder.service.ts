@@ -1013,7 +1013,17 @@ export class PurchaseOrderService {
     // DoS, or the Finance Director from acting as an entity's supervisor.
     if (po.status === 'submitted') {
       if (po.officeLocationId) {
-        const expectedSupervisorType = po.workflowType === 'food_service' ? 'FOOD_SERVICES_SUPERVISOR' : undefined;
+        // Determine expected supervisor type — must match the submit/email routing logic.
+        // Food service POs require the FOOD_SERVICES_SUPERVISOR.
+        // SCHOOL locations require the PRINCIPAL.
+        // Other location types allow any primary supervisor.
+        let expectedSupervisorType: string | undefined;
+        if (po.workflowType === 'food_service') {
+          expectedSupervisorType = 'FOOD_SERVICES_SUPERVISOR';
+        } else {
+          const entityLoc = await this.prisma.officeLocation.findUnique({ where: { id: po.officeLocationId }, select: { type: true } });
+          expectedSupervisorType = entityLoc?.type === 'SCHOOL' ? 'PRINCIPAL' : undefined;
+        }
         const locSup = await this.prisma.locationSupervisor.findFirst({
           where: {
             locationId: po.officeLocationId,

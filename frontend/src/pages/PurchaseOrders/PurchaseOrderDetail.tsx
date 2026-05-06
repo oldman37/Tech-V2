@@ -203,9 +203,27 @@ export default function PurchaseOrderDetail() {
   // primary supervisor — not all users with permLevel >= 3.
   // For Finance Director and Director of Schools stages, also verify group membership.
   // Separation of duties: admin/DoS/FD users cannot act as supervisors.
-  const assignedSupervisorId = po.officeLocationId
-    ? (po.officeLocation?.supervisors?.[0]?.userId ?? null)
-    : null;
+  //
+  // Determine the expected supervisor type to match the backend's routing logic:
+  // - Food service POs: FOOD_SERVICES_SUPERVISOR
+  // - SCHOOL locations: PRINCIPAL
+  // - Other locations: any primary supervisor
+  const assignedSupervisorId = (() => {
+    if (!po.officeLocationId) return null;
+    const supervisors = po.officeLocation?.supervisors;
+    if (!supervisors || supervisors.length === 0) return null;
+    let expectedType: string | undefined;
+    if (isFoodService) {
+      expectedType = 'FOOD_SERVICES_SUPERVISOR';
+    } else if ((po.officeLocation as any)?.type === 'SCHOOL') {
+      expectedType = 'PRINCIPAL';
+    }
+    if (expectedType) {
+      const match = supervisors.find((s: any) => s.supervisorType === expectedType);
+      return match?.userId ?? supervisors[0]?.userId ?? null;
+    }
+    return supervisors[0]?.userId ?? null;
+  })();
 
   const canActAtFdStage  = !isFoodService && po.status === 'supervisor_approved'         && permLevel >= 5 && isFinanceDirector;
   const canActAtDosStage = isFoodService
