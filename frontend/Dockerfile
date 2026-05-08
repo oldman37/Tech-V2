@@ -13,6 +13,10 @@ COPY frontend/package.json frontend/package-lock.json* ./frontend/
 WORKDIR /app/frontend
 RUN npm install
 
+# Symlink frontend node_modules into shared/ so TypeScript can resolve imports
+# (e.g. zod) when it traverses into ../shared/src via the @mgspe/shared-types alias.
+RUN ln -s /app/frontend/node_modules /app/shared/node_modules
+
 # Copy frontend source and config
 COPY frontend/tsconfig.json frontend/tsconfig.node.json frontend/vite.config.ts frontend/index.html ./
 # Always create public directory (even if empty) to avoid COPY errors
