@@ -38,6 +38,11 @@
   width: auto;
 }
 
+.shell-logo-full {
+  height: 36px;
+  width: auto;
+}
+
 .shell-title {
   font-size: 1rem;
   font-weight: 700;

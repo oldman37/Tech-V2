@@ -170,8 +170,7 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
               <MenuIcon />
             </IconButton>
           )}
-          <img src="/logo.png" alt="SchoolWorks" className="shell-logo-img" />
-          <span className="shell-title">SchoolWorks</span>
+          <img src="/schoolworks_logo.png" alt="SchoolWorks" className="shell-logo-full" />
         </div>
         <div className="shell-header-right">
           <div className="shell-user-info">
