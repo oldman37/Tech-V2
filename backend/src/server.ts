@@ -20,6 +20,7 @@ import userRoomAssignmentRoutes from './routes/userRoomAssignment.routes';
 import fieldTripRoutes from './routes/fieldTrip.routes';
 import transportationRequestRoutes from './routes/transportationRequest.routes';
 import { cronJobsService } from './services/cronJobs.service';
+import { schedulerService } from './services/scheduler.service';
 import { provideCsrfToken, getCsrfToken } from './middleware/csrf';
 import { logger, loggers } from './lib/logger';
 import { requestId, httpLogger } from './middleware/requestLogger';
@@ -176,20 +177,24 @@ app.listen(PORT, () => {
     healthCheck: `http://localhost:${PORT}/health`,
   });
   
-  // Start cron jobs
-  cronJobsService.start();
+  // Start background schedulers
+  schedulerService.start().catch((err) => {
+    loggers.server.error('SchedulerService startup failed', { error: err });
+  });
 });
 
 // Graceful shutdown
 process.on('SIGTERM', () => {
   loggers.server.info('SIGTERM signal received: closing HTTP server');
   cronJobsService.stop();
+  schedulerService.stop();
   process.exit(0);
 });
 
 process.on('SIGINT', () => {
   loggers.server.info('SIGINT signal received: closing HTTP server');
   cronJobsService.stop();
+  schedulerService.stop();
   process.exit(0);
 });
 

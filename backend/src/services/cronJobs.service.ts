@@ -1,7 +1,9 @@
 import cron from 'node-cron';
-import { spawn } from 'child_process';
-import path from 'path';
 import { loggers } from '../lib/logger';
+import { prisma } from '../lib/prisma';
+import { msalClient } from '../config/entraId';
+import { Client } from '@microsoft/microsoft-graph-client';
+import { LocationSyncService } from './locationSync.service';
 
 class CronJobsService {
   private jobs: Map<string, ReturnType<typeof cron.schedule>> = new Map();
@@ -58,29 +60,27 @@ class CronJobsService {
   }
 
   /**
-   * Run the supervisor sync script
+   * Run the supervisor sync via the LocationSyncService (direct service call)
    */
   private async runSupervisorSync(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const scriptPath = path.join(__dirname, '../../scripts/sync-supervisor-assignments.ts');
-      
-      const child = spawn('npx', ['tsx', scriptPath], {
-        stdio: 'inherit',
-        shell: true,
-        cwd: path.join(__dirname, '../..')
-      });
+    const authResult = await msalClient.acquireTokenByClientCredential({
+      scopes: ['https://graph.microsoft.com/.default'],
+    });
 
-      child.on('close', (code) => {
-        if (code === 0) {
-          resolve();
-        } else {
-          reject(new Error(`Sync script exited with code ${code}`));
-        }
-      });
+    const graphClient = Client.init({
+      authProvider: (done) => {
+        done(null, authResult?.accessToken ?? '');
+      },
+    });
 
-      child.on('error', (error) => {
-        reject(error);
-      });
+    const syncService = new LocationSyncService(prisma, graphClient);
+    const result = await syncService.syncSupervisorAssignments();
+
+    loggers.cron.info('Supervisor assignment sync complete', {
+      assignmentsCreated: result.assignmentsCreated,
+      assignmentsSkipped: result.assignmentsSkipped,
+      errors: result.errors,
+      durationMs: result.durationMs,
     });
   }
 

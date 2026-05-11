@@ -1045,3 +1045,19 @@ model TransportationRequest {
   @@index([status, submittedById])
   @@map("transportation_requests")
 }
+
+model JobSchedule {
+  id            String    @id @default(cuid())
+  jobKey        String    @unique
+  cronExpr      String
+  enabled       Boolean   @default(false)
+  lastRunAt     DateTime?
+  lastRunStatus String?
+  lastRunResult Json?
+  nextRunAt     DateTime?
+  updatedBy     String?
+  updatedAt     DateTime  @updatedAt
+  createdAt     DateTime  @default(now())
+
+  @@map("job_schedules")
+}

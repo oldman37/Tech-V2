@@ -47,6 +47,53 @@ export interface SyncResult {
   detail?: SyncResultDetail;
 }
 
+export interface JobResult {
+  success: boolean;
+  message: string;
+  detail: {
+    locationsCreated?: number;
+    locationsVerified?: number;
+    assignmentsCreated?: number;
+    assignmentsSkipped?: number;
+    errors: number;
+    errorDetails: Array<{ group: string; email?: string; message: string }>;
+    durationMs: number;
+  };
+}
+
+export interface JobStatus {
+  supervisorSync: {
+    lastRunAt: string | null;
+    currentCount: number;
+  };
+  locationSync: {
+    currentCount: number;
+  };
+  userSync: {
+    lastRunAt: string | null;
+  };
+}
+
+export interface JobSchedule {
+  id: string;
+  jobKey: string;
+  cronExpr: string;
+  enabled: boolean;
+  lastRunAt: string | null;
+  lastRunStatus: 'success' | 'error' | 'skipped' | null;
+  lastRunResult: Record<string, unknown> | null;
+  nextRunAt: string | null;
+  updatedBy: string | null;
+  updatedAt: string;
+  createdAt: string;
+  isRunning: boolean;
+}
+
+export interface UpdateSchedulePayload {
+  cronExpr: string;
+  enabled: boolean;
+}
+
 export const adminService = {
   // Get sync status
   getSyncStatus: async (): Promise<SyncStatus> => {
@@ -77,4 +124,44 @@ export const adminService = {
     const response = await api.post(`/admin/sync-users/group/${groupId}`);
     return response.data;
   },
+
+  // Get last-run metadata for all admin jobs
+  getJobStatus: async (): Promise<JobStatus> => {
+    const response = await api.get('/admin/jobs/status');
+    return response.data;
+  },
+
+  // Sync office locations from canonical mapping
+  syncLocations: async (): Promise<JobResult> => {
+    const response = await api.post('/admin/jobs/sync-locations');
+    return response.data;
+  },
+
+  // Rebuild all supervisor-location assignments from Entra
+  syncSupervisors: async (): Promise<JobResult> => {
+    const response = await api.post('/admin/jobs/sync-supervisors');
+    return response.data;
+  },
+
+  // Get all job schedules
+  getJobSchedules: async (): Promise<{ schedules: JobSchedule[] }> => {
+    const response = await api.get('/admin/jobs/schedules');
+    return response.data;
+  },
+
+  // Update a job schedule (cronExpr + enabled)
+  updateJobSchedule: async (
+    jobKey: string,
+    payload: UpdateSchedulePayload,
+  ): Promise<{ success: boolean; schedule: JobSchedule }> => {
+    const response = await api.put(`/admin/jobs/schedules/${jobKey}`, payload);
+    return response.data;
+  },
+
+  // Run a job immediately (new unified endpoint)
+  runJobNow: async (jobKey: string): Promise<JobResult> => {
+    const response = await api.post(`/admin/jobs/${jobKey}/run`);
+    return response.data;
+  },
 };
+

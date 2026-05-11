@@ -14,6 +14,7 @@ import {
   PurchaseOrderDetail,
 } from './pages/PurchaseOrders'
 import AdminSettings from './pages/admin/AdminSettings'
+import AdminJobsPage from './pages/admin/AdminJobsPage'
 import WorkOrderListPage from './pages/WorkOrderListPage'
 import NewWorkOrderPage from './pages/NewWorkOrderPage'
 import WorkOrderDetailPage from './pages/WorkOrderDetailPage'
@@ -69,6 +70,16 @@ function App() {
             <ProtectedRoute requireAdmin>
               <AppLayout>
                 <AdminSettings />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/jobs"
+          element={
+            <ProtectedRoute requireAdmin>
+              <AppLayout>
+                <AdminJobsPage />
               </AppLayout>
             </ProtectedRoute>
           }

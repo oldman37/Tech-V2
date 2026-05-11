@@ -66,6 +66,7 @@ services:
       SMTP_PASS: ${SMTP_PASS:-}
       SMTP_FROM: ${SMTP_FROM:-}
       APP_URL: ${APP_URL:-https://schoolworks.ocboe.com}
+      TZ: ${TZ:-America/Chicago}
     volumes:
       - backend_logs:/workspace/backend/logs
     expose:

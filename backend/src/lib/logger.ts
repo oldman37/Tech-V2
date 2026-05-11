@@ -172,6 +172,7 @@ export const loggers = {
   userSync: createLogger('UserSyncService'),
   auth: createLogger('AuthController'),
   cron: createLogger('CronJobsService'),
+  scheduler: createLogger('SchedulerService'),
   http: createLogger('HTTPRequest'),
   db: createLogger('Database'),
   admin: createLogger('AdminRoutes'),
@@ -179,4 +180,5 @@ export const loggers = {
   error: createLogger('ErrorHandler'),
   config: createLogger('Configuration'),
   roomAssignments: createLogger('UserRoomAssignmentService'),
+  locationSync: createLogger('LocationSyncService'),
 };
