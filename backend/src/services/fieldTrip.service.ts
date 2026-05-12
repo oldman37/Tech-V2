@@ -286,6 +286,25 @@ export class FieldTripService {
     const stage      = STATUS_TO_STAGE[trip.status];
     const nextStatus = APPROVAL_CHAIN[trip.status];
 
+    // ── Duplicate-approver guard ──────────────────────────────────────────
+    // Prevent the same user from approving at multiple stages of the same
+    // request. This enforces separation of duties in the approval chain.
+    const priorApproval = await prisma.fieldTripApproval.findFirst({
+      where: {
+        fieldTripRequestId: id,
+        actedById:          userId,
+        action:             'APPROVED',
+      },
+      select: { stage: true },
+    });
+
+    if (priorApproval) {
+      throw new ValidationError(
+        `You have already approved this request at the ${priorApproval.stage} stage. ` +
+        `A different approver is required for the ${stage} stage.`,
+      );
+    }
+
     const approver = await prisma.user.findUnique({
       where:  { id: userId },
       select: { displayName: true, firstName: true, lastName: true },

@@ -162,7 +162,12 @@ export function FieldTripDetailPage() {
   const isNeedsRevision  = trip.status === 'NEEDS_REVISION';
   const isTerminal       = TERMINAL_STATUSES.has(trip.status);
 
-  const showActionButtons = isPending && !isOwner && !isTerminal;
+  // Check if the current user already approved at a prior stage
+  const hasAlreadyApproved = trip.approvals?.some(
+    (a) => a.actedById === user?.id && a.action === 'APPROVED',
+  ) ?? false;
+
+  const showActionButtons = isPending && !isOwner && !isTerminal && !hasAlreadyApproved;
 
   // ---------------------------------------------------------------------------
   // Render helpers
@@ -249,6 +254,14 @@ export function FieldTripDetailPage() {
           }
         >
           Your field trip has been approved. Please complete the Transportation Request form to schedule your trip.
+        </Alert>
+      )}
+
+      {/* Inform user they already approved at a prior stage */}
+      {isPending && !isOwner && !isTerminal && hasAlreadyApproved && (
+        <Alert severity="info" sx={{ mb: 3 }}>
+          You have already approved this request at a prior stage.
+          A different approver is required for the current stage.
         </Alert>
       )}
 
