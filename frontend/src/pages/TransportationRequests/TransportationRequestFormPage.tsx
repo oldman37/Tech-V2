@@ -29,7 +29,7 @@ import {
 } from '@mui/material';
 import AddIcon    from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import { PageBackButton } from '../../components/layout/PageBackButton';
 import { transportationRequestService } from '../../services/transportationRequest.service';
 import { locationService } from '../../services/location.service';
 import type {
@@ -168,13 +168,7 @@ export function TransportationRequestFormPage() {
   return (
     <Box sx={{ p: 3, maxWidth: 900, mx: 'auto' }}>
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 3, gap: 1 }}>
-        <Button
-          startIcon={<ArrowBackIcon />}
-          onClick={() => navigate('/transportation-requests')}
-          variant="text"
-        >
-          Back to Requests
-        </Button>
+        <PageBackButton to="/transportation-requests" label="Back to Requests" />
       </Box>
 
       <Typography variant="h4" component="h1" sx={{ mb: 3 }}>

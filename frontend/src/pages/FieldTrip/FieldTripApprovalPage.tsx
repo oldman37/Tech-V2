@@ -12,29 +12,31 @@ import { useQuery } from '@tanstack/react-query';
 import {
   Alert,
   Box,
+  Button,
   Chip,
+  Paper,
   Tab,
   Tabs,
   Typography,
 } from '@mui/material';
 import DirectionsBusIcon from '@mui/icons-material/DirectionsBus';
-import { useIsMobile } from '../../hooks/useResponsive';
-import { ResponsiveTable, Column } from '../../components/responsive';
-import { fieldTripService }               from '../../services/fieldTrip.service';
-import { fieldTripTransportationService } from '../../services/fieldTripTransportation.service';
+import { useIsMobile } from '@/hooks/useResponsive';
+import { ResponsiveTable, Column } from '@/components/responsive';
+import { fieldTripService }               from '@/services/fieldTrip.service';
+import { fieldTripTransportationService } from '@/services/fieldTripTransportation.service';
 import type {
   FieldTripRequest,
   FieldTripTransportationRequest,
   FieldTripStatus,
   StatusChipColor,
   TransportationStatus,
-} from '../../types/fieldTrip.types';
+} from '@/types/fieldTrip.types';
 import {
   FIELD_TRIP_STATUS_LABELS,
   FIELD_TRIP_STATUS_COLORS,
   TRANSPORTATION_STATUS_LABELS,
   TRANSPORTATION_STATUS_COLORS,
-} from '../../types/fieldTrip.types';
+} from '@/types/fieldTrip.types';
 
 
 export function FieldTripApprovalPage() {
@@ -61,7 +63,7 @@ export function FieldTripApprovalPage() {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Typography variant="h4" component="h1" sx={{ mb: 1 }}>
+      <Typography variant="h5" fontWeight={600} sx={{ mb: 1 }}>
         Field Trip Approvals
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
@@ -71,9 +73,15 @@ export function FieldTripApprovalPage() {
       <Tabs
         value={activeTab}
         onChange={(_, v) => setActiveTab(v)}
-        variant={isMobile ? 'scrollable' : 'standard'}
-        scrollButtons={isMobile ? 'auto' : undefined}
-        sx={{ mb: 3 }}
+        variant="scrollable"
+        scrollButtons="auto"
+        allowScrollButtonsMobile
+        sx={{
+          mb: 2,
+          ...(isMobile && {
+            '& .MuiTab-root': { minWidth: 'auto', px: 1.5, fontSize: '0.8rem' },
+          }),
+        }}
       >
         <Tab label="Field Trip Approvals" />
         <Tab label="Transportation Pending" icon={<DirectionsBusIcon fontSize="small" />} iconPosition="start" />
@@ -87,14 +95,25 @@ export function FieldTripApprovalPage() {
               Failed to load pending approvals. Please refresh the page.
             </Alert>
           )}
-          <ResponsiveTable<FieldTripRequest>
-            columns={approvalColumns}
-            rows={trips ?? []}
-            getRowKey={(row) => row.id}
-            onRowClick={(row) => navigate(`/field-trips/${row.id}`)}
-            loading={isLoading}
-            emptyMessage="No pending field trip requests require your approval at this time."
-          />
+          <Paper variant="outlined">
+            <ResponsiveTable<FieldTripRequest>
+              columns={approvalColumns}
+              rows={trips ?? []}
+              getRowKey={(row) => row.id}
+              onRowClick={(row) => navigate(`/field-trips/${row.id}`)}
+              loading={isLoading}
+              emptyMessage="No pending field trip requests require your approval at this time."
+              rowActions={(row) => (
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={() => navigate(`/field-trips/${row.id}`)}
+                >
+                  View
+                </Button>
+              )}
+            />
+          </Paper>
         </>
       )}
 
@@ -106,14 +125,25 @@ export function FieldTripApprovalPage() {
               Failed to load pending transportation requests.
             </Alert>
           )}
-          <ResponsiveTable<FieldTripTransportationRequest>
-            columns={transportColumns}
-            rows={pendingTransport ?? []}
-            getRowKey={(row) => row.id}
-            onRowClick={(row) => navigate(`/field-trips/${row.fieldTripRequestId}/transportation/view`)}
-            loading={transportLoading}
-            emptyMessage="No transportation requests are pending review."
-          />
+          <Paper variant="outlined">
+            <ResponsiveTable<FieldTripTransportationRequest>
+              columns={transportColumns}
+              rows={pendingTransport ?? []}
+              getRowKey={(row) => row.id}
+              onRowClick={(row) => navigate(`/field-trips/${row.fieldTripRequestId}/transportation/view`)}
+              loading={transportLoading}
+              emptyMessage="No transportation requests are pending review."
+              rowActions={(row) => (
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={() => navigate(`/field-trips/${row.fieldTripRequestId}/transportation/view`)}
+                >
+                  View
+                </Button>
+              )}
+            />
+          </Paper>
         </>
       )}
     </Box>

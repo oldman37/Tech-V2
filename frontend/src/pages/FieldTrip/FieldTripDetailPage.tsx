@@ -27,7 +27,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import { PageBackButton } from '../../components/layout/PageBackButton';
 import EditIcon from '@mui/icons-material/Edit';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
@@ -192,9 +192,7 @@ export function FieldTripDetailPage() {
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 2, mb: 3 }}>
         <Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-            <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/field-trips')}>
-              Back
-            </Button>
+            <PageBackButton to="/field-trips" />
           </Box>
           <Typography variant={isMobile ? 'h5' : 'h4'} component="h1">{trip.destination}</Typography>
           <Typography variant="subtitle1" color="text.secondary">{tripDateStr}</Typography>

@@ -15,6 +15,7 @@
 
 import { useState } from 'react';
 import { useNavigate, useParams, Link as RouterLink } from 'react-router-dom';
+import { PageBackButton } from '@/components/layout/PageBackButton';
 import {
   Alert,
   Box,
@@ -343,6 +344,9 @@ export default function PurchaseOrderDetail() {
   // ── Render ──
   return (
     <Box sx={{ p: { xs: 2, sm: 3 } }}>
+      {/* ── Back Button ── */}
+      <PageBackButton to="/purchase-orders" />
+
       {/* ── Breadcrumbs ── */}
       <Breadcrumbs sx={{ mb: 2 }}>
         <Link component={RouterLink} to="/purchase-orders" underline="hover" color="inherit">

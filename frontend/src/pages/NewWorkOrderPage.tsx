@@ -26,7 +26,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import { PageBackButton } from '@/components/layout/PageBackButton';
 import { useLocations } from '@/hooks/queries/useLocations';
 import { useRoomsByLocation } from '@/hooks/queries/useRooms';
 import { useCreateWorkOrder } from '@/hooks/mutations/useWorkOrderMutations';
@@ -159,13 +159,7 @@ export default function NewWorkOrderPage() {
     <Box sx={{ p: 3, maxWidth: 800, mx: 'auto' }}>
       {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
-        <Button
-          variant="text"
-          startIcon={<ArrowBackIcon />}
-          onClick={() => navigate('/work-orders')}
-        >
-          Back
-        </Button>
+        <PageBackButton to="/work-orders" />
         <Typography variant="h5" fontWeight={600}>
           Submit a Work Order
         </Typography>

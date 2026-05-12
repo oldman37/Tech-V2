@@ -393,6 +393,15 @@ export default function WorkOrderListPage() {
           onRowClick={(wo) => handleRowClick(wo.id)}
           loading={isLoading}
           emptyMessage="No work orders found."
+          rowActions={(wo) => (
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={() => navigate(`/work-orders/${wo.id}`)}
+            >
+              View
+            </Button>
+          )}
         />
       </Paper>
 

@@ -52,7 +52,7 @@ import {
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import { PageBackButton } from '../../components/layout/PageBackButton';
 import { useForm, useFieldArray, Controller } from 'react-hook-form';
 import { z } from 'zod';
 import { getFieldError } from '../../utils/formHelpers';
@@ -333,9 +333,7 @@ export default function RequisitionWizard() {
     <Box sx={{ p: 3, maxWidth: 900, mx: 'auto' }}>
       {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
-        <IconButton onClick={() => navigate('/purchase-orders')} size="small">
-          <ArrowBackIcon />
-        </IconButton>
+        <PageBackButton to="/purchase-orders" />
         <Typography variant="h5" fontWeight={700}>New Requisition</Typography>
       </Box>
 

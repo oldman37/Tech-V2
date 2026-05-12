@@ -25,7 +25,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import ArrowBackIcon  from '@mui/icons-material/ArrowBack';
+import { PageBackButton }  from '../../components/layout/PageBackButton';
 import CheckIcon      from '@mui/icons-material/Check';
 import CloseIcon      from '@mui/icons-material/Close';
 import DeleteIcon     from '@mui/icons-material/Delete';
@@ -126,9 +126,7 @@ export function TransportationRequestDetailPage() {
     return (
       <Box sx={{ p: 3 }}>
         <Alert severity="error">Failed to load request. It may not exist or you may not have access.</Alert>
-        <Button sx={{ mt: 2 }} startIcon={<ArrowBackIcon />} onClick={() => navigate('/transportation-requests')}>
-          Back to Requests
-        </Button>
+        <PageBackButton to="/transportation-requests" label="Back to Requests" sx={{ mt: 2 }} />
       </Box>
     );
   }
@@ -146,14 +144,11 @@ export function TransportationRequestDetailPage() {
   return (
     <Box sx={{ p: { xs: 2, sm: 3 }, maxWidth: 960, mx: 'auto' }}>
       {/* Nav */}
-      <Button
-        startIcon={<ArrowBackIcon />}
-        onClick={() => navigate('/transportation-requests')}
-        variant="text"
+      <PageBackButton
+        to="/transportation-requests"
+        label="Back to Requests"
         sx={{ mb: 2 }}
-      >
-        Back to Requests
-      </Button>
+      />
 
       {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3, flexWrap: 'wrap' }}>

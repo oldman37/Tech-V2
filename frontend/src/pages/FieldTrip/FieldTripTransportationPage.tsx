@@ -8,7 +8,7 @@
  * Route: /field-trips/:id/transportation
  */
 
-import { useNavigate, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Alert,
@@ -19,7 +19,7 @@ import {
   Paper,
   Typography,
 } from '@mui/material';
-import ArrowBackIcon      from '@mui/icons-material/ArrowBack';
+import { PageBackButton }    from '../../components/layout/PageBackButton';
 import EditIcon           from '@mui/icons-material/Edit';
 import { fieldTripService }               from '../../services/fieldTrip.service';
 import { fieldTripTransportationService } from '../../services/fieldTripTransportation.service';
@@ -38,7 +38,6 @@ import { useAuthStore }              from '../../store/authStore';
 
 export function FieldTripTransportationPage() {
   const { id }      = useParams<{ id: string }>();
-  const navigate    = useNavigate();
   const queryClient = useQueryClient();
   const { user }    = useAuthStore();
 
@@ -103,9 +102,7 @@ export function FieldTripTransportationPage() {
   if (!trip.transportationNeeded) {
     return (
       <Box sx={{ p: 3, maxWidth: 900, mx: 'auto' }}>
-        <Button startIcon={<ArrowBackIcon />} onClick={() => navigate(`/field-trips/${id}`)} sx={{ mb: 2 }}>
-          Back to Field Trip
-        </Button>
+        <PageBackButton to={`/field-trips/${id}`} label="Back to Field Trip" sx={{ mb: 2 }} />
         <Alert severity="info">
           This field trip does not require transportation. No Step 2 form is needed.
         </Alert>
@@ -128,9 +125,7 @@ export function FieldTripTransportationPage() {
     <Box sx={{ p: 3, maxWidth: 900, mx: 'auto' }}>
       {/* Header */}
       <Box sx={{ mb: 3 }}>
-        <Button startIcon={<ArrowBackIcon />} onClick={() => navigate(`/field-trips/${id}`)}>
-          Back to Field Trip
-        </Button>
+        <PageBackButton to={`/field-trips/${id}`} label="Back to Field Trip" />
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mt: 1 }}>
           <Box>
             <Typography variant="h4" component="h1">Step 2 — Transportation Request</Typography>

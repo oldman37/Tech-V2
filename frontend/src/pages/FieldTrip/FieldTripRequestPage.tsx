@@ -40,7 +40,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import { PageBackButton } from '../../components/layout/PageBackButton';
 import SaveIcon      from '@mui/icons-material/Save';
 import SendIcon      from '@mui/icons-material/Send';
 import { useIsMobile } from '../../hooks/useResponsive';
@@ -594,9 +594,7 @@ export function FieldTripRequestPage() {
     <Box sx={{ p: 3, maxWidth: 900, mx: 'auto' }}>
       {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
-        <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/field-trips')} sx={{ mr: 1 }}>
-          Back
-        </Button>
+        <PageBackButton to="/field-trips" sx={{ mr: 1 }} />
         <Typography variant="h4" component="h1">
           {id ? 'Edit Field Trip Request' : 'New Field Trip Request'}
         </Typography>

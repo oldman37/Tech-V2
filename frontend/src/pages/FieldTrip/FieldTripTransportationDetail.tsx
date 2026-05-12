@@ -8,16 +8,15 @@
  * Route: /field-trips/:id/transportation/view
  */
 
-import { useNavigate, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Alert,
   Box,
-  Button,
   CircularProgress,
   Typography,
 } from '@mui/material';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import { PageBackButton } from '../../components/layout/PageBackButton';
 import { fieldTripService }               from '../../services/fieldTrip.service';
 import { fieldTripTransportationService } from '../../services/fieldTripTransportation.service';
 import type {
@@ -29,7 +28,6 @@ import { useAuthStore }            from '../../store/authStore';
 
 export function FieldTripTransportationDetail() {
   const { id }      = useParams<{ id: string }>();
-  const navigate    = useNavigate();
   const queryClient = useQueryClient();
   const { user }    = useAuthStore();
 
@@ -80,9 +78,7 @@ export function FieldTripTransportationDetail() {
   if (transportError || transport === null) {
     return (
       <Box sx={{ p: 3, maxWidth: 900, mx: 'auto' }}>
-        <Button startIcon={<ArrowBackIcon />} onClick={() => navigate(-1)} sx={{ mb: 2 }}>
-          Back
-        </Button>
+        <PageBackButton sx={{ mb: 2 }} />
         <Alert severity="info">
           No transportation request has been submitted for this field trip yet.
         </Alert>
@@ -98,9 +94,7 @@ export function FieldTripTransportationDetail() {
     <Box sx={{ p: 3, maxWidth: 900, mx: 'auto' }}>
       {/* Header */}
       <Box sx={{ mb: 3 }}>
-        <Button startIcon={<ArrowBackIcon />} onClick={() => navigate(-1)}>
-          Back
-        </Button>
+        <PageBackButton />
         <Typography variant="h4" component="h1" sx={{ mt: 1 }}>
           Transportation Request — Part C Review
         </Typography>
