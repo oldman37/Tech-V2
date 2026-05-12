@@ -241,18 +241,36 @@ export default function PurchaseOrderList() {
     {
       key: 'status',
       label: 'Status',
-      render: (po) => (
-        <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center', flexWrap: 'wrap' }}>
-          <Chip
-            label={PO_STATUS_LABELS[po.status]}
-            color={PO_STATUS_CHIP_COLOR[po.status]}
-            size="small"
-          />
-          {po.workflowType === 'food_service' && (
-            <Chip label="Food Service" size="small" variant="outlined" color="secondary" />
-          )}
-        </Box>
-      ),
+      render: (po) => {
+        // On the "Pending My Approval" tab, show the awaiting-approval stage instead of the current status
+        const pendingLabels: Partial<Record<POStatus, string>> = {
+          submitted:                 'Awaiting Supervisor Approval',
+          supervisor_approved:       po.workflowType === 'food_service'
+                                       ? 'Awaiting Director of Schools Approval'
+                                       : 'Awaiting Finance Director Approval',
+          finance_director_approved: 'Awaiting Director of Schools Approval',
+          dos_approved:              'Awaiting PO Issuance',
+        };
+        const label = activeTab === 'pending' && pendingLabels[po.status as POStatus]
+          ? pendingLabels[po.status as POStatus]!
+          : PO_STATUS_LABELS[po.status];
+        const chipColor = activeTab === 'pending' && pendingLabels[po.status as POStatus]
+          ? 'info' as const
+          : PO_STATUS_CHIP_COLOR[po.status];
+
+        return (
+          <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center', flexWrap: 'wrap' }}>
+            <Chip
+              label={label}
+              color={chipColor}
+              size="small"
+            />
+            {po.workflowType === 'food_service' && (
+              <Chip label="Food Service" size="small" variant="outlined" color="secondary" />
+            )}
+          </Box>
+        );
+      },
     },
     {
       key: 'createdAt',

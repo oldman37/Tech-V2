@@ -54,7 +54,6 @@ import {
   useSubmitPurchaseOrder,
   useApprovePurchaseOrder,
   useRejectPurchaseOrder,
-  useAssignAccountCode,
   useIssuePurchaseOrder,
   useDownloadPOPdf,
 } from '@/hooks/mutations/usePurchaseOrderMutations';
@@ -113,7 +112,6 @@ export default function PurchaseOrderDetail() {
   const submitMutation  = useSubmitPurchaseOrder();
   const approveMutation = useApprovePurchaseOrder();
   const rejectMutation  = useRejectPurchaseOrder();
-  const accountMutation = useAssignAccountCode();
   const issueMutation   = useIssuePurchaseOrder();
   const pdfMutation     = useDownloadPOPdf();
 
@@ -123,8 +121,6 @@ export default function PurchaseOrderDetail() {
   const [fdAccountCode, setFdAccountCode]           = useState('');
   const [rejectDialogOpen, setRejectDialogOpen]     = useState(false);
   const [rejectReason, setRejectReason]             = useState('');
-  const [accountDialogOpen, setAccountDialogOpen]   = useState(false);
-  const [accountCode, setAccountCode]               = useState('');
   const [issueDialogOpen, setIssueDialogOpen]       = useState(false);
   const [issuePoNumber, setIssuePoNumber]           = useState('');
   const [actionError, setActionError]               = useState<string | null>(null);
@@ -191,9 +187,6 @@ export default function PurchaseOrderDetail() {
   const isFinanceDirector = user?.permLevels?.isFinanceDirectorApprover ?? false;
   const isDosApprover     = user?.permLevels?.isDosApprover ?? false;
   const isPoEntryUser     = user?.permLevels?.isPoEntryUser ?? false;
-  // Strict FD only (excludes DoS) — for account code assignment
-  const isStrictFinanceDirector = user?.permLevels?.isStrictFinanceDirector ?? false;
-  const isFoodServiceSupervisor = user?.permLevels?.isFoodServiceSupervisor ?? false;
   const isFoodServicePoEntry    = user?.permLevels?.isFoodServicePoEntry ?? false;
 
   const isAdmin = user?.roles?.includes('ADMIN') ?? false;
@@ -240,15 +233,6 @@ export default function PurchaseOrderDetail() {
   const canReject   = po.status === 'submitted' && assignedSupervisorId
     ? user?.id === assignedSupervisorId
     : effectiveCanAct;
-  const ACCOUNT_CODE_ASSIGNABLE_STATUSES: POStatus[] = [
-    'supervisor_approved',
-    'finance_director_approved',
-    'dos_approved',
-  ];
-  const canAssign   = isFoodService
-    ? ((isFoodServiceSupervisor || isStrictFinanceDirector) && permLevel >= 3 && ACCOUNT_CODE_ASSIGNABLE_STATUSES.includes(po.status as POStatus))
-    : (isStrictFinanceDirector && permLevel >= 5 && ACCOUNT_CODE_ASSIGNABLE_STATUSES.includes(po.status as POStatus))
-      || (isPoEntryUser && po.status === 'dos_approved');
   const canIssue    = isFoodService
     ? isFoodServicePoEntry && permLevel >= 4 && po.status === 'dos_approved'
     : isPoEntryUser && permLevel >= 4 && po.status === 'dos_approved';
@@ -258,7 +242,7 @@ export default function PurchaseOrderDetail() {
 
   const isBusy =
     submitMutation.isPending || approveMutation.isPending ||
-    rejectMutation.isPending || accountMutation.isPending ||
+    rejectMutation.isPending ||
     issueMutation.isPending;
 
   // ── Action handlers ──
@@ -302,21 +286,6 @@ export default function PurchaseOrderDetail() {
         onError: (err: unknown) => {
           const e = err as { response?: { data?: { message?: string } } };
           setActionError(e?.response?.data?.message ?? 'Failed to reject');
-        },
-      },
-    );
-  };
-
-  const handleAssignAccount = () => {
-    if (!accountCode.trim()) return;
-    setActionError(null);
-    accountMutation.mutate(
-      { id: po.id, data: { accountCode: accountCode.trim() } },
-      {
-        onSuccess: () => { setAccountDialogOpen(false); setAccountCode(''); },
-        onError: (err: unknown) => {
-          const e = err as { response?: { data?: { message?: string } } };
-          setActionError(e?.response?.data?.message ?? 'Failed to assign account code');
         },
       },
     );
@@ -664,18 +633,6 @@ export default function PurchaseOrderDetail() {
                 </>
               )}
 
-              {/* Assign Account Code */}
-              {canAssign && (
-                <Button
-                  variant="outlined"
-                  fullWidth
-                  onClick={() => setAccountDialogOpen(true)}
-                  disabled={isBusy}
-                >
-                  Assign Account Code
-                </Button>
-              )}
-
               {/* Issue PO */}
               {(isFoodService ? isFoodServicePoEntry : isPoEntryUser) && (() => {
                 const wrongStatus = po.status !== 'dos_approved';
@@ -703,7 +660,7 @@ export default function PurchaseOrderDetail() {
               })()}
 
               {/* Separator */}
-              {(canSubmit || canApprove || canReject || canAssign || canIssue) && (
+              {(canSubmit || canApprove || canReject || canIssue) && (
                 <Divider />
               )}
 
@@ -785,23 +742,25 @@ export default function PurchaseOrderDetail() {
           {/* Account Number — shown to Finance Director at supervisor_approved stage (standard) */}
           {canActAtFdStage && (
             <TextField
-              label="Account Number"
+              label="Account Number *"
               value={fdAccountCode}
               onChange={(e) => setFdAccountCode(e.target.value)}
               fullWidth
               sx={{ mt: 2 }}
+              required
+              error={fdAccountCode.trim() === ''}
               inputProps={{ maxLength: 100 }}
               helperText={
                 po.accountCode
                   ? `Current: ${po.accountCode} — enter a new value to update`
-                  : 'Enter the GL account number for this requisition (required before PO can be issued)'
+                  : 'Enter the GL account number for this requisition (required)'
               }
               placeholder="e.g. 100-5500"
             />
           )}
           {canActAtFdStage && fdAccountCode.trim() === '' && (
-            <Alert severity="warning" sx={{ mt: 1 }}>
-              No account code will be saved. The PO cannot be issued without one.
+            <Alert severity="error" sx={{ mt: 1 }}>
+              An account code is required. The PO cannot be issued without one.
             </Alert>
           )}
         </DialogContent>
@@ -813,7 +772,7 @@ export default function PurchaseOrderDetail() {
             variant="contained"
             color="success"
             onClick={handleApprove}
-            disabled={approveMutation.isPending}
+            disabled={approveMutation.isPending || (canActAtFdStage && fdAccountCode.trim() === '')}
           >
             {approveMutation.isPending ? <CircularProgress size={20} /> : 'Confirm Approval'}
           </Button>
@@ -852,36 +811,6 @@ export default function PurchaseOrderDetail() {
             disabled={rejectMutation.isPending || rejectReason.trim().length === 0}
           >
             {rejectMutation.isPending ? <CircularProgress size={20} /> : 'Confirm Rejection'}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* ── Assign Account Code Dialog ── */}
-      <Dialog open={accountDialogOpen} onClose={() => setAccountDialogOpen(false)} maxWidth="xs" fullWidth fullScreen={isMobile}>
-        <DialogTitle>Assign Account Code</DialogTitle>
-        <DialogContent>
-          <TextField
-            label="Account Code *"
-            value={accountCode}
-            onChange={(e) => setAccountCode(e.target.value)}
-            fullWidth
-            sx={{ mt: 1 }}
-            required
-            error={accountCode.trim().length === 0}
-            inputProps={{ maxLength: 100 }}
-            autoFocus
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setAccountDialogOpen(false)} disabled={accountMutation.isPending}>
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            onClick={handleAssignAccount}
-            disabled={accountMutation.isPending || accountCode.trim().length === 0}
-          >
-            {accountMutation.isPending ? <CircularProgress size={20} /> : 'Assign'}
           </Button>
         </DialogActions>
       </Dialog>
