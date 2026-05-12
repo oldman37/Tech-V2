@@ -21,17 +21,6 @@ export const UpdateSettingsSchema = z.object({
     .max(20, 'reqNumberPrefix must be 20 characters or less')
     .optional(),
 
-  nextPoNumber: z
-    .number({ error: 'nextPoNumber must be a number' })
-    .int('nextPoNumber must be a whole number')
-    .min(1, 'nextPoNumber must be at least 1')
-    .optional(),
-
-  poNumberPrefix: z
-    .string()
-    .max(20, 'poNumberPrefix must be 20 characters or less')
-    .optional(),
-
   supervisorBypassEnabled: z
     .boolean({ error: 'supervisorBypassEnabled must be a boolean' })
     .optional(),
@@ -83,11 +72,6 @@ export const StartNewFiscalYearSchema = z
       .number({ error: 'nextReqNumber must be a number' })
       .int('nextReqNumber must be a whole number')
       .min(1, 'nextReqNumber must be at least 1'),
-    poNumberPrefix: z.string().max(20, 'poNumberPrefix must be 20 characters or less'),
-    nextPoNumber: z
-      .number({ error: 'nextPoNumber must be a number' })
-      .int('nextPoNumber must be a whole number')
-      .min(1, 'nextPoNumber must be at least 1'),
     supervisorBypassEnabled: z.boolean().optional(),
     supervisorApprovalLevel: z.number().int().min(1).max(6).optional(),
     financeDirectorApprovalLevel: z.number().int().min(1).max(6).optional(),

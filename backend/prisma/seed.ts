@@ -22,8 +22,6 @@ async function main() {
       id:                      'singleton',
       nextReqNumber:           1,
       reqNumberPrefix:         'REQ',
-      nextPoNumber:            1,
-      poNumberPrefix:          'PO',
       supervisorBypassEnabled: true,
     },
   });

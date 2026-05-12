@@ -65,37 +65,6 @@ import {
   type WorkflowType,
 } from '@/types/purchaseOrder.types';
 import { useIsMobile } from '@/hooks/useResponsive';
-import { useQuery } from '@tanstack/react-query';
-import settingsService from '@/services/settingsService';
-
-// ─── Helpers ────────────────────────────────────────────────────────────────
-
-/** Small component that fetches and displays the next PO number from admin settings. */
-function IssuePoNumberPreview() {
-  const { data, isLoading } = useQuery({
-    queryKey: ['settings', 'current'],
-    queryFn: settingsService.getCurrent,
-    staleTime: 0,          // always refetch so the preview is current
-  });
-
-  if (isLoading) {
-    return <Skeleton variant="rectangular" height={56} sx={{ borderRadius: 1 }} />;
-  }
-
-  const preview = data
-    ? `${data.poNumberPrefix}-${String(data.nextPoNumber).padStart(5, '0')}`
-    : '—';
-
-  return (
-    <TextField
-      label="PO Number to Assign"
-      value={preview}
-      fullWidth
-      InputProps={{ readOnly: true }}
-      helperText="This number is pulled from Admin Settings and will be assigned automatically."
-    />
-  );
-}
 
 const formatCurrency = (val: string | number | null | undefined) =>
   val != null
@@ -157,6 +126,7 @@ export default function PurchaseOrderDetail() {
   const [accountDialogOpen, setAccountDialogOpen]   = useState(false);
   const [accountCode, setAccountCode]               = useState('');
   const [issueDialogOpen, setIssueDialogOpen]       = useState(false);
+  const [issuePoNumber, setIssuePoNumber]           = useState('');
   const [actionError, setActionError]               = useState<string | null>(null);
 
   if (isLoading) {
@@ -354,10 +324,11 @@ export default function PurchaseOrderDetail() {
 
   const handleIssuePO = () => {
     setActionError(null);
+    const data = issuePoNumber.trim() ? { poNumber: issuePoNumber.trim() } : {};
     issueMutation.mutate(
-      { id: po.id, data: {} },
+      { id: po.id, data },
       {
-        onSuccess: () => { setIssueDialogOpen(false); },
+        onSuccess: () => { setIssueDialogOpen(false); setIssuePoNumber(''); },
         onError: (err: unknown) => {
           const e = err as { response?: { data?: { message?: string } } };
           setActionError(e?.response?.data?.message ?? 'Failed to issue PO');
@@ -917,12 +888,20 @@ export default function PurchaseOrderDetail() {
 
       {/* ── Issue PO Dialog ── */}
       <Dialog open={issueDialogOpen} onClose={() => setIssueDialogOpen(false)} maxWidth="xs" fullWidth fullScreen={isMobile}>
-        <DialogTitle>Issue PO Number</DialogTitle>
+        <DialogTitle>Issue Purchase Order</DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Are you sure you want to issue this Purchase Order?
+            Are you sure you want to issue this Purchase Order? You may optionally enter the PO number from Next Gen.
           </Typography>
-          <IssuePoNumberPreview />
+          <TextField
+            label="PO Number (from Next Gen)"
+            value={issuePoNumber}
+            onChange={(e) => setIssuePoNumber(e.target.value)}
+            fullWidth
+            inputProps={{ maxLength: 100 }}
+            helperText="Optional — can be added later if not yet available"
+            autoFocus
+          />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setIssueDialogOpen(false)} disabled={issueMutation.isPending}>

@@ -83,11 +83,6 @@ const formSchema = z.object({
     .int()
     .min(1, 'Must be at least 1'),
   reqNumberPrefix: z.string().max(20, 'Max 20 characters'),
-  nextPoNumber: z
-    .number({ error: 'Must be a number' })
-    .int()
-    .min(1, 'Must be at least 1'),
-  poNumberPrefix: z.string().max(20, 'Max 20 characters'),
   supervisorBypassEnabled: z.boolean(),
   supervisorApprovalLevel: z
     .number({ error: 'Must be a number' })
@@ -131,8 +126,6 @@ const wizardSchema = z
     denialReason: z.string().optional(),
     reqNumberPrefix: z.string().min(1, 'Required').max(20, 'Max 20 characters'),
     nextReqNumber: z.number({ error: 'Must be a number' }).int().min(1, 'Must be at least 1'),
-    poNumberPrefix: z.string().min(1, 'Required').max(20, 'Max 20 characters'),
-    nextPoNumber: z.number({ error: 'Must be a number' }).int().min(1, 'Must be at least 1'),
   })
   .refine(
     (data) => {
@@ -249,8 +242,6 @@ export default function AdminSettings() {
     defaultValues: {
       nextReqNumber: 1,
       reqNumberPrefix: 'REQ',
-      nextPoNumber: 1,
-      poNumberPrefix: 'PO',
       supervisorBypassEnabled: true,
       supervisorApprovalLevel: 3,
       financeDirectorApprovalLevel: 5,
@@ -263,8 +254,6 @@ export default function AdminSettings() {
     reset({
       nextReqNumber: settings.nextReqNumber,
       reqNumberPrefix: settings.reqNumberPrefix,
-      nextPoNumber: settings.nextPoNumber,
-      poNumberPrefix: settings.poNumberPrefix,
       supervisorBypassEnabled: settings.supervisorBypassEnabled,
       supervisorApprovalLevel: settings.supervisorApprovalLevel,
       financeDirectorApprovalLevel: settings.financeDirectorApprovalLevel,
@@ -420,59 +409,6 @@ export default function AdminSettings() {
                     <Box pt={1}>
                       <Typography variant="body2" color="text.secondary">
                         Preview: <strong>{settings?.reqNumberPrefix}-{String(settings?.nextReqNumber ?? 1).padStart(5, '0')}</strong>
-                      </Typography>
-                    </Box>
-                  </Grid>
-                </Grid>
-              </CardContent>
-            </Card>
-
-            {/* PO Numbers */}
-            <Card variant="outlined">
-              <CardHeader title="Purchase Order Numbers" />
-              <Divider />
-              <CardContent>
-                <Grid container spacing={2}>
-                  <Grid size={{ xs: 12, sm: 4 }}>
-                    <Controller
-                      name="poNumberPrefix"
-                      control={control}
-                      render={({ field }) => (
-                        <TextField
-                          {...field}
-                          label="Prefix"
-                          size="small"
-                          fullWidth
-                          inputProps={{ maxLength: 20 }}
-                          error={!!errors.poNumberPrefix}
-                          helperText={errors.poNumberPrefix?.message ?? 'e.g. PO'}
-                        />
-                      )}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 4 }}>
-                    <Controller
-                      name="nextPoNumber"
-                      control={control}
-                      render={({ field }) => (
-                        <TextField
-                          {...field}
-                          label="Next Number"
-                          type="number"
-                          size="small"
-                          fullWidth
-                          inputProps={{ min: 1 }}
-                          onChange={(e) => field.onChange(parseInt(e.target.value, 10) || 1)}
-                          error={!!errors.nextPoNumber}
-                          helperText={errors.nextPoNumber?.message ?? 'Next sequence value'}
-                        />
-                      )}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 4 }}>
-                    <Box pt={1}>
-                      <Typography variant="body2" color="text.secondary">
-                        Preview: <strong>{settings?.poNumberPrefix}-{String(settings?.nextPoNumber ?? 1).padStart(5, '0')}</strong>
                       </Typography>
                     </Box>
                   </Grid>
@@ -648,7 +584,6 @@ function SettingsFormActions({
 interface FiscalYearTabProps {
   settings: {
     reqNumberPrefix: string;
-    poNumberPrefix: string;
     currentFiscalYear: string | null;
     fiscalYearStart: string | null;
     fiscalYearEnd: string | null;
@@ -711,10 +646,6 @@ function FiscalYearTab({ settings, isFiscalYearExpired }: FiscalYearTabProps) {
         ? `REQ-${summary.suggestedNextYear.label.replace('-', '').slice(2)}`
         : settings?.reqNumberPrefix ?? 'REQ',
       nextReqNumber: 1,
-      poNumberPrefix: summary?.suggestedNextYear.label
-        ? `PO-${summary.suggestedNextYear.label.replace('-', '').slice(2)}`
-        : settings?.poNumberPrefix ?? 'PO',
-      nextPoNumber: 1,
     }),
     [summary, settings],
   );
@@ -765,7 +696,7 @@ function FiscalYearTab({ settings, isFiscalYearExpired }: FiscalYearTabProps) {
   const fieldsForStep: Record<number, (keyof WizardValues)[]> = {
     0: ['fiscalYearLabel'],
     1: ['inProgressAction', 'denialReason'],
-    2: ['reqNumberPrefix', 'nextReqNumber', 'poNumberPrefix', 'nextPoNumber'],
+    2: ['reqNumberPrefix', 'nextReqNumber'],
     3: [], // Work Order Summary — read-only, no validation needed
   };
 
@@ -798,8 +729,6 @@ function FiscalYearTab({ settings, isFiscalYearExpired }: FiscalYearTabProps) {
       denialReason: values.inProgressAction !== 'carry_forward' ? values.denialReason : undefined,
       reqNumberPrefix: values.reqNumberPrefix,
       nextReqNumber: values.nextReqNumber,
-      poNumberPrefix: values.poNumberPrefix,
-      nextPoNumber: values.nextPoNumber,
     };
     wizardMutation.mutate(payload);
   };
@@ -1113,53 +1042,6 @@ function FiscalYearTab({ settings, isFiscalYearExpired }: FiscalYearTabProps) {
                             </Typography>
                           </Grid>
                         </Grid>
-
-                        <Divider />
-
-                        <Typography variant="subtitle2">Purchase Order Numbers</Typography>
-                        <Grid container spacing={2} alignItems="center">
-                          <Grid size={{ xs: 12, sm: 4 }}>
-                            <Controller
-                              name="poNumberPrefix"
-                              control={wizCtrl}
-                              render={({ field }) => (
-                                <TextField
-                                  {...field}
-                                  label="PO Prefix"
-                                  size="small"
-                                  fullWidth
-                                  inputProps={{ maxLength: 20 }}
-                                  error={!!wizErrors.poNumberPrefix}
-                                  helperText={wizErrors.poNumberPrefix?.message}
-                                />
-                              )}
-                            />
-                          </Grid>
-                          <Grid size={{ xs: 12, sm: 4 }}>
-                            <Controller
-                              name="nextPoNumber"
-                              control={wizCtrl}
-                              render={({ field }) => (
-                                <TextField
-                                  {...field}
-                                  label="Reset to Number"
-                                  type="number"
-                                  size="small"
-                                  fullWidth
-                                  inputProps={{ min: 1 }}
-                                  onChange={(e) => field.onChange(parseInt(e.target.value, 10) || 1)}
-                                  error={!!wizErrors.nextPoNumber}
-                                  helperText={wizErrors.nextPoNumber?.message}
-                                />
-                              )}
-                            />
-                          </Grid>
-                          <Grid size={{ xs: 12, sm: 4 }}>
-                            <Typography variant="body2" color="text.secondary">
-                              Preview: <strong>{formatPreview(wizWatched.poNumberPrefix, wizWatched.nextPoNumber)}</strong>
-                            </Typography>
-                          </Grid>
-                        </Grid>
                       </Stack>
                     </CardContent>
                   </Card>
@@ -1298,9 +1180,6 @@ function FiscalYearTab({ settings, isFiscalYearExpired }: FiscalYearTabProps) {
                           <Typography variant="subtitle2">Number Sequences</Typography>
                           <Typography variant="body2">
                             REQ: <strong>{formatPreview(wizWatched.reqNumberPrefix, wizWatched.nextReqNumber)}</strong> (reset to {wizWatched.nextReqNumber})
-                          </Typography>
-                          <Typography variant="body2">
-                            PO: <strong>{formatPreview(wizWatched.poNumberPrefix, wizWatched.nextPoNumber)}</strong> (reset to {wizWatched.nextPoNumber})
                           </Typography>
 
                           <Divider />

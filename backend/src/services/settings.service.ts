@@ -15,8 +15,6 @@ import { UpdateSettingsDto, StartNewFiscalYearDto } from '../validators/settings
 const SETTINGS_DEFAULTS = {
   nextReqNumber:                1,
   reqNumberPrefix:              'REQ',
-  nextPoNumber:                 1,
-  poNumberPrefix:               'PO',
   supervisorBypassEnabled:      true,
   currentFiscalYear:            null,
   fiscalYearStart:              null,
@@ -88,35 +86,6 @@ export class SettingsService {
     const { next_req_number, req_number_prefix } = result[0];
     const formatted = `${req_number_prefix}-${String(next_req_number).padStart(5, '0')}`;
     logger.info('Req number issued', { formatted });
-    return formatted;
-  }
-
-  /**
-   * Atomically claim the next PO number and increment the counter.
-   * Returns the formatted string, e.g. "PO-00017".
-   */
-  async getNextPoNumber(): Promise<string> {
-    // Ensure row exists first
-    await this.getSettings();
-
-    const result = await this.prisma.$queryRaw<
-      Array<{ next_po_number: number; po_number_prefix: string }>
-    >`
-      UPDATE system_settings
-      SET    "nextPoNumber" = "nextPoNumber" + 1,
-             "updatedAt"   = NOW()
-      WHERE  id = 'singleton'
-      RETURNING "nextPoNumber" - 1 AS next_po_number,
-                "poNumberPrefix"   AS po_number_prefix
-    `;
-
-    if (!result.length) {
-      throw new Error('Failed to claim PO number: settings row missing');
-    }
-
-    const { next_po_number, po_number_prefix } = result[0];
-    const formatted = `${po_number_prefix}-${String(next_po_number).padStart(5, '0')}`;
-    logger.info('PO number issued', { formatted });
     return formatted;
   }
 
@@ -285,8 +254,6 @@ export class SettingsService {
           fiscalYearEnd:          new Date(data.fiscalYearEnd),
           nextReqNumber:          data.nextReqNumber,
           reqNumberPrefix:        data.reqNumberPrefix,
-          nextPoNumber:           data.nextPoNumber,
-          poNumberPrefix:         data.poNumberPrefix,
           lastYearRolloverAt:     now,
           lastYearRolloverBy:     adminUserId,
           // Optional workflow settings — only update if provided
@@ -335,8 +302,6 @@ export class SettingsService {
           carriedOverTicketCount: carriedOverWorkOrderCount,
           reqPrefix:              data.reqNumberPrefix,
           reqStartNumber:         data.nextReqNumber,
-          poPrefix:               data.poNumberPrefix,
-          poStartNumber:          data.nextPoNumber,
           performedById:          adminUserId,
           performedAt:            now,
         },

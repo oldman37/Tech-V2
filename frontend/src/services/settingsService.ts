@@ -15,8 +15,6 @@ export interface SystemSettings {
   id:                      string;  // always "singleton"
   nextReqNumber:           number;
   reqNumberPrefix:         string;
-  nextPoNumber:            number;
-  poNumberPrefix:          string;
   supervisorBypassEnabled: boolean;
   currentFiscalYear:            string | null;
   fiscalYearStart:              string | null;
@@ -59,8 +57,6 @@ export interface StartNewFiscalYearInput {
   denialReason?: string;
   reqNumberPrefix: string;
   nextReqNumber: number;
-  poNumberPrefix: string;
-  nextPoNumber: number;
   supervisorBypassEnabled?: boolean;
   supervisorApprovalLevel?: number;
   financeDirectorApprovalLevel?: number;
@@ -163,8 +159,8 @@ const settingsService = {
    * GET /api/settings/current
    * Returns fiscal year + PO numbering info — accessible to all authenticated users.
    */
-  getCurrent: async (): Promise<Pick<SystemSettings, 'currentFiscalYear' | 'fiscalYearStart' | 'fiscalYearEnd' | 'nextPoNumber' | 'poNumberPrefix'>> => {
-    const res = await api.get<Pick<SystemSettings, 'currentFiscalYear' | 'fiscalYearStart' | 'fiscalYearEnd' | 'nextPoNumber' | 'poNumberPrefix'>>('/settings/current');
+  getCurrent: async (): Promise<Pick<SystemSettings, 'currentFiscalYear' | 'fiscalYearStart' | 'fiscalYearEnd'>> => {
+    const res = await api.get<Pick<SystemSettings, 'currentFiscalYear' | 'fiscalYearStart' | 'fiscalYearEnd'>>('/settings/current');
     return res.data;
   },
 };

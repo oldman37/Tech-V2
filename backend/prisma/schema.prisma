@@ -780,10 +780,6 @@ model SystemSettings {
   nextReqNumber           Int      @default(1)
   reqNumberPrefix         String   @default("REQ")
 
-  /// Purchase order number sequencing
-  nextPoNumber            Int      @default(1)
-  poNumberPrefix          String   @default("PO")
-
   /// Workflow feature flags
   supervisorBypassEnabled Boolean  @default(true)
 
@@ -815,8 +811,6 @@ model FiscalYearHistory {
   carriedOverTicketCount Int      @default(0)
   reqPrefix              String
   reqStartNumber         Int
-  poPrefix               String
-  poStartNumber          Int
   performedById          String
   performedAt            DateTime @default(now())
 

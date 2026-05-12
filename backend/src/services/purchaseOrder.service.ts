@@ -1311,72 +1311,48 @@ export class PurchaseOrderService {
       );
     }
 
-    // Claim PO number atomically (with retry on unique constraint collision for auto-generated numbers)
-    const MAX_PO_RETRIES = 3;
-    for (let attempt = 1; attempt <= MAX_PO_RETRIES; attempt++) {
-      const poNumber = issueData.poNumber
-        ? issueData.poNumber
-        : await this.settingsService.getNextPoNumber();
+    // Use manually-provided PO number (from Next Gen) if given, otherwise leave null
+    const poNumber = issueData.poNumber || null;
+    const now = new Date();
 
-      const now = new Date();
-
-      try {
-        const updated = await this.prisma.$transaction(async (tx) => {
-          const record = await tx.purchase_orders.update({
-            where: { id },
-            data: {
-              poNumber,
-              status:       'po_issued',
-              issuedAt:     now,
-              isApproved:   true,
-              approvedBy:   userId,
-              approvedDate: now,
-            },
-            include: {
-              po_items:       { orderBy: { lineNumber: 'asc' } },
-              User:           { select: { id: true, firstName: true, lastName: true, email: true } },
-              vendors:        true,
-              officeLocation: true,
-            },
-          });
-
-          await tx.requisitionStatusHistory.create({
-            data: {
-              purchaseOrderId: id,
-              fromStatus:      'dos_approved',
-              toStatus:        'po_issued',
-              changedById:     userId,
-              changedAt:       now,
-            },
-          });
-
-          return record;
-        });
-
-        logger.info('Purchase order issued', {
-          id,
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const record = await tx.purchase_orders.update({
+        where: { id },
+        data: {
           poNumber,
-          issuedBy: userId,
-        });
-        return updated;
-      } catch (err: unknown) {
-        // Retry on unique constraint violation (P2002) for auto-generated PO numbers only
-        const isPrismaUniqueError =
-          err != null &&
-          typeof err === 'object' &&
-          'code' in err &&
-          (err as { code: string }).code === 'P2002';
-        if (isPrismaUniqueError && !issueData.poNumber && attempt < MAX_PO_RETRIES) {
-          logger.warn('PO number collision, retrying with next number', {
-            id,
-            poNumber,
-            attempt,
-          });
-          continue;
-        }
-        throw err;
-      }
-    }
+          status:       'po_issued',
+          issuedAt:     now,
+          isApproved:   true,
+          approvedBy:   userId,
+          approvedDate: now,
+        },
+        include: {
+          po_items:       { orderBy: { lineNumber: 'asc' } },
+          User:           { select: { id: true, firstName: true, lastName: true, email: true } },
+          vendors:        true,
+          officeLocation: true,
+        },
+      });
+
+      await tx.requisitionStatusHistory.create({
+        data: {
+          purchaseOrderId: id,
+          fromStatus:      'dos_approved',
+          toStatus:        'po_issued',
+          changedById:     userId,
+          changedAt:       now,
+        },
+      });
+
+      return record;
+    });
+
+    logger.info('Purchase order issued', {
+      id,
+      poNumber,
+      issuedBy: userId,
+    });
+    return updated;
 
     // Should never reach here, but satisfy TypeScript
     throw new Error('Failed to issue purchase order after max retries');
