@@ -219,7 +219,7 @@ export async function sendRequisitionSubmitted(
       <h2 style="color:#1565C0;">New Purchase Requisition Awaiting Your Approval</h2>
       <p>A new purchase requisition has been submitted and requires your review.</p>
       ${poDetailHtml(po)}
-      <p style="margin-top:24px;">Please log in to the system to review and approve or deny this requisition.</p>
+      <p style="margin-top:24px;"><a href="${escapeHtml(process.env.APP_URL ?? '')}/purchase-orders/${escapeHtml(po.id)}" style="display:inline-block;padding:10px 20px;background-color:#1565C0;color:#ffffff;text-decoration:none;border-radius:4px;font-weight:bold;">View Purchase Order</a></p>
     `,
   });
 }
@@ -240,7 +240,7 @@ export async function sendRequisitionApproved(
       <h2 style="color:#2E7D32;">Your Purchase Requisition Has Been Approved</h2>
       <p>Your requisition has advanced to the next stage: <strong>${escapeHtml(stageName)}</strong>.</p>
       ${poDetailHtml(po)}
-      <p style="margin-top:24px;">No action is required from you at this time.</p>
+      <p style="margin-top:24px;"><a href="${escapeHtml(process.env.APP_URL ?? '')}/purchase-orders/${escapeHtml(po.id)}" style="display:inline-block;padding:10px 20px;background-color:#2E7D32;color:#ffffff;text-decoration:none;border-radius:4px;font-weight:bold;">View Purchase Order</a></p>
     `,
   });
 }
@@ -262,7 +262,7 @@ export async function sendApprovalActionRequired(
       <p>A purchase requisition has advanced to the <strong>${escapeHtml(stageName)}</strong>
          stage and requires your review and approval.</p>
       ${poDetailHtml(po)}
-      <p style="margin-top:24px;">Please log in to the system to review and approve or deny this requisition.</p>
+      <p style="margin-top:24px;"><a href="${escapeHtml(process.env.APP_URL ?? '')}/purchase-orders/${escapeHtml(po.id)}" style="display:inline-block;padding:10px 20px;background-color:#1565C0;color:#ffffff;text-decoration:none;border-radius:4px;font-weight:bold;">View Purchase Order</a></p>
     `,
   });
 }
@@ -287,7 +287,7 @@ export async function sendRequisitionRejected(
       <blockquote style="border-left:4px solid #C62828;margin:8px 0;padding:8px 16px;background:#FFEBEE;">
         ${escapeHtml(reason)}
       </blockquote>
-      <p style="margin-top:16px;">If you believe this decision was made in error, please contact your supervisor.</p>
+      <p style="margin-top:16px;"><a href="${escapeHtml(process.env.APP_URL ?? '')}/purchase-orders/${escapeHtml(po.id)}" style="display:inline-block;padding:10px 20px;background-color:#C62828;color:#ffffff;text-decoration:none;border-radius:4px;font-weight:bold;">View Purchase Order</a></p>
     `,
   });
 }
@@ -308,7 +308,7 @@ export async function sendPOIssued(
       <p>Your purchase requisition has been approved and issued with the following PO number:</p>
       <p style="font-size:24px;font-weight:bold;color:#1565C0;">${po.poNumber ? escapeHtml(po.poNumber) : ''}</p>
       ${poDetailHtml(po)}
-      <p style="margin-top:24px;">Please reference this PO number when communicating with the vendor or making purchases.</p>
+      <p style="margin-top:24px;"><a href="${escapeHtml(process.env.APP_URL ?? '')}/purchase-orders/${escapeHtml(po.id)}" style="display:inline-block;padding:10px 20px;background-color:#1565C0;color:#ffffff;text-decoration:none;border-radius:4px;font-weight:bold;">View Purchase Order</a></p>
     `,
   });
 }
@@ -480,7 +480,7 @@ export async function sendFieldTripToSupervisor(
       <h2 style="color:#1565C0;">Field Trip Request Awaiting Your Approval</h2>
       <p><strong>${escapeHtml(submitterName)}</strong> has submitted a field trip request that requires your approval.</p>
       ${fieldTripDetailHtml(trip)}
-      <p style="margin-top:24px;">Please log in to the system to review and approve or deny this field trip request.</p>
+      <p style="margin-top:24px;"><a href="${escapeHtml(process.env.APP_URL ?? '')}/field-trips/${escapeHtml(trip.id)}" style="display:inline-block;padding:10px 20px;background-color:#1565C0;color:#ffffff;text-decoration:none;border-radius:4px;font-weight:bold;">View Field Trip</a></p>
     `,
   });
 }
@@ -507,7 +507,7 @@ export async function sendFieldTripAdvancedToApprover(
       <p>A field trip request submitted by <strong>${escapeHtml(submitterName)}</strong> has advanced to
          the <strong>${escapeHtml(stageName)}</strong> stage and requires your review.</p>
       ${fieldTripDetailHtml(trip)}
-      <p style="margin-top:24px;">Please log in to the system to review and approve or deny this field trip request.</p>
+      <p style="margin-top:24px;"><a href="${escapeHtml(process.env.APP_URL ?? '')}/field-trips/${escapeHtml(trip.id)}" style="display:inline-block;padding:10px 20px;background-color:#1565C0;color:#ffffff;text-decoration:none;border-radius:4px;font-weight:bold;">View Field Trip</a></p>
     `,
   });
 }
@@ -530,7 +530,7 @@ export async function sendFieldTripFinalApproved(
       <h2 style="color:#2E7D32;">Your Field Trip Request Has Been Approved</h2>
       <p>Congratulations! Your field trip request has been fully approved by all required approvers.</p>
       ${fieldTripDetailHtml(trip)}
-      <p style="margin-top:24px;">Please ensure all school policies and procedures are followed when conducting the field trip.</p>
+      <p style="margin-top:24px;"><a href="${escapeHtml(process.env.APP_URL ?? '')}/field-trips/${escapeHtml(trip.id)}" style="display:inline-block;padding:10px 20px;background-color:#2E7D32;color:#ffffff;text-decoration:none;border-radius:4px;font-weight:bold;">View Field Trip</a></p>
     `,
   });
 }
@@ -559,7 +559,7 @@ export async function sendFieldTripDenied(
       <blockquote style="border-left:4px solid #C62828;margin:8px 0;padding:8px 16px;background:#FFEBEE;">
         ${escapeHtml(reason)}
       </blockquote>
-      <p style="margin-top:16px;">If you believe this decision was made in error, please contact your supervisor.</p>
+      <p style="margin-top:16px;"><a href="${escapeHtml(process.env.APP_URL ?? '')}/field-trips/${escapeHtml(trip.id)}" style="display:inline-block;padding:10px 20px;background-color:#C62828;color:#ffffff;text-decoration:none;border-radius:4px;font-weight:bold;">View Field Trip</a></p>
     `,
   });
 }
@@ -682,7 +682,7 @@ export async function sendTransportationStep2SubmittedNotice(
         <tr><td style="padding:4px 8px;font-weight:bold;">Trip Return:</td>
             <td style="padding:4px 8px;">${escapeHtml(trip.returnTime)}</td></tr>
       </table>
-      <p style="margin-top:24px;">Please log in to the system to review and approve or deny this transportation request.</p>
+      <p style="margin-top:24px;"><a href="${escapeHtml(process.env.APP_URL ?? '')}/field-trips/${escapeHtml(trip.id)}/transportation/view" style="display:inline-block;padding:10px 20px;background-color:#1565C0;color:#ffffff;text-decoration:none;border-radius:4px;font-weight:bold;">View Transportation Details</a></p>
     `,
   });
 }
@@ -747,7 +747,7 @@ export async function sendTransportationApproved(
         ${transportRequest.transportationNotes ? `<tr><td style="padding:4px 8px;font-weight:bold;vertical-align:top;">Notes:</td>
             <td style="padding:4px 8px;">${escapeHtml(transportRequest.transportationNotes)}</td></tr>` : ''}
       </table>
-      <p style="margin-top:24px;">Please ensure all school policies and procedures are followed when conducting the field trip.</p>
+      <p style="margin-top:24px;"><a href="${escapeHtml(process.env.APP_URL ?? '')}/field-trips/${escapeHtml(trip.id)}" style="display:inline-block;padding:10px 20px;background-color:#2E7D32;color:#ffffff;text-decoration:none;border-radius:4px;font-weight:bold;">View Field Trip</a></p>
     `,
   });
 }
@@ -777,7 +777,7 @@ export async function sendTransportationDenied(
         ${escapeHtml(reason)}
       </blockquote>
       ${transportRequest.transportationNotes ? `<p><strong>Additional notes:</strong> ${escapeHtml(transportRequest.transportationNotes)}</p>` : ''}
-      <p style="margin-top:16px;">If you have questions, please contact the Transportation Director.</p>
+      <p style="margin-top:16px;"><a href="${escapeHtml(process.env.APP_URL ?? '')}/field-trips/${escapeHtml(trip.id)}" style="display:inline-block;padding:10px 20px;background-color:#C62828;color:#ffffff;text-decoration:none;border-radius:4px;font-weight:bold;">View Field Trip</a></p>
     `,
   });
 }
