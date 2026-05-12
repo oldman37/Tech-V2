@@ -89,9 +89,9 @@ export class UserSyncService {
       ],
     });
 
-    // Director of Schools - Ultimate authority; issues final PO numbers
+    // Director of Schools - Ultimate authority for PO approvals (not an admin)
     addMapping('ENTRA_DIRECTOR_OF_SCHOOLS_GROUP_ID', process.env.ENTRA_DIRECTOR_OF_SCHOOLS_GROUP_ID, {
-      role: 'ADMIN',
+      role: 'USER',
       permissions: [
         { module: 'TECHNOLOGY', level: 2 },
         { module: 'MAINTENANCE', level: 3 },
