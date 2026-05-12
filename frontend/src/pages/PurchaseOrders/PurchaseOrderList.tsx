@@ -137,6 +137,19 @@ export default function PurchaseOrderList() {
     const activeFY = fiscalYearFilter || settings?.currentFiscalYear;
     if (activeFY) f.fiscalYear = activeFY;
     if (workflowTypeFilter) f.workflowType = workflowTypeFilter;
+    // Tab "food_service" — show all food service POs
+    if (tab === 'food_service') {
+      f.workflowType = 'food_service';
+    }
+    // Tab "fs_approval" — food service POs awaiting DOS approval
+    else if (tab === 'fs_approval') {
+      f.workflowType = 'food_service';
+      if (!statusFilter) f.status = 'supervisor_approved';
+    }
+    // All other tabs — exclude food service POs (they belong in the Food Service tab)
+    else if (!workflowTypeFilter) {
+      f.workflowType = 'standard';
+    }
     // Tab "mine" — always scoped to the current user's own submitted POs
     if (tab === 'mine') f.onlyMine = true;
     // Tab "issued" filters to po_issued
@@ -144,15 +157,6 @@ export default function PurchaseOrderList() {
     // Tab "pending" — let the backend determine which POs this user can approve
     if (tab === 'pending') {
       f.pendingMyApproval = true;
-    }
-    // Tab "food_service" — show all food service POs
-    if (tab === 'food_service') {
-      f.workflowType = 'food_service';
-    }
-    // Tab "fs_approval" — food service POs awaiting DOS approval
-    if (tab === 'fs_approval') {
-      f.workflowType = 'food_service';
-      if (!statusFilter) f.status = 'supervisor_approved';
     }
     return f;
   };
