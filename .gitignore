@@ -48,6 +48,9 @@ tmp/
 temp/
 *.tmp
 
+# SubAgent docs (local only)
+docs/SubAgent/
+
 # Database
 *.db
 *.sqlite
