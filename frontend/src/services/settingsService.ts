@@ -161,10 +161,10 @@ const settingsService = {
 
   /**
    * GET /api/settings/current
-   * Returns fiscal year info only — accessible to all authenticated users.
+   * Returns fiscal year + PO numbering info — accessible to all authenticated users.
    */
-  getCurrent: async (): Promise<Pick<SystemSettings, 'currentFiscalYear' | 'fiscalYearStart' | 'fiscalYearEnd'>> => {
-    const res = await api.get<Pick<SystemSettings, 'currentFiscalYear' | 'fiscalYearStart' | 'fiscalYearEnd'>>('/settings/current');
+  getCurrent: async (): Promise<Pick<SystemSettings, 'currentFiscalYear' | 'fiscalYearStart' | 'fiscalYearEnd' | 'nextPoNumber' | 'poNumberPrefix'>> => {
+    const res = await api.get<Pick<SystemSettings, 'currentFiscalYear' | 'fiscalYearStart' | 'fiscalYearEnd' | 'nextPoNumber' | 'poNumberPrefix'>>('/settings/current');
     return res.data;
   },
 };

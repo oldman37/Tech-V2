@@ -121,7 +121,7 @@ export const getDistinctWorkOrderFiscalYears = async (req: Request, res: Respons
 /**
  * GET /api/settings/current
  * Returns a subset of settings safe for all authenticated users:
- * currentFiscalYear, fiscalYearStart, fiscalYearEnd.
+ * currentFiscalYear, fiscalYearStart, fiscalYearEnd, nextPoNumber, poNumberPrefix.
  */
 export const getCurrentSettings = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -130,6 +130,8 @@ export const getCurrentSettings = async (req: Request, res: Response): Promise<v
       currentFiscalYear: settings.currentFiscalYear,
       fiscalYearStart: settings.fiscalYearStart,
       fiscalYearEnd: settings.fiscalYearEnd,
+      nextPoNumber: settings.nextPoNumber,
+      poNumberPrefix: settings.poNumberPrefix,
     });
   } catch (error) {
     handleControllerError(error, res);
