@@ -223,6 +223,12 @@ export default function RequisitionWizard() {
     const shipToValue = addressParts ? `${loc.name}\n${addressParts}` : loc.name;
     setValue('shipTo', shipToValue);
     setValue('shipToType', 'entity');
+    // District Office POs route to Finance Director — no individual supervisor lookup
+    if (loc.type === 'DISTRICT_OFFICE') {
+      setValue('workflowType', 'standard');
+      setSelectedEntitySupervisor(null);
+      return;
+    }
     const hasFsSupervisor = loc.supervisors?.some((s) => s.supervisorType === 'FOOD_SERVICES_SUPERVISOR') ?? false;
     setValue('workflowType', hasFsSupervisor ? 'food_service' : 'standard');
     const expectedType = hasFsSupervisor ? 'FOOD_SERVICES_SUPERVISOR' : loc.type === 'SCHOOL' ? 'PRINCIPAL' : undefined;
@@ -480,7 +486,19 @@ export default function RequisitionWizard() {
                 <FormHelperText>{errors.officeLocationId.message}</FormHelperText>
               )}
             </FormControl>
-            {selectedEntitySupervisor && (
+            {watchedEntityType === 'DISTRICT_OFFICE' && watchedOfficeLocationId && (
+              <Box sx={{ bgcolor: 'info.50', border: '1px solid', borderColor: 'info.200',
+                         borderRadius: 1, p: 1.5, mt: -1 }}>
+                <Typography variant="caption" color="info.main" fontWeight={600}>
+                  First Approver
+                </Typography>
+                <Typography variant="body2">Finance Director</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  District Office: routed to Finance Director at supervisor stage
+                </Typography>
+              </Box>
+            )}
+            {watchedEntityType !== 'DISTRICT_OFFICE' && selectedEntitySupervisor && (
               <Box sx={{ bgcolor: 'info.50', border: '1px solid', borderColor: 'info.200',
                          borderRadius: 1, p: 1.5, mt: -1 }}>
                 <Typography variant="caption" color="info.main" fontWeight={600}>
@@ -494,7 +512,7 @@ export default function RequisitionWizard() {
                 </Typography>
               </Box>
             )}
-            {watchedOfficeLocationId && !selectedEntitySupervisor && (
+            {watchedEntityType !== 'DISTRICT_OFFICE' && watchedOfficeLocationId && !selectedEntitySupervisor && (
               <Alert severity="warning" sx={{ mt: -1 }}>
                 No primary supervisor is assigned to this location. The requisition will require manual routing.
               </Alert>

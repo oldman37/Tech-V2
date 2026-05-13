@@ -96,6 +96,14 @@ const FOOD_SERVICE_WORKFLOW_STAGES: { status: POStatus; label: string }[] = [
   { status: 'po_issued',                   label: 'PO Issued' },
 ];
 
+const DISTRICT_OFFICE_WORKFLOW_STAGES: { status: POStatus; label: string }[] = [
+  { status: 'draft',                       label: 'Draft Created' },
+  { status: 'submitted',                   label: 'Submitted for Approval' },
+  { status: 'finance_director_approved',   label: 'Finance Director Approved' },
+  { status: 'dos_approved',                label: 'Director of Schools Approved' },
+  { status: 'po_issued',                   label: 'PO Issued' },
+];
+
 // ─── Component ──────────────────────────────────────────────────────────────
 
 export default function PurchaseOrderDetail() {
@@ -151,7 +159,12 @@ export default function PurchaseOrderDetail() {
   // ── Permission-derived visibility ──
 
   const isFoodService = (po.workflowType as WorkflowType | undefined) === 'food_service';
-  const WORKFLOW_STAGES = isFoodService ? FOOD_SERVICE_WORKFLOW_STAGES : STANDARD_WORKFLOW_STAGES;
+  const isDistrictOfficePO = (po.officeLocation as any)?.type === 'DISTRICT_OFFICE' || po.entityType === 'DISTRICT_OFFICE';
+  const WORKFLOW_STAGES = isFoodService
+    ? FOOD_SERVICE_WORKFLOW_STAGES
+    : isDistrictOfficePO
+      ? DISTRICT_OFFICE_WORKFLOW_STAGES
+      : STANDARD_WORKFLOW_STAGES;
 
   // Human-readable label for what's happening at each status
   const STAGE_WAITING_LABEL: Partial<Record<POStatus, string>> = isFoodService
@@ -160,12 +173,19 @@ export default function PurchaseOrderDetail() {
         'supervisor_approved': 'Awaiting Director of Schools Approval',
         'dos_approved':        'Awaiting PO Issuance',
       }
-    : {
-        'submitted':                 'Awaiting Supervisor Approval',
-        'supervisor_approved':       'Awaiting Finance Director Approval',
-        'finance_director_approved': 'Awaiting Director of Schools Approval',
-        'dos_approved':              'Awaiting PO Issuance',
-      };
+    : isDistrictOfficePO
+      ? {
+          'submitted':                 'Awaiting Finance Director Approval',
+          'supervisor_approved':       'Awaiting Finance Director Approval',
+          'finance_director_approved': 'Awaiting Director of Schools Approval',
+          'dos_approved':              'Awaiting PO Issuance',
+        }
+      : {
+          'submitted':                 'Awaiting Supervisor Approval',
+          'supervisor_approved':       'Awaiting Finance Director Approval',
+          'finance_director_approved': 'Awaiting Director of Schools Approval',
+          'dos_approved':              'Awaiting PO Issuance',
+        };
 
   // Label for the Approve button — describes the stage being completed
   const APPROVE_ACTION_LABEL: Partial<Record<POStatus, string>> = isFoodService
@@ -173,11 +193,17 @@ export default function PurchaseOrderDetail() {
         'submitted':           'Approve as Food Services Supervisor',
         'supervisor_approved': 'Approve as Director of Schools',
       }
-    : {
-        'submitted':                 'Approve as Supervisor',
-        'supervisor_approved':       'Approve as Finance Director',
-        'finance_director_approved': 'Approve as Director of Schools',
-      };
+    : isDistrictOfficePO
+      ? {
+          'submitted':                 'Approve as Finance Director',
+          'supervisor_approved':       'Approve as Finance Director',
+          'finance_director_approved': 'Approve as Director of Schools',
+        }
+      : {
+          'submitted':                 'Approve as Supervisor',
+          'supervisor_approved':       'Approve as Finance Director',
+          'finance_director_approved': 'Approve as Director of Schools',
+        };
 
   const waitingLabel  = STAGE_WAITING_LABEL[po.status as POStatus];
   const approveLabel  = APPROVE_ACTION_LABEL[po.status as POStatus] ?? 'Approve';
@@ -219,18 +245,19 @@ export default function PurchaseOrderDetail() {
     }
     return supervisors[0]?.userId ?? null;
   })();
-
   const canActAtFdStage  = !isFoodService && po.status === 'supervisor_approved'         && permLevel >= 5 && isFinanceDirector;
   const canActAtDosStage = isFoodService
     ? po.status === 'supervisor_approved' && permLevel >= 6 && isDosApprover
     : po.status === 'finance_director_approved' && permLevel >= 6 && isDosApprover;
   const canActAtSupStage = po.status === 'submitted' && permLevel >= 3 && !isDosApprover && !isFinanceDirector && !isAdmin && !isPoEntryUser && !isFoodServicePoEntry;
-  const effectiveCanAct  = canActAtFdStage || canActAtDosStage || canActAtSupStage;
+  // District Office POs: Finance Director approves at the supervisor stage
+  const canActAtDistrictOfficeSupStage = po.status === 'submitted' && isDistrictOfficePO && isFinanceDirector;
+  const effectiveCanAct  = canActAtFdStage || canActAtDosStage || canActAtSupStage || canActAtDistrictOfficeSupStage;
 
-  const canApprove  = po.status === 'submitted' && assignedSupervisorId
+  const canApprove  = po.status === 'submitted' && assignedSupervisorId && !isDistrictOfficePO
     ? user?.id === assignedSupervisorId
     : effectiveCanAct;
-  const canReject   = po.status === 'submitted' && assignedSupervisorId
+  const canReject   = po.status === 'submitted' && assignedSupervisorId && !isDistrictOfficePO
     ? user?.id === assignedSupervisorId
     : effectiveCanAct;
   const canIssue    = isFoodService
@@ -310,7 +337,9 @@ export default function PurchaseOrderDetail() {
   const isDenied = po.status === 'denied';
   const activeStageIndex = isDenied
     ? -1
-    : WORKFLOW_STAGES.findIndex((s) => s.status === po.status);
+    : isDistrictOfficePO && po.status === 'supervisor_approved'
+      ? WORKFLOW_STAGES.findIndex((s) => s.status === 'finance_director_approved')
+      : WORKFLOW_STAGES.findIndex((s) => s.status === po.status);
 
   // ── Render ──
   return (

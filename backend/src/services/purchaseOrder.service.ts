@@ -351,6 +351,8 @@ export class PurchaseOrderService {
       const isDoS = dosGroupId ? userGroups.includes(dosGroupId) : false;
       if (isFD) {
         pendingOrClauses.push({ status: 'supervisor_approved', workflowType: 'standard' });
+        // District Office POs route Finance Director approval at the supervisor stage
+        pendingOrClauses.push({ status: 'submitted', entityType: 'DISTRICT_OFFICE', workflowType: 'standard' });
       }
 
       // Stage 3: Director of Schools approval (status = 'finance_director_approved') — standard flow
@@ -671,7 +673,7 @@ export class PurchaseOrderService {
     id: string,
     userId: string,
     approverEmailsSnapshot?: Prisma.InputJsonValue | null,
-  ): Promise<{ po: SubmitPOResult; supervisorEmail: string | null; supervisorId: string | null; selfSupervisorBypass: boolean }> {
+  ): Promise<{ po: SubmitPOResult; supervisorEmail: string | null; supervisorId: string | null; selfSupervisorBypass: boolean; isDistrictOffice: boolean }> {
     await this.assertFiscalYearActive();
 
     const po = await this.prisma.purchase_orders.findUnique({ where: { id } });
@@ -696,6 +698,8 @@ export class PurchaseOrderService {
     // True when the entity location's primary supervisor IS the requestor themselves.
     // In this case the spec mandates the self-supervisor bypass path — skip the personal supervisor fallback.
     let locationSupervisorIsRequestor = false;
+    // True when the PO is for a District Office entity — routes to Finance Director instead of LocationSupervisor.
+    let isDistrictOffice = false;
 
     // PRIORITY 1: Location's primary supervisor (if PO has an entity officeLocationId)
     if (po.officeLocationId) {
@@ -708,40 +712,54 @@ export class PurchaseOrderService {
           expectedSupervisorType = 'FOOD_SERVICES_SUPERVISOR';
         } else {
           const entityLoc = await this.prisma.officeLocation.findUnique({ where: { id: po.officeLocationId! }, select: { type: true } });
-          expectedSupervisorType = entityLoc?.type === 'SCHOOL' ? 'PRINCIPAL' : undefined;
+          if (entityLoc?.type === 'DISTRICT_OFFICE') {
+            // District Office POs route to Finance Director at supervisor stage.
+            // Skip LocationSupervisor lookup entirely.
+            isDistrictOffice = true;
+            isSelfSupervisor = false;
+            logger.info('District Office PO — routing supervisor approval to Finance Director', {
+              id,
+              locationId: po.officeLocationId,
+            });
+          } else {
+            expectedSupervisorType = entityLoc?.type === 'SCHOOL' ? 'PRINCIPAL' : undefined;
+          }
         }
 
-        const locationSupervisorRecord = await this.prisma.locationSupervisor.findFirst({
-          where: {
-            locationId: po.officeLocationId,
-            isPrimary: true,
-            user: { isActive: true },
-            ...(expectedSupervisorType ? { supervisorType: expectedSupervisorType } : {}),
-          },
-          include: { user: { select: { id: true, email: true, displayName: true, firstName: true, lastName: true } } },
-        });
-
-        if (locationSupervisorRecord && locationSupervisorRecord.userId !== po.requestorId) {
-          supervisorId    = locationSupervisorRecord.userId;
-          supervisorEmail = locationSupervisorRecord.user.email ?? null;
-          supervisorName  =
-            locationSupervisorRecord.user.displayName ||
-            [locationSupervisorRecord.user.firstName, locationSupervisorRecord.user.lastName]
-              .filter(Boolean).join(' ') ||
-            null;
-          isSelfSupervisor = false;
-          logger.info('Using location supervisor for approval routing', {
-            id,
-            locationId:       po.officeLocationId,
-            supervisorUserId: supervisorId,
+        // District Office POs skip the LocationSupervisor lookup — Finance Director handles approval.
+        if (!isDistrictOffice) {
+          const locationSupervisorRecord = await this.prisma.locationSupervisor.findFirst({
+            where: {
+              locationId: po.officeLocationId,
+              isPrimary: true,
+              user: { isActive: true },
+              ...(expectedSupervisorType ? { supervisorType: expectedSupervisorType } : {}),
+            },
+            include: { user: { select: { id: true, email: true, displayName: true, firstName: true, lastName: true } } },
           });
-        } else if (locationSupervisorRecord && locationSupervisorRecord.userId === po.requestorId) {
-          // Location supervisor IS the requestor — self-supervisor bypass path.
-          // Set locationSupervisorIsRequestor so Priority 2 personal-supervisor fallback is skipped.
-          isSelfSupervisor = true;
-          locationSupervisorIsRequestor = true;
-        }
-        // If no primary location supervisor found, fall through to personal supervisor
+
+          if (locationSupervisorRecord && locationSupervisorRecord.userId !== po.requestorId) {
+            supervisorId    = locationSupervisorRecord.userId;
+            supervisorEmail = locationSupervisorRecord.user.email ?? null;
+            supervisorName  =
+              locationSupervisorRecord.user.displayName ||
+              [locationSupervisorRecord.user.firstName, locationSupervisorRecord.user.lastName]
+                .filter(Boolean).join(' ') ||
+              null;
+            isSelfSupervisor = false;
+            logger.info('Using location supervisor for approval routing', {
+              id,
+              locationId:       po.officeLocationId,
+              supervisorUserId: supervisorId,
+            });
+          } else if (locationSupervisorRecord && locationSupervisorRecord.userId === po.requestorId) {
+            // Location supervisor IS the requestor — self-supervisor bypass path.
+            // Set locationSupervisorIsRequestor so Priority 2 personal-supervisor fallback is skipped.
+            isSelfSupervisor = true;
+            locationSupervisorIsRequestor = true;
+          }
+          // If no primary location supervisor found, fall through to personal supervisor
+        } // end if (!isDistrictOffice)
       } catch (err) {
         logger.warn('Location supervisor lookup failed, falling back to personal supervisor', {
           message: err instanceof Error ? err.message : String(err),
@@ -842,15 +860,17 @@ export class PurchaseOrderService {
             newStatus:   'supervisor_approved',
           });
 
-          return { po: record, supervisorEmail: null, supervisorId: null, selfSupervisorBypass: true };
+          return { po: record, supervisorEmail: null, supervisorId: null, selfSupervisorBypass: true, isDistrictOffice: false };
 
         } else {
           // --- Normal submit: draft → submitted ---
-          const routingNote = supervisorName
-            ? `Routed to supervisor: ${supervisorName}`
-            : po.officeLocationId
-              ? 'Routed to location supervisor'
-              : undefined;
+          const routingNote = isDistrictOffice
+            ? 'District Office: routed to Finance Director at supervisor stage'
+            : supervisorName
+              ? `Routed to supervisor: ${supervisorName}`
+              : po.officeLocationId
+                ? 'Routed to location supervisor'
+                : undefined;
 
           const record = await this.prisma.$transaction(async (tx) => {
             const updated = await tx.purchase_orders.update({
@@ -884,7 +904,7 @@ export class PurchaseOrderService {
 
           logger.info('Purchase order submitted', { id, submittedBy: userId });
 
-          return { po: record, supervisorEmail, supervisorId, selfSupervisorBypass: false };
+          return { po: record, supervisorEmail, supervisorId, selfSupervisorBypass: false, isDistrictOffice };
         }
       } catch (err: unknown) {
         // Retry on unique constraint violation (P2002) for reqNumber
@@ -1063,35 +1083,54 @@ export class PurchaseOrderService {
       } else if (po.officeLocationId) {
         // Standard POs: require a per-location primary supervisor record.
         // SCHOOL locations require the PRINCIPAL.
+        // DISTRICT_OFFICE locations route to Finance Director group instead.
         // Other location types allow any primary supervisor.
-        let expectedSupervisorType: string | undefined;
         const entityLoc = await this.prisma.officeLocation.findUnique({ where: { id: po.officeLocationId }, select: { type: true } });
-        expectedSupervisorType = entityLoc?.type === 'SCHOOL' ? 'PRINCIPAL' : undefined;
-        const locSup = await this.prisma.locationSupervisor.findFirst({
-          where: {
-            locationId: po.officeLocationId,
-            isPrimary: true,
-            user: { isActive: true },
-            ...(expectedSupervisorType ? { supervisorType: expectedSupervisorType } : {}),
-          },
-        });
-        if (locSup) {
-          if (locSup.userId !== userId) {
-            throw new AuthorizationError(
-              'Only the assigned supervisor for this location can approve at this stage',
-            );
+        if (entityLoc?.type === 'DISTRICT_OFFICE') {
+          // District Office: Finance Director group must approve at supervisor stage
+          const fdGroupId = process.env.ENTRA_FINANCE_DIRECTOR_GROUP_ID;
+          if (fdGroupId) {
+            const isFinanceDirector = userGroups.includes(fdGroupId);
+            if (!isFinanceDirector) {
+              logger.warn('Unauthorized approval attempt blocked', {
+                poId: id,
+                stage: 'district_office_supervisor',
+                action: 'unauthorized_approval_attempt',
+              });
+              throw new AuthorizationError(
+                'District Office purchase orders require Finance Director approval at this stage',
+              );
+            }
           }
         } else {
-          // No primary supervisor assigned — block until one is configured.
-          logger.warn('Approval blocked — no primary supervisor for location', {
-            poId: id,
-            locationId: po.officeLocationId,
-            action: 'no_supervisor_assigned',
+          let expectedSupervisorType: string | undefined;
+          expectedSupervisorType = entityLoc?.type === 'SCHOOL' ? 'PRINCIPAL' : undefined;
+          const locSup = await this.prisma.locationSupervisor.findFirst({
+            where: {
+              locationId: po.officeLocationId,
+              isPrimary: true,
+              user: { isActive: true },
+              ...(expectedSupervisorType ? { supervisorType: expectedSupervisorType } : {}),
+            },
           });
-          throw new AuthorizationError(
-            'No primary supervisor is assigned to this location — approval cannot proceed',
-          );
-        }
+          if (locSup) {
+            if (locSup.userId !== userId) {
+              throw new AuthorizationError(
+                'Only the assigned supervisor for this location can approve at this stage',
+              );
+            }
+          } else {
+            // No primary supervisor assigned — block until one is configured.
+            logger.warn('Approval blocked — no primary supervisor for location', {
+              poId: id,
+              locationId: po.officeLocationId,
+              action: 'no_supervisor_assigned',
+            });
+            throw new AuthorizationError(
+              'No primary supervisor is assigned to this location — approval cannot proceed',
+            );
+          }
+        } // end else (non-DISTRICT_OFFICE location)
       } else {
         // PO has no office location — require the user to belong to a
         // recognised supervisor-level group (admin/DoS/FD alone are

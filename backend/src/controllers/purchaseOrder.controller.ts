@@ -154,10 +154,15 @@ export const submitPurchaseOrder = async (req: AuthRequest, res: Response): Prom
   }
 
   try {
-    const { po, supervisorEmail, selfSupervisorBypass } =
+    const { po, supervisorEmail, selfSupervisorBypass, isDistrictOffice } =
       await service.submitPurchaseOrder(poId, userId, snapshot);
 
-    if (selfSupervisorBypass) {
+    if (isDistrictOffice) {
+      // District Office: notify Finance Director group for supervisor-stage approval
+      if (snapshot.finance.length) {
+        sendApprovalActionRequired(po as any, snapshot.finance, 'Finance Director Approval (District Office)').catch(() => {});
+      }
+    } else if (selfSupervisorBypass) {
       // Requestor is their own supervisor — notify next approver group.
       // For food service POs, next stage after supervisor is Director of Schools (skip FD).
       if (po.workflowType === 'food_service') {
