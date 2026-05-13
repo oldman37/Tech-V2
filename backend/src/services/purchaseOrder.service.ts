@@ -323,17 +323,34 @@ export class PurchaseOrderService {
       const pendingOrClauses: Prisma.purchase_ordersWhereInput[] = [];
 
       // Stage 1: Supervisor approval (status = 'submitted')
-      // User must be the primary supervisor for the PO's entity location
+      // User must be the primary supervisor for the PO's entity location.
+      // Must match the same supervisorType rules used by submitPurchaseOrder and
+      // approvePurchaseOrder: SCHOOL entities require PRINCIPAL; other non-DO
+      // entities allow any primary supervisor type.
       const supervisedLocations = await this.prisma.locationSupervisor.findMany({
         where: { userId, isPrimary: true },
-        select: { locationId: true },
+        select: { locationId: true, supervisorType: true, location: { select: { type: true } } },
       });
-      const supervisorLocationIds = supervisedLocations.map((ls) => ls.locationId);
-      if (supervisorLocationIds.length > 0) {
+      // SCHOOL locations: only the PRINCIPAL supervisor should see submitted POs
+      const schoolLocationIds = supervisedLocations
+        .filter((ls) => ls.location.type === 'SCHOOL' && ls.supervisorType === 'PRINCIPAL')
+        .map((ls) => ls.locationId);
+      // Non-school, non-DO locations: any primary supervisor type is valid
+      const otherLocationIds = supervisedLocations
+        .filter((ls) => ls.location.type !== 'SCHOOL' && ls.location.type !== 'DISTRICT_OFFICE')
+        .map((ls) => ls.locationId);
+      if (schoolLocationIds.length > 0) {
         pendingOrClauses.push({
           status: 'submitted',
-          officeLocationId: { in: supervisorLocationIds },
-          entityType: { not: 'DISTRICT_OFFICE' },
+          officeLocationId: { in: schoolLocationIds },
+          entityType: 'SCHOOL',
+        });
+      }
+      if (otherLocationIds.length > 0) {
+        pendingOrClauses.push({
+          status: 'submitted',
+          officeLocationId: { in: otherLocationIds },
+          entityType: { notIn: ['DISTRICT_OFFICE', 'SCHOOL'] },
         });
       }
 
