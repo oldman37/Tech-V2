@@ -388,11 +388,12 @@ export const issuePurchaseOrder = async (req: AuthRequest, res: Response): Promi
  */
 export const getPurchaseOrderPdf = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const id     = req.params.id as string;
-    const buffer = await service.generatePOPdf(id);
+    const id = req.params.id as string;
+    const { buffer, poNumber } = await service.generatePOPdf(id);
+    const filename = poNumber ? `po-${poNumber}.pdf` : `po-${id}.pdf`;
 
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="PO-${id}.pdf"`);
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.setHeader('Content-Length', buffer.length);
     res.send(buffer);
   } catch (error) {

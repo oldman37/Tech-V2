@@ -179,10 +179,14 @@ const purchaseOrderService = {
    */
   downloadPdf: async (id: string): Promise<void> => {
     const res = await api.get(`${BASE}/${id}/pdf`, { responseType: 'blob' });
+    // Extract filename from Content-Disposition header, fallback to po-{id}.pdf
+    const disposition = res.headers['content-disposition'] || '';
+    const filenameMatch = disposition.match(/filename="?([^";\n]+)"?/);
+    const filename = filenameMatch ? filenameMatch[1] : `po-${id}.pdf`;
     const url = window.URL.createObjectURL(new Blob([res.data as BlobPart], { type: 'application/pdf' }));
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `PO-${id}.pdf`);
+    link.setAttribute('download', filename);
     document.body.appendChild(link);
     link.click();
     link.remove();

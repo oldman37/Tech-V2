@@ -117,19 +117,36 @@ export async function generatePurchaseOrderPdf(po: POForPdf): Promise<Buffer> {
       hRule(doc, doc.y);
       doc.moveDown(0.5);
 
-      // ---- PO Number & Date row ------------------------------------------
+      // ---- PO Number, Dates & Account Number (two-column) ----------------
       const poDate = po.issuedAt ?? po.createdAt;
-      doc
-        .font(FONT_BLD).fontSize(10)
-        .text('PO Number:', MARGIN, doc.y, { continued: true, width: 80 })
+      const hdrLeftX  = MARGIN;
+      const hdrRightX = MARGIN + COL_W / 2 + 10;
+      const hdrLabelW = 110;
+
+      // Row 1: PO Number (left) | Date Requested (right)
+      const row1Y = doc.y;
+      doc.font(FONT_BLD).fontSize(10)
+        .text('PO Number:', hdrLeftX, row1Y, { continued: true, width: hdrLabelW })
         .font(FONT_REG)
         .text(po.poNumber ?? 'PENDING', { continued: false });
 
-      doc
-        .font(FONT_BLD)
-        .text('Date:', MARGIN, doc.y, { continued: true, width: 80 })
+      doc.font(FONT_BLD).fontSize(10)
+        .text('Date Requested:', hdrRightX, row1Y, { continued: true, width: hdrLabelW })
         .font(FONT_REG)
-        .text(poDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }));
+        .text(po.createdAt.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }), { continued: false });
+
+      // Row 2: Account Number (left) | Date Issued (right)
+      doc.moveDown(0.3);
+      const row2Y = doc.y;
+      doc.font(FONT_BLD).fontSize(10)
+        .text('Account Number:', hdrLeftX, row2Y, { continued: true, width: hdrLabelW })
+        .font(FONT_REG)
+        .text(po.accountCode || 'N/A', { continued: false });
+
+      doc.font(FONT_BLD).fontSize(10)
+        .text('Date Issued:', hdrRightX, row2Y, { continued: true, width: hdrLabelW })
+        .font(FONT_REG)
+        .text(poDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }), { continued: false });
 
       doc.moveDown(0.5);
       hRule(doc, doc.y);
@@ -232,10 +249,8 @@ export async function generatePurchaseOrderPdf(po: POForPdf): Promise<Buffer> {
       const grandTotal = subtotal + shipping;
 
       doc.font(FONT_REG).fontSize(9);
-      if (shipping > 0) {
-        doc.text(`Subtotal: $${subtotal.toFixed(2)}`, { align: 'right' });
-        doc.text(`Shipping: $${shipping.toFixed(2)}`, { align: 'right' });
-      }
+      doc.text(`Subtotal: $${subtotal.toFixed(2)}`, { align: 'right' });
+      doc.text(`Shipping: $${shipping.toFixed(2)}`, { align: 'right' });
       doc.font(FONT_BLD).fontSize(10).fillColor(PRIMARY);
       doc.text(`TOTAL: $${grandTotal.toFixed(2)}`, { align: 'right' });
 
@@ -243,24 +258,21 @@ export async function generatePurchaseOrderPdf(po: POForPdf): Promise<Buffer> {
       hRule(doc, doc.y);
       doc.moveDown(0.5);
 
-      // ---- Account Code / Program ----------------------------------------
-      if (po.accountCode || po.program) {
+      // ---- Program (if present) ------------------------------------------
+      if (po.program) {
         doc.font(FONT_BLD).fontSize(9).fillColor('#212121');
-        if (po.accountCode) doc.text(`Account Code: ${po.accountCode}`);
-        if (po.program)     doc.text(`Program: ${po.program}`);
+        doc.text(`Program: ${po.program}`, MARGIN, doc.y, { align: 'left', width: COL_W });
         doc.moveDown(0.5);
         hRule(doc, doc.y);
         doc.moveDown(0.5);
       }
 
-      // ---- Notes ---------------------------------------------------------
-      if (po.notes) {
-        doc.font(FONT_BLD).fontSize(10).fillColor(PRIMARY).text('NOTES / SPECIAL INSTRUCTIONS');
-        doc.font(FONT_REG).fontSize(9).fillColor('#212121').text(po.notes, { width: COL_W });
-        doc.moveDown(0.5);
-        hRule(doc, doc.y);
-        doc.moveDown(0.5);
-      }
+      // ---- Additional Information ----------------------------------------
+      doc.font(FONT_BLD).fontSize(10).fillColor(PRIMARY).text('ADDITIONAL INFORMATION', MARGIN, doc.y, { align: 'left', width: COL_W });
+      doc.font(FONT_REG).fontSize(9).fillColor('#212121').text(po.notes || 'N/A', MARGIN, doc.y, { align: 'left', width: COL_W });
+      doc.moveDown(0.5);
+      hRule(doc, doc.y);
+      doc.moveDown(0.5);
 
       // ---- Signature Lines -----------------------------------------------
       // Layout: cursive name above the line, role label + date below

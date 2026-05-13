@@ -1379,7 +1379,7 @@ export class PurchaseOrderService {
    * Generate a PDF for the purchase order.
    * Delegates all rendering to pdf.service.
    */
-  async generatePOPdf(id: string): Promise<Buffer> {
+  async generatePOPdf(id: string): Promise<{ buffer: Buffer; poNumber: string | null }> {
     const po = await this.prisma.purchase_orders.findUnique({
       where: { id },
       include: {
@@ -1414,7 +1414,8 @@ export class PurchaseOrderService {
       dosApproval:        findApproval('dos_approved'),
     };
 
-    return generatePurchaseOrderPdf(poWithApprovals as any);
+    const buffer = await generatePurchaseOrderPdf(poWithApprovals as any);
+    return { buffer, poNumber: po.poNumber };
   }
 
   // -------------------------------------------------------------------------
