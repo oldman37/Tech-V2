@@ -1,4 +1,4 @@
-/**
+﻿/**
  * FieldTripDetailPage
  *
  * Displays full details of a single field trip request.
@@ -54,7 +54,7 @@ const PENDING_STATUSES = new Set([
   'PENDING_FINANCE_DIRECTOR',
 ]);
 
-// Statuses where the approval workflow is complete — no further approver actions are possible.
+// Statuses where the approval workflow is complete â€” no further approver actions are possible.
 const TERMINAL_STATUSES = new Set(['APPROVED', 'DENIED']);
 
 // ---------------------------------------------------------------------------
@@ -192,7 +192,7 @@ export function FieldTripDetailPage() {
   };
 
   return (
-    <Box sx={{ p: { xs: 2, sm: 3 }, maxWidth: 900, mx: 'auto' }}>
+    <Box sx={{ p: { xs: 1, sm: 3 }, maxWidth: 900, mx: 'auto' }}>
       {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 2, mb: 3 }}>
         <Box>
@@ -231,14 +231,14 @@ export function FieldTripDetailPage() {
             disabled={pdfLoading}
             onClick={handleDownloadPdf}
           >
-            {pdfLoading ? 'Generating…' : 'Download PDF'}
+            {pdfLoading ? 'Generatingâ€¦' : 'Download PDF'}
           </Button>
         </Box>
       </Box>
 
       {actionError && <Alert severity="error" sx={{ mb: 2 }}>{actionError}</Alert>}
 
-      {/* Transportation CTA — shown only to the trip owner once approved but before Part A is submitted */}
+      {/* Transportation CTA â€” shown only to the trip owner once approved but before Part A is submitted */}
       {isOwner && trip.status === 'APPROVED' && trip.transportationNeeded && !trip.transportationRequest && (
         <Alert
           severity="info"
@@ -317,7 +317,7 @@ export function FieldTripDetailPage() {
       />
 
       {/* Trip details */}
-      <Paper sx={{ p: 3, mb: 3 }}>
+      <Paper sx={{ p: { xs: 1.5, sm: 3 }, mb: 3 }}>
         <Typography variant="h6" gutterBottom>Trip Information</Typography>
         <Divider sx={{ mb: 2 }} />
         <Grid container spacing={2}>
@@ -354,7 +354,7 @@ export function FieldTripDetailPage() {
       </Paper>
 
       {/* Logistics */}
-      <Paper sx={{ p: 3, mb: 3 }}>
+      <Paper sx={{ p: { xs: 1.5, sm: 3 }, mb: 3 }}>
         <Typography variant="h6" gutterBottom>Logistics & Costs</Typography>
         <Divider sx={{ mb: 2 }} />
         <Grid container spacing={2}>
@@ -378,7 +378,7 @@ export function FieldTripDetailPage() {
         trip.rainAlternateDate || trip.substituteCount != null || trip.plansForNonParticipants ||
         trip.instructionalTimeMissed || (trip.reimbursementExpenses && trip.reimbursementExpenses.length > 0) ||
         trip.overnightSafetyPrecautions) && (
-        <Paper sx={{ p: 3, mb: 3 }}>
+        <Paper sx={{ p: { xs: 1.5, sm: 3 }, mb: 3 }}>
           <Typography variant="h6" gutterBottom>Additional Details</Typography>
           <Divider sx={{ mb: 2 }} />
           <Grid container spacing={2}>
@@ -398,7 +398,7 @@ export function FieldTripDetailPage() {
             {trip.plansForNonParticipants && (
               <DetailField label="Plans for Non-Participating Students" value={trip.plansForNonParticipants} xs={12} multiline />
             )}
-            {/* Chaperones — structured list */}
+            {/* Chaperones â€” structured list */}
             {Array.isArray(trip.chaperones) && (trip.chaperones as ChaperoneEntry[]).length > 0 && (
               <Grid size={12}>
                 <Typography variant="caption" color="text.secondary" display="block">Chaperones</Typography>
@@ -446,7 +446,7 @@ export function FieldTripDetailPage() {
       )}
 
       {/* Submitter info */}
-      <Paper sx={{ p: 3, mb: 3 }}>
+      <Paper sx={{ p: { xs: 1.5, sm: 3 }, mb: 3 }}>
         <Typography variant="h6" gutterBottom>Submission Info</Typography>
         <Divider sx={{ mb: 2 }} />
         <Grid container spacing={2}>
@@ -604,9 +604,9 @@ function DetailField({ label, value, xs = 6, multiline }: DetailFieldProps) {
       </Typography>
       <Typography
         variant="body1"
-        sx={multiline ? { whiteSpace: 'pre-wrap' } : undefined}
+        sx={{ wordBreak: 'break-word', overflowWrap: 'break-word', ...(multiline ? { whiteSpace: 'pre-wrap' } : {}) }}
       >
-        {value || <span style={{ color: '#9e9e9e' }}>—</span>}
+        {value || <span style={{ color: '#9e9e9e' }}>â€”</span>}
       </Typography>
     </Grid>
   );

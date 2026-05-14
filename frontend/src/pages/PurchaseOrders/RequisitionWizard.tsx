@@ -336,7 +336,7 @@ export default function RequisitionWizard() {
 
   // ── Render ──
   return (
-    <Box sx={{ p: 3, maxWidth: 900, mx: 'auto' }}>
+    <Box sx={{ p: { xs: 1, sm: 3 }, maxWidth: 900, mx: 'auto' }}>
       {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
         <PageBackButton to="/purchase-orders" />
@@ -365,7 +365,7 @@ export default function RequisitionWizard() {
 
       {/* ── Step 1: Details ── */}
       {activeStep === 0 && (
-        <Paper sx={{ p: 3 }}>
+        <Paper sx={{ p: { xs: 1.5, sm: 3 } }}>
           <Typography variant="h6" gutterBottom>Details</Typography>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
             <Autocomplete
@@ -410,7 +410,7 @@ export default function RequisitionWizard() {
                   {selectedVendor.address && (
                     <Box>
                       <Typography variant="caption" color="text.secondary">Address</Typography>
-                      <Typography variant="body2">{selectedVendor.address}</Typography>
+                      <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>{selectedVendor.address}</Typography>
                     </Box>
                   )}
                   {(selectedVendor.city || selectedVendor.state || selectedVendor.zip) && (
@@ -442,7 +442,7 @@ export default function RequisitionWizard() {
                   {selectedVendor.email && (
                     <Box>
                       <Typography variant="caption" color="text.secondary">Email</Typography>
-                      <Typography variant="body2">{selectedVendor.email}</Typography>
+                      <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>{selectedVendor.email}</Typography>
                     </Box>
                   )}
                 </Box>
@@ -613,7 +613,7 @@ export default function RequisitionWizard() {
 
       {/* ── Step 2: Line Items ── */}
       {activeStep === 1 && (
-        <Paper sx={{ p: 3 }}>
+        <Paper sx={{ p: { xs: 1.5, sm: 3 } }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
             <Typography variant="h6">Line Items</Typography>
             <Button startIcon={<AddIcon />} onClick={addItem} variant="outlined" size="small">
@@ -621,7 +621,84 @@ export default function RequisitionWizard() {
             </Button>
           </Box>
 
-          <TableContainer>
+          {/* Line items: card layout on mobile, table on desktop */}
+          {isMobile ? (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {fields.map((field, index) => (
+                <Box
+                  key={field.id}
+                  sx={{
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    borderRadius: 1,
+                    p: 1.5,
+                    position: 'relative',
+                  }}
+                >
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                    <Typography variant="caption" color="text.secondary">Item {index + 1}</Typography>
+                    <IconButton
+                      size="small"
+                      color="error"
+                      onClick={() => remove(index)}
+                      disabled={fields.length === 1}
+                    >
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
+                  </Box>
+                  <TextField
+                    size="small"
+                    label="Description *"
+                    {...register(`items.${index}.description`)}
+                    fullWidth
+                    sx={{ mb: 1.5 }}
+                    {...getFieldError(errors.items?.[index]?.description)}
+                    helperText={errors.items?.[index]?.description?.message ?? `${watchedItems[index]?.description?.length ?? 0}/500`}
+                    inputProps={{ maxLength: 500 }}
+                  />
+                  <TextField
+                    size="small"
+                    label="Item Number"
+                    {...register(`items.${index}.model`)}
+                    fullWidth
+                    sx={{ mb: 1.5 }}
+                    {...getFieldError(errors.items?.[index]?.model)}
+                    inputProps={{ maxLength: 200 }}
+                  />
+                  <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5 }}>
+                    <TextField
+                      size="small"
+                      label="Qty *"
+                      type="number"
+                      {...register(`items.${index}.quantity`, { valueAsNumber: true })}
+                      onFocus={(e) => e.target.select()}
+                      inputProps={{ min: 1, style: { textAlign: 'right' } }}
+                      fullWidth
+                      error={!!errors.items?.[index]?.quantity}
+                      helperText={errors.items?.[index]?.quantity?.message ?? ''}
+                    />
+                    <TextField
+                      size="small"
+                      label="Unit Price *"
+                      type="number"
+                      {...register(`items.${index}.unitPrice`, { valueAsNumber: true })}
+                      onFocus={(e) => e.target.select()}
+                      inputProps={{ min: 0, step: '0.01', style: { textAlign: 'right' } }}
+                      fullWidth
+                      error={!!errors.items?.[index]?.unitPrice}
+                      helperText={errors.items?.[index]?.unitPrice?.message ?? ''}
+                    />
+                  </Box>
+                  <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
+                    <Typography variant="body2" fontWeight={600}>
+                      Line Total: {formatCurrency((watchedItems[index]?.quantity ?? 0) * (watchedItems[index]?.unitPrice ?? 0))}
+                    </Typography>
+                  </Box>
+                </Box>
+              ))}
+            </Box>
+          ) : (
+          <TableContainer sx={{ overflowX: 'auto' }}>
             <Table size="small">
               <TableHead>
                 <TableRow>
@@ -697,10 +774,11 @@ export default function RequisitionWizard() {
               </TableBody>
             </Table>
           </TableContainer>
+          )}
 
           {/* Shipping cost + Running total */}
-          <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
-            <Box sx={{ minWidth: 240 }}>
+          <Box sx={{ mt: 2, display: 'flex', justifyContent: { xs: 'stretch', sm: 'flex-end' } }}>
+            <Box sx={{ minWidth: { xs: 'auto', sm: 240 }, width: { xs: '100%', sm: 'auto' } }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
                 <Typography variant="body2" color="text.secondary" sx={{ mr: 2 }}>Shipping Cost ($)</Typography>
                 <Controller
@@ -740,7 +818,7 @@ export default function RequisitionWizard() {
 
       {/* ── Step 3: Review ── */}
       {activeStep === 2 && (
-        <Paper sx={{ p: 3 }}>
+        <Paper sx={{ p: { xs: 1.5, sm: 3 } }}>
           <Typography variant="h6" gutterBottom>Review</Typography>
 
           <Box sx={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 2, mb: 3 }}>
@@ -791,7 +869,37 @@ export default function RequisitionWizard() {
           <Divider sx={{ mb: 2 }} />
 
           {/* Items summary */}
-          <TableContainer>
+          {isMobile ? (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+              {watchedItems.map((item, idx) => (
+                <Box
+                  key={idx}
+                  sx={{
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    borderRadius: 1,
+                    p: 1.5,
+                  }}
+                >
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                    <Typography variant="body2" fontWeight={600} sx={{ wordBreak: 'break-word', flex: 1, mr: 1 }}>
+                      {item.description}
+                    </Typography>
+                    <Typography variant="body2" fontWeight={600} sx={{ whiteSpace: 'nowrap' }}>
+                      {formatCurrency((item.quantity || 0) * (item.unitPrice || 0))}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, color: 'text.secondary' }}>
+                    <Typography variant="caption">#{idx + 1}</Typography>
+                    {item.model && <Typography variant="caption">Item: {item.model}</Typography>}
+                    <Typography variant="caption">Qty: {item.quantity}</Typography>
+                    <Typography variant="caption">@ {formatCurrency(item.unitPrice)}</Typography>
+                  </Box>
+                </Box>
+              ))}
+            </Box>
+          ) : (
+          <TableContainer sx={{ overflowX: 'auto' }}>
             <Table size="small">
               <TableHead>
                 <TableRow>
@@ -817,10 +925,11 @@ export default function RequisitionWizard() {
               </TableBody>
             </Table>
           </TableContainer>
+          )}
 
           {/* Financial summary */}
-          <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
-            <Box sx={{ minWidth: 280 }}>
+          <Box sx={{ mt: 2, display: 'flex', justifyContent: { xs: 'stretch', sm: 'flex-end' } }}>
+            <Box sx={{ minWidth: { xs: 'auto', sm: 280 }, width: { xs: '100%', sm: 'auto' } }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
                 <Typography color="text.secondary">Subtotal</Typography>
                 <Typography>{formatCurrency(subtotal)}</Typography>

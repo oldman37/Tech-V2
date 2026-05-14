@@ -230,7 +230,7 @@ const LocationCard: React.FC<LocationCardProps> = ({ location, onEdit, onDelete 
         <div className="flex" style={{ alignItems: 'center', gap: '0.75rem' }}>
           <span style={{ fontSize: '2rem' }}>{icon}</span>
           <div>
-            <h3 style={{ fontSize: '1.125rem', fontWeight: 600, margin: 0, color: 'var(--slate-900)' }}>
+            <h3 style={{ fontSize: '1.125rem', fontWeight: 600, margin: 0, color: 'var(--slate-900)', wordBreak: 'break-word' }}>
               {location.name}
             </h3>
             <div className="flex" style={{ alignItems: 'center', gap: '0.5rem', marginTop: '0.25rem' }}>
@@ -267,7 +267,7 @@ const LocationCard: React.FC<LocationCardProps> = ({ location, onEdit, onDelete 
       </div>
 
       {(location.address || location.city || location.phone) && (
-        <div style={{ marginBottom: '1rem', fontSize: '0.875rem', color: 'var(--slate-600)' }}>
+        <div style={{ marginBottom: '1rem', fontSize: '0.875rem', color: 'var(--slate-600)', wordBreak: 'break-word' }}>
           {(location.address || location.city) && (
             <div style={{ display: 'flex', gap: '0.25rem' }}>
               <span>📍</span>

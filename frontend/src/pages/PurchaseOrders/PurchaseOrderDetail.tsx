@@ -343,7 +343,7 @@ export default function PurchaseOrderDetail() {
 
   // ── Render ──
   return (
-    <Box sx={{ p: { xs: 2, sm: 3 } }}>
+    <Box sx={{ p: { xs: 1, sm: 3 } }}>
       {/* ── Back Button ── */}
       <PageBackButton to="/purchase-orders" />
 
@@ -364,16 +364,16 @@ export default function PurchaseOrderDetail() {
       )}
 
       {/* ── Two-column layout ── */}
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '2fr 1fr' }, gap: 3, alignItems: 'start' }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '2fr 1fr' }, gap: { xs: 2, md: 3 }, alignItems: 'start' }}>
 
         {/* ── Left column: main content ── */}
-        <Box>
+        <Box sx={{ minWidth: 0 }}>
 
           {/* PO Header */}
-          <Paper sx={{ p: { xs: 2, sm: 3 }, mb: 2 }}>
+          <Paper sx={{ p: { xs: 1.5, sm: 3 }, mb: 2 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 1, mb: 2 }}>
               <Box>
-                <Typography variant="h5" fontWeight={700} gutterBottom>
+                <Typography variant="h5" fontWeight={700} gutterBottom sx={{ wordBreak: 'break-word' }}>
                   {po.description}
                 </Typography>
                 {po.poNumber && (
@@ -391,17 +391,17 @@ export default function PurchaseOrderDetail() {
 
             <Divider sx={{ my: 2 }} />
 
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(auto-fill, minmax(160px, 1fr))' }, gap: 2 }}>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(auto-fill, minmax(160px, 1fr))' }, gap: { xs: 1.5, sm: 2 } }}>
               <Box>
                 <Typography variant="caption" color="text.secondary">Requested By</Typography>
                 <Typography variant="body2">{po.User.firstName} {po.User.lastName}</Typography>
-                <Typography variant="caption" color="text.secondary">{po.User.email}</Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ wordBreak: 'break-word' }}>{po.User.email}</Typography>
               </Box>
               <Box>
                 <Typography variant="caption" color="text.secondary">Vendor</Typography>
                 <Typography variant="body2">{po.vendors?.name ?? '—'}</Typography>
                 {po.vendors?.address && (
-                  <Typography variant="caption" color="text.secondary" display="block">
+                  <Typography variant="caption" color="text.secondary" display="block" sx={{ wordBreak: 'break-word' }}>
                     {po.vendors.address}
                     {po.vendors.city ? `, ${po.vendors.city}` : ''}
                     {po.vendors.state ? `, ${po.vendors.state}` : ''}
@@ -421,7 +421,7 @@ export default function PurchaseOrderDetail() {
               </Box>
               <Box>
                 <Typography variant="caption" color="text.secondary">Ship To</Typography>
-                <Typography variant="body2">{po.shipTo ?? '—'}</Typography>
+                <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>{po.shipTo ?? '—'}</Typography>
                 {po.shipToType && po.shipToType !== 'custom' && (
                   <Chip
                     size="small"
@@ -468,7 +468,7 @@ export default function PurchaseOrderDetail() {
               <>
                 <Divider sx={{ my: 2 }} />
                 <Typography variant="caption" color="text.secondary">Notes</Typography>
-                <Typography variant="body2" whiteSpace="pre-line">{po.notes}</Typography>
+                <Typography variant="body2" whiteSpace="pre-line" sx={{ wordBreak: 'break-word' }}>{po.notes}</Typography>
               </>
             )}
 
@@ -477,41 +477,75 @@ export default function PurchaseOrderDetail() {
                 <Divider sx={{ my: 2 }} />
                 <Alert severity="error" sx={{ mt: 1 }}>
                   <Typography variant="subtitle2">Denial Reason</Typography>
-                  <Typography variant="body2">{po.denialReason}</Typography>
+                  <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>{po.denialReason}</Typography>
                 </Alert>
               </>
             )}
           </Paper>
 
           {/* Line Items Table */}
-          <Paper sx={{ p: 3, mb: 2 }}>
+          <Paper sx={{ p: { xs: 1.5, sm: 3 }, mb: 2 }}>
             <Typography variant="h6" gutterBottom>Line Items</Typography>
-            <TableContainer>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>#</TableCell>
-                    <TableCell>Description</TableCell>
-                    <TableCell>Item Number</TableCell>
-                    <TableCell align="right">Qty</TableCell>
-                    <TableCell align="right">Unit Price</TableCell>
-                    <TableCell align="right">Total</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {po.po_items.map((item, idx) => (
-                    <TableRow key={item.id}>
-                      <TableCell>{item.lineNumber ?? idx + 1}</TableCell>
-                      <TableCell>{item.description}</TableCell>
-                      <TableCell>{item.model ?? '—'}</TableCell>
-                      <TableCell align="right">{item.quantity}</TableCell>
-                      <TableCell align="right">{formatCurrency(item.unitPrice)}</TableCell>
-                      <TableCell align="right">{formatCurrency(item.totalPrice)}</TableCell>
+
+            {/* Mobile: card layout */}
+            {isMobile ? (
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                {po.po_items.map((item, idx) => (
+                  <Box
+                    key={item.id}
+                    sx={{
+                      border: '1px solid',
+                      borderColor: 'divider',
+                      borderRadius: 1,
+                      p: 1.5,
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                      <Typography variant="body2" fontWeight={600} sx={{ wordBreak: 'break-word', flex: 1, mr: 1 }}>
+                        {item.description}
+                      </Typography>
+                      <Typography variant="body2" fontWeight={600} sx={{ whiteSpace: 'nowrap' }}>
+                        {formatCurrency(item.totalPrice)}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, color: 'text.secondary' }}>
+                      <Typography variant="caption">#{item.lineNumber ?? idx + 1}</Typography>
+                      {item.model && <Typography variant="caption">Item: {item.model}</Typography>}
+                      <Typography variant="caption">Qty: {item.quantity}</Typography>
+                      <Typography variant="caption">@ {formatCurrency(item.unitPrice)}</Typography>
+                    </Box>
+                  </Box>
+                ))}
+              </Box>
+            ) : (
+              /* Desktop: standard table */
+              <TableContainer sx={{ overflowX: 'auto' }}>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>#</TableCell>
+                      <TableCell>Description</TableCell>
+                      <TableCell>Item Number</TableCell>
+                      <TableCell align="right">Qty</TableCell>
+                      <TableCell align="right">Unit Price</TableCell>
+                      <TableCell align="right">Total</TableCell>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
+                  </TableHead>
+                  <TableBody>
+                    {po.po_items.map((item, idx) => (
+                      <TableRow key={item.id}>
+                        <TableCell>{item.lineNumber ?? idx + 1}</TableCell>
+                        <TableCell>{item.description}</TableCell>
+                        <TableCell>{item.model ?? '—'}</TableCell>
+                        <TableCell align="right">{item.quantity}</TableCell>
+                        <TableCell align="right">{formatCurrency(item.unitPrice)}</TableCell>
+                        <TableCell align="right">{formatCurrency(item.totalPrice)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
 
             {/* Financial Summary */}
             <Box sx={{ mt: 2, display: 'flex', justifyContent: { xs: 'stretch', sm: 'flex-end' } }}>
@@ -543,7 +577,7 @@ export default function PurchaseOrderDetail() {
           </Paper>
 
           {/* Status Timeline */}
-          <Paper sx={{ p: 3 }}>
+          <Paper sx={{ p: { xs: 1.5, sm: 3 } }}>
             <Typography variant="h6" gutterBottom>Status Timeline</Typography>
 
             {isDenied ? (
@@ -602,7 +636,7 @@ export default function PurchaseOrderDetail() {
         </Box>
 
         {/* ── Right column: actions ── */}
-        <Box>
+        <Box sx={{ minWidth: 0 }}>
           <Paper sx={{ p: 2, position: { xs: 'static', md: 'sticky' }, top: 80 }}>
             <Typography variant="h6" gutterBottom>Actions</Typography>
 

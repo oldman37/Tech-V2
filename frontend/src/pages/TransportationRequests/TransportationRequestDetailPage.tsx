@@ -1,4 +1,4 @@
-/**
+﻿/**
  * TransportationRequestDetailPage
  *
  * Displays all fields of a single transportation request.
@@ -42,20 +42,20 @@ function DetailRow({ label, value }: { label: string; value: string | number | n
   return (
     <Grid size={{ xs: 12, sm: 6 }}>
       <Typography variant="caption" color="text.secondary">{label}</Typography>
-      <Typography variant="body1">{value ?? '—'}</Typography>
+      <Typography variant="body1" sx={{ wordBreak: 'break-word' }}>{value ?? 'â€”'}</Typography>
     </Grid>
   );
 }
 
 function formatDate(dt: string | null | undefined): string {
-  if (!dt) return '—';
+  if (!dt) return 'â€”';
   return new Date(dt).toLocaleDateString('en-US', {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
   });
 }
 
 function formatDateTime(dt: string | null | undefined): string {
-  if (!dt) return '—';
+  if (!dt) return 'â€”';
   return new Date(dt).toLocaleString('en-US', {
     month: 'short', day: 'numeric', year: 'numeric',
     hour: 'numeric', minute: '2-digit',
@@ -133,16 +133,16 @@ export function TransportationRequestDetailPage() {
 
   const status = request.status as TransportationRequestStatus;
 
-  // Determine permissions — use server-computed flag set at login
+  // Determine permissions â€” use server-computed flag set at login
   const isSecretary = user?.roles?.includes('ADMIN') || user?.permLevels?.isTransportationSecretary === true;
   const isOwner = request.submittedById === user?.id;
 
   const submitterName = request.submittedBy
     ? (request.submittedBy.displayName ?? `${request.submittedBy.firstName} ${request.submittedBy.lastName}`)
-    : '—';
+    : 'â€”';
 
   return (
-    <Box sx={{ p: { xs: 2, sm: 3 }, maxWidth: 960, mx: 'auto' }}>
+    <Box sx={{ p: { xs: 1, sm: 3 }, maxWidth: 960, mx: 'auto' }}>
       {/* Nav */}
       <PageBackButton
         to="/transportation-requests"
@@ -160,7 +160,7 @@ export function TransportationRequestDetailPage() {
       </Box>
 
       {/* Trip Information */}
-      <Paper sx={{ p: 3, mb: 3 }}>
+      <Paper sx={{ p: { xs: 1.5, sm: 3 }, mb: 3 }}>
         <Typography variant="h6" sx={{ mb: 2 }}>Trip Information</Typography>
         <Divider sx={{ mb: 2 }} />
         <Grid container spacing={2}>
@@ -182,7 +182,7 @@ export function TransportationRequestDetailPage() {
       </Paper>
 
       {/* Logistics */}
-      <Paper sx={{ p: 3, mb: 3 }}>
+      <Paper sx={{ p: { xs: 1.5, sm: 3 }, mb: 3 }}>
         <Typography variant="h6" sx={{ mb: 2 }}>Logistics & Times</Typography>
         <Divider sx={{ mb: 2 }} />
         <Grid container spacing={2}>
@@ -196,7 +196,7 @@ export function TransportationRequestDetailPage() {
       </Paper>
 
       {/* Destinations */}
-      <Paper sx={{ p: 3, mb: 3 }}>
+      <Paper sx={{ p: { xs: 1.5, sm: 3 }, mb: 3 }}>
         <Typography variant="h6" sx={{ mb: 2 }}>Destinations</Typography>
         <Divider sx={{ mb: 2 }} />
         <Grid container spacing={2}>
@@ -218,45 +218,45 @@ export function TransportationRequestDetailPage() {
 
       {/* Notes */}
       {request.tripItinerary && (
-        <Paper sx={{ p: 3, mb: 3 }}>
+        <Paper sx={{ p: { xs: 1.5, sm: 3 }, mb: 3 }}>
           <Typography variant="h6" sx={{ mb: 2 }}>Additional Notes / Itinerary</Typography>
           <Divider sx={{ mb: 2 }} />
-          <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>{request.tripItinerary}</Typography>
+          <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{request.tripItinerary}</Typography>
         </Paper>
       )}
 
       {/* Outcome (if decided) */}
       {status === 'APPROVED' && (
-        <Paper sx={{ p: 3, mb: 3, borderLeft: 4, borderColor: 'success.main' }}>
+        <Paper sx={{ p: { xs: 1.5, sm: 3 }, mb: 3, borderLeft: 4, borderColor: 'success.main' }}>
           <Typography variant="h6" color="success.main" sx={{ mb: 1 }}>Approved</Typography>
           <Typography variant="body2" color="text.secondary">
             Approved by{' '}
             {request.approvedBy
               ? (request.approvedBy.displayName ?? `${request.approvedBy.firstName} ${request.approvedBy.lastName}`)
-              : '—'}{' '}
+              : 'â€”'}{' '}
             on {formatDateTime(request.approvedAt)}
           </Typography>
           {request.approvalComments && (
             <Box sx={{ mt: 1, p: 2, bgcolor: 'success.50', borderRadius: 1 }}>
-              <Typography variant="body2"><strong>Notes:</strong> {request.approvalComments}</Typography>
+              <Typography variant="body2" sx={{ wordBreak: 'break-word' }}><strong>Notes:</strong> {request.approvalComments}</Typography>
             </Box>
           )}
         </Paper>
       )}
 
       {status === 'DENIED' && (
-        <Paper sx={{ p: 3, mb: 3, borderLeft: 4, borderColor: 'error.main' }}>
+        <Paper sx={{ p: { xs: 1.5, sm: 3 }, mb: 3, borderLeft: 4, borderColor: 'error.main' }}>
           <Typography variant="h6" color="error.main" sx={{ mb: 1 }}>Denied</Typography>
           <Typography variant="body2" color="text.secondary">
             Denied by{' '}
             {request.deniedBy
               ? (request.deniedBy.displayName ?? `${request.deniedBy.firstName} ${request.deniedBy.lastName}`)
-              : '—'}{' '}
+              : 'â€”'}{' '}
             on {formatDateTime(request.deniedAt)}
           </Typography>
           {request.denialReason && (
             <Box sx={{ mt: 1, p: 2, bgcolor: 'error.50', borderRadius: 1 }}>
-              <Typography variant="body2"><strong>Reason:</strong> {request.denialReason}</Typography>
+              <Typography variant="body2" sx={{ wordBreak: 'break-word' }}><strong>Reason:</strong> {request.denialReason}</Typography>
             </Box>
           )}
         </Paper>

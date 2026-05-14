@@ -221,7 +221,7 @@ function BrandsTab() {
           <tr key={b.id}>
             <td style={{ fontWeight: 500 }}>{b.name}</td>
             <td style={{ color: 'var(--slate-600)' }}>{b.description || <em style={{ opacity: 0.5 }}>—</em>}</td>
-            <td>{b.website ? <a href={b.website} target="_blank" rel="noreferrer" style={{ color: 'var(--primary-blue)' }}>{b.website}</a> : <em style={{ opacity: 0.5 }}>—</em>}</td>
+            <td>{b.website ? <a href={b.website} target="_blank" rel="noreferrer" style={{ color: 'var(--primary-blue)', wordBreak: 'break-all' }}>{b.website}</a> : <em style={{ opacity: 0.5 }}>—</em>}</td>
             <td><span className={`badge ${b.isActive ? 'badge-success' : 'badge-secondary'}`}>{b.isActive ? 'Active' : 'Inactive'}</span></td>
             <td style={{ textAlign: 'right' }}>
               <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
@@ -341,13 +341,13 @@ function VendorsTab() {
         {items.map((v) => (
           <tr key={v.id}>
             <td style={{ fontWeight: 500 }}>{v.name}</td>
-            <td style={{ whiteSpace: 'nowrap' }}>
+            <td style={{ wordBreak: 'break-word' }}>
               {[v.city, v.state, v.zip].filter(Boolean).length > 0
                 ? [v.city, v.state && v.zip ? `${v.state} ${v.zip}` : (v.state ?? v.zip)].filter(Boolean).join(', ')
                 : <em style={{ opacity: 0.5 }}>—</em>}
             </td>
             <td>{v.contactName || <em style={{ opacity: 0.5 }}>—</em>}</td>
-            <td>{v.email ? <a href={`mailto:${v.email}`} style={{ color: 'var(--primary-blue)' }}>{v.email}</a> : <em style={{ opacity: 0.5 }}>—</em>}</td>
+            <td>{v.email ? <a href={`mailto:${v.email}`} style={{ color: 'var(--primary-blue)', wordBreak: 'break-all' }}>{v.email}</a> : <em style={{ opacity: 0.5 }}>—</em>}</td>
             <td>{v.phone || <em style={{ opacity: 0.5 }}>—</em>}</td>
             <td style={{ textAlign: 'right' }}>
               <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>

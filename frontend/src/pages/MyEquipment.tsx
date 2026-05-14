@@ -180,9 +180,9 @@ export const MyEquipment = () => {
                         </Typography>
                       </TableCell>
                       <TableCell>
-                        <Typography variant="body2">{item.name}</Typography>
+                        <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>{item.name}</Typography>
                         {item.serialNumber && (
-                          <Typography variant="caption" color="text.secondary">
+                          <Typography variant="caption" color="text.secondary" sx={{ wordBreak: 'break-all' }}>
                             S/N: {item.serialNumber}
                           </Typography>
                         )}
@@ -193,12 +193,12 @@ export const MyEquipment = () => {
                         </Typography>
                       </TableCell>
                       <TableCell>
-                        <Typography variant="body2">
+                        <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
                           {item.officeLocation?.name || 'N/A'}
                         </Typography>
                       </TableCell>
                       <TableCell>
-                        <Typography variant="body2">
+                        <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
                           {item.room?.name || 'N/A'}
                         </Typography>
                       </TableCell>

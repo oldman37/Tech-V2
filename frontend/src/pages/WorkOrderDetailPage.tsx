@@ -121,7 +121,7 @@ function CommentCard({ comment }: { comment: WorkOrderComment }) {
             {formatDate(comment.createdAt)}
           </Typography>
         </Box>
-        <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+        <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
           {comment.body}
         </Typography>
       </Box>
@@ -252,7 +252,7 @@ export default function WorkOrderDetailPage() {
   }
 
   return (
-    <Box sx={{ p: { xs: 2, sm: 3 } }}>
+    <Box sx={{ p: { xs: 1, sm: 3 } }}>
       {/* Back Button */}
       <PageBackButton to="/work-orders" />
 
@@ -321,15 +321,15 @@ export default function WorkOrderDetailPage() {
       )}
 
       {/* Two-column layout */}
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '2fr 1fr' }, gap: 3, alignItems: 'start' }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '2fr 1fr' }, gap: { xs: 2, md: 3 }, alignItems: 'start' }}>
         {/* ── Left: description + comments ─────────────────────────────── */}
-        <Box>
+        <Box sx={{ minWidth: 0 }}>
           {/* Description */}
           <Paper variant="outlined" sx={{ p: 2.5, mb: 3 }}>
             <Typography variant="subtitle1" fontWeight={600} gutterBottom>
               Description
             </Typography>
-            <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+            <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
               {workOrder.description}
             </Typography>
           </Paper>
@@ -399,7 +399,7 @@ export default function WorkOrderDetailPage() {
         </Box>
 
         {/* ── Right: work order details sidebar ─────────────────────────────── */}
-        <Box>
+        <Box sx={{ minWidth: 0 }}>
           <Card variant="outlined">
             <CardContent>
               <Typography variant="subtitle1" fontWeight={600} gutterBottom>
@@ -412,7 +412,7 @@ export default function WorkOrderDetailPage() {
                   <Typography variant="caption" color="text.secondary" display="block">
                     Reported By
                   </Typography>
-                  <Typography variant="body2">
+                  <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
                     {workOrder.reportedBy.displayName ?? workOrder.reportedBy.email}
                   </Typography>
                 </Box>
@@ -421,7 +421,7 @@ export default function WorkOrderDetailPage() {
                   <Typography variant="caption" color="text.secondary" display="block">
                     Assigned To
                   </Typography>
-                  <Typography variant="body2">
+                  <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
                     {workOrder.assignedTo?.displayName ?? workOrder.assignedTo?.email ?? '—'}
                   </Typography>
                 </Box>
@@ -430,7 +430,7 @@ export default function WorkOrderDetailPage() {
                   <Typography variant="caption" color="text.secondary" display="block">
                     Location
                   </Typography>
-                  <Typography variant="body2">
+                  <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
                     {workOrder.officeLocation?.name ?? '—'}
                   </Typography>
                 </Box>
@@ -439,7 +439,7 @@ export default function WorkOrderDetailPage() {
                   <Typography variant="caption" color="text.secondary" display="block">
                     Room
                   </Typography>
-                  <Typography variant="body2">
+                  <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
                     {workOrder.room?.name ?? '—'}
                   </Typography>
                 </Box>

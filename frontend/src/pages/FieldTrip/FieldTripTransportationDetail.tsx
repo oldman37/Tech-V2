@@ -77,7 +77,7 @@ export function FieldTripTransportationDetail() {
 
   if (transportError || transport === null) {
     return (
-      <Box sx={{ p: 3, maxWidth: 900, mx: 'auto' }}>
+      <Box sx={{ p: { xs: 1.5, sm: 3 }, maxWidth: 900, mx: 'auto' }}>
         <PageBackButton sx={{ mb: 2 }} />
         <Alert severity="info">
           No transportation request has been submitted for this field trip yet.
@@ -91,7 +91,7 @@ export function FieldTripTransportationDetail() {
   }
 
   return (
-    <Box sx={{ p: 3, maxWidth: 900, mx: 'auto' }}>
+    <Box sx={{ p: { xs: 1.5, sm: 3 }, maxWidth: 900, mx: 'auto' }}>
       {/* Header */}
       <Box sx={{ mb: 3 }}>
         <PageBackButton />

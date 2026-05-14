@@ -66,6 +66,7 @@ const EquipmentDetailDrawer = ({ item, open, onClose }: EquipmentDetailDrawerPro
           top: 0,
           height: '100vh',
           width: '480px',
+          maxWidth: '100vw',
           background: 'white',
           zIndex: 1001,
           overflowY: 'auto',
@@ -147,7 +148,7 @@ const EquipmentDetailDrawer = ({ item, open, onClose }: EquipmentDetailDrawerPro
               {item.description && (
                 <div style={{ gridColumn: '1 / -1' }}>
                   <p className="form-label" style={{ marginBottom: '0.125rem' }}>Description</p>
-                  <p style={{ color: 'var(--slate-600)' }}>{item.description}</p>
+                  <p style={{ color: 'var(--slate-600)', wordBreak: 'break-word' }}>{item.description}</p>
                 </div>
               )}
               {item.condition && (
@@ -190,7 +191,7 @@ const EquipmentDetailDrawer = ({ item, open, onClose }: EquipmentDetailDrawerPro
               </div>
               <div>
                 <p className="form-label" style={{ marginBottom: '0.125rem' }}>Serial #</p>
-                <p style={{ fontFamily: 'monospace' }}>{item.serialNumber || '—'}</p>
+                <p style={{ fontFamily: 'monospace', wordBreak: 'break-all' }}>{item.serialNumber || '—'}</p>
               </div>
             </div>
           </div>

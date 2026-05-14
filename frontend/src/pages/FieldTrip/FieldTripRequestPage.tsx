@@ -591,7 +591,7 @@ export function FieldTripRequestPage() {
   // ---------------------------------------------------------------------------
 
   return (
-    <Box sx={{ p: 3, maxWidth: 900, mx: 'auto' }}>
+    <Box sx={{ p: { xs: 1.5, sm: 3 }, maxWidth: 900, mx: 'auto' }}>
       {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
         <PageBackButton to="/field-trips" sx={{ mr: 1 }} />
@@ -623,7 +623,7 @@ export function FieldTripRequestPage() {
         ))}
       </Stepper>
 
-      <Paper sx={{ p: 3 }}>
+      <Paper sx={{ p: { xs: 1.5, sm: 3 } }}>
 
         {/* ===== Step 0: Trip Information ===== */}
         {activeStep === 0 && (

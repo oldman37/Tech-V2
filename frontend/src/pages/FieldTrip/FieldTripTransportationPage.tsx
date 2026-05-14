@@ -101,7 +101,7 @@ export function FieldTripTransportationPage() {
 
   if (!trip.transportationNeeded) {
     return (
-      <Box sx={{ p: 3, maxWidth: 900, mx: 'auto' }}>
+      <Box sx={{ p: { xs: 1.5, sm: 3 }, maxWidth: 900, mx: 'auto' }}>
         <PageBackButton to={`/field-trips/${id}`} label="Back to Field Trip" sx={{ mb: 2 }} />
         <Alert severity="info">
           This field trip does not require transportation. No Step 2 form is needed.
@@ -122,7 +122,7 @@ export function FieldTripTransportationPage() {
     : undefined;
 
   return (
-    <Box sx={{ p: 3, maxWidth: 900, mx: 'auto' }}>
+    <Box sx={{ p: { xs: 1.5, sm: 3 }, maxWidth: 900, mx: 'auto' }}>
       {/* Header */}
       <Box sx={{ mb: 3 }}>
         <PageBackButton to={`/field-trips/${id}`} label="Back to Field Trip" />

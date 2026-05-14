@@ -184,7 +184,7 @@ const Users: React.FC = () => {
           <div style={{ fontWeight: 500 }}>
             {user.displayName || `${user.firstName} ${user.lastName}`}
           </div>
-          <div style={{ fontSize: '0.875rem', color: 'var(--slate-500)' }}>{user.email}</div>
+          <div style={{ fontSize: '0.875rem', color: 'var(--slate-500)', wordBreak: 'break-word' }}>{user.email}</div>
         </div>
       ),
     },
@@ -200,7 +200,7 @@ const Users: React.FC = () => {
       label: 'Job Title / Location',
       hideOnMobile: true,
       render: (user) => (
-        <div>
+        <div style={{ wordBreak: 'break-word' }}>
           <div>{user.jobTitle || '-'}</div>
           <div style={{ fontSize: '0.875rem', color: 'var(--slate-500)' }}>
             {user.officeLocation || user.department || '-'}
@@ -214,7 +214,7 @@ const Users: React.FC = () => {
       hideOnMobile: true,
       render: (user) =>
         user.assignedRooms && user.assignedRooms.length > 0
-          ? user.assignedRooms.map((r) => r.name).join(', ')
+          ? <span style={{ wordBreak: 'break-word' }}>{user.assignedRooms.map((r) => r.name).join(', ')}</span>
           : (user.primaryRoom?.name ?? '—'),
     },
     {
