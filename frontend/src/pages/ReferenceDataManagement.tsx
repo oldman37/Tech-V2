@@ -79,13 +79,16 @@ interface CrudTableProps {
   children: React.ReactNode; // the <table> row content
   headers: string[];
   empty: boolean;
+  /** Mobile card view — rendered instead of table on small screens */
+  mobileContent?: React.ReactNode;
 }
 
 function CrudTableShell({
   title, description, loading, error, searchValue, onSearchChange,
   showInactive, onShowInactiveChange, onAddClick, addLabel = '+ Add',
-  children, headers, empty,
+  children, headers, empty, mobileContent,
 }: CrudTableProps) {
+  const isMobile = useIsMobile();
   return (
     <>
       <div className="page-header">
@@ -120,6 +123,10 @@ function CrudTableShell({
         ) : empty ? (
           <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--slate-500)' }}>
             No records found. <button onClick={onAddClick} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--primary-blue)', textDecoration: 'underline' }}>Add one now.</button>
+          </div>
+        ) : isMobile && mobileContent ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', padding: '0.75rem' }}>
+            {mobileContent}
           </div>
         ) : (
           <div style={{ overflowX: 'auto' }}>
@@ -216,6 +223,24 @@ function BrandsTab() {
         onAddClick={openCreate} addLabel="+ Add Brand"
         headers={['Name', 'Description', 'Website', 'Status', 'Actions']}
         empty={items.length === 0}
+        mobileContent={items.map((b) => (
+          <div key={b.id} style={{ border: '1px solid var(--slate-200)', borderRadius: '0.5rem', padding: '0.75rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+              <span style={{ fontWeight: 600, wordBreak: 'break-word' }}>{b.name}</span>
+              <span className={`badge ${b.isActive ? 'badge-success' : 'badge-secondary'}`}>{b.isActive ? 'Active' : 'Inactive'}</span>
+            </div>
+            <div style={{ fontSize: '0.813rem', color: 'var(--slate-600)', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+              {b.description && <div>{b.description}</div>}
+              {b.website && <div><a href={b.website} target="_blank" rel="noreferrer" style={{ color: 'var(--primary-blue)', wordBreak: 'break-all' }}>{b.website}</a></div>}
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem' }}>
+              <button className="btn btn-sm btn-secondary" onClick={() => openEdit(b)}>Edit</button>
+              {b.isActive
+                ? <button className="btn btn-sm btn-danger" onClick={() => handleDeactivate(b)}>Deactivate</button>
+                : <button className="btn btn-sm btn-secondary" onClick={() => handleReactivate(b)}>Reactivate</button>}
+            </div>
+          </div>
+        ))}
       >
         {items.map((b) => (
           <tr key={b.id}>
@@ -337,6 +362,25 @@ function VendorsTab() {
         onAddClick={openCreate} addLabel="+ Add Vendor"
         headers={['Name', 'Location', 'Contact', 'Email', 'Phone', 'Actions']}
         empty={items.length === 0}
+        mobileContent={items.map((v) => (
+          <div key={v.id} style={{ border: '1px solid var(--slate-200)', borderRadius: '0.5rem', padding: '0.75rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+              <span style={{ fontWeight: 600, wordBreak: 'break-word' }}>{v.name}</span>
+            </div>
+            <div style={{ fontSize: '0.813rem', color: 'var(--slate-600)', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+              {[v.city, v.state, v.zip].filter(Boolean).length > 0 && (
+                <div><strong>Location:</strong> {[v.city, v.state && v.zip ? `${v.state} ${v.zip}` : (v.state ?? v.zip)].filter(Boolean).join(', ')}</div>
+              )}
+              {v.contactName && <div><strong>Contact:</strong> {v.contactName}</div>}
+              {v.email && <div><strong>Email:</strong> <a href={`mailto:${v.email}`} style={{ color: 'var(--primary-blue)', wordBreak: 'break-all' }}>{v.email}</a></div>}
+              {v.phone && <div><strong>Phone:</strong> {v.phone}</div>}
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem' }}>
+              <button className="btn btn-sm btn-secondary" onClick={() => openEdit(v)}>Edit</button>
+              <button className="btn btn-sm btn-danger" onClick={() => handleDelete(v)}>Delete</button>
+            </div>
+          </div>
+        ))}
       >
         {items.map((v) => (
           <tr key={v.id}>
@@ -457,6 +501,24 @@ function CategoriesTab() {
         onAddClick={openCreate} addLabel="+ Add Category"
         headers={['Name', 'Description', 'Parent', 'Actions']}
         empty={items.length === 0}
+        mobileContent={items.map((c) => {
+          const parent = items.find((p) => p.id === c.parentId);
+          return (
+            <div key={c.id} style={{ border: '1px solid var(--slate-200)', borderRadius: '0.5rem', padding: '0.75rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+                <span style={{ fontWeight: 600, wordBreak: 'break-word' }}>{c.parentId ? '↳ ' : ''}{c.name}</span>
+              </div>
+              <div style={{ fontSize: '0.813rem', color: 'var(--slate-600)', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                {c.description && <div><strong>Description:</strong> {c.description}</div>}
+                {parent && <div><strong>Parent:</strong> {parent.name}</div>}
+              </div>
+              <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem' }}>
+                <button className="btn btn-sm btn-secondary" onClick={() => openEdit(c)}>Edit</button>
+                <button className="btn btn-sm btn-danger" onClick={() => handleDelete(c)}>Delete</button>
+              </div>
+            </div>
+          );
+        })}
       >
         {items.map((c) => {
           const parent = items.find((p) => p.id === c.parentId);
@@ -588,6 +650,24 @@ function ModelsTab() {
         onAddClick={openCreate} addLabel="+ Add Model"
         headers={['Name', 'Brand', 'Model Number', 'Status', 'Actions']}
         empty={items.length === 0}
+        mobileContent={items.map((m) => (
+          <div key={m.id} style={{ border: '1px solid var(--slate-200)', borderRadius: '0.5rem', padding: '0.75rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+              <span style={{ fontWeight: 600, wordBreak: 'break-word' }}>{m.name}</span>
+              <span className={`badge ${m.isActive ? 'badge-success' : 'badge-secondary'}`}>{m.isActive ? 'Active' : 'Inactive'}</span>
+            </div>
+            <div style={{ fontSize: '0.813rem', color: 'var(--slate-600)', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+              <div><strong>Brand:</strong> {m.brands?.name || '—'}</div>
+              {m.modelNumber && <div><strong>Model #:</strong> {m.modelNumber}</div>}
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem' }}>
+              <button className="btn btn-sm btn-secondary" onClick={() => openEdit(m)}>Edit</button>
+              {m.isActive
+                ? <button className="btn btn-sm btn-danger" onClick={() => handleDeactivate(m)}>Deactivate</button>
+                : <button className="btn btn-sm btn-secondary" onClick={() => handleReactivate(m)}>Reactivate</button>}
+            </div>
+          </div>
+        ))}
       >
         {items.map((m) => (
           <tr key={m.id}>
@@ -723,6 +803,27 @@ function FundingSourcesTab() {
         onAddClick={openCreate} addLabel="+ Add Funding Source"
         headers={['Name', 'Description', 'Status', 'Actions']}
         empty={fundingSources.length === 0}
+        mobileContent={fundingSources.map((fs) => (
+          <div key={fs.id} style={{ border: '1px solid var(--slate-200)', borderRadius: '0.5rem', padding: '0.75rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+              <span style={{ fontWeight: 600, wordBreak: 'break-word' }}>{fs.name}</span>
+              <span className={`badge ${fs.isActive ? 'badge-success' : 'badge-secondary'}`}>{fs.isActive ? 'Active' : 'Inactive'}</span>
+            </div>
+            <div style={{ fontSize: '0.813rem', color: 'var(--slate-600)', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+              {fs.description && <div>{fs.description}</div>}
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem' }}>
+              <button className="btn btn-sm btn-secondary" onClick={() => openEdit(fs)}>Edit</button>
+              {fs.isActive
+                ? <button className="btn btn-sm btn-danger" onClick={() => handleDeactivate(fs)}>Deactivate</button>
+                : <>
+                    <button className="btn btn-sm btn-secondary" onClick={() => handleReactivate(fs)}>Reactivate</button>
+                    <button className="btn btn-sm btn-danger" onClick={() => handleHardDelete(fs)}>Delete</button>
+                  </>
+              }
+            </div>
+          </div>
+        ))}
       >
         {fundingSources.map((fs) => (
           <tr key={fs.id}>
@@ -900,6 +1001,27 @@ function LocationsTab() {
         onAddClick={openCreate} addLabel="+ Add Location"
         headers={['Name', 'Code', 'Type', 'City / State', 'Phone', 'Status', 'Actions']}
         empty={items.length === 0}
+        mobileContent={items.map((loc) => (
+          <div key={loc.id} style={{ border: '1px solid var(--slate-200)', borderRadius: '0.5rem', padding: '0.75rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+              <span style={{ fontWeight: 600, wordBreak: 'break-word' }}>{loc.name}</span>
+              <span className={`badge ${loc.isActive ? 'badge-success' : 'badge-secondary'}`}>{loc.isActive ? 'Active' : 'Inactive'}</span>
+            </div>
+            <div style={{ fontSize: '0.813rem', color: 'var(--slate-600)', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+              {loc.code && <div><strong>Code:</strong> {loc.code}</div>}
+              <div><span className="badge badge-secondary">{LOCATION_TYPE_LABELS[loc.type as LocationType] ?? loc.type}</span></div>
+              {[loc.city, loc.state].filter(Boolean).length > 0 && <div><strong>City/State:</strong> {[loc.city, loc.state].filter(Boolean).join(', ')}</div>}
+              {loc.phone && <div><strong>Phone:</strong> {loc.phone}</div>}
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem' }}>
+              <button className="btn btn-sm btn-secondary" onClick={() => openEdit(loc)}>Edit</button>
+              {loc.isActive
+                ? <button className="btn btn-sm btn-danger" onClick={() => handleDeactivate(loc)}>Deactivate</button>
+                : <button className="btn btn-sm btn-secondary" onClick={() => handleReactivate(loc)}>Reactivate</button>
+              }
+            </div>
+          </div>
+        ))}
       >
         {items.map((loc) => (
           <tr key={loc.id}>
@@ -1095,6 +1217,38 @@ function RoomsTab() {
         addLabel="+ Add Room"
         headers={['Room', 'Location', 'Type', 'Building', 'Floor', 'Capacity', 'Status', 'Actions']}
         empty={rooms.length === 0}
+        mobileContent={rooms.map((room) => (
+          <div key={room.id} style={{ border: '1px solid var(--slate-200)', borderRadius: '0.5rem', padding: '0.75rem', opacity: !room.isActive ? 0.6 : 1 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+              <div>
+                <span style={{ fontWeight: 600, wordBreak: 'break-word' }}>{room.name}</span>
+                {room.notes && (
+                  <div style={{ fontSize: '0.75rem', color: 'var(--slate-500)', marginTop: '0.25rem' }}>{room.notes}</div>
+                )}
+              </div>
+              <span className={`badge ${room.isActive ? 'badge-success' : 'badge-secondary'}`}>{room.isActive ? 'Active' : 'Inactive'}</span>
+            </div>
+            <div style={{ fontSize: '0.813rem', color: 'var(--slate-600)', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+              <div><strong>Location:</strong> {room.location.name}</div>
+              <div><span className="badge badge-secondary">{getRoomTypeLabel(room.type)}</span></div>
+              {room.building && <div><strong>Building:</strong> {room.building}</div>}
+              {room.floor != null && <div><strong>Floor:</strong> {room.floor}</div>}
+              {room.capacity != null && <div><strong>Capacity:</strong> {room.capacity}</div>}
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem' }}>
+              <button className="btn btn-sm btn-secondary"
+                onClick={() => { setEditingRoom(room); setIsModalOpen(true); }}>Edit</button>
+              <button className="btn btn-sm btn-secondary"
+                onClick={() => handleToggleActive(room)}>
+                {room.isActive ? 'Deactivate' : 'Reactivate'}
+              </button>
+              {room.isActive && (
+                <button className="btn btn-sm btn-danger"
+                  onClick={() => handleDelete(room.id, room.name)}>Delete</button>
+              )}
+            </div>
+          </div>
+        ))}
       >
         {rooms.map((room) => (
           <tr key={room.id} style={{ opacity: !room.isActive ? 0.6 : 1 }}>

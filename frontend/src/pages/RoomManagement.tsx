@@ -7,10 +7,12 @@ import { OfficeLocation } from '../types/location.types';
 import RoomFormModal from '../components/RoomFormModal';
 import { PaginationControls } from '../components/PaginationControls';
 import { usePaginatedRooms } from '../hooks/queries/useRooms';
+import { useIsMobile } from '../hooks/useResponsive';
 
 export const RoomManagement = () => {
   // URL-based pagination and filter state
   const [searchParams, setSearchParams] = useSearchParams();
+  const isMobile = useIsMobile();
   
   // Extract pagination from URL (with defaults)
   const currentPage = parseInt(searchParams.get('page') || '1', 10);
@@ -399,6 +401,40 @@ export const RoomManagement = () => {
                         </span>
                       </div>
 
+                      {isMobile ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', padding: '0.75rem' }}>
+                          {locationRooms.map((room) => (
+                            <div key={room.id} style={{ border: '1px solid var(--slate-200)', borderRadius: '0.5rem', padding: '0.75rem', opacity: !room.isActive ? 0.6 : 1 }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+                                <div>
+                                  <span style={{ fontWeight: 600, wordBreak: 'break-word' }}>{room.name}</span>
+                                  {room.notes && (
+                                    <div style={{ fontSize: '0.75rem', color: 'var(--slate-500)', marginTop: '0.25rem' }}>{room.notes}</div>
+                                  )}
+                                </div>
+                                <span className={`badge ${room.isActive ? 'badge-success' : 'badge-error'}`}>
+                                  {room.isActive ? 'Active' : 'Inactive'}
+                                </span>
+                              </div>
+                              <div style={{ fontSize: '0.813rem', color: 'var(--slate-600)', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                                <div><span className={`badge ${getRoomTypeBadgeClass(room.type)}`}>{getRoomTypeLabel(room.type)}</span></div>
+                                {room.building && <div><strong>Building:</strong> {room.building}</div>}
+                                {room.floor !== null && <div><strong>Floor:</strong> {room.floor}</div>}
+                                {room.capacity !== null && <div><strong>Capacity:</strong> {room.capacity}</div>}
+                              </div>
+                              <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem' }}>
+                                <button onClick={() => openEditModal(room)} className="btn btn-sm btn-secondary">Edit</button>
+                                <button onClick={() => handleToggleActive(room)} className="btn btn-sm btn-secondary">
+                                  {room.isActive ? 'Deactivate' : 'Activate'}
+                                </button>
+                                {room.isActive && (
+                                  <button onClick={() => handleDeleteRoom(room.id, room.name)} className="btn btn-sm btn-danger">Delete</button>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
                       <div style={{ overflowX: 'auto' }}>
                         <table className="table">
                           <thead>
@@ -471,6 +507,7 @@ export const RoomManagement = () => {
                           </tbody>
                         </table>
                       </div>
+                      )}
                     </div>
                   ))}
 

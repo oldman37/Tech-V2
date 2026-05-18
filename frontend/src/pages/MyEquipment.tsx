@@ -36,9 +36,11 @@ import { InventoryItem } from '../types/inventory.types';
 import { AssignmentCard } from '../components/inventory/AssignmentCard';
 import { AssignmentHistoryList } from '../components/inventory/AssignmentHistoryList';
 import { useAuthStore } from '../store/authStore';
+import { useIsMobile } from '../hooks/useResponsive';
 
 export const MyEquipment = () => {
   const { user } = useAuthStore();
+  const isMobile = useIsMobile();
   const [loading, setLoading] = useState(true);
   const [pageLoading, setPageLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -155,6 +157,39 @@ export const MyEquipment = () => {
           {/* Equipment Table */}
           {!loading && equipment.length > 0 && (
             <Box>
+              {isMobile ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  {equipment.map((item) => (
+                    <div key={item.id} style={{ border: '1px solid var(--slate-200)', borderRadius: '0.5rem', padding: '0.75rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+                        <div>
+                          <span style={{ fontWeight: 600, wordBreak: 'break-word' }}>{item.assetTag}</span>
+                          <div style={{ fontSize: '0.875rem', wordBreak: 'break-word' }}>{item.name}</div>
+                          {item.serialNumber && (
+                            <div style={{ fontSize: '0.75rem', color: 'var(--slate-500)' }}>S/N: {item.serialNumber}</div>
+                          )}
+                        </div>
+                        <Chip label={item.status} size="small" color={getStatusColor(item.status)} />
+                      </div>
+                      <div style={{ fontSize: '0.813rem', color: 'var(--slate-600)', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                        <div><strong>Category:</strong> {item.category?.name || 'N/A'}</div>
+                        <div><strong>Location:</strong> {item.officeLocation?.name || 'N/A'}{item.room?.name ? ` / ${item.room.name}` : ''}</div>
+                        {item.condition && <div><strong>Condition:</strong> {item.condition}</div>}
+                        <div><strong>Assignment:</strong> {item.assignmentSource === 'user' || item.assignedToUserId === user?.id ? 'Assigned' : `My Room${item.room?.name ? `: ${item.room.name}` : ''}`}</div>
+                        <div><strong>Assigned:</strong> {formatDate(item.updatedAt)}</div>
+                      </div>
+                      <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem' }}>
+                        <IconButton size="small" onClick={() => { setSelectedItem(item); setShowHistory(false); }}>
+                          <ViewIcon fontSize="small" />
+                        </IconButton>
+                        <IconButton size="small" onClick={() => { setSelectedItem(item); setShowHistory(true); }}>
+                          <InfoIcon fontSize="small" />
+                        </IconButton>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
               <TableContainer component={Paper}>
               <Table>
                 <TableHead>
@@ -270,6 +305,7 @@ export const MyEquipment = () => {
                 </TableBody>
               </Table>
             </TableContainer>
+              )}
             <TablePagination
               component="div"
               count={pagination?.total ?? 0}
