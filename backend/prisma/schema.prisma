@@ -480,6 +480,7 @@ model User {
   updatedAt                                                 DateTime              @updatedAt
   role                                                      String                @default("USER")
   officeLocation                                            String?
+  employeeId                                                String?
   locationSupervisors                                       LocationSupervisor[]
   maintenance_orders_maintenance_orders_assignedToIdTousers maintenance_orders[]  @relation("maintenance_orders_assignedToIdTousers")
   maintenance_orders_maintenance_orders_createdByIdTousers  maintenance_orders[]  @relation("maintenance_orders_createdByIdTousers")
@@ -516,6 +517,7 @@ model User {
   transportationRequestSupervisorApprovals                  TransportationRequest[]          @relation("TransportationRequestSupervisorApprover")
   transportationRequestSupervisorDenials                    TransportationRequest[]          @relation("TransportationRequestSupervisorDenier")
 
+  @@index([employeeId])
   @@map("users")
 }
 

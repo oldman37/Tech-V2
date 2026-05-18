@@ -40,6 +40,7 @@ export interface UserWithPermissions {
   department: string | null;
   jobTitle: string | null;
   officeLocation: string | null;
+  employeeId: string | null;
   role: string | null;
   isActive: boolean;
   lastSync: Date | null;
@@ -633,6 +634,7 @@ export class UserService {
       department: user.department,
       jobTitle: user.jobTitle,
       officeLocation: user.officeLocation,
+      employeeId: user.employeeId,
       role: user.role,
       isActive: user.isActive,
       lastSync: user.lastSync,

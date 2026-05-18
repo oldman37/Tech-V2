@@ -209,6 +209,12 @@ const Users: React.FC = () => {
       ),
     },
     {
+      key: 'employeeId',
+      label: 'Employee ID',
+      hideOnMobile: true,
+      render: (user) => user.employeeId || '—',
+    },
+    {
       key: 'primaryRoom',
       label: 'Room',
       hideOnMobile: true,

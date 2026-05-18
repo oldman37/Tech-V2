@@ -10,6 +10,7 @@ export interface User {
   department?: string;
   jobTitle?: string;
   officeLocation?: string;
+  employeeId?: string | null;
   role: string;
   isActive: boolean;
   lastSync?: string;

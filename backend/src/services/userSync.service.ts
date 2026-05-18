@@ -401,7 +401,7 @@ export class UserSyncService {
       // Fetch user from Graph API with multiple location-related fields
       const graphUser = await this.graphClient
         .api(`/users/${entraId}`)
-        .select('id,displayName,givenName,surname,mail,jobTitle,department,officeLocation,physicalDeliveryOfficeName,usageLocation,accountEnabled')
+        .select('id,displayName,givenName,surname,mail,jobTitle,department,officeLocation,physicalDeliveryOfficeName,usageLocation,accountEnabled,employeeId')
         .get();
 
       // Log location fields for debugging
@@ -455,6 +455,7 @@ export class UserSyncService {
           jobTitle: graphUser.jobTitle,
           department: graphUser.department,
           officeLocation,
+          employeeId: graphUser.employeeId ?? null,
           role, // With simplified 2-role system (ADMIN/USER), role always syncs from Entra groups.
           isActive: graphUser.accountEnabled ?? true,
           lastSync: new Date(),
@@ -468,6 +469,7 @@ export class UserSyncService {
           jobTitle: graphUser.jobTitle,
           department: graphUser.department,
           officeLocation,
+          employeeId: graphUser.employeeId ?? null,
           role,
           isActive: graphUser.accountEnabled ?? true,
           lastSync: new Date(),
