@@ -12,12 +12,16 @@ import { Client } from '@microsoft/microsoft-graph-client';
 import { loggers } from '../lib/logger';
 import { CronExpressionParser } from 'cron-parser';
 import cron from 'node-cron';
+import emailQueueAdminRoutes from './emailQueueAdmin.routes';
 
 const router = express.Router();
 
 // All routes require authentication and admin role
 router.use(authenticate);
 router.use(requireAdmin);
+
+// Mount email queue admin sub-router
+router.use('/email-queue', emailQueueAdminRoutes);
 
 // Helper to create Graph client from user's token
 async function createGraphClient() {

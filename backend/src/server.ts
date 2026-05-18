@@ -21,6 +21,7 @@ import fieldTripRoutes from './routes/fieldTrip.routes';
 import transportationRequestRoutes from './routes/transportationRequest.routes';
 import { cronJobsService } from './services/cronJobs.service';
 import { schedulerService } from './services/scheduler.service';
+import { startEmailQueueWorker, stopEmailQueueWorker } from './services/emailQueue.service';
 import { provideCsrfToken, getCsrfToken } from './middleware/csrf';
 import { logger, loggers } from './lib/logger';
 import { requestId, httpLogger } from './middleware/requestLogger';
@@ -181,6 +182,11 @@ app.listen(PORT, () => {
   schedulerService.start().catch((err) => {
     loggers.server.error('SchedulerService startup failed', { error: err });
   });
+
+  // Start email queue worker
+  startEmailQueueWorker().catch((err) => {
+    loggers.server.error('Email queue worker startup failed', { error: err });
+  });
 });
 
 // Graceful shutdown
@@ -188,6 +194,7 @@ process.on('SIGTERM', () => {
   loggers.server.info('SIGTERM signal received: closing HTTP server');
   cronJobsService.stop();
   schedulerService.stop();
+  stopEmailQueueWorker();
   process.exit(0);
 });
 
@@ -195,6 +202,7 @@ process.on('SIGINT', () => {
   loggers.server.info('SIGINT signal received: closing HTTP server');
   cronJobsService.stop();
   schedulerService.stop();
+  stopEmailQueueWorker();
   process.exit(0);
 });
 

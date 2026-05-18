@@ -64,6 +64,9 @@ export const queryKeys = {
     syncStatus: () => [...queryKeys.admin.all, 'syncStatus'] as const,
     jobStatus: () => [...queryKeys.admin.all, 'jobStatus'] as const,
     jobSchedules: () => [...queryKeys.admin.all, 'jobSchedules'] as const,
+    emailQueue: () => [...queryKeys.admin.all, 'emailQueue'] as const,
+    emailQueueList: (params?: Record<string, unknown>) => [...queryKeys.admin.emailQueue(), 'list', params] as const,
+    emailQueueStats: () => [...queryKeys.admin.emailQueue(), 'stats'] as const,
   },
 
   // Room queries

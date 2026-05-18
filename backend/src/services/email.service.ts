@@ -14,11 +14,11 @@
  *   SMTP_FROM     — From address (e.g., noreply@district.org)
  */
 
-import nodemailer from 'nodemailer';
 import { logger } from '../lib/logger';
 import { prisma } from '../lib/prisma';
 import { graphClient } from '../config/entraId';
 import { ExternalAPIError } from '../utils/errors';
+import { enqueueEmail } from './emailQueue.service';
 
 // ---------------------------------------------------------------------------
 // Security helpers
@@ -38,44 +38,29 @@ function escapeHtml(unsafe: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// Transporter (singleton, created once on module load)
-// ---------------------------------------------------------------------------
-
-const transporter = nodemailer.createTransport({
-  host:   process.env.SMTP_HOST,
-  port:   parseInt(process.env.SMTP_PORT ?? '587', 10),
-  secure: process.env.SMTP_SECURE === 'true',
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-});
-
-const FROM_ADDRESS = process.env.SMTP_FROM ?? 'noreply@district.org';
-
-// ---------------------------------------------------------------------------
-// Internal send helper
+// Internal send helper — now routes through the email queue
 // ---------------------------------------------------------------------------
 
 async function sendMail(options: {
   to:      string | string[];
   subject: string;
   html:    string;
+  context?: string;
+  relatedEntityId?: string;
 }): Promise<void> {
   const recipients = Array.isArray(options.to) ? options.to : [options.to];
   if (recipients.length === 0) return;
 
   try {
-    await transporter.sendMail({
-      from:    FROM_ADDRESS,
-      to:      recipients.join(', '),
+    await enqueueEmail({
+      to:      recipients,
       subject: options.subject,
       html:    options.html,
+      context: options.context,
+      relatedEntityId: options.relatedEntityId,
     });
-    const redacted = recipients.map((e) => e.replace(/^[^@]*/, '***')).join(', ');
-    logger.info('Email sent', { to: redacted, subject: options.subject });
   } catch (error) {
-    logger.error('Failed to send email', {
+    logger.error('Failed to enqueue email', {
       subject: options.subject,
       error: error instanceof Error ? error.message : String(error),
     });
@@ -215,6 +200,8 @@ export async function sendRequisitionSubmitted(
   await sendMail({
     to:      toEmail,
     subject: `Requisition Approval Required: ${po.description}`,
+    context: 'po_submitted',
+    relatedEntityId: po.id,
     html: `
       <h2 style="color:#1565C0;">New Purchase Requisition Awaiting Your Approval</h2>
       <p>A new purchase requisition has been submitted and requires your review.</p>
@@ -236,6 +223,8 @@ export async function sendRequisitionApproved(
   await sendMail({
     to:      toEmail,
     subject: `Requisition Approved (${stageName}): ${po.description}`,
+    context: 'po_approved',
+    relatedEntityId: po.id,
     html: `
       <h2 style="color:#2E7D32;">Your Purchase Requisition Has Been Approved</h2>
       <p>Your requisition has advanced to the next stage: <strong>${escapeHtml(stageName)}</strong>.</p>
@@ -257,6 +246,8 @@ export async function sendApprovalActionRequired(
   await sendMail({
     to:      toEmail,
     subject: `PO Approval Required (${stageName}): ${po.description}`,
+    context: 'po_approval_required',
+    relatedEntityId: po.id,
     html: `
       <h2 style="color:#1565C0;">Purchase Requisition Awaiting ${escapeHtml(stageName)}</h2>
       <p>A purchase requisition has advanced to the <strong>${escapeHtml(stageName)}</strong>
@@ -279,6 +270,8 @@ export async function sendRequisitionRejected(
   await sendMail({
     to:      toEmail,
     subject: `Requisition Denied: ${po.description}`,
+    context: 'po_rejected',
+    relatedEntityId: po.id,
     html: `
       <h2 style="color:#C62828;">Your Purchase Requisition Has Been Denied</h2>
       <p>We regret to inform you that your purchase requisition has been denied.</p>
@@ -303,6 +296,8 @@ export async function sendPOIssued(
   await sendMail({
     to:      toEmail,
     subject: `PO Issued: ${po.poNumber} — ${po.description}`,
+    context: 'po_issued',
+    relatedEntityId: po.id,
     html: `
       <h2 style="color:#1565C0;">Your Purchase Order Has Been Issued</h2>
       <p>Your purchase requisition has been approved and issued with the following PO number:</p>
@@ -339,6 +334,8 @@ export async function sendWorkOrderAssigned(
   await sendMail({
     to:      assigneeEmail,
     subject: `Work Order Assigned: ${workOrder.workOrderNumber}`,
+    context: 'work_order_assigned',
+    relatedEntityId: workOrder.workOrderId,
     html: `
       <h2 style="color:${deptColor};">A ${escapeHtml(deptLabel)} Work Order Has Been Assigned to You</h2>
       <p>You have been assigned a new work order that requires your attention.</p>
@@ -476,6 +473,8 @@ export async function sendFieldTripToSupervisor(
   await sendMail({
     to:      supervisorEmail,
     subject: `Field Trip Approval Required: ${trip.destination} — ${new Date(trip.tripDate).toLocaleDateString('en-US')}`,
+    context: 'field_trip_submitted',
+    relatedEntityId: trip.id,
     html: `
       <h2 style="color:#1565C0;">Field Trip Request Awaiting Your Approval</h2>
       <p><strong>${escapeHtml(submitterName)}</strong> has submitted a field trip request that requires your approval.</p>
@@ -502,6 +501,8 @@ export async function sendFieldTripAdvancedToApprover(
   await sendMail({
     to:      approverEmail,
     subject: `Field Trip Approval Required (${stageName}): ${trip.destination}`,
+    context: 'field_trip_approval_required',
+    relatedEntityId: trip.id,
     html: `
       <h2 style="color:#1565C0;">Field Trip Request Awaiting ${escapeHtml(stageName)} Approval</h2>
       <p>A field trip request submitted by <strong>${escapeHtml(submitterName)}</strong> has advanced to
@@ -526,6 +527,8 @@ export async function sendFieldTripFinalApproved(
   await sendMail({
     to:      submitterEmail,
     subject: `Field Trip Approved: ${trip.destination} — ${new Date(trip.tripDate).toLocaleDateString('en-US')}`,
+    context: 'field_trip_approved',
+    relatedEntityId: trip.id,
     html: `
       <h2 style="color:#2E7D32;">Your Field Trip Request Has Been Approved</h2>
       <p>Congratulations! Your field trip request has been fully approved by all required approvers.</p>
@@ -551,6 +554,8 @@ export async function sendFieldTripDenied(
   await sendMail({
     to:      submitterEmail,
     subject: `Field Trip Denied: ${trip.destination} — ${new Date(trip.tripDate).toLocaleDateString('en-US')}`,
+    context: 'field_trip_denied',
+    relatedEntityId: trip.id,
     html: `
       <h2 style="color:#C62828;">Your Field Trip Request Has Been Denied</h2>
       <p>We regret to inform you that your field trip request has been denied by <strong>${escapeHtml(denierName)}</strong>.</p>
@@ -581,6 +586,8 @@ export async function sendFieldTripSentBack(
   await sendMail({
     to:      submitterEmail,
     subject: `Field Trip Sent Back for Revision: ${trip.destination} — ${new Date(trip.tripDate).toLocaleDateString('en-US')}`,
+    context: 'field_trip_sent_back',
+    relatedEntityId: trip.id,
     html: `
       <h2 style="color:#E65100;">Your Field Trip Request Has Been Sent Back for Revision</h2>
       <p><strong>${escapeHtml(senderName)}</strong> has sent your field trip request back for revision.</p>
@@ -617,6 +624,8 @@ export async function sendFieldTripTransportationNotice(
   await sendMail({
     to:      emails,
     subject: `Transportation Needed — Field Trip: ${trip.destination} on ${dateStr}`,
+    context: 'field_trip_transportation',
+    relatedEntityId: trip.id,
     html: `
       <h2 style="color:#E65100;">Field Trip Transportation Request</h2>
       <p>A field trip requiring transportation has been submitted by <strong>${escapeHtml(submitterName)}</strong>.</p>

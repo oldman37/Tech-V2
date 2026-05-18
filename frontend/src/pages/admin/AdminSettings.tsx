@@ -60,13 +60,15 @@ import settingsService, {
 import { queryKeys } from '../../lib/queryKeys';
 import { useIsMobile } from '../../hooks/useResponsive';
 import { AdminJobsContent } from './AdminJobsPage';
+import AdminEmailQueueTab from './AdminEmailQueueTab';
 import SyncIcon from '@mui/icons-material/Sync';
+import EmailIcon from '@mui/icons-material/Email';
 
 // ---------------------------------------------------------------------------
 // Tab hash helpers
 // ---------------------------------------------------------------------------
 
-const TAB_HASHES = ['#general', '#requisitions', '#fiscal-year', '#jobs'] as const;
+const TAB_HASHES = ['#general', '#requisitions', '#fiscal-year', '#jobs', '#email-queue'] as const;
 
 function hashToTab(hash: string): number {
   const idx = TAB_HASHES.indexOf(hash as (typeof TAB_HASHES)[number]);
@@ -286,7 +288,7 @@ export default function AdminSettings() {
   }
 
   return (
-    <Box maxWidth={activeTab === 3 ? 1100 : 800} mx="auto" mt={3}>
+    <Box maxWidth={activeTab === 3 || activeTab === 4 ? 1100 : 800} mx="auto" mt={3}>
       <Typography variant="h5" gutterBottom>
         Admin Settings
       </Typography>
@@ -305,6 +307,7 @@ export default function AdminSettings() {
           <Tab label="Requisitions & POs" />
           <Tab label="Fiscal Year" />
           <Tab label="Jobs" icon={<SyncIcon />} iconPosition="start" />
+          <Tab label="Email Queue" icon={<EmailIcon />} iconPosition="start" />
         </Tabs>
       </Box>
 
@@ -529,6 +532,11 @@ export default function AdminSettings() {
       {/*  Tab 4: Jobs                                                 */}
       {/* ══════════════════════════════════════════════════════════════ */}
       {activeTab === 3 && <AdminJobsContent />}
+
+      {/* ══════════════════════════════════════════════════════════════ */}
+      {/*  Tab 5: Email Queue                                          */}
+      {/* ══════════════════════════════════════════════════════════════ */}
+      {activeTab === 4 && <AdminEmailQueueTab />}
     </Box>
   );
 }
