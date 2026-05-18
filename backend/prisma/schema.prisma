@@ -1035,6 +1035,7 @@ model TransportationRequest {
 
   // Approval/Denial fields (set by Transportation Secretary)
   approvalComments       String?   @db.Text
+  assignedDriverNames    String[]
   approvedById           String?
   approvedAt             DateTime?
   deniedById             String?

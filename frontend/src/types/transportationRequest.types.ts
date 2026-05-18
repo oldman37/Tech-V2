@@ -75,6 +75,7 @@ export interface TransportationRequest {
   // Workflow
   status:           TransportationRequestStatus;
   approvalComments?: string | null;
+  assignedDriverNames?: string[];
   approvedById?:    string | null;
   approvedAt?:      string | null;
   approvedBy?: {
@@ -149,7 +150,8 @@ export interface CreateTransportationRequestDto {
 }
 
 export interface ApproveTransportationRequestDto {
-  comments?: string | null;
+  comments?:            string | null;
+  assignedDriverNames?: string[] | null;
 }
 
 export interface DenyTransportationRequestDto {

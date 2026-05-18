@@ -11,6 +11,10 @@ import { prisma } from '../lib/prisma';
 import { Prisma } from '@prisma/client';
 import { logger } from '../lib/logger';
 import { NotFoundError, ValidationError, AuthorizationError } from '../utils/errors';
+import {
+  generateTransportationRequestPdf,
+  type TransportationRequestForPdf,
+} from './transportationRequestPdf.service';
 import type {
   CreateTransportationRequestDto,
   ApproveTransportationRequestDto,
@@ -144,7 +148,7 @@ export class TransportationRequestService {
         const locationIds = supervisedLocations.map((s) => s.locationId);
         where.OR = [
           { submittedById: userId },
-          { officeLocationId: { in: locationIds }, status: 'PENDING_SUPERVISOR_APPROVAL' },
+          { officeLocationId: { in: locationIds } },
         ];
       } else {
         where.submittedById = userId;
@@ -257,10 +261,11 @@ export class TransportationRequestService {
     return prisma.transportationRequest.update({
       where: { id },
       data: {
-        status:           'APPROVED',
-        approvedById:     approverId,
-        approvedAt:       new Date(),
-        approvalComments: data.comments ?? null,
+        status:              'APPROVED',
+        approvedById:        approverId,
+        approvedAt:          new Date(),
+        approvalComments:    data.comments ?? null,
+        assignedDriverNames: data.assignedDriverNames ?? [],
       },
       include: TR_WITH_USERS,
     });
@@ -299,6 +304,26 @@ export class TransportationRequestService {
 
     logger.info('Deleting transportation request', { id, userId });
     await prisma.transportationRequest.delete({ where: { id } });
+  }
+
+  async getPdf(id: string, userId: string, permLevel: number): Promise<Buffer> {
+    // Enforce access control — throws NotFoundError / AuthorizationError if not authorized
+    await this.getById(id, userId, permLevel);
+
+    // Re-fetch with typed Date objects directly from Prisma
+    const raw = await prisma.transportationRequest.findUniqueOrThrow({
+      where:   { id },
+      include: TR_WITH_USERS,
+    });
+
+    const pdfData: TransportationRequestForPdf = {
+      ...raw,
+      additionalDestinations: Array.isArray(raw.additionalDestinations)
+        ? (raw.additionalDestinations as Array<{ name: string; address: string }>)
+        : null,
+    };
+
+    return generateTransportationRequestPdf(pdfData);
   }
 
   private async assertIsSupervisorForRequest(

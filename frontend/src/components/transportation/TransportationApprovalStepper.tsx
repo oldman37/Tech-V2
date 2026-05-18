@@ -155,6 +155,18 @@ export function TransportationApprovalStepper({ request }: TransportationApprova
                       &ldquo;{request.approvalComments}&rdquo;
                     </Typography>
                   )}
+                  {idx === 2 && status === 'APPROVED' && request.assignedDriverNames && request.assignedDriverNames.length > 0 && (
+                    <Box sx={{ mt: 0.5 }}>
+                      <Typography variant="caption" color="text.secondary">
+                        Assigned Drivers:
+                      </Typography>
+                      {request.assignedDriverNames.map((name, i) => (
+                        <Typography key={i} variant="body2">
+                          Bus {i + 1}: {name}
+                        </Typography>
+                      ))}
+                    </Box>
+                  )}
                 </StepContent>
               </Step>
             );

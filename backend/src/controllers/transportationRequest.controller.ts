@@ -215,3 +215,21 @@ export const remove = async (req: AuthRequest, res: Response): Promise<void> => 
     handleControllerError(error, res);
   }
 };
+
+// GET /api/transportation-requests/:id/pdf
+export const getPdf = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const id        = req.params['id'] as string;
+    const userId    = req.user!.id;
+    const permLevel = req.user!.permLevel ?? 1;
+
+    const buffer = await transportationRequestService.getPdf(id, userId, permLevel);
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="transportation-request-${id.slice(-8)}.pdf"`);
+    res.setHeader('Content-Length', buffer.length);
+    res.send(buffer);
+  } catch (error) {
+    handleControllerError(error, res);
+  }
+};

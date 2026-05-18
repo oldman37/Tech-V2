@@ -59,6 +59,14 @@ router.get(
   ctrl.getById,
 );
 
+// GET /api/transportation-requests/:id/pdf — download PDF
+router.get(
+  '/:id/pdf',
+  validateRequest(TransportationRequestIdParamSchema, 'params'),
+  requireModule('TRANSPORTATION_REQUESTS', 1),
+  ctrl.getPdf,
+);
+
 // PUT /api/transportation-requests/:id/supervisor-approve — principal/supervisor only (checked in service)
 router.put(
   '/:id/supervisor-approve',

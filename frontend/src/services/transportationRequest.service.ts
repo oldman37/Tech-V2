@@ -58,4 +58,18 @@ export const transportationRequestService = {
   delete: async (id: string): Promise<void> => {
     await api.delete(`${BASE}/${id}`);
   },
+
+  downloadPdf: async (id: string): Promise<void> => {
+    const res = await api.get(`${BASE}/${id}/pdf`, { responseType: 'blob' });
+    const url = window.URL.createObjectURL(
+      new Blob([res.data as BlobPart], { type: 'application/pdf' }),
+    );
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `transportation-request-${id.slice(-8)}.pdf`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  },
 };

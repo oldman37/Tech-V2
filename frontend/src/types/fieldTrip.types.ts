@@ -340,9 +340,7 @@ export const TRANSPORTATION_TYPE_LABELS: Record<TransportationType, string> = {
   WALKING:          'Walking',
 };
 
-// Subset used by the Part C approval form — transportation secretary cannot assign PARENT_TRANSPORT
+// Subset used by the Part C approval form — only DISTRICT_BUS is assignable by the secretary
 export const PART_C_TRANSPORTATION_TYPE_LABELS: Partial<Record<TransportationType, string>> = {
   DISTRICT_BUS: 'District Bus',
-  CHARTER:      'Charter Bus',
-  WALKING:      'Walking',
 };

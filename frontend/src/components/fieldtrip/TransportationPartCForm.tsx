@@ -76,33 +76,17 @@ export function TransportationPartCForm({ tripId, transport, isOwner, onUpdated 
   const partBSatisfied = !!principalApproval || trip?.status === 'APPROVED';
 
   // Part C form state
-  const [transportationType, setTransportationType] = useState<TransportationType | ''>('');
+  const [transportationType, setTransportationType] = useState<TransportationType | ''>('DISTRICT_BUS');
   const [transportationCost, setTransportationCost] = useState('');
-  const [transportationBusCount, setTransportationBusCount] = useState<string>('');
-  const [driverNames, setDriverNames]               = useState<string[]>([]);
+  const transportationBusCount = String(transport.busCount);
+  const [driverNames, setDriverNames]               = useState<string[]>(Array(transport.busCount).fill(''));
   const [notes, setNotes]                           = useState('');
   const [denyDialogOpen, setDenyDialogOpen]         = useState(false);
   const [denialReason, setDenialReason]             = useState('');
   const [loading, setLoading]                       = useState(false);
   const [error, setError]                           = useState<string | null>(null);
 
-  const isBusTrip =
-    transportationType === 'DISTRICT_BUS' || transportationType === 'CHARTER';
-
-  const handleBusCountChange = (value: string) => {
-    setTransportationBusCount(value);
-    const n = parseInt(value, 10);
-    if (!isNaN(n) && n >= 1 && n <= 99) {
-      setDriverNames((prev) => {
-        const next = [...prev];
-        while (next.length < n) next.push('');
-        next.length = n;
-        return next;
-      });
-    } else {
-      setDriverNames([]);
-    }
-  };
+  const isBusTrip = transportationType === 'DISTRICT_BUS';
 
   const handleDriverNameChange = (index: number, value: string) => {
     setDriverNames((prev) => {
@@ -361,17 +345,16 @@ export function TransportationPartCForm({ tripId, transport, isOwner, onUpdated 
               />
             </Grid>
 
-            {/* Number of Buses — only for District/Charter */}
+            {/* Number of Buses — pre-filled from Part A, read-only */}
             {isBusTrip && (
               <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   fullWidth
-                  required
                   label="Number of Buses Assigned"
                   type="number"
                   value={transportationBusCount}
-                  onChange={(e) => handleBusCountChange(e.target.value)}
-                  inputProps={{ min: 1, max: 99, step: 1 }}
+                  InputProps={{ readOnly: true }}
+                  helperText="Pre-filled from trip request"
                 />
               </Grid>
             )}

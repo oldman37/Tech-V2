@@ -43,7 +43,8 @@ export const CreateTransportationRequestSchema = z.object({
 export type CreateTransportationRequestDto = z.infer<typeof CreateTransportationRequestSchema>;
 
 export const ApproveTransportationRequestSchema = z.object({
-  comments: z.string().max(3000).optional().nullable(),
+  comments:            z.string().max(3000).optional().nullable(),
+  assignedDriverNames: z.array(z.string().trim().max(200)).max(99).optional().nullable(),
 });
 
 export type ApproveTransportationRequestDto = z.infer<typeof ApproveTransportationRequestSchema>;

@@ -30,6 +30,7 @@ import { TransportationApprovalStepper } from '../../components/transportation/T
 import CheckIcon      from '@mui/icons-material/Check';
 import CloseIcon      from '@mui/icons-material/Close';
 import DeleteIcon     from '@mui/icons-material/Delete';
+import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import { transportationRequestService } from '../../services/transportationRequest.service';
 import { useAuthStore } from '../../store/authStore';
 import { useIsMobile } from '../../hooks/useResponsive';
@@ -75,11 +76,14 @@ export function TransportationRequestDetailPage() {
   const [denyOpen,      setDenyOpen]      = useState(false);
   const [deleteOpen,    setDeleteOpen]    = useState(false);
   const [comments,      setComments]      = useState('');
+  const [driverNames,   setDriverNames]   = useState<string[]>([]);
   const [denialReason,  setDenialReason]  = useState('');
   const [denyError,     setDenyError]     = useState('');
   const [supervisorDenyOpen, setSupervisorDenyOpen] = useState(false);
   const [supervisorDenyReason, setSupervisorDenyReason] = useState('');
   const [supervisorDenyError, setSupervisorDenyError] = useState('');
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const [pdfError,   setPdfError]   = useState<string | null>(null);
 
   const { data: request, isLoading, error } = useQuery<TransportationRequest>({
     queryKey: ['transportation-requests', id],
@@ -92,8 +96,11 @@ export function TransportationRequestDetailPage() {
   };
 
   const approveMutation = useMutation({
-    mutationFn: () => transportationRequestService.approve(id!, { comments: comments.trim() || null }),
-    onSuccess: () => { invalidate(); setApproveOpen(false); setComments(''); },
+    mutationFn: () => transportationRequestService.approve(id!, {
+      comments:            comments.trim() || null,
+      assignedDriverNames: driverNames.map((n) => n.trim()).filter(Boolean),
+    }),
+    onSuccess: () => { invalidate(); setApproveOpen(false); setComments(''); setDriverNames([]); },
   });
 
   const denyMutation = useMutation({
@@ -128,6 +135,14 @@ export function TransportationRequestDetailPage() {
     denyMutation.mutate();
   };
 
+  const handleDriverNameChange = (index: number, value: string) => {
+    setDriverNames((prev) => {
+      const next = [...prev];
+      next[index] = value;
+      return next;
+    });
+  };
+
   const handleSupervisorDenySubmit = () => {
     if (supervisorDenyReason.trim().length < 1) {
       setSupervisorDenyError('Denial reason is required');
@@ -135,6 +150,18 @@ export function TransportationRequestDetailPage() {
     }
     setSupervisorDenyError('');
     supervisorDenyMutation.mutate();
+  };
+
+  const handleDownloadPdf = async () => {
+    setPdfLoading(true);
+    setPdfError(null);
+    try {
+      await transportationRequestService.downloadPdf(id!);
+    } catch {
+      setPdfError('Failed to generate PDF. Please try again.');
+    } finally {
+      setPdfLoading(false);
+    }
   };
 
   if (isLoading) {
@@ -180,7 +207,22 @@ export function TransportationRequestDetailPage() {
           label={TRANSPORTATION_REQUEST_STATUS_LABELS[status] ?? status}
           color={TRANSPORTATION_REQUEST_STATUS_COLORS[status] ?? 'default'}
         />
+        <Button
+          variant="outlined"
+          size="small"
+          startIcon={pdfLoading ? <CircularProgress size={14} /> : <PictureAsPdfIcon />}
+          disabled={pdfLoading}
+          onClick={handleDownloadPdf}
+        >
+          {pdfLoading ? 'Generating…' : 'Download PDF'}
+        </Button>
       </Box>
+
+      {pdfError && (
+        <Alert severity="error" onClose={() => setPdfError(null)} sx={{ mb: 2 }}>
+          {pdfError}
+        </Alert>
+      )}
 
       {/* Approval Progress Stepper */}
       <TransportationApprovalStepper request={request} />
@@ -283,7 +325,10 @@ export function TransportationRequestDetailPage() {
                 variant="contained"
                 color="success"
                 startIcon={<CheckIcon />}
-                onClick={() => setApproveOpen(true)}
+                onClick={() => {
+                  setDriverNames(Array(request.busCount).fill(''));
+                  setApproveOpen(true);
+                }}
               >
                 Approve
               </Button>
@@ -315,9 +360,30 @@ export function TransportationRequestDetailPage() {
       )}
 
       {/* Approve Dialog */}
-      <Dialog open={approveOpen} onClose={() => setApproveOpen(false)} maxWidth="sm" fullWidth fullScreen={isMobile}>
+      <Dialog open={approveOpen} onClose={() => { setApproveOpen(false); setDriverNames([]); }} maxWidth="sm" fullWidth fullScreen={isMobile}>
         <DialogTitle>Approve Transportation Request</DialogTitle>
         <DialogContent>
+          {driverNames.length > 0 && (
+            <Box sx={{ mb: 2, mt: 1 }}>
+              <Typography variant="subtitle2" gutterBottom>
+                Assigned Bus Drivers ({driverNames.length} {driverNames.length === 1 ? 'bus' : 'buses'})
+              </Typography>
+              <Grid container spacing={2}>
+                {driverNames.map((name, idx) => (
+                  <Grid key={idx} size={{ xs: 12, sm: 6 }}>
+                    <TextField
+                      fullWidth
+                      label={`Bus ${idx + 1} Driver`}
+                      value={name}
+                      onChange={(e) => handleDriverNameChange(idx, e.target.value)}
+                      inputProps={{ maxLength: 200 }}
+                      placeholder="Driver full name"
+                    />
+                  </Grid>
+                ))}
+              </Grid>
+            </Box>
+          )}
           <TextField
             fullWidth
             multiline
@@ -326,12 +392,12 @@ export function TransportationRequestDetailPage() {
             placeholder="Any notes or instructions for the requester..."
             value={comments}
             onChange={(e) => setComments(e.target.value)}
-            sx={{ mt: 1 }}
+            sx={{ mt: driverNames.length > 0 ? 0 : 1 }}
             inputProps={{ maxLength: 3000 }}
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setApproveOpen(false)} disabled={approveMutation.isPending}>Cancel</Button>
+          <Button onClick={() => { setApproveOpen(false); setDriverNames([]); }} disabled={approveMutation.isPending}>Cancel</Button>
           <Button
             variant="contained" color="success"
             onClick={() => approveMutation.mutate()}

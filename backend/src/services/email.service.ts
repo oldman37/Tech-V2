@@ -863,11 +863,23 @@ export async function sendTransportationRequestApproved(
     tripDate:               Date | string;
     primaryDestinationName: string;
     approvalComments?:      string | null;
+    assignedDriverNames?:   string[] | null;
   },
 ): Promise<void> {
   const dateStr = new Date(request.tripDate).toLocaleDateString('en-US', {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
   });
+
+  const driversHtml = request.assignedDriverNames && request.assignedDriverNames.length > 0
+    ? `
+      <p style="margin-top:16px;"><strong>Assigned Bus Drivers:</strong></p>
+      <table style="border-collapse:collapse;width:100%;">
+        ${request.assignedDriverNames.map((name, i) =>
+          `<tr><td style="padding:4px 8px;font-weight:bold;">Bus ${i + 1}:</td>
+               <td style="padding:4px 8px;">${escapeHtml(name)}</td></tr>`
+        ).join('')}
+      </table>`
+    : '';
 
   await sendMail({
     to:      submitterEmail,
@@ -883,6 +895,7 @@ export async function sendTransportationRequestApproved(
         <tr><td style="padding:4px 8px;font-weight:bold;">Trip Date:</td>
             <td style="padding:4px 8px;">${dateStr}</td></tr>
       </table>
+      ${driversHtml}
       ${request.approvalComments ? `
       <p style="margin-top:16px;"><strong>Notes from Transportation Secretary:</strong></p>
       <blockquote style="border-left:4px solid #2E7D32;margin:8px 0;padding:8px 16px;background:#E8F5E9;">
