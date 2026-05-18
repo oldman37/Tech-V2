@@ -46,6 +46,7 @@ import type { OfficeLocation, CreateLocationRequest, LocationType } from '../typ
 import type { RoomWithLocation, CreateRoomRequest, UpdateRoomRequest, RoomType, RoomQueryParams } from '../types/room.types';
 import { usePaginatedRooms } from '../hooks/queries/useRooms';
 import RoomFormModal from '../components/RoomFormModal';
+import WorkOrderCategoriesTab from '../components/reference-data/WorkOrderCategoriesTab';
 
 // ─── Tab Panel Helper ──────────────────────────────────────────────────────
 
@@ -1317,7 +1318,7 @@ function RoomsTab() {
 
 // ─── MAIN PAGE ──────────────────────────────────────────────────────────────
 
-const TAB_NAMES = ['brands', 'vendors', 'categories', 'models', 'funding-sources', 'locations', 'rooms'] as const;
+const TAB_NAMES = ['brands', 'vendors', 'categories', 'models', 'funding-sources', 'locations', 'rooms', 'wo-categories'] as const;
 type TabName = typeof TAB_NAMES[number];
 
 const ReferenceDataManagement = () => {
@@ -1355,6 +1356,7 @@ const ReferenceDataManagement = () => {
           <Tab label="Funding Sources" />
           <Tab label="Locations" />
           <Tab label="Rooms" />
+          <Tab label="WO Categories" />
         </Tabs>
       </Box>
 
@@ -1365,6 +1367,7 @@ const ReferenceDataManagement = () => {
       <TabPanel value={tab} index={4}><FundingSourcesTab /></TabPanel>
       <TabPanel value={tab} index={5}><LocationsTab /></TabPanel>
       <TabPanel value={tab} index={6}><RoomsTab /></TabPanel>
+      <TabPanel value={tab} index={7}><WorkOrderCategoriesTab /></TabPanel>
     </div>
   );
 };

@@ -19,6 +19,7 @@ import workOrderRoutes from './routes/work-orders.routes';
 import userRoomAssignmentRoutes from './routes/userRoomAssignment.routes';
 import fieldTripRoutes from './routes/fieldTrip.routes';
 import transportationRequestRoutes from './routes/transportationRequest.routes';
+import workOrderCategoryRoutes from './routes/workOrderCategory.routes';
 import { cronJobsService } from './services/cronJobs.service';
 import { schedulerService } from './services/scheduler.service';
 import { startEmailQueueWorker, stopEmailQueueWorker } from './services/emailQueue.service';
@@ -125,6 +126,7 @@ app.use('/api/work-orders', workOrderRoutes);
 app.use('/api', userRoomAssignmentRoutes);
 app.use('/api/field-trips', fieldTripRoutes);
 app.use('/api/transportation-requests', transportationRequestRoutes);
+app.use('/api/work-order-categories', workOrderCategoryRoutes);
 
 // API info endpoint
 app.get('/api', (req: Request, res: Response) => {

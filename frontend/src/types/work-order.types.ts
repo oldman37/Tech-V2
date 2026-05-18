@@ -51,6 +51,8 @@ export interface WorkOrderSummary {
   priority: WorkOrderPriority;
   title: string | null;
   category: string | null;
+  categoryId: string | null;
+  workOrderCategory: { id: string; name: string; module: string } | null;
   fiscalYear: string;
   reportedBy: WorkOrderUser;
   assignedTo: WorkOrderUser | null;
@@ -100,6 +102,7 @@ export interface CreateWorkOrderDto {
   roomId?: string;
   description: string;
   category?: string;
+  categoryId?: string | null;
   equipmentId?: string | null;
   assetTag?: string | null;
   equipmentMfg?: string | null;
@@ -111,6 +114,7 @@ export interface UpdateWorkOrderDto {
   description?: string;
   priority?: WorkOrderPriority;
   category?: string | null;
+  categoryId?: string | null;
   equipmentId?: string | null;
   equipmentMfg?: string | null;
   equipmentModel?: string | null;

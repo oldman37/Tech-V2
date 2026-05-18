@@ -59,19 +59,21 @@ const VALID_TRANSITIONS: Record<string, { to: TicketStatus; minLevel: number }[]
 // ---------------------------------------------------------------------------
 
 const WORK_ORDER_SUMMARY_INCLUDE = {
-  reportedBy:    { select: { id: true, displayName: true, email: true } },
-  assignedTo:    { select: { id: true, displayName: true, email: true } },
-  officeLocation: { select: { id: true, name: true } },
-  room:          { select: { id: true, name: true } },
-  _count:        { select: { comments: true } },
+  reportedBy:       { select: { id: true, displayName: true, email: true } },
+  assignedTo:       { select: { id: true, displayName: true, email: true } },
+  officeLocation:   { select: { id: true, name: true } },
+  room:             { select: { id: true, name: true } },
+  workOrderCategory: { select: { id: true, name: true, module: true } },
+  _count:           { select: { comments: true } },
 } as const;
 
 const WORK_ORDER_DETAIL_INCLUDE = {
-  reportedBy:    { select: { id: true, displayName: true, email: true } },
-  assignedTo:    { select: { id: true, displayName: true, email: true } },
-  officeLocation: { select: { id: true, name: true } },
-  room:          { select: { id: true, name: true } },
-  equipment:     { select: { id: true, assetTag: true, name: true } },
+  reportedBy:       { select: { id: true, displayName: true, email: true } },
+  assignedTo:       { select: { id: true, displayName: true, email: true } },
+  officeLocation:   { select: { id: true, name: true } },
+  room:             { select: { id: true, name: true } },
+  workOrderCategory: { select: { id: true, name: true, module: true } },
+  equipment:        { select: { id: true, assetTag: true, name: true } },
   comments: {
     where:   { isInternal: false },
     orderBy: { createdAt: 'asc' as const },
@@ -404,6 +406,7 @@ export class WorkOrderService {
           title:           data.title ?? null,
           description:     data.description,
           category:        data.category ?? null,
+          categoryId:      data.categoryId ?? null,
           equipmentId:     data.department === 'TECHNOLOGY' ? resolvedEquipmentId : null,
           equipmentMfg:    data.department === 'MAINTENANCE' ? (data.equipmentMfg ?? null) : null,
           equipmentModel:  data.department === 'MAINTENANCE' ? (data.equipmentModel ?? null) : null,
@@ -456,6 +459,7 @@ export class WorkOrderService {
         description:     data.description,
         priority:        data.priority as any,
         category:        data.category,
+        categoryId:      data.categoryId,
         equipmentId:     data.equipmentId,
         equipmentMfg:    data.equipmentMfg,
         equipmentModel:  data.equipmentModel,

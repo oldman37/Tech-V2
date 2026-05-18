@@ -906,8 +906,11 @@ model Ticket {
   title            String?
   description      String
 
-  // Category — stored as String; values from TechTicketCategory or MaintTicketCategory
+  // Category — stored as String; DEPRECATED: kept for legacy data / migration fallback
   category         String?
+  // Category FK — preferred: links to WorkOrderCategory for rename-safe display
+  categoryId         String?
+  workOrderCategory  WorkOrderCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
 
   // Technology-specific (nullable, only populated for TECHNOLOGY dept)
   equipmentId      String?
@@ -938,6 +941,7 @@ model Ticket {
   @@index([fiscalYear])
   @@index([department, status])
   @@index([officeLocationId, department, status])
+  @@index([categoryId])
   @@map("tickets")
 }
 
@@ -1120,4 +1124,30 @@ model email_queue {
   @@index([status, nextAttemptAt])
   @@index([status, createdAt])
   @@index([relatedEntityId])
+}
+
+// ============================================
+// WORK ORDER CATEGORIES
+// ============================================
+
+enum WorkOrderCategoryModule {
+  TECHNOLOGY
+  MAINTENANCE
+}
+
+model WorkOrderCategory {
+  id        String                  @id @default(uuid())
+  name      String
+  module    WorkOrderCategoryModule
+  isActive  Boolean                 @default(true)
+  sortOrder Int                     @default(0)
+  createdAt DateTime                @default(now())
+  updatedAt DateTime                @updatedAt
+
+  tickets   Ticket[]
+
+  @@unique([name, module])
+  @@index([module, isActive])
+  @@index([module, sortOrder])
+  @@map("work_order_categories")
 }

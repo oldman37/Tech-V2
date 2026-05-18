@@ -11,6 +11,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import {
   Alert,
   Box,
@@ -33,6 +34,7 @@ import { useCreateWorkOrder } from '@/hooks/mutations/useWorkOrderMutations';
 import { useUserDefaultLocation } from '@/hooks/queries/useUserDefaultLocation';
 import { DepartmentSelector } from '@/components/work-orders/DepartmentSelector';
 import { useAuthStore } from '@/store/authStore';
+import workOrderCategoryService from '@/services/workOrderCategoryService';
 import {
   TECH_CATEGORIES,
   MAINT_CATEGORIES,
@@ -45,7 +47,8 @@ import type { CreateWorkOrderDto } from '@/types/work-order.types';
 
 interface FormState {
   department: WorkOrderDepartment | null;
-  category: string;
+  category: string;    // legacy fallback (used when db categories unavailable)
+  categoryId: string;  // db-backed FK (used when db categories are loaded)
   priority: WorkOrderPriority;
   description: string;
   officeLocationId: string;
@@ -57,6 +60,7 @@ interface FormState {
 const INITIAL: FormState = {
   department: null,
   category: '',
+  categoryId: '',
   priority: 'MEDIUM',
   description: '',
   officeLocationId: '',
@@ -116,7 +120,21 @@ export default function NewWorkOrderPage() {
   }, [userDefaults]);
 
   const errors = validate(form);
-  const categories = form.department === 'TECHNOLOGY' ? TECH_CATEGORIES : MAINT_CATEGORIES;
+
+  // Fetch categories from the database; fall back to hardcoded arrays if not yet loaded
+  const { data: categoriesData, isLoading: categoriesLoading } = useQuery({
+    queryKey: ['work-order-categories', form.department],
+    queryFn:  () =>
+      workOrderCategoryService.getAll({
+        module:    form.department === 'TECHNOLOGY' ? 'TECHNOLOGY' : 'MAINTENANCE',
+        isActive:  true,
+        limit:     500,
+      }),
+    enabled:   !!form.department,
+    staleTime: 5 * 60 * 1000,
+  });
+  const dbCategories      = categoriesData?.items ?? [];
+  const fallbackCategories = form.department === 'TECHNOLOGY' ? TECH_CATEGORIES : MAINT_CATEGORIES;
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -126,7 +144,7 @@ export default function NewWorkOrderPage() {
     setTouched((prev) => ({ ...prev, [key]: true }));
 
   const handleDepartmentChange = (dept: WorkOrderDepartment) => {
-    setForm((prev) => ({ ...prev, department: dept, category: '' }));
+    setForm((prev) => ({ ...prev, department: dept, category: '', categoryId: '' }));
   };
 
   const handleSubmit = async () => {
@@ -137,7 +155,8 @@ export default function NewWorkOrderPage() {
       department: form.department,
       priority: form.priority,
       description: form.description.trim(),
-      ...(form.category && { category: form.category }),
+      ...(form.categoryId && { categoryId: form.categoryId }),
+      ...(form.category && !form.categoryId && { category: form.category }),
       ...(form.officeLocationId && { officeLocationId: form.officeLocationId }),
       ...(form.roomId && { roomId: form.roomId }),
       ...(form.department === 'TECHNOLOGY' && {
@@ -191,15 +210,26 @@ export default function NewWorkOrderPage() {
               <InputLabel>Category</InputLabel>
               <Select
                 label="Category"
-                value={form.category}
-                onChange={(e) => set('category', e.target.value)}
-                disabled={createWorkOrder.isPending}
+                value={dbCategories.length > 0 ? form.categoryId : form.category}
+                onChange={(e) =>
+                  dbCategories.length > 0
+                    ? set('categoryId', e.target.value)
+                    : set('category', e.target.value)
+                }
+                disabled={createWorkOrder.isPending || categoriesLoading}
               >
-                {categories.map((c) => (
-                  <MenuItem key={c.value} value={c.value}>
-                    {c.label}
-                  </MenuItem>
-                ))}
+                {dbCategories.length > 0
+                  ? dbCategories.map((c) => (
+                      <MenuItem key={c.id} value={c.id}>
+                        {c.name}
+                      </MenuItem>
+                    ))
+                  : fallbackCategories.map((c) => (
+                      <MenuItem key={c.value} value={c.value}>
+                        {c.label}
+                      </MenuItem>
+                    ))
+                }
               </Select>
             </FormControl>
 

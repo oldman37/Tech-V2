@@ -40,7 +40,6 @@ const NAV_SECTIONS: NavSection[] = [
       { label: 'Inventory', icon: '📦', path: '/inventory', requireTech: true },
       { label: 'Equipment Search', icon: '🔍', path: '/equipment-search', requireTech: true },
       { label: 'Disposed Equipment', icon: '🗑️', path: '/disposed-equipment', requireTech: true },
-      { label: 'Reference Data', icon: '🏷️', path: '/reference-data', adminOnly: true },
     ],
   },
   {
@@ -59,6 +58,7 @@ const NAV_SECTIONS: NavSection[] = [
       { label: 'Users', icon: '👥', path: '/users', adminOnly: true },
       { label: 'Locations & Supervisors', icon: '🏢', path: '/supervisors', adminOnly: true },
       { label: 'Room Assignments', icon: '🚪', path: '/room-assignments', requireRoomAssignment: true },
+      { label: 'Reference Data', icon: '🏷️', path: '/reference-data', adminOnly: true },
       { label: 'Admin Settings', icon: '⚙️', path: '/admin/settings', adminOnly: true },
     ],
   },

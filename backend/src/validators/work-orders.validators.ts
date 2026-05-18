@@ -72,6 +72,7 @@ export const CreateWorkOrderSchema = z
     title:           z.string().max(200, 'Title must be 200 characters or less').optional(),
     description:     z.string().min(10, 'Description must be at least 10 characters').max(5000, 'Description must be 5000 characters or less'),
     category:        z.string().max(100).optional(),
+    categoryId:      z.string().uuid('Invalid category ID').optional().nullable(),
     // Technology-specific
     equipmentId:     z.string().uuid('Invalid equipment ID').optional().nullable(),
     assetTag:        z.string().max(100, 'Asset tag too long').optional().nullable(),
@@ -105,6 +106,7 @@ export const UpdateWorkOrderSchema = z.object({
   description:     z.string().min(10).max(5000).optional(),
   priority:        TicketPriorityEnum.optional(),
   category:        z.string().max(100).optional().nullable(),
+  categoryId:      z.string().uuid('Invalid category ID').optional().nullable(),
   equipmentId:     z.string().uuid().optional().nullable(),
   equipmentMfg:    z.string().max(200).optional().nullable(),
   equipmentModel:  z.string().max(200).optional().nullable(),

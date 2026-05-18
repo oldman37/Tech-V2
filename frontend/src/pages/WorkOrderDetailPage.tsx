@@ -449,7 +449,7 @@ export default function WorkOrderDetailPage() {
                     Category
                   </Typography>
                   <Typography variant="body2">
-                    {workOrder.category ?? '—'}
+                    {workOrder.workOrderCategory?.name ?? workOrder.category ?? '—'}
                   </Typography>
                 </Box>
 
