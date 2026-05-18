@@ -181,8 +181,46 @@ const ImportInventoryDialog = ({
   };
 
   const handleDownloadTemplate = () => {
-    // TODO: Implement template download
-    console.log('Download template');
+    const headers = [
+      'Tag#',
+      'Type',
+      'Brand',
+      'Model Number',
+      'Serial Number',
+      'School',
+      'Room',
+      'PO#',
+      'Vendor',
+      'Price',
+      'Funds',
+      'Purchase Date',
+      'Disposal Date',
+    ];
+    const exampleRow = [
+      'TAG-001',
+      'Laptop',
+      'Dell',
+      'Latitude 5540',
+      'SN123456',
+      'Main Office',
+      '101',
+      'PO-2024-001',
+      'CDW',
+      '1200.00',
+      'General',
+      '2024-01-15',
+      '',
+    ];
+    const csvContent = [headers.join(','), exampleRow.join(',')].join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'inventory_import_template.csv');
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
   };
 
   return (
