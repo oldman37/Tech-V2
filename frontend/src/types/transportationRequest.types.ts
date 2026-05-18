@@ -2,20 +2,26 @@
 // Status
 // ---------------------------------------------------------------------------
 
-export type TransportationRequestStatus = 'PENDING' | 'APPROVED' | 'DENIED';
+export type TransportationRequestStatus =
+  | 'PENDING_SUPERVISOR_APPROVAL'
+  | 'PENDING_SECRETARY_REVIEW'
+  | 'APPROVED'
+  | 'DENIED';
 
 export const TRANSPORTATION_REQUEST_STATUS_LABELS: Record<TransportationRequestStatus, string> = {
-  PENDING:  'Pending Review',
-  APPROVED: 'Approved',
-  DENIED:   'Denied',
+  PENDING_SUPERVISOR_APPROVAL: 'Pending Supervisor',
+  PENDING_SECRETARY_REVIEW:    'Pending Review',
+  APPROVED:                    'Approved',
+  DENIED:                      'Denied',
 };
 
-export type StatusChipColor = 'warning' | 'success' | 'error' | 'default';
+export type StatusChipColor = 'warning' | 'info' | 'success' | 'error' | 'default';
 
 export const TRANSPORTATION_REQUEST_STATUS_COLORS: Record<TransportationRequestStatus, StatusChipColor> = {
-  PENDING:  'warning',
-  APPROVED: 'success',
-  DENIED:   'error',
+  PENDING_SUPERVISOR_APPROVAL: 'warning',
+  PENDING_SECRETARY_REVIEW:    'info',
+  APPROVED:                    'success',
+  DENIED:                      'error',
 };
 
 // ---------------------------------------------------------------------------
@@ -45,6 +51,7 @@ export interface TransportationRequest {
   // Part A fields
   dateSubmitted:             string;
   school:                    string;
+  officeLocationId:          string | null;
   groupOrActivity:           string;
   sponsorName:               string;
   chargedTo:                 string | null;
@@ -87,6 +94,25 @@ export interface TransportationRequest {
     lastName:    string;
   } | null;
 
+  // Supervisor approval fields
+  supervisorApprovedById?: string | null;
+  supervisorApprovedAt?:   string | null;
+  supervisorApprovedBy?: {
+    id:          string;
+    displayName: string | null;
+    firstName:   string;
+    lastName:    string;
+  } | null;
+  supervisorDeniedById?:   string | null;
+  supervisorDeniedAt?:     string | null;
+  supervisorDenialReason?: string | null;
+  supervisorDeniedBy?: {
+    id:          string;
+    displayName: string | null;
+    firstName:   string;
+    lastName:    string;
+  } | null;
+
   submitterEmail: string;
 
   // Timestamps
@@ -100,6 +126,7 @@ export interface TransportationRequest {
 
 export interface CreateTransportationRequestDto {
   school:                    string;
+  officeLocationId?:         string | null;
   groupOrActivity:           string;
   sponsorName:               string;
   chargedTo?:                string | null;

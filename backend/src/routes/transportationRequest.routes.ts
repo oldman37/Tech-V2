@@ -7,6 +7,9 @@
  *   Level 1 — All staff: create and view own requests
  *   Level 2 — Transportation Secretary: view all, approve, deny
  *
+ * Supervisor approval/denial endpoints use Level 1 (any staff) — the service
+ * layer verifies that the user is actually the LocationSupervisor for the request.
+ *
  * NOTE: ADMIN role bypasses all requireModule checks.
  */
 import { Router }            from 'express';
@@ -18,6 +21,7 @@ import {
   CreateTransportationRequestSchema,
   ApproveTransportationRequestSchema,
   DenyTransportationRequestSchema,
+  SupervisorDenyTransportationRequestSchema,
   TransportationRequestIdParamSchema,
   ListTransportationRequestsQuerySchema,
 } from '../validators/transportationRequest.validators';
@@ -53,6 +57,23 @@ router.get(
   validateRequest(TransportationRequestIdParamSchema, 'params'),
   requireModule('TRANSPORTATION_REQUESTS', 1),
   ctrl.getById,
+);
+
+// PUT /api/transportation-requests/:id/supervisor-approve — principal/supervisor only (checked in service)
+router.put(
+  '/:id/supervisor-approve',
+  validateRequest(TransportationRequestIdParamSchema, 'params'),
+  requireModule('TRANSPORTATION_REQUESTS', 1),
+  ctrl.supervisorApprove,
+);
+
+// PUT /api/transportation-requests/:id/supervisor-deny — principal/supervisor only (checked in service)
+router.put(
+  '/:id/supervisor-deny',
+  validateRequest(TransportationRequestIdParamSchema, 'params'),
+  validateRequest(SupervisorDenyTransportationRequestSchema, 'body'),
+  requireModule('TRANSPORTATION_REQUESTS', 1),
+  ctrl.supervisorDeny,
 );
 
 // PUT /api/transportation-requests/:id/approve — secretary only

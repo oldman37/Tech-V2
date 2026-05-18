@@ -22,7 +22,7 @@ const log = createLogger('EmailQueueService');
 // Configuration (override via env vars, sensible defaults hardcoded)
 // ---------------------------------------------------------------------------
 
-const POLL_INTERVAL_MS   = parseInt(process.env.EMAIL_QUEUE_POLL_INTERVAL_MS ?? '5000', 10);
+const POLL_INTERVAL_MS   = parseInt(process.env.EMAIL_QUEUE_POLL_INTERVAL_MS ?? '30000', 10);
 const SEND_INTERVAL_MS   = parseInt(process.env.EMAIL_QUEUE_SEND_INTERVAL_MS ?? '2000', 10);
 const MAX_ATTEMPTS       = parseInt(process.env.EMAIL_QUEUE_MAX_ATTEMPTS ?? '5', 10);
 const BASE_BACKOFF_MS    = parseInt(process.env.EMAIL_QUEUE_BACKOFF_BASE_MS ?? '30000', 10);

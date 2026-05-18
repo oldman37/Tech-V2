@@ -174,7 +174,8 @@ export function TransportationRequestsPage() {
                   fullWidth
                 >
                   <MenuItem value="">All Statuses</MenuItem>
-                  <MenuItem value="PENDING">Pending Review</MenuItem>
+                  <MenuItem value="PENDING_SUPERVISOR_APPROVAL">Pending Supervisor Approval</MenuItem>
+                  <MenuItem value="PENDING_SECRETARY_REVIEW">Pending Secretary Review</MenuItem>
                   <MenuItem value="APPROVED">Approved</MenuItem>
                   <MenuItem value="DENIED">Denied</MenuItem>
                 </Select>
@@ -231,7 +232,8 @@ export function TransportationRequestsPage() {
             sx={{ minWidth: 160 }}
           >
             <MenuItem value="">All Statuses</MenuItem>
-            <MenuItem value="PENDING">Pending Review</MenuItem>
+            <MenuItem value="PENDING_SUPERVISOR_APPROVAL">Pending Supervisor</MenuItem>
+            <MenuItem value="PENDING_SECRETARY_REVIEW">Pending Secretary</MenuItem>
             <MenuItem value="APPROVED">Approved</MenuItem>
             <MenuItem value="DENIED">Denied</MenuItem>
           </Select>

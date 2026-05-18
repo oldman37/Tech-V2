@@ -45,6 +45,16 @@ export const transportationRequestService = {
     return res.data;
   },
 
+  supervisorApprove: async (id: string): Promise<TransportationRequest> => {
+    const res = await api.put<TransportationRequest>(`${BASE}/${id}/supervisor-approve`, {});
+    return res.data;
+  },
+
+  supervisorDeny: async (id: string, data: { denialReason: string }): Promise<TransportationRequest> => {
+    const res = await api.put<TransportationRequest>(`${BASE}/${id}/supervisor-deny`, data);
+    return res.data;
+  },
+
   delete: async (id: string): Promise<void> => {
     await api.delete(`${BASE}/${id}`);
   },

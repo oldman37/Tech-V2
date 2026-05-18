@@ -280,11 +280,12 @@ model OfficeLocation {
   city        String?
   state       String?
   zip         String?
-  supervisors     LocationSupervisor[]
-  rooms           Room[]
-  equipment       equipment[]
-  purchase_orders purchase_orders[] @relation("POOfficeLocation")
-  tickets         Ticket[]
+  supervisors             LocationSupervisor[]
+  rooms                   Room[]
+  equipment               equipment[]
+  purchase_orders         purchase_orders[] @relation("POOfficeLocation")
+  tickets                 Ticket[]
+  transportationRequests  TransportationRequest[]
 
   @@index([isActive])
   @@index([type])
@@ -512,6 +513,8 @@ model User {
   transportationRequests                                    TransportationRequest[]          @relation("TransportationRequestSubmitter")
   transportationRequestApprovals                            TransportationRequest[]          @relation("TransportationRequestApprover")
   transportationRequestDenials                              TransportationRequest[]          @relation("TransportationRequestDenier")
+  transportationRequestSupervisorApprovals                  TransportationRequest[]          @relation("TransportationRequestSupervisorApprover")
+  transportationRequestSupervisorDenials                    TransportationRequest[]          @relation("TransportationRequestSupervisorDenier")
 
   @@map("users")
 }
@@ -981,6 +984,10 @@ model TransportationRequest {
   submittedById String
   submittedBy   User     @relation("TransportationRequestSubmitter", fields: [submittedById], references: [id])
 
+  // FK to OfficeLocation for supervisor routing
+  officeLocationId       String?
+  officeLocation         OfficeLocation? @relation(fields: [officeLocationId], references: [id])
+
   // Part A — Requestor fills out (mirrors PDF form)
   dateSubmitted          DateTime  @default(now())
   school                 String    @db.VarChar(200)
@@ -1011,8 +1018,18 @@ model TransportationRequest {
   tripItinerary          String?   @db.Text
 
   // Workflow
-  status                 String    @default("PENDING")
-  // PENDING | APPROVED | DENIED
+  status                 String    @default("PENDING_SUPERVISOR_APPROVAL")
+  // PENDING_SUPERVISOR_APPROVAL | PENDING_SECRETARY_REVIEW | APPROVED | DENIED
+
+  // Supervisor approval fields
+  supervisorApprovedById  String?
+  supervisorApprovedAt    DateTime?
+  supervisorApprovedBy    User?     @relation("TransportationRequestSupervisorApprover", fields: [supervisorApprovedById], references: [id])
+  supervisorDeniedById    String?
+  supervisorDeniedAt      DateTime?
+  supervisorDenialReason  String?   @db.Text
+  supervisorDeniedBy      User?     @relation("TransportationRequestSupervisorDenier", fields: [supervisorDeniedById], references: [id])
+  supervisorEmailSnapshot String?   @db.VarChar(500)
 
   // Approval/Denial fields (set by Transportation Secretary)
   approvalComments       String?   @db.Text
@@ -1037,6 +1054,7 @@ model TransportationRequest {
   @@index([submittedById])
   @@index([tripDate])
   @@index([status, submittedById])
+  @@index([officeLocationId])
   @@map("transportation_requests")
 }
 

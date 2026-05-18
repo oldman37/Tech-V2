@@ -43,12 +43,27 @@ interface FormErrors {
 
 const emptyDestination = (): AdditionalDestination => ({ name: '', address: '' });
 
+const TIME_OPTIONS: string[] = (() => {
+  const options: string[] = [];
+  for (let h = 5; h <= 21; h++) {
+    for (let m = 0; m < 60; m += 15) {
+      if (h === 21 && m > 0) break;
+      const hour12 = h > 12 ? h - 12 : h === 0 ? 12 : h;
+      const suffix = h >= 12 ? 'PM' : 'AM';
+      const min = m.toString().padStart(2, '0');
+      options.push(`${hour12}:${min} ${suffix}`);
+    }
+  }
+  return options;
+})();
+
 export function TransportationRequestFormPage() {
   const navigate    = useNavigate();
   const queryClient = useQueryClient();
 
   // Form state
   const [school,                    setSchool]                    = useState('');
+  const [officeLocationId,          setOfficeLocationId]          = useState('');
   const [groupOrActivity,           setGroupOrActivity]           = useState('');
   const [sponsorName,               setSponsorName]               = useState('');
   const [chargedTo,                 setChargedTo]                 = useState('');
@@ -126,6 +141,7 @@ export function TransportationRequestFormPage() {
 
     const payload: CreateTransportationRequestDto = {
       school:                    school.trim(),
+      officeLocationId:          officeLocationId || null,
       groupOrActivity:           groupOrActivity.trim(),
       sponsorName:               sponsorName.trim(),
       chargedTo:                 chargedTo.trim() || null,
@@ -195,7 +211,12 @@ export function TransportationRequestFormPage() {
                   labelId="school-label"
                   label="School"
                   value={school}
-                  onChange={(e) => setSchool(e.target.value)}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setSchool(val);
+                    const loc = locations.find((l) => l.name === val);
+                    setOfficeLocationId(loc?.id ?? '');
+                  }}
                 >
                   {locations.map((loc) => (
                     <MenuItem key={loc.id} value={loc.name}>
@@ -298,42 +319,84 @@ export function TransportationRequestFormPage() {
               />
             </Grid>
             <Grid size={{ xs: 12, sm: 4 }}>
-              <TextField
-                fullWidth required label="Loading Time" placeholder="7:30 AM"
-                value={loadingTime} onChange={(e) => setLoadingTime(e.target.value)}
-                error={!!errors.loadingTime} helperText={errors.loadingTime}
-                inputProps={{ maxLength: 20 }}
-              />
+              <FormControl fullWidth required error={!!errors.loadingTime}>
+                <InputLabel id="loading-time-label">Loading Time</InputLabel>
+                <Select
+                  labelId="loading-time-label"
+                  label="Loading Time"
+                  value={loadingTime}
+                  onChange={(e) => setLoadingTime(e.target.value)}
+                >
+                  {TIME_OPTIONS.map((t) => (
+                    <MenuItem key={t} value={t}>{t}</MenuItem>
+                  ))}
+                </Select>
+                {errors.loadingTime && <FormHelperText>{errors.loadingTime}</FormHelperText>}
+              </FormControl>
             </Grid>
             <Grid size={{ xs: 12, sm: 4 }}>
-              <TextField
-                fullWidth required label="Leaving School Time" placeholder="8:00 AM"
-                value={leavingSchoolTime} onChange={(e) => setLeavingSchoolTime(e.target.value)}
-                error={!!errors.leavingSchoolTime} helperText={errors.leavingSchoolTime}
-                inputProps={{ maxLength: 20 }}
-              />
+              <FormControl fullWidth required error={!!errors.leavingSchoolTime}>
+                <InputLabel id="leaving-school-time-label">Leaving School Time</InputLabel>
+                <Select
+                  labelId="leaving-school-time-label"
+                  label="Leaving School Time"
+                  value={leavingSchoolTime}
+                  onChange={(e) => setLeavingSchoolTime(e.target.value)}
+                >
+                  {TIME_OPTIONS.map((t) => (
+                    <MenuItem key={t} value={t}>{t}</MenuItem>
+                  ))}
+                </Select>
+                {errors.leavingSchoolTime && <FormHelperText>{errors.leavingSchoolTime}</FormHelperText>}
+              </FormControl>
             </Grid>
             <Grid size={{ xs: 12, sm: 4 }}>
-              <TextField
-                fullWidth label="Arrive at First Destination (optional)" placeholder="9:00 AM"
-                value={arriveFirstDestTime} onChange={(e) => setArriveFirstDestTime(e.target.value)}
-                inputProps={{ maxLength: 20 }}
-              />
+              <FormControl fullWidth>
+                <InputLabel id="arrive-first-dest-time-label">Arrive at First Destination</InputLabel>
+                <Select
+                  labelId="arrive-first-dest-time-label"
+                  label="Arrive at First Destination"
+                  value={arriveFirstDestTime}
+                  onChange={(e) => setArriveFirstDestTime(e.target.value)}
+                >
+                  <MenuItem value=""><em>None</em></MenuItem>
+                  {TIME_OPTIONS.map((t) => (
+                    <MenuItem key={t} value={t}>{t}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
             </Grid>
             <Grid size={{ xs: 12, sm: 4 }}>
-              <TextField
-                fullWidth label="Leave Last Destination (optional)" placeholder="2:00 PM"
-                value={leaveLastDestTime} onChange={(e) => setLeaveLastDestTime(e.target.value)}
-                inputProps={{ maxLength: 20 }}
-              />
+              <FormControl fullWidth>
+                <InputLabel id="leave-last-dest-time-label">Leave Last Destination</InputLabel>
+                <Select
+                  labelId="leave-last-dest-time-label"
+                  label="Leave Last Destination"
+                  value={leaveLastDestTime}
+                  onChange={(e) => setLeaveLastDestTime(e.target.value)}
+                >
+                  <MenuItem value=""><em>None</em></MenuItem>
+                  {TIME_OPTIONS.map((t) => (
+                    <MenuItem key={t} value={t}>{t}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
             </Grid>
             <Grid size={{ xs: 12, sm: 4 }}>
-              <TextField
-                fullWidth required label="Return to School Time" placeholder="3:00 PM"
-                value={returnToSchoolTime} onChange={(e) => setReturnToSchoolTime(e.target.value)}
-                error={!!errors.returnToSchoolTime} helperText={errors.returnToSchoolTime}
-                inputProps={{ maxLength: 20 }}
-              />
+              <FormControl fullWidth required error={!!errors.returnToSchoolTime}>
+                <InputLabel id="return-to-school-time-label">Return to School Time</InputLabel>
+                <Select
+                  labelId="return-to-school-time-label"
+                  label="Return to School Time"
+                  value={returnToSchoolTime}
+                  onChange={(e) => setReturnToSchoolTime(e.target.value)}
+                >
+                  {TIME_OPTIONS.map((t) => (
+                    <MenuItem key={t} value={t}>{t}</MenuItem>
+                  ))}
+                </Select>
+                {errors.returnToSchoolTime && <FormHelperText>{errors.returnToSchoolTime}</FormHelperText>}
+              </FormControl>
             </Grid>
           </Grid>
         </Paper>

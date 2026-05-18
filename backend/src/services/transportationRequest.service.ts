@@ -15,6 +15,7 @@ import type {
   CreateTransportationRequestDto,
   ApproveTransportationRequestDto,
   DenyTransportationRequestDto,
+  SupervisorDenyTransportationRequestDto,
 } from '../validators/transportationRequest.validators';
 
 // Prisma include shape (reused across all reads)
@@ -26,6 +27,12 @@ const TR_WITH_USERS = {
     select: { id: true, displayName: true, firstName: true, lastName: true },
   },
   deniedBy: {
+    select: { id: true, displayName: true, firstName: true, lastName: true },
+  },
+  supervisorApprovedBy: {
+    select: { id: true, displayName: true, firstName: true, lastName: true },
+  },
+  supervisorDeniedBy: {
     select: { id: true, displayName: true, firstName: true, lastName: true },
   },
 } as const;
@@ -45,13 +52,51 @@ export class TransportationRequestService {
       throw new ValidationError('Trip date must be in the future');
     }
 
-    logger.info('Creating transportation request', { userId });
+    // Resolve supervisor for the selected location
+    let supervisorEmail: string | null = null;
+    let supervisorId: string | null = null;
+    let initialStatus = 'PENDING_SUPERVISOR_APPROVAL';
+    let isSelfSupervisor = false;
 
-    return prisma.transportationRequest.create({
+    if (data.officeLocationId) {
+      const supervisor = await prisma.locationSupervisor.findFirst({
+        where: {
+          locationId: data.officeLocationId,
+          isPrimary: true,
+          supervisorType: 'PRINCIPAL',
+          user: { isActive: true },
+        },
+        include: { user: { select: { id: true, email: true, displayName: true } } },
+      });
+
+      if (supervisor && supervisor.userId !== userId) {
+        supervisorId = supervisor.userId;
+        supervisorEmail = supervisor.user.email;
+      } else if (supervisor && supervisor.userId === userId) {
+        // Self-supervisor bypass
+        isSelfSupervisor = true;
+        initialStatus = 'PENDING_SECRETARY_REVIEW';
+        logger.info('Self-supervisor bypass for transportation request', { userId });
+      } else {
+        // No supervisor found — skip to secretary
+        initialStatus = 'PENDING_SECRETARY_REVIEW';
+        logger.warn('No primary principal found for location, skipping supervisor step', {
+          officeLocationId: data.officeLocationId,
+        });
+      }
+    } else {
+      // No location selected — skip to secretary
+      initialStatus = 'PENDING_SECRETARY_REVIEW';
+    }
+
+    logger.info('Creating transportation request', { userId, initialStatus });
+
+    const record = await prisma.transportationRequest.create({
       data: {
         submittedById:             userId,
         submitterEmail:            userEmail,
         school:                    data.school,
+        officeLocationId:          data.officeLocationId ?? null,
         groupOrActivity:           data.groupOrActivity,
         sponsorName:               data.sponsorName,
         chargedTo:                 data.chargedTo ?? null,
@@ -71,10 +116,13 @@ export class TransportationRequestService {
         primaryDestinationAddress: data.primaryDestinationAddress,
         additionalDestinations:    data.additionalDestinations ?? Prisma.DbNull,
         tripItinerary:             data.tripItinerary ?? null,
-        status:                    'PENDING',
+        status:                    initialStatus,
+        supervisorEmailSnapshot:   supervisorEmail,
       },
       include: TR_WITH_USERS,
     });
+
+    return { record, supervisorEmail, supervisorId, isSelfSupervisor };
   }
 
   async list(userId: string, permLevel: number, filters: {
@@ -86,7 +134,21 @@ export class TransportationRequestService {
 
     // Level 1: own requests only; level 2+: all requests
     if (permLevel < 2) {
-      where.submittedById = userId;
+      // Also show requests pending supervisor approval at user's supervised locations
+      const supervisedLocations = await prisma.locationSupervisor.findMany({
+        where: { userId, isPrimary: true, supervisorType: 'PRINCIPAL', user: { isActive: true } },
+        select: { locationId: true },
+      });
+
+      if (supervisedLocations.length > 0) {
+        const locationIds = supervisedLocations.map((s) => s.locationId);
+        where.OR = [
+          { submittedById: userId },
+          { officeLocationId: { in: locationIds }, status: 'PENDING_SUPERVISOR_APPROVAL' },
+        ];
+      } else {
+        where.submittedById = userId;
+      }
     }
 
     if (filters.status) {
@@ -114,18 +176,79 @@ export class TransportationRequestService {
 
     if (!record) throw new NotFoundError('TransportationRequest', id);
 
-    // Level 1 users can only see their own
+    // Level 2+ can see all; level 1 can see own OR requests at their supervised locations
     if (permLevel < 2 && record.submittedById !== userId) {
-      throw new AuthorizationError('You do not have access to this transportation request');
+      // Check if user is the supervisor for this request's location
+      if (record.officeLocationId) {
+        const isSupervisor = await prisma.locationSupervisor.findFirst({
+          where: {
+            locationId: record.officeLocationId,
+            userId,
+            isPrimary: true,
+            supervisorType: 'PRINCIPAL',
+            user: { isActive: true },
+          },
+        });
+        if (!isSupervisor) {
+          throw new AuthorizationError('You do not have access to this transportation request');
+        }
+      } else {
+        throw new AuthorizationError('You do not have access to this transportation request');
+      }
     }
 
     return record;
   }
 
+  async supervisorApprove(id: string, approverId: string) {
+    const record = await prisma.transportationRequest.findUnique({ where: { id } });
+    if (!record) throw new NotFoundError('TransportationRequest', id);
+    if (record.status !== 'PENDING_SUPERVISOR_APPROVAL') {
+      throw new ValidationError('Request is not pending supervisor approval');
+    }
+
+    await this.assertIsSupervisorForRequest(record, approverId);
+
+    logger.info('Supervisor approving transportation request', { id, approverId });
+
+    return prisma.transportationRequest.update({
+      where: { id },
+      data: {
+        status: 'PENDING_SECRETARY_REVIEW',
+        supervisorApprovedById: approverId,
+        supervisorApprovedAt: new Date(),
+      },
+      include: TR_WITH_USERS,
+    });
+  }
+
+  async supervisorDeny(id: string, denierId: string, data: SupervisorDenyTransportationRequestDto) {
+    const record = await prisma.transportationRequest.findUnique({ where: { id } });
+    if (!record) throw new NotFoundError('TransportationRequest', id);
+    if (record.status !== 'PENDING_SUPERVISOR_APPROVAL') {
+      throw new ValidationError('Request is not pending supervisor approval');
+    }
+
+    await this.assertIsSupervisorForRequest(record, denierId);
+
+    logger.info('Supervisor denying transportation request', { id, denierId });
+
+    return prisma.transportationRequest.update({
+      where: { id },
+      data: {
+        status: 'DENIED',
+        supervisorDeniedById: denierId,
+        supervisorDeniedAt: new Date(),
+        supervisorDenialReason: data.denialReason,
+      },
+      include: TR_WITH_USERS,
+    });
+  }
+
   async approve(id: string, approverId: string, data: ApproveTransportationRequestDto) {
     const record = await prisma.transportationRequest.findUnique({ where: { id } });
     if (!record) throw new NotFoundError('TransportationRequest', id);
-    if (record.status !== 'PENDING') {
+    if (record.status !== 'PENDING_SECRETARY_REVIEW') {
       throw new ValidationError(`Cannot approve a request with status '${record.status}'`);
     }
 
@@ -146,7 +269,7 @@ export class TransportationRequestService {
   async deny(id: string, denierId: string, data: DenyTransportationRequestDto) {
     const record = await prisma.transportationRequest.findUnique({ where: { id } });
     if (!record) throw new NotFoundError('TransportationRequest', id);
-    if (record.status !== 'PENDING') {
+    if (record.status !== 'PENDING_SECRETARY_REVIEW') {
       throw new ValidationError(`Cannot deny a request with status '${record.status}'`);
     }
 
@@ -170,12 +293,35 @@ export class TransportationRequestService {
     if (record.submittedById !== userId) {
       throw new AuthorizationError('You can only delete your own transportation requests');
     }
-    if (record.status !== 'PENDING') {
-      throw new ValidationError('Only PENDING requests can be deleted');
+    if (record.status !== 'PENDING_SUPERVISOR_APPROVAL' && record.status !== 'PENDING_SECRETARY_REVIEW') {
+      throw new ValidationError('Only pending requests can be deleted');
     }
 
     logger.info('Deleting transportation request', { id, userId });
     await prisma.transportationRequest.delete({ where: { id } });
+  }
+
+  private async assertIsSupervisorForRequest(
+    record: { officeLocationId: string | null },
+    userId: string,
+  ): Promise<void> {
+    if (!record.officeLocationId) {
+      throw new AuthorizationError('No location assigned to this request');
+    }
+
+    const isSupervisor = await prisma.locationSupervisor.findFirst({
+      where: {
+        locationId: record.officeLocationId,
+        userId,
+        isPrimary: true,
+        supervisorType: 'PRINCIPAL',
+        user: { isActive: true },
+      },
+    });
+
+    if (!isSupervisor) {
+      throw new AuthorizationError('You are not the supervisor for this request\'s location');
+    }
   }
 }
 

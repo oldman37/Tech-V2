@@ -1,6 +1,11 @@
 import { z } from 'zod';
 
-export const TRANSPORTATION_REQUEST_STATUSES = ['PENDING', 'APPROVED', 'DENIED'] as const;
+export const TRANSPORTATION_REQUEST_STATUSES = [
+  'PENDING_SUPERVISOR_APPROVAL',
+  'PENDING_SECRETARY_REVIEW',
+  'APPROVED',
+  'DENIED',
+] as const;
 export type TransportationRequestStatus = (typeof TRANSPORTATION_REQUEST_STATUSES)[number];
 
 const AdditionalDestinationSchema = z.object({
@@ -10,6 +15,7 @@ const AdditionalDestinationSchema = z.object({
 
 export const CreateTransportationRequestSchema = z.object({
   school:                    z.string().min(1).max(200),
+  officeLocationId:          z.string().uuid().optional().nullable(),
   groupOrActivity:           z.string().min(1).max(300),
   sponsorName:               z.string().min(1).max(200),
   chargedTo:                 z.string().max(300).optional().nullable(),
@@ -47,6 +53,12 @@ export const DenyTransportationRequestSchema = z.object({
 });
 
 export type DenyTransportationRequestDto = z.infer<typeof DenyTransportationRequestSchema>;
+
+export const SupervisorDenyTransportationRequestSchema = z.object({
+  denialReason: z.string().min(1, 'Denial reason is required').max(2000),
+});
+
+export type SupervisorDenyTransportationRequestDto = z.infer<typeof SupervisorDenyTransportationRequestSchema>;
 
 export const TransportationRequestIdParamSchema = z.object({
   id: z.string().uuid('Invalid transportation request ID'),

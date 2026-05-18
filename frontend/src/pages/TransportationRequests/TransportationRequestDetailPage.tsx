@@ -26,6 +26,7 @@ import {
   Typography,
 } from '@mui/material';
 import { PageBackButton }  from '../../components/layout/PageBackButton';
+import { TransportationApprovalStepper } from '../../components/transportation/TransportationApprovalStepper';
 import CheckIcon      from '@mui/icons-material/Check';
 import CloseIcon      from '@mui/icons-material/Close';
 import DeleteIcon     from '@mui/icons-material/Delete';
@@ -76,6 +77,9 @@ export function TransportationRequestDetailPage() {
   const [comments,      setComments]      = useState('');
   const [denialReason,  setDenialReason]  = useState('');
   const [denyError,     setDenyError]     = useState('');
+  const [supervisorDenyOpen, setSupervisorDenyOpen] = useState(false);
+  const [supervisorDenyReason, setSupervisorDenyReason] = useState('');
+  const [supervisorDenyError, setSupervisorDenyError] = useState('');
 
   const { data: request, isLoading, error } = useQuery<TransportationRequest>({
     queryKey: ['transportation-requests', id],
@@ -97,6 +101,16 @@ export function TransportationRequestDetailPage() {
     onSuccess: () => { invalidate(); setDenyOpen(false); setDenialReason(''); setDenyError(''); },
   });
 
+  const supervisorApproveMutation = useMutation({
+    mutationFn: () => transportationRequestService.supervisorApprove(id!),
+    onSuccess: () => { invalidate(); },
+  });
+
+  const supervisorDenyMutation = useMutation({
+    mutationFn: () => transportationRequestService.supervisorDeny(id!, { denialReason: supervisorDenyReason }),
+    onSuccess: () => { invalidate(); setSupervisorDenyOpen(false); setSupervisorDenyReason(''); setSupervisorDenyError(''); },
+  });
+
   const deleteMutation = useMutation({
     mutationFn: () => transportationRequestService.delete(id!),
     onSuccess: () => {
@@ -112,6 +126,15 @@ export function TransportationRequestDetailPage() {
     }
     setDenyError('');
     denyMutation.mutate();
+  };
+
+  const handleSupervisorDenySubmit = () => {
+    if (supervisorDenyReason.trim().length < 1) {
+      setSupervisorDenyError('Denial reason is required');
+      return;
+    }
+    setSupervisorDenyError('');
+    supervisorDenyMutation.mutate();
   };
 
   if (isLoading) {
@@ -135,8 +158,8 @@ export function TransportationRequestDetailPage() {
 
   // Determine permissions â€” use server-computed flag set at login
   const isSecretary = user?.roles?.includes('ADMIN') || user?.permLevels?.isTransportationSecretary === true;
-  const isOwner = request.submittedById === user?.id;
-
+  const isOwner = request.submittedById === user?.id;  // Supervisor can act if status is PENDING_SUPERVISOR_APPROVAL (actual auth is checked server-side)
+  const isSupervisor = status === 'PENDING_SUPERVISOR_APPROVAL' && user?.id !== request.submittedById;
   const submitterName = request.submittedBy
     ? (request.submittedBy.displayName ?? `${request.submittedBy.firstName} ${request.submittedBy.lastName}`)
     : 'â€”';
@@ -158,6 +181,9 @@ export function TransportationRequestDetailPage() {
           color={TRANSPORTATION_REQUEST_STATUS_COLORS[status] ?? 'default'}
         />
       </Box>
+
+      {/* Approval Progress Stepper */}
+      <TransportationApprovalStepper request={request} />
 
       {/* Trip Information */}
       <Paper sx={{ p: { xs: 1.5, sm: 3 }, mb: 3 }}>
@@ -225,46 +251,32 @@ export function TransportationRequestDetailPage() {
         </Paper>
       )}
 
-      {/* Outcome (if decided) */}
-      {status === 'APPROVED' && (
-        <Paper sx={{ p: { xs: 1.5, sm: 3 }, mb: 3, borderLeft: 4, borderColor: 'success.main' }}>
-          <Typography variant="h6" color="success.main" sx={{ mb: 1 }}>Approved</Typography>
-          <Typography variant="body2" color="text.secondary">
-            Approved by{' '}
-            {request.approvedBy
-              ? (request.approvedBy.displayName ?? `${request.approvedBy.firstName} ${request.approvedBy.lastName}`)
-              : 'â€”'}{' '}
-            on {formatDateTime(request.approvedAt)}
-          </Typography>
-          {request.approvalComments && (
-            <Box sx={{ mt: 1, p: 2, bgcolor: 'success.50', borderRadius: 1 }}>
-              <Typography variant="body2" sx={{ wordBreak: 'break-word' }}><strong>Notes:</strong> {request.approvalComments}</Typography>
-            </Box>
-          )}
-        </Paper>
+      {/* Action buttons — Supervisor approval */}
+      {status === 'PENDING_SUPERVISOR_APPROVAL' && isSupervisor && (
+        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mb: 3 }}>
+          <Button
+            variant="contained"
+            color="success"
+            startIcon={supervisorApproveMutation.isPending ? <CircularProgress size={18} /> : <CheckIcon />}
+            onClick={() => supervisorApproveMutation.mutate()}
+            disabled={supervisorApproveMutation.isPending}
+          >
+            Approve as Supervisor
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            startIcon={<CloseIcon />}
+            onClick={() => setSupervisorDenyOpen(true)}
+          >
+            Deny as Supervisor
+          </Button>
+        </Box>
       )}
 
-      {status === 'DENIED' && (
-        <Paper sx={{ p: { xs: 1.5, sm: 3 }, mb: 3, borderLeft: 4, borderColor: 'error.main' }}>
-          <Typography variant="h6" color="error.main" sx={{ mb: 1 }}>Denied</Typography>
-          <Typography variant="body2" color="text.secondary">
-            Denied by{' '}
-            {request.deniedBy
-              ? (request.deniedBy.displayName ?? `${request.deniedBy.firstName} ${request.deniedBy.lastName}`)
-              : 'â€”'}{' '}
-            on {formatDateTime(request.deniedAt)}
-          </Typography>
-          {request.denialReason && (
-            <Box sx={{ mt: 1, p: 2, bgcolor: 'error.50', borderRadius: 1 }}>
-              <Typography variant="body2" sx={{ wordBreak: 'break-word' }}><strong>Reason:</strong> {request.denialReason}</Typography>
-            </Box>
-          )}
-        </Paper>
-      )}
-
-      {/* Action buttons */}
-      {status === 'PENDING' && (
-        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+      {/* Action buttons — Secretary approval */}
+      {status === 'PENDING_SECRETARY_REVIEW' && (
+        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mb: 3 }}>
           {isSecretary && (
             <>
               <Button
@@ -285,16 +297,20 @@ export function TransportationRequestDetailPage() {
               </Button>
             </>
           )}
-          {isOwner && (
-            <Button
-              variant="outlined"
-              color="error"
-              startIcon={<DeleteIcon />}
-              onClick={() => setDeleteOpen(true)}
-            >
-              Withdraw Request
-            </Button>
-          )}
+        </Box>
+      )}
+
+      {/* Withdraw button — owner can withdraw pending requests */}
+      {(status === 'PENDING_SUPERVISOR_APPROVAL' || status === 'PENDING_SECRETARY_REVIEW') && isOwner && (
+        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+          <Button
+            variant="outlined"
+            color="error"
+            startIcon={<DeleteIcon />}
+            onClick={() => setDeleteOpen(true)}
+          >
+            Withdraw Request
+          </Button>
         </Box>
       )}
 
@@ -327,7 +343,7 @@ export function TransportationRequestDetailPage() {
         </DialogActions>
       </Dialog>
 
-      {/* Deny Dialog */}
+      {/* Deny Dialog (secretary) */}
       <Dialog open={denyOpen} onClose={() => setDenyOpen(false)} maxWidth="sm" fullWidth fullScreen={isMobile}>
         <DialogTitle>Deny Transportation Request</DialogTitle>
         <DialogContent>
@@ -352,6 +368,37 @@ export function TransportationRequestDetailPage() {
             onClick={handleDenySubmit}
             disabled={denyMutation.isPending}
             startIcon={denyMutation.isPending ? <CircularProgress size={18} /> : undefined}
+          >
+            Confirm Denial
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Supervisor Deny Dialog */}
+      <Dialog open={supervisorDenyOpen} onClose={() => setSupervisorDenyOpen(false)} maxWidth="sm" fullWidth fullScreen={isMobile}>
+        <DialogTitle>Deny Transportation Request (Supervisor)</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Please provide a reason for denying this request. The submitter will be notified via email.
+          </Typography>
+          <TextField
+            fullWidth required
+            multiline rows={4}
+            label="Reason for Denial"
+            value={supervisorDenyReason}
+            onChange={(e) => { setSupervisorDenyReason(e.target.value); setSupervisorDenyError(''); }}
+            error={!!supervisorDenyError}
+            helperText={supervisorDenyError || 'Required'}
+            inputProps={{ maxLength: 2000 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSupervisorDenyOpen(false)} disabled={supervisorDenyMutation.isPending}>Cancel</Button>
+          <Button
+            variant="contained" color="error"
+            onClick={handleSupervisorDenySubmit}
+            disabled={supervisorDenyMutation.isPending}
+            startIcon={supervisorDenyMutation.isPending ? <CircularProgress size={18} /> : undefined}
           >
             Confirm Denial
           </Button>
