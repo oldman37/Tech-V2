@@ -1,8 +1,8 @@
 // c:\Tech-V2\frontend\src\components\layout\AppLayout.tsx
 
-import { ReactNode, useState } from 'react';
+import { ReactNode, useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Drawer, IconButton, useMediaQuery } from '@mui/material';
+import { Drawer, IconButton } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import { useAuthStore, selectCanAccessDeviceManagement } from '../../store/authStore';
 import { authApi } from '../../services/authService';
@@ -94,8 +94,18 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
   const isStaff = isAdmin || (user?.permLevels?.REQUISITIONS ?? 0) >= 2;
   const { canAccess: canAccessRoomAssignments } = useRoomAssignmentAccess();
 
-  // Breakpoint: 769px here complements CSS @media (max-width: 768px) in AppLayout.css
-  const isDesktop = useMediaQuery('(min-width:769px)');
+  // Synchronous initial read prevents flash-to-desktop on PWA refresh.
+  // useMediaQuery from MUI initializes to `false` before the real viewport
+  // is measured, causing a layout switch after first render.
+  const [isDesktop, setIsDesktop] = useState(
+    () => window.matchMedia('(min-width:769px)').matches
+  );
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width:769px)');
+    const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const handleLogout = async () => {

@@ -48,6 +48,7 @@ import DeviceManagementDashboard from './pages/DeviceManagement/index'
 import ReportsPage from './pages/DeviceManagement/ReportsPage'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { PwaUpdatePrompt } from './components/layout/PwaUpdatePrompt'
+import { PwaInstallPrompt } from './components/layout/PwaInstallPrompt'
 import AppLayout from './components/layout/AppLayout'
 import './App.css'
 
@@ -55,6 +56,7 @@ function App() {
   return (
     <BrowserRouter>
       <PwaUpdatePrompt />
+      <PwaInstallPrompt />
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route
