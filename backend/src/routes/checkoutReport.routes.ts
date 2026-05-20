@@ -12,5 +12,7 @@ router.get('/damage-summary',       requireDeviceManagementAccess(), controller.
 router.get('/repair-costs',         requireDeviceManagementAccess(), controller.getRepairCostsByVendor);
 router.get('/invoice-aging',        requireDeviceManagementAccess(), controller.getInvoiceAging);
 router.get('/user/:userId/history', requireDeviceManagementAccess(), controller.getUserDeviceHistory);
+router.get('/damage-by-grade',      requireDeviceManagementAccess(), controller.getDamageByGrade);
+router.get('/grade-level-summary',  requireDeviceManagementAccess(), controller.getGradeLevelSummary);
 
 export default router;

@@ -12,6 +12,11 @@ const ActiveCheckoutsQuerySchema = z.object({
   skip:       z.coerce.number().int().min(0).optional(),
 });
 
+const DateRangeQuerySchema = z.object({
+  startDate: z.string().optional(),
+  endDate:   z.string().optional(),
+});
+
 // ---------------------------------------------------------------------------
 // GET /dashboard
 // ---------------------------------------------------------------------------
@@ -106,6 +111,38 @@ export const getUserDeviceHistory = async (req: AuthRequest, res: Response): Pro
     }
     const { userId } = parsed.data;
     const data = await service.getUserDeviceHistory(userId);
+    res.json(data);
+  } catch (error) {
+    handleControllerError(error, res);
+  }
+};
+
+// ---------------------------------------------------------------------------
+// GET /damage-by-grade
+// ---------------------------------------------------------------------------
+
+export const getDamageByGrade = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const data = await service.getDamageByGrade();
+    res.json(data);
+  } catch (error) {
+    handleControllerError(error, res);
+  }
+};
+
+// ---------------------------------------------------------------------------
+// GET /grade-level-summary
+// ---------------------------------------------------------------------------
+
+export const getGradeLevelSummary = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const parsed = DateRangeQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      res.status(400).json({ error: 'Invalid query parameters', details: parsed.error.flatten() });
+      return;
+    }
+    const { startDate, endDate } = parsed.data;
+    const data = await service.getGradeLevelSummary(startDate, endDate);
     res.json(data);
   } catch (error) {
     handleControllerError(error, res);

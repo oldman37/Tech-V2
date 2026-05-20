@@ -6,6 +6,8 @@ import type {
   RepairCostByVendor,
   InvoiceAging,
   UserDeviceHistory,
+  DamageByGradeItem,
+  GradeLevelSummaryItem,
 } from '../types/checkoutReport.types';
 
 const BASE = '/api/checkout-reports';
@@ -28,4 +30,10 @@ export const checkoutReportService = {
 
   getUserDeviceHistory: (userId: string): Promise<UserDeviceHistory> =>
     axios.get(`${BASE}/user/${userId}/history`).then(r => r.data),
+
+  getDamageByGrade: (): Promise<DamageByGradeItem[]> =>
+    axios.get(`${BASE}/damage-by-grade`).then(r => r.data),
+
+  getGradeLevelSummary: (params?: { startDate?: string; endDate?: string }): Promise<GradeLevelSummaryItem[]> =>
+    axios.get(`${BASE}/grade-level-summary`, { params }).then(r => r.data),
 };

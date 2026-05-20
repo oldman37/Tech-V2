@@ -15,6 +15,8 @@ interface UserSearchAutocompleteProps {
   filterType?: 'student' | 'staff' | 'all';
   /** Filter users by office location (OfficeLocation ID) */
   locationId?: string;
+  /** When set, uses getUsers() with gradeLevel filter instead of searchUsers() */
+  gradeLevel?: string;
   label?: string;
   error?: boolean;
   helperText?: string;
@@ -34,6 +36,7 @@ export function DeviceManagementUserSearch({
   // filterType is stored for future backend support; currently passed as param
   filterType: _filterType = 'all',
   locationId,
+  gradeLevel,
   label = 'Assignee',
   error,
   helperText,
@@ -49,20 +52,31 @@ export function DeviceManagementUserSearch({
     (q: string) => {
       let active = true;
       setLoading(true);
-      userService
-        .searchUsers(q, 20, locationId)
-        .then((results) => {
-          if (active) setOptions(results.map(toOption));
-        })
-        .catch(() => {
-          if (active) setOptions([]);
-        })
-        .finally(() => {
-          if (active) setLoading(false);
-        });
+
+      const promise = gradeLevel
+        ? userService
+            .getUsers(1, 50, q, 'student', locationId, gradeLevel)
+            .then((res) =>
+              res.users.map((u) => ({
+                id:    u.id,
+                email: u.email,
+                label: [u.firstName, u.lastName].filter(Boolean).join(' ')
+                       + ` — ${u.email}`
+                       + (u.employeeId ? ` (ID: ${u.employeeId})` : ''),
+              }))
+            )
+        : userService
+            .searchUsers(q, 20, locationId)
+            .then((results) => results.map(toOption));
+
+      promise
+        .then((opts) => { if (active) setOptions(opts); })
+        .catch(() => { if (active) setOptions([]); })
+        .finally(() => { if (active) setLoading(false); });
+
       return () => { active = false; };
     },
-    [locationId]
+    [locationId, gradeLevel]
   );
 
   // Fetch on open (empty query)

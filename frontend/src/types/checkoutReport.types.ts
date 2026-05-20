@@ -69,3 +69,16 @@ export interface UserDeviceHistory {
     damageIncidents?:  Array<{ id: string; damageType: string; severity: string; status: string; reportedAt: string }>;
   }>;
 }
+
+export interface DamageByGradeItem {
+  gradeLevel:    string | null;
+  incidentCount: number;
+}
+
+export interface GradeLevelSummaryItem {
+  gradeLevel:              string | null;
+  incidentCount:           number;
+  totalRepairCost:         string;
+  outstandingInvoiceTotal: string;
+  avgCostPerIncident:      string;
+}

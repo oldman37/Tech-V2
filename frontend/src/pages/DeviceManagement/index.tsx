@@ -10,12 +10,23 @@ export default function DeviceManagementDashboard() {
     refetchInterval: 5 * 60 * 1000,
   });
 
+  const { data: gradeData, isLoading: gradeLoading } = useQuery({
+    queryKey: ['checkout-reports', 'damage-by-grade'],
+    queryFn:  checkoutReportService.getDamageByGrade,
+    refetchInterval: 5 * 60 * 1000,
+  });
+
   return (
     <Box sx={{ p: 3 }}>
       <Typography variant="h4" fontWeight={600} gutterBottom>
         Device Management Dashboard
       </Typography>
-      <DashboardWidgets data={data} isLoading={isLoading} />
+      <DashboardWidgets
+        data={data}
+        isLoading={isLoading}
+        gradeData={gradeData}
+        gradeLoading={gradeLoading}
+      />
     </Box>
   );
 }

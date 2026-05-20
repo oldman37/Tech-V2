@@ -19,7 +19,7 @@ export const deviceAssignmentService = {
   checkin: (id: string, data: CheckinFormData): Promise<{ assignment: DeviceAssignment; shouldCreateIncident: boolean }> =>
     api.post(`${BASE}/${id}/checkin`, data).then((r) => r.data),
 
-  getActive: (params?: { page?: number; limit?: number; campusId?: string; assigneeType?: string }): Promise<ActiveAssignmentsResponse> =>
+  getActive: (params?: { page?: number; limit?: number; campusId?: string; assigneeType?: string; gradeLevel?: string }): Promise<ActiveAssignmentsResponse> =>
     api.get(`${BASE}/active`, { params }).then((r) => r.data),
 
   getAll: (params?: object): Promise<ActiveAssignmentsResponse> =>

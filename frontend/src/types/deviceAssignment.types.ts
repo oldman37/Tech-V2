@@ -7,6 +7,7 @@ export interface DeviceAssignmentUser {
   email: string;
   jobTitle: string | null;
   officeLocation: string | null;
+  gradeLevel?: string | null;
 }
 
 export interface DeviceAssignmentEquipment {

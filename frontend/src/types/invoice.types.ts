@@ -85,7 +85,7 @@ export interface Invoice {
     reportedAt:     string;
     equipment?:     InvoiceEquipment;
   };
-  user?:      { id: string; firstName: string; lastName: string; email: string } | null;
+  user?:      { id: string; firstName: string; lastName: string; email: string; gradeLevel?: string | null } | null;
   creator?:   { id: string; firstName: string; lastName: string };
   payments?:  InvoicePayment[];
   lineItems?: DamageInvoiceLineItem[];

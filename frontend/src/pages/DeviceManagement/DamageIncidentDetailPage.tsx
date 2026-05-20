@@ -25,6 +25,7 @@ import type { DamageIncident } from '../../types/damageIncident.types';
 import { DamageTypeBadge } from '../../components/DeviceManagement/DamageTypeBadge';
 import { PhotoUploadGrid } from '../../components/DeviceManagement/PhotoUploadGrid';
 import CreateInvoiceDialog from '../../components/DeviceManagement/CreateInvoiceDialog';
+import { gradeLevelLabel } from '../../constants/gradeLevel';
 
 const STATUSES = ['reported', 'invoiced', 'in_repair', 'resolved', 'waived'] as const;
 
@@ -153,7 +154,17 @@ export default function DamageIncidentDetailPage() {
             {incident.user ? (
               <div className="grid grid-cols-2 gap-2 text-sm">
                 <Typography variant="body2" color="text.secondary">Name</Typography>
-                <Typography variant="body2">{incident.user.firstName} {incident.user.lastName}</Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Typography variant="body2">{incident.user.firstName} {incident.user.lastName}</Typography>
+                  {incident.user.gradeLevel && (
+                    <Chip
+                      label={gradeLevelLabel(incident.user.gradeLevel)}
+                      size="small"
+                      color="info"
+                      variant="outlined"
+                    />
+                  )}
+                </Box>
                 <Typography variant="body2" color="text.secondary">Email</Typography>
                 <Typography variant="body2">{incident.user.email}</Typography>
               </div>

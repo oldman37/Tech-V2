@@ -12,10 +12,11 @@ export interface DamageIncidentPhoto {
 }
 
 export interface DamageIncidentUser {
-  id:        string;
-  firstName: string;
-  lastName:  string;
-  email:     string;
+  id:          string;
+  firstName:   string;
+  lastName:    string;
+  email:       string;
+  gradeLevel?: string | null;
 }
 
 export interface DamageIncidentEquipment {

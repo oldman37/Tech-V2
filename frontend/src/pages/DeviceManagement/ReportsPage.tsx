@@ -26,9 +26,10 @@ import { Download as DownloadIcon } from '@mui/icons-material';
 import { checkoutReportService } from '../../services/checkoutReport.service';
 import { locationService } from '../../services/location.service';
 import { useAuthStore, selectCanSeeAllLocations } from '../../store/authStore';
-import type { InvoiceAgingBucket } from '../../types/checkoutReport.types';
+import type { InvoiceAgingBucket, GradeLevelSummaryItem } from '../../types/checkoutReport.types';
+import { gradeLevelLabel } from '../../constants/gradeLevel';
 
-type ReportType = 'active-checkouts' | 'damage-summary' | 'repair-costs' | 'invoice-aging' | null;
+type ReportType = 'active-checkouts' | 'damage-summary' | 'repair-costs' | 'invoice-aging' | 'grade-level-summary' | null;
 
 export default function ReportsPage() {
   const [selectedReport, setSelectedReport] = useState<ReportType>(null);
@@ -96,8 +97,20 @@ export default function ReportsPage() {
     enabled:  selectedReport === 'invoice-aging',
   });
 
-  const showDateRange = selectedReport === 'damage-summary' || selectedReport === 'repair-costs';
-  const isLoading = loadingActive || loadingDamage || loadingRepair || loadingAging;
+  // ── Grade Level Summary ──────────────────────────────────────────────────
+  const { data: gradeSummary, isLoading: loadingGrade } = useQuery({
+    queryKey: ['reports', 'grade-level-summary', startDate, endDate],
+    queryFn:  () => checkoutReportService.getGradeLevelSummary({
+      startDate: startDate || undefined,
+      endDate:   endDate   || undefined,
+    }),
+    enabled: selectedReport === 'grade-level-summary',
+  });
+
+  const showDateRange = selectedReport === 'damage-summary'
+    || selectedReport === 'repair-costs'
+    || selectedReport === 'grade-level-summary';
+  const isLoading = loadingActive || loadingDamage || loadingRepair || loadingAging || loadingGrade;
 
   // ── CSV Export ───────────────────────────────────────────────────────────
   const handleExportCsv = () => {
@@ -152,6 +165,7 @@ export default function ReportsPage() {
         <Tab label="Damage Summary"             value="damage-summary" />
         <Tab label="Repair Costs by Vendor"     value="repair-costs" />
         <Tab label="Invoice Aging"              value="invoice-aging" />
+        <Tab label="By Grade Level"             value="grade-level-summary" />
       </Tabs>
 
       {/* Date range inputs */}
@@ -358,6 +372,44 @@ export default function ReportsPage() {
             );
           })}
         </div>
+      )}
+
+      {/* Grade Level Summary */}
+      {selectedReport === 'grade-level-summary' && !loadingGrade && gradeSummary && (
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell>Grade</TableCell>
+              <TableCell align="right">Incidents</TableCell>
+              <TableCell align="right">Total Repair Cost</TableCell>
+              <TableCell align="right">Outstanding Invoices</TableCell>
+              <TableCell align="right">Avg Cost / Incident</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {gradeSummary.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={5} align="center">No grade-level data for the selected range.</TableCell>
+              </TableRow>
+            )}
+            {gradeSummary.map((row: GradeLevelSummaryItem) => (
+              <TableRow key={row.gradeLevel}>
+                <TableCell>
+                  <Chip
+                    label={gradeLevelLabel(row.gradeLevel)}
+                    size="small"
+                    color="primary"
+                    variant="outlined"
+                  />
+                </TableCell>
+                <TableCell align="right">{row.incidentCount}</TableCell>
+                <TableCell align="right">${row.totalRepairCost}</TableCell>
+                <TableCell align="right">${row.outstandingInvoiceTotal}</TableCell>
+                <TableCell align="right">${row.avgCostPerIncident}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       )}
     </Box>
   );

@@ -22,6 +22,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SendIcon from '@mui/icons-material/Send';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import EditIcon from '@mui/icons-material/Edit';
+import { gradeLevelLabel } from '../../constants/gradeLevel';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { invoiceService } from '../../services/invoice.service';
 import type { Invoice, RecordPaymentData } from '../../types/invoice.types';
@@ -315,9 +316,19 @@ export default function InvoiceDetailPage() {
             <Typography>{invoice.recipientName ?? '—'}</Typography>
             <Typography color="text.secondary">{invoice.recipientEmail}</Typography>
             {invoice.user && (
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                Student: {invoice.user.firstName} {invoice.user.lastName}
-              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
+                <Typography variant="body2" color="text.secondary">
+                  Student: {invoice.user.firstName} {invoice.user.lastName}
+                </Typography>
+                {invoice.user.gradeLevel && (
+                  <Chip
+                    label={gradeLevelLabel(invoice.user.gradeLevel)}
+                    size="small"
+                    color="info"
+                    variant="outlined"
+                  />
+                )}
+              </Box>
             )}
           </CardContent>
         </Card>

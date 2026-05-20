@@ -31,6 +31,7 @@ import { deviceAssignmentService } from '../../services/deviceAssignment.service
 import { DeviceManagementUserSearch, type UserOption } from '../../components/DeviceManagement/UserSearchAutocomplete';
 import type { OfficeLocationWithSupervisors } from '../../types/location.types';
 import type { AssigneeType, CheckoutCondition } from '@mgspe/shared-types';
+import { GRADE_LEVELS, gradeLevelLabel } from '../../constants/gradeLevel';
 
 const STEPS = ['Select Location', 'Find Person', 'Scan & Assign Devices'];
 
@@ -54,6 +55,7 @@ export default function BulkCheckoutPage() {
 
   // Step 2: User
   const [selectedUser, setSelectedUser] = useState<UserOption | null>(null);
+  const [gradeLevelFilter, setGradeLevelFilter] = useState<string>('');
 
   // Derive assigneeType from selected user's email domain
   const assigneeType: AssigneeType = selectedUser?.email?.toLowerCase().endsWith('@ocboe.com')
@@ -102,6 +104,7 @@ export default function BulkCheckoutPage() {
     }
     if (activeStep === 1) {
       setSelectedUser(null);
+      setGradeLevelFilter('');
     }
     setActiveStep((s) => s - 1);
   };
@@ -243,10 +246,25 @@ export default function BulkCheckoutPage() {
             <strong>{selectedLocation?.name}</strong>.
           </Typography>
 
+          <FormControl size="small" sx={{ minWidth: 220, mb: 2 }}>
+            <InputLabel>Filter by Grade (optional)</InputLabel>
+            <Select
+              value={gradeLevelFilter}
+              onChange={(e) => { setGradeLevelFilter(e.target.value); setSelectedUser(null); }}
+              label="Filter by Grade (optional)"
+            >
+              <MenuItem value="">All Grades</MenuItem>
+              {GRADE_LEVELS.map((g) => (
+                <MenuItem key={g} value={g}>{gradeLevelLabel(g)}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
           <DeviceManagementUserSearch
             value={selectedUser}
             onChange={setSelectedUser}
             locationId={selectedLocation?.id}
+            gradeLevel={gradeLevelFilter || undefined}
             label="Search person (name or Employee ID)"
             autoFocus
           />

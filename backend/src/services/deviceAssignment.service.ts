@@ -28,6 +28,7 @@ const userSelect = {
   email: true,
   jobTitle: true,
   officeLocation: true,
+  gradeLevel: true,
 } as const;
 
 const equipmentSelect = {
@@ -265,6 +266,7 @@ export async function getActiveAssignments(query: ListAssignmentsQuery) {
   if (query.equipmentId)  where.equipmentId  = query.equipmentId;
   if (query.assigneeType) where.assigneeType = query.assigneeType;
   if (query.campusId)     where.locationId   = query.campusId;
+  if (query.gradeLevel)   where.user         = { gradeLevel: query.gradeLevel };
 
   const [items, total] = await prisma.$transaction([
     prisma.deviceAssignment.findMany({

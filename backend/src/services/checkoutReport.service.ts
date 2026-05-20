@@ -1,6 +1,7 @@
 import { prisma } from '../lib/prisma';
 import { createLogger } from '../lib/logger';
 import { NotFoundError } from '../utils/errors';
+import { gradeLevelSortIndex } from '../constants/gradeLevel';
 
 const log = createLogger('CheckoutReportService');
 
@@ -346,4 +347,123 @@ export async function getUserDeviceHistory(userId: string) {
   if (!user) throw new NotFoundError('User not found');
 
   return { user, assignments };
+}
+
+// ---------------------------------------------------------------------------
+// getDamageByGrade
+// ---------------------------------------------------------------------------
+
+export interface DamageByGradeItem {
+  gradeLevel:    string | null;
+  incidentCount: number;
+}
+
+export async function getDamageByGrade(): Promise<DamageByGradeItem[]> {
+  log.info('getDamageByGrade');
+
+  const now = new Date();
+  const academicYearStart = new Date(
+    now.getMonth() >= 7 ? now.getFullYear() : now.getFullYear() - 1,
+    7, // August (0-indexed)
+    1,
+  );
+
+  const incidents = await prisma.damageIncident.findMany({
+    where: {
+      reportedAt: { gte: academicYearStart },
+      user: { isNot: null },
+    },
+    select: {
+      user: { select: { gradeLevel: true } },
+    },
+  });
+
+  const counts: Record<string, number> = {};
+  for (const inc of incidents) {
+    const grade = inc.user?.gradeLevel ?? 'Unknown';
+    counts[grade] = (counts[grade] ?? 0) + 1;
+  }
+
+  return Object.entries(counts)
+    .map(([gradeLevel, incidentCount]) => ({ gradeLevel: gradeLevel === 'Unknown' ? null : gradeLevel, incidentCount }))
+    .sort((a, b) => gradeLevelSortIndex(a.gradeLevel) - gradeLevelSortIndex(b.gradeLevel));
+}
+
+// ---------------------------------------------------------------------------
+// getGradeLevelSummary
+// ---------------------------------------------------------------------------
+
+export interface GradeLevelSummaryItem {
+  gradeLevel:              string | null;
+  incidentCount:           number;
+  totalRepairCost:         string;
+  outstandingInvoiceTotal: string;
+  avgCostPerIncident:      string;
+}
+
+export async function getGradeLevelSummary(
+  startDate?: string,
+  endDate?: string,
+): Promise<GradeLevelSummaryItem[]> {
+  log.info('getGradeLevelSummary', { count: 'aggregated' });
+
+  const reportedAtFilter: Record<string, Date> = {};
+  if (startDate) reportedAtFilter['gte'] = new Date(startDate);
+  if (endDate)   reportedAtFilter['lte'] = new Date(endDate);
+
+  const incidents = await prisma.damageIncident.findMany({
+    where: {
+      ...(Object.keys(reportedAtFilter).length ? { reportedAt: reportedAtFilter } : {}),
+      user: { isNot: null },
+      userId: { not: null },
+    },
+    select: {
+      id:     true,
+      userId: true,
+      user:   { select: { gradeLevel: true } },
+      repairTickets: {
+        where:  { repairCost: { not: null } },
+        select: { repairCost: true },
+      },
+      invoices: {
+        select: { amount: true, status: true },
+      },
+    },
+  });
+
+  const map: Record<string, {
+    incidentCount:           number;
+    totalRepairCost:         number;
+    outstandingInvoiceTotal: number;
+  }> = {};
+
+  for (const inc of incidents) {
+    const grade = inc.user?.gradeLevel ?? 'Unknown';
+    if (!map[grade]) {
+      map[grade] = { incidentCount: 0, totalRepairCost: 0, outstandingInvoiceTotal: 0 };
+    }
+    map[grade].incidentCount++;
+
+    for (const rt of inc.repairTickets) {
+      map[grade].totalRepairCost += parseFloat((rt.repairCost ?? 0).toString());
+    }
+
+    for (const inv of inc.invoices) {
+      if (['draft', 'sent', 'collections'].includes(inv.status)) {
+        map[grade].outstandingInvoiceTotal += parseFloat(inv.amount.toString());
+      }
+    }
+  }
+
+  return Object.entries(map)
+    .map(([gradeLevel, agg]) => ({
+      gradeLevel: gradeLevel === 'Unknown' ? null : gradeLevel,
+      incidentCount:           agg.incidentCount,
+      totalRepairCost:         agg.totalRepairCost.toFixed(2),
+      outstandingInvoiceTotal: agg.outstandingInvoiceTotal.toFixed(2),
+      avgCostPerIncident:      agg.incidentCount > 0
+        ? (agg.totalRepairCost / agg.incidentCount).toFixed(2)
+        : '0.00',
+    }))
+    .sort((a, b) => gradeLevelSortIndex(a.gradeLevel) - gradeLevelSortIndex(b.gradeLevel));
 }

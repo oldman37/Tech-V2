@@ -22,6 +22,7 @@ import { userService } from '../../services/userService';
 import { DeviceStatusChip } from '../../components/DeviceManagement/DeviceStatusChip';
 import { ConditionChip } from '../../components/DeviceManagement/ConditionChip';
 import { CheckinForm } from '../../components/DeviceManagement/CheckinForm';
+import { GRADE_LEVELS, gradeLevelLabel } from '../../constants/gradeLevel';
 import type { DeviceAssignment, DeviceAssignmentUser } from '../../types/deviceAssignment.types';
 
 // Active checkouts page — /device-management/checkouts
@@ -32,6 +33,7 @@ export default function CheckoutPage() {
   const [search, setSearch]           = useState('');
   const [assigneeFilter, setAssigneeFilter] = useState<string>('');
   const [locationFilter, setLocationFilter] = useState<string>('');
+  const [gradeLevelFilter, setGradeLevelFilter] = useState<string>('');
   const [page, setPage]               = useState(0);
   const [pageSize, setPageSize]       = useState(25);
 
@@ -64,13 +66,14 @@ export default function CheckoutPage() {
     isLoading,
     isError,
   } = useQuery({
-    queryKey: ['device-assignments', 'active', { page, pageSize, assigneeFilter, locationFilter }],
+    queryKey: ['device-assignments', 'active', { page, pageSize, assigneeFilter, locationFilter, gradeLevelFilter }],
     queryFn: () =>
       deviceAssignmentService.getActive({
         page:         page + 1,
         limit:        pageSize,
-        assigneeType: assigneeFilter || undefined,
-        campusId:     locationFilter || undefined,
+        assigneeType: assigneeFilter  || undefined,
+        campusId:     locationFilter  || undefined,
+        gradeLevel:   gradeLevelFilter || undefined,
       }),
   });
 
@@ -216,6 +219,19 @@ export default function CheckoutPage() {
               .map((loc) => (
                 <MenuItem key={loc.id} value={loc.id}>{loc.name}</MenuItem>
               ))}
+          </Select>
+        </FormControl>
+        <FormControl size="small" sx={{ minWidth: 150 }}>
+          <InputLabel>Grade</InputLabel>
+          <Select
+            value={gradeLevelFilter}
+            onChange={(e) => { setGradeLevelFilter(e.target.value); setPage(0); }}
+            label="Grade"
+          >
+            <MenuItem value="">All Grades</MenuItem>
+            {GRADE_LEVELS.map((g) => (
+              <MenuItem key={g} value={g}>{gradeLevelLabel(g)}</MenuItem>
+            ))}
           </Select>
         </FormControl>
       </Paper>
