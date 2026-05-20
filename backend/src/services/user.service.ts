@@ -12,6 +12,7 @@ export interface UserQuery {
   isActive?: boolean;
   accountType?: 'all' | 'staff' | 'student';
   locationId?: string;
+  gradeLevel?: string;
 }
 
 /**
@@ -41,6 +42,7 @@ export interface UserWithPermissions {
   jobTitle: string | null;
   officeLocation: string | null;
   employeeId: string | null;
+  gradeLevel: string | null;
   role: string | null;
   isActive: boolean;
   lastSync: Date | null;
@@ -134,6 +136,10 @@ export class UserService {
       if (location) {
         where.officeLocation = { contains: location.name, mode: 'insensitive' };
       }
+    }
+
+    if (query.gradeLevel) {
+      where.gradeLevel = { equals: query.gradeLevel, mode: 'insensitive' };
     }
 
     // Get total count and paginated users
@@ -656,6 +662,7 @@ export class UserService {
       jobTitle: user.jobTitle,
       officeLocation: user.officeLocation,
       employeeId: user.employeeId,
+      gradeLevel: user.gradeLevel ?? null,
       role: user.role,
       isActive: user.isActive,
       lastSync: user.lastSync,

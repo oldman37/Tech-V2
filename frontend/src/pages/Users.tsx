@@ -24,6 +24,23 @@ import {
 import { useUserSupervisors, useSearchSupervisors } from '../hooks/queries/useSupervisors';
 import { useAddUserSupervisor, useRemoveUserSupervisor } from '../hooks/mutations/useSupervisorMutations';
 
+const GRADE_LEVEL_OPTIONS: { value: string; label: string }[] = [
+  { value: 'PK', label: 'PK' },
+  { value: 'KG', label: 'K' },
+  { value: '01', label: '1' },
+  { value: '02', label: '2' },
+  { value: '03', label: '3' },
+  { value: '04', label: '4' },
+  { value: '05', label: '5' },
+  { value: '06', label: '6' },
+  { value: '07', label: '7' },
+  { value: '08', label: '8' },
+  { value: '09', label: '9' },
+  { value: '10', label: '10' },
+  { value: '11', label: '11' },
+  { value: '12', label: '12' },
+];
+
 const Users: React.FC = () => {
   // UI state (not data state - that's handled by queries)
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -33,6 +50,7 @@ const Users: React.FC = () => {
   const [showSyncPanel, setShowSyncPanel] = useState(false);
   const [accountType, setAccountType] = useState<'all' | 'staff' | 'student'>('all');
   const [locationFilter, setLocationFilter] = useState<string>('');
+  const [gradeLevelFilter, setGradeLevelFilter] = useState<string>('');
   const [syncDialogOpen, setSyncDialogOpen] = useState(false);
   const [syncResult, setSyncResult] = useState<SyncResultDetail | null>(null);
   const [activeSyncType, setActiveSyncType] = useState<'all' | 'staff' | 'students'>('all');
@@ -73,7 +91,7 @@ const Users: React.FC = () => {
     isLoading: usersLoading,
     error: usersError,
     isPlaceholderData,
-  } = usePaginatedUsers(currentPage, itemsPerPage, debouncedSearchTerm, accountType, locationFilter || undefined);
+  } = usePaginatedUsers(currentPage, itemsPerPage, debouncedSearchTerm, accountType, locationFilter || undefined, gradeLevelFilter || undefined);
 
   // Fetch locations for filter dropdown
   const { data: locations = [] } = useLocations();
@@ -145,11 +163,19 @@ const Users: React.FC = () => {
 
   const handleAccountTypeChange = (value: 'all' | 'staff' | 'student') => {
     setAccountType(value);
+    if (value === 'staff') {
+      setGradeLevelFilter('');
+    }
     setCurrentPage(1);
   };
 
   const handleLocationFilterChange = (value: string) => {
     setLocationFilter(value);
+    setCurrentPage(1);
+  };
+
+  const handleGradeLevelFilterChange = (value: string) => {
+    setGradeLevelFilter(value);
     setCurrentPage(1);
   };
 
@@ -214,6 +240,15 @@ const Users: React.FC = () => {
       hideOnMobile: true,
       render: (user) => user.employeeId || '—',
     },
+    ...(accountType !== 'staff' ? [{
+      key: 'gradeLevel' as keyof User,
+      label: 'Grade',
+      hideOnMobile: true,
+      render: (user: User) =>
+        user.gradeLevel != null
+          ? <span>{user.gradeLevel}</span>
+          : <span style={{ color: 'var(--slate-400)' }}>—</span>,
+    }] : []),
     {
       key: 'primaryRoom',
       label: 'Room',
@@ -376,7 +411,7 @@ const Users: React.FC = () => {
               <MobileFilterBar
                 searchValue={searchTerm}
                 onSearchChange={(value) => handleSearchChange(value)}
-                filterCount={(accountType !== 'all' ? 1 : 0) + (locationFilter ? 1 : 0)}
+                filterCount={(accountType !== 'all' ? 1 : 0) + (locationFilter ? 1 : 0) + (gradeLevelFilter ? 1 : 0)}
                 onOpenFilters={() => setFilterDrawerOpen(!filterDrawerOpen)}
                 searchPlaceholder="Search users by name or email..."
               />
@@ -408,9 +443,24 @@ const Users: React.FC = () => {
                         ))}
                       </select>
                     </div>
+                    {accountType !== 'staff' && (
+                      <div>
+                        <label className="form-label">Grade Level</label>
+                        <select
+                          value={gradeLevelFilter}
+                          onChange={(e) => handleGradeLevelFilterChange(e.target.value)}
+                          className="form-select"
+                        >
+                          <option value="">All Grades</option>
+                          {GRADE_LEVEL_OPTIONS.map((g) => (
+                            <option key={g.value} value={g.value}>{g.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
                     <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                       <button
-                        onClick={() => { handleAccountTypeChange('all'); handleLocationFilterChange(''); setFilterDrawerOpen(false); }}
+                        onClick={() => { handleAccountTypeChange('all'); handleLocationFilterChange(''); handleGradeLevelFilterChange(''); setFilterDrawerOpen(false); }}
                         className="btn btn-secondary btn-sm"
                       >
                         Clear Filters
@@ -452,6 +502,19 @@ const Users: React.FC = () => {
                     <option key={loc.id} value={loc.id}>{loc.name}</option>
                   ))}
                 </select>
+                {accountType !== 'staff' && (
+                  <select
+                    value={gradeLevelFilter}
+                    onChange={(e) => handleGradeLevelFilterChange(e.target.value)}
+                    className="form-select"
+                    style={{ width: 'auto', fontSize: '0.875rem' }}
+                  >
+                    <option value="">All Grades</option>
+                    {GRADE_LEVEL_OPTIONS.map((g) => (
+                      <option key={g.value} value={g.value}>{g.label}</option>
+                    ))}
+                  </select>
+                )}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                   <label style={{ fontSize: '0.875rem', whiteSpace: 'nowrap' }}>Show:</label>
                   <select

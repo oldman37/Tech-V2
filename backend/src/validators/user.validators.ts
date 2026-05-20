@@ -42,6 +42,7 @@ export const GetUsersQuerySchema = z.object({
   limit: z.string().optional().transform((val) => val ? parseInt(val, 10) : 50),
   search: z.string().max(200, 'Search term must be 200 characters or fewer').optional().default(''),
   accountType: z.enum(['all', 'staff', 'student']).optional(),
+  gradeLevel: z.string().max(20, 'Grade level must be 20 characters or fewer').optional(),
 });
 
 /**

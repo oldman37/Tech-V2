@@ -401,7 +401,7 @@ export class UserSyncService {
       // Fetch user from Graph API with multiple location-related fields
       const graphUser = await this.graphClient
         .api(`/users/${entraId}`)
-        .select('id,displayName,givenName,surname,mail,jobTitle,department,officeLocation,physicalDeliveryOfficeName,usageLocation,accountEnabled,employeeId')
+        .select('id,displayName,givenName,surname,mail,jobTitle,department,officeLocation,physicalDeliveryOfficeName,usageLocation,accountEnabled,employeeId,onPremisesExtensionAttributes')
         .get();
 
       // Log location fields for debugging
@@ -434,6 +434,10 @@ export class UserSyncService {
         permissionCount: permissions.length,
       });
 
+      // Extract grade level from extension attributes (students only; null for staff)
+      const gradeLevel: string | null =
+        graphUser.onPremisesExtensionAttributes?.extensionAttribute2 ?? null;
+
       // Try multiple fields for office location (some orgs use physicalDeliveryOfficeName instead)
       const rawLocation = graphUser.officeLocation || graphUser.physicalDeliveryOfficeName || null;
       const officeLocation = this.mapOfficeLocation(rawLocation);
@@ -456,6 +460,7 @@ export class UserSyncService {
           department: graphUser.department,
           officeLocation,
           employeeId: graphUser.employeeId ?? null,
+          gradeLevel,
           role, // With simplified 2-role system (ADMIN/USER), role always syncs from Entra groups.
           isActive: graphUser.accountEnabled ?? true,
           lastSync: new Date(),
@@ -470,6 +475,7 @@ export class UserSyncService {
           department: graphUser.department,
           officeLocation,
           employeeId: graphUser.employeeId ?? null,
+          gradeLevel,
           role,
           isActive: graphUser.accountEnabled ?? true,
           lastSync: new Date(),

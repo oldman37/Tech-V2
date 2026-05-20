@@ -11,6 +11,7 @@ export interface User {
   jobTitle?: string;
   officeLocation?: string;
   employeeId?: string | null;
+  gradeLevel?: string | null;
   role: string;
   isActive: boolean;
   lastSync?: string;
@@ -42,13 +43,14 @@ export interface PaginatedResponse<T> {
 
 class UserService {
   // Get all users with pagination
-  async getUsers(page: number = 1, limit: number = 50, search: string = '', accountType?: 'all' | 'staff' | 'student', locationId?: string): Promise<PaginatedResponse<User>> {
+  async getUsers(page: number = 1, limit: number = 50, search: string = '', accountType?: 'all' | 'staff' | 'student', locationId?: string, gradeLevel?: string): Promise<PaginatedResponse<User>> {
     const params = new URLSearchParams({
       page: page.toString(),
       limit: limit.toString(),
       ...(search && { search }),
       ...(accountType && accountType !== 'all' && { accountType }),
       ...(locationId && { locationId }),
+      ...(gradeLevel && { gradeLevel }),
     });
     const response = await api.get(`/users?${params}`);
     return response.data;
