@@ -50,6 +50,12 @@ export const WorkOrderQuerySchema = z.object({
     .optional(),
   department:       TicketDepartmentEnum.optional(),
   status:           TicketStatusEnum.optional(),
+  statuses:         z
+    .preprocess(
+      (val) => (typeof val === 'string' ? [val] : val),
+      z.array(TicketStatusEnum).max(5).optional(),
+    )
+    .optional(),
   priority:         TicketPriorityEnum.optional(),
   officeLocationId: z.string().uuid('Invalid location ID').optional(),
   roomId:           z.string().uuid('Invalid room ID').optional(),

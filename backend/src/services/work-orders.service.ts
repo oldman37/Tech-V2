@@ -230,9 +230,10 @@ export class WorkOrderService {
     const skip  = (page - 1) * limit;
 
     // Build base where clause from explicit query params
-    const baseWhere: any = {};
+    const baseWhere: Prisma.TicketWhereInput = {};
     if (query.department)       baseWhere.department       = query.department;
     if (query.status)           baseWhere.status           = query.status;
+    if (query.statuses && query.statuses.length > 0) baseWhere.status = { in: query.statuses };
     if (query.priority)         baseWhere.priority         = query.priority;
     if (query.officeLocationId) baseWhere.officeLocationId = query.officeLocationId;
     if (query.roomId)           baseWhere.roomId           = query.roomId;
@@ -247,7 +248,7 @@ export class WorkOrderService {
     }
 
     // Permission-scoped visibility
-    let scopeWhere: any = {};
+    let scopeWhere: Prisma.TicketWhereInput = {};
     if (permLevel <= 2) {
       // Own work orders only
       scopeWhere = { reportedById: userId };

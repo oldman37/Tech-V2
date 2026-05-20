@@ -128,6 +128,7 @@ export interface WorkOrderQuery {
   limit?: number;
   department?: WorkOrderDepartment;
   status?: WorkOrderStatus;
+  statuses?: WorkOrderStatus[];
   priority?: WorkOrderPriority;
   officeLocationId?: string;
   roomId?: string;

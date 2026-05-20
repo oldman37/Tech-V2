@@ -23,6 +23,8 @@ import {
   Select,
   TablePagination,
   TextField,
+  ToggleButton,
+  ToggleButtonGroup,
   Typography,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
@@ -39,7 +41,7 @@ import { queryKeys } from '@/lib/queryKeys';
 import AccessDenied from '@/pages/AccessDenied';
 import { ResponsiveTable, MobileFilterBar, Column } from '@/components/responsive';
 import { useIsMobile } from '@/hooks/useResponsive';
-import type { WorkOrderQuery, WorkOrderDepartment, WorkOrderStatus, WorkOrderPriority, WorkOrderSummary } from '@/types/work-order.types';
+import type { WorkOrderQuery, WorkOrderDepartment, WorkOrderPriority, WorkOrderSummary } from '@/types/work-order.types';
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -58,7 +60,7 @@ export default function WorkOrderListPage() {
   // Filter state
   const [search, setSearch] = useState('');
   const [department, setDepartment] = useState<WorkOrderDepartment | ''>('');
-  const [status, setStatus] = useState<WorkOrderStatus | ''>('');
+  const [statusBucket, setStatusBucket] = useState<'open' | 'closed'>('open');
   const [priority, setPriority] = useState<WorkOrderPriority | ''>('');
   const [locationFilter, setLocationFilter] = useState<string>('');
   const [fiscalYearFilter, setFiscalYearFilter] = useState<string>('');
@@ -92,7 +94,7 @@ export default function WorkOrderListPage() {
     limit: rowsPerPage,
     ...(search.trim() && { search: search.trim() }),
     ...(department && { department }),
-    ...(status && { status }),
+    statuses: statusBucket === 'open' ? ['OPEN', 'IN_PROGRESS', 'ON_HOLD'] : ['RESOLVED', 'CLOSED'],
     ...(priority && { priority }),
     ...(locationFilter && { officeLocationId: locationFilter }),
     ...(activeFiscalYear && { fiscalYear: activeFiscalYear }),
@@ -167,7 +169,7 @@ export default function WorkOrderListPage() {
   ];
 
   const activeFilterCount =
-    (department ? 1 : 0) + (status ? 1 : 0) + (priority ? 1 : 0) +
+    (department ? 1 : 0) + (priority ? 1 : 0) +
     (locationFilter ? 1 : 0) + (fiscalYearFilter ? 1 : 0);
 
   return (
@@ -224,20 +226,16 @@ export default function WorkOrderListPage() {
                   <MenuItem value="TECHNOLOGY">Technology</MenuItem>
                   <MenuItem value="MAINTENANCE">Maintenance</MenuItem>
                 </Select>
-                <Select
+                <ToggleButtonGroup
+                  exclusive
+                  value={statusBucket}
+                  onChange={(_, v) => { if (v !== null) { setStatusBucket(v); setPage(0); } }}
                   size="small"
-                  displayEmpty
-                  value={status}
-                  onChange={(e) => { setStatus(e.target.value as WorkOrderStatus | ''); setPage(0); }}
                   fullWidth
                 >
-                  <MenuItem value="">All Statuses</MenuItem>
-                  <MenuItem value="OPEN">Open</MenuItem>
-                  <MenuItem value="IN_PROGRESS">In Progress</MenuItem>
-                  <MenuItem value="ON_HOLD">On Hold</MenuItem>
-                  <MenuItem value="RESOLVED">Resolved</MenuItem>
-                  <MenuItem value="CLOSED">Closed</MenuItem>
-                </Select>
+                  <ToggleButton value="open">Open</ToggleButton>
+                  <ToggleButton value="closed">Closed</ToggleButton>
+                </ToggleButtonGroup>
                 <Select
                   size="small"
                   displayEmpty
@@ -272,7 +270,7 @@ export default function WorkOrderListPage() {
                   onClick={() => {
                     setSearch('');
                     setDepartment('');
-                    setStatus('');
+                    setStatusBucket('open');
                     setPriority('');
                     setLocationFilter('');
                     setFiscalYearFilter('');
@@ -315,20 +313,15 @@ export default function WorkOrderListPage() {
             <MenuItem value="MAINTENANCE">Maintenance</MenuItem>
           </Select>
 
-          <Select
+          <ToggleButtonGroup
+            exclusive
+            value={statusBucket}
+            onChange={(_, v) => { if (v !== null) { setStatusBucket(v); setPage(0); } }}
             size="small"
-            displayEmpty
-            value={status}
-            onChange={(e) => { setStatus(e.target.value as WorkOrderStatus | ''); setPage(0); }}
-            sx={{ minWidth: 160 }}
           >
-            <MenuItem value="">All Statuses</MenuItem>
-            <MenuItem value="OPEN">Open</MenuItem>
-            <MenuItem value="IN_PROGRESS">In Progress</MenuItem>
-            <MenuItem value="ON_HOLD">On Hold</MenuItem>
-            <MenuItem value="RESOLVED">Resolved</MenuItem>
-            <MenuItem value="CLOSED">Closed</MenuItem>
-          </Select>
+            <ToggleButton value="open">Open</ToggleButton>
+            <ToggleButton value="closed">Closed</ToggleButton>
+          </ToggleButtonGroup>
 
           <Select
             size="small"

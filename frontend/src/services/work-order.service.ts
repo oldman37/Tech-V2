@@ -31,6 +31,8 @@ const workOrderService = {
     if (filters.limit !== undefined)       q.append('limit',            String(filters.limit));
     if (filters.department)                q.append('department',       filters.department);
     if (filters.status)                    q.append('status',           filters.status);
+    if (filters.statuses && filters.statuses.length > 0)
+      filters.statuses.forEach((s) => q.append('statuses', s));
     if (filters.priority)                  q.append('priority',         filters.priority);
     if (filters.officeLocationId)          q.append('officeLocationId', filters.officeLocationId);
     if (filters.roomId)                    q.append('roomId',           filters.roomId);
