@@ -8,12 +8,17 @@ export interface DashboardData {
 }
 
 export interface ActiveCheckoutsByCampus {
-  campus: string;
-  count:  number;
+  campus:     string;
+  locationId: string | null;
+  count:      number;
   items:  Array<{
     id:           string;
     checkoutAt:   string;
+    returnedAt:   string | null;
     assigneeType: string;
+    status:       'Checked Out' | 'Checked In';
+    locationId:   string | null;
+    locationName: string | null;
     user?:        { id: string; firstName: string; lastName: string; email: string; officeLocation: string | null };
     equipment?:   { id: string; assetTag: string; name: string };
   }>;

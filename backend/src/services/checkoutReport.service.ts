@@ -124,12 +124,31 @@ export async function getDashboard(): Promise<DashboardData> {
 // getActiveCheckoutsByCampus
 // ---------------------------------------------------------------------------
 
-export async function getActiveCheckoutsByCampus(campus?: string) {
-  log.info('getActiveCheckoutsByCampus', { campus });
+export async function getActiveCheckoutsByCampus(
+  locationId?: string,
+  startDate?: Date,
+  endDate?: Date,
+  take = 500,
+  skip = 0,
+) {
+  log.info('getActiveCheckoutsByCampus', { locationId, startDate, endDate, take, skip });
+
+  // Default lower bound: last 90 days. Active checkouts (returnedAt: null) are
+  // always included regardless of age so no in-progress checkout is ever hidden.
+  const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+  const effectiveStart = startDate ?? ninetyDaysAgo;
 
   const where = {
-    returnedAt: null,
-    ...(campus ? { user: { officeLocation: campus } } : {}),
+    ...(locationId ? { locationId } : {}),
+    OR: [
+      { returnedAt: null },
+      {
+        checkoutAt: {
+          gte: effectiveStart,
+          ...(endDate ? { lte: endDate } : {}),
+        },
+      },
+    ],
   };
 
   const assignments = await prisma.deviceAssignment.findMany({
@@ -137,22 +156,31 @@ export async function getActiveCheckoutsByCampus(campus?: string) {
     include: {
       user:      { select: { id: true, firstName: true, lastName: true, email: true, officeLocation: true } },
       equipment: { select: { id: true, assetTag: true, name: true } },
+      location:  { select: { id: true, name: true } },
     },
-    orderBy: [{ user: { officeLocation: 'asc' } }, { checkoutAt: 'asc' }],
+    orderBy: [{ location: { name: 'asc' } }, { checkoutAt: 'desc' }],
+    take,
+    skip,
   });
 
-  // Group by officeLocation
+  // Group by OfficeLocation name (from the FK relation, not user.officeLocation)
   const grouped: Record<string, typeof assignments> = {};
   for (const a of assignments) {
-    const loc = a.user?.officeLocation ?? 'Unknown';
+    const loc = a.location?.name ?? 'Unknown';
     if (!grouped[loc]) grouped[loc] = [];
     grouped[loc].push(a);
   }
 
   return Object.entries(grouped).map(([loc, items]) => ({
-    campus: loc,
-    items,
-    count: items.length,
+    campus:     loc,
+    locationId: items[0]?.location?.id ?? null,
+    count:      items.length,
+    items: items.map(a => ({
+      ...a,
+      status:       a.returnedAt ? ('Checked In' as const) : ('Checked Out' as const),
+      locationId:   a.location?.id   ?? null,
+      locationName: a.location?.name ?? null,
+    })),
   }));
 }
 

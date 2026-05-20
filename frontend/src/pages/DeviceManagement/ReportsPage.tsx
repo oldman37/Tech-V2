@@ -1,11 +1,17 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   Alert,
   Box,
+  Button,
   Card,
   CardContent,
+  Chip,
   CircularProgress,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Select,
   Tab,
   Table,
   TableBody,
@@ -16,21 +22,51 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
+import { Download as DownloadIcon } from '@mui/icons-material';
 import { checkoutReportService } from '../../services/checkoutReport.service';
+import { locationService } from '../../services/location.service';
+import { useAuthStore, selectCanSeeAllLocations } from '../../store/authStore';
 import type { InvoiceAgingBucket } from '../../types/checkoutReport.types';
 
 type ReportType = 'active-checkouts' | 'damage-summary' | 'repair-costs' | 'invoice-aging' | null;
 
 export default function ReportsPage() {
   const [selectedReport, setSelectedReport] = useState<ReportType>(null);
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [startDate, setStartDate]           = useState('');
+  const [endDate, setEndDate]               = useState('');
+  const [locationFilter, setLocationFilter] = useState<string>('');
+
+  const user = useAuthStore((s) => s.user);
+  const canSeeAllLocations = useAuthStore(selectCanSeeAllLocations);
+
+  // ── All Locations (for filter dropdown) ─────────────────────────────────
+  const { data: allLocations } = useQuery({
+    queryKey: ['locations', 'all'],
+    queryFn:  () => locationService.getAllLocations(),
+    enabled:  selectedReport === 'active-checkouts',
+  });
+
+  // Resolve user's default location: match officeLocation string → OfficeLocation.id
+  const defaultLocationId = useMemo(() => {
+    if (!allLocations || !user?.officeLocation) return '';
+    const match = allLocations.find(
+      (l) => l.name.toLowerCase() === (user.officeLocation ?? '').toLowerCase(),
+    );
+    return match?.id ?? '';
+  }, [allLocations, user?.officeLocation]);
+
+  // When locations load and user hasn't manually chosen yet, seed to user's campus
+  const resolvedLocationId = locationFilter === '' && defaultLocationId
+    ? defaultLocationId
+    : locationFilter;
 
   // ── Active Checkouts ─────────────────────────────────────────────────────
   const { data: activeCheckouts, isLoading: loadingActive } = useQuery({
-    queryKey: ['reports', 'active-checkouts'],
-    queryFn:  () => checkoutReportService.getActiveCheckoutsByCampus(),
-    enabled:  selectedReport === 'active-checkouts',
+    queryKey: ['reports', 'active-checkouts', resolvedLocationId],
+    queryFn:  () => checkoutReportService.getActiveCheckoutsByCampus(resolvedLocationId || undefined),
+    // R2: wait until allLocations has resolved so defaultLocationId is seeded first,
+    // avoiding an initial full-scan fetch with locationId=undefined.
+    enabled:  selectedReport === 'active-checkouts' && allLocations !== undefined,
   });
 
   // ── Damage Summary ───────────────────────────────────────────────────────
@@ -62,6 +98,41 @@ export default function ReportsPage() {
 
   const showDateRange = selectedReport === 'damage-summary' || selectedReport === 'repair-costs';
   const isLoading = loadingActive || loadingDamage || loadingRepair || loadingAging;
+
+  // ── CSV Export ───────────────────────────────────────────────────────────
+  const handleExportCsv = () => {
+    if (!activeCheckouts) return;
+
+    const headers = ['Asset Tag', 'Device', 'User', 'Email', 'Location', 'Checked Out', 'Returned', 'Status'];
+
+    const escapeCsv = (val: string) => `"${val.replace(/"/g, '""')}"`;
+
+    const rows = activeCheckouts.flatMap((group) =>
+      group.items.map((item) => [
+        escapeCsv(item.equipment?.assetTag ?? ''),
+        escapeCsv(item.equipment?.name ?? ''),
+        escapeCsv(item.user ? `${item.user.firstName} ${item.user.lastName}` : ''),
+        escapeCsv(item.user?.email ?? ''),
+        escapeCsv(group.campus),
+        escapeCsv(new Date(item.checkoutAt).toLocaleDateString()),
+        escapeCsv(item.returnedAt ? new Date(item.returnedAt).toLocaleDateString() : ''),
+        escapeCsv(item.status),
+      ].join(','))
+    );
+
+    const csvContent = [headers.map(escapeCsv).join(','), ...rows].join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const locationLabel = activeCheckouts[0]?.campus ?? 'all';
+    const dateStr = new Date().toISOString().slice(0, 10);
+    link.href = url;
+    link.setAttribute('download', `checkout-report-${locationLabel.replace(/\s+/g, '-')}-${dateStr}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <Box sx={{ p: 3 }}>
@@ -118,15 +189,51 @@ export default function ReportsPage() {
       )}
 
       {/* Active Checkouts by Campus */}
+      {selectedReport === 'active-checkouts' && (
+        <>
+          {/* Location filter + Export */}
+          <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+            <FormControl size="small" sx={{ minWidth: 240 }}>
+              <InputLabel id="location-filter-label">Location</InputLabel>
+              <Select
+                labelId="location-filter-label"
+                label="Location"
+                value={resolvedLocationId}
+                onChange={(e) => setLocationFilter(e.target.value)}
+                disabled={!canSeeAllLocations}
+              >
+                {canSeeAllLocations && <MenuItem value=""><em>All Locations</em></MenuItem>}
+                {(allLocations ?? [])
+                  .filter((l) => l.isActive && ['SCHOOL', 'DISTRICT_OFFICE'].includes(l.type))
+                  .map((l) => (
+                    <MenuItem key={l.id} value={l.id}>{l.name}</MenuItem>
+                  ))}
+              </Select>
+            </FormControl>
+
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<DownloadIcon />}
+              onClick={handleExportCsv}
+              disabled={!activeCheckouts || activeCheckouts.length === 0}
+            >
+              Export CSV
+            </Button>
+          </Box>
+        </>
+      )}
+
+      {/* Active Checkouts by Campus — table */}
       {selectedReport === 'active-checkouts' && !loadingActive && activeCheckouts && (
         <Box>
           {activeCheckouts.length === 0 && (
-            <Alert severity="info">No active checkouts.</Alert>
+            <Alert severity="info">No checkouts found for the selected location.</Alert>
           )}
           {activeCheckouts.map(group => (
             <Box key={group.campus} sx={{ mb: 3 }}>
               <Typography variant="h6" sx={{ mb: 1 }}>
-                {group.campus} — {group.count} device{group.count !== 1 ? 's' : ''}
+                {group.campus} — {group.count} record{group.count !== 1 ? 's' : ''}
               </Typography>
               <Table size="small">
                 <TableHead>
@@ -136,6 +243,8 @@ export default function ReportsPage() {
                     <TableCell>User</TableCell>
                     <TableCell>Email</TableCell>
                     <TableCell>Checked Out</TableCell>
+                    <TableCell>Returned</TableCell>
+                    <TableCell>Status</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -149,6 +258,16 @@ export default function ReportsPage() {
                       <TableCell>{item.user?.email ?? '—'}</TableCell>
                       <TableCell>
                         {new Date(item.checkoutAt).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell>
+                        {item.returnedAt ? new Date(item.returnedAt).toLocaleDateString() : '—'}
+                      </TableCell>
+                      <TableCell>
+                        {item.status === 'Checked In' ? (
+                          <Chip label="Checked In" color="success" size="small" />
+                        ) : (
+                          <Chip label="Checked Out" color="warning" size="small" />
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}

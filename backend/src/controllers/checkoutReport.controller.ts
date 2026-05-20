@@ -1,7 +1,16 @@
 import { Response } from 'express';
+import { z } from 'zod';
 import { AuthRequest } from '../middleware/auth';
 import { handleControllerError } from '../utils/errorHandler';
 import * as service from '../services/checkoutReport.service';
+
+const ActiveCheckoutsQuerySchema = z.object({
+  locationId: z.string().uuid().optional(),
+  startDate:  z.string().datetime({ offset: true }).optional(),
+  endDate:    z.string().datetime({ offset: true }).optional(),
+  take:       z.coerce.number().int().positive().max(1000).optional(),
+  skip:       z.coerce.number().int().min(0).optional(),
+});
 
 // ---------------------------------------------------------------------------
 // GET /dashboard
@@ -22,8 +31,19 @@ export const getDashboard = async (req: AuthRequest, res: Response): Promise<voi
 
 export const getActiveCheckoutsByCampus = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const campus = req.query['campus'] as string | undefined;
-    const data = await service.getActiveCheckoutsByCampus(campus);
+    const parsed = ActiveCheckoutsQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      res.status(400).json({ error: 'Invalid query parameters', details: parsed.error.flatten() });
+      return;
+    }
+    const { locationId, startDate, endDate, take, skip } = parsed.data;
+    const data = await service.getActiveCheckoutsByCampus(
+      locationId,
+      startDate ? new Date(startDate) : undefined,
+      endDate   ? new Date(endDate)   : undefined,
+      take,
+      skip,
+    );
     res.json(data);
   } catch (error) {
     handleControllerError(error, res);
@@ -75,9 +95,16 @@ export const getInvoiceAging = async (req: AuthRequest, res: Response): Promise<
 // GET /user/:userId/history
 // ---------------------------------------------------------------------------
 
+const UserHistoryParamsSchema = z.object({ userId: z.string().uuid() });
+
 export const getUserDeviceHistory = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const userId = req.params['userId'] as string;
+    const parsed = UserHistoryParamsSchema.safeParse(req.params);
+    if (!parsed.success) {
+      res.status(400).json({ error: 'Invalid user ID', details: parsed.error.flatten() });
+      return;
+    }
+    const { userId } = parsed.data;
     const data = await service.getUserDeviceHistory(userId);
     res.json(data);
   } catch (error) {

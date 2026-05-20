@@ -14,8 +14,8 @@ export const checkoutReportService = {
   getDashboard: (): Promise<DashboardData> =>
     axios.get(`${BASE}/dashboard`).then(r => r.data),
 
-  getActiveCheckoutsByCampus: (campus?: string): Promise<ActiveCheckoutsByCampus[]> =>
-    axios.get(`${BASE}/active-checkouts`, { params: campus ? { campus } : {} }).then(r => r.data),
+  getActiveCheckoutsByCampus: (locationId?: string): Promise<ActiveCheckoutsByCampus[]> =>
+    axios.get(`${BASE}/active-checkouts`, { params: locationId ? { locationId } : {} }).then(r => r.data),
 
   getDamageSummary: (params?: { startDate?: string; endDate?: string }): Promise<DamageSummaryItem[]> =>
     axios.get(`${BASE}/damage-summary`, { params }).then(r => r.data),

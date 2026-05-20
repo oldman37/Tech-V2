@@ -63,6 +63,8 @@ export interface AuthUserInfo {
   lastName: string | null;
   jobTitle: string | null;
   department: string | null;
+  /** Entra-synced office location string (e.g. "West High School") — NOT a UUID FK */
+  officeLocation: string | null;
   roles: string[];
   groups: string[];
   /** Derived permission levels per module — computed from Entra groups at login */

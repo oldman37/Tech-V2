@@ -10,6 +10,8 @@ interface User {
   lastName?: string;
   jobTitle?: string;
   department?: string;
+  /** Entra-synced office location string (e.g. "West High School") — NOT a UUID */
+  officeLocation?: string | null;
   groups: string[];
   roles?: string[];
   hasBaseAccess?: boolean;
@@ -76,12 +78,36 @@ export const useAuthStore = create<AuthState>()(
 // Never persisted to localStorage, so it cannot be tampered with by editing
 // the auth-storage entry. Use this in place of user?.canAccessDeviceManagement.
 // ---------------------------------------------------------------------------
+/** True when the signed-in user belongs to the ADMIN Entra group. */
+export const selectIsAdmin = (state: AuthState): boolean => {
+  const groups = state.user?.groups;
+  if (!groups) return false;
+  const adminGroupId = import.meta.env.VITE_ENTRA_ADMIN_GROUP_ID;
+  if (!adminGroupId) return false;
+  return groups.some((g) => g.toLowerCase() === adminGroupId.toLowerCase());
+};
+
 export const selectCanAccessDeviceManagement = (state: AuthState): boolean => {
   const groups = state.user?.groups;
   if (!groups) return false;
   const allowlist = [
     import.meta.env.VITE_ENTRA_ADMIN_GROUP_ID,
     import.meta.env.VITE_ENTRA_TECH_ASSISTANTS_GROUP_ID,
+    import.meta.env.VITE_ENTRA_OCBOE_LIBRARIANS_GROUP_ID,
+  ].filter(Boolean) as string[];
+  return groups.some((g) => allowlist.some((id) => g.toLowerCase() === id.toLowerCase()));
+};
+
+/**
+ * True when the signed-in user may select "All Locations" in reports —
+ * i.e. they are in the ADMIN or LIBRARIANS Entra group.
+ * TECH_ASSISTANTS are intentionally excluded and must be locked to their campus.
+ */
+export const selectCanSeeAllLocations = (state: AuthState): boolean => {
+  const groups = state.user?.groups;
+  if (!groups) return false;
+  const allowlist = [
+    import.meta.env.VITE_ENTRA_ADMIN_GROUP_ID,
     import.meta.env.VITE_ENTRA_OCBOE_LIBRARIANS_GROUP_ID,
   ].filter(Boolean) as string[];
   return groups.some((g) => allowlist.some((id) => g.toLowerCase() === id.toLowerCase()));

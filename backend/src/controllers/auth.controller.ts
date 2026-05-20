@@ -300,6 +300,7 @@ export const callback = async (
         lastName: user.lastName,
         jobTitle: user.jobTitle,
         department: user.department,
+        officeLocation: user.officeLocation ?? null,
         roles: roles,
         groups: groupIds,
         permLevels: { ...permLevels, isFinanceDirectorApprover, isStrictFinanceDirector, isDosApprover, isPoEntryUser, isFoodServiceSupervisor, isFoodServicePoEntry, isTransportationSecretary },
