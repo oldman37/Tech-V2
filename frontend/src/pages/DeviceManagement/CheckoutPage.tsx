@@ -7,14 +7,19 @@ import {
   Dialog,
   DialogContent,
   FormControl,
+  InputAdornment,
   InputLabel,
   MenuItem,
   Paper,
   Select,
+  TablePagination,
   TextField,
   Typography,
 } from '@mui/material';
-import { DataGrid, type GridColDef } from '@mui/x-data-grid';
+import SearchIcon from '@mui/icons-material/Search';
+import { ResponsiveTable, MobileFilterBar } from '../../components/responsive';
+import type { Column } from '../../components/responsive';
+import { useIsMobile } from '../../hooks/useResponsive';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { deviceAssignmentService } from '../../services/deviceAssignment.service';
 import { locationService } from '../../services/location.service';
@@ -28,14 +33,16 @@ import type { DeviceAssignment, DeviceAssignmentUser } from '../../types/deviceA
 // Active checkouts page — /device-management/checkouts
 export default function CheckoutPage() {
   const queryClient = useQueryClient();
+  const isMobile = useIsMobile();
 
   // Filter state
-  const [search, setSearch]           = useState('');
-  const [assigneeFilter, setAssigneeFilter] = useState<string>('');
-  const [locationFilter, setLocationFilter] = useState<string>('');
-  const [gradeLevelFilter, setGradeLevelFilter] = useState<string>('');
-  const [page, setPage]               = useState(0);
-  const [pageSize, setPageSize]       = useState(25);
+  const [search,            setSearch]            = useState('');
+  const [assigneeFilter,    setAssigneeFilter]    = useState<string>('');
+  const [locationFilter,    setLocationFilter]    = useState<string>('');
+  const [gradeLevelFilter,  setGradeLevelFilter]  = useState<string>('');
+  const [page,              setPage]              = useState(0);
+  const [pageSize,          setPageSize]          = useState(25);
+  const [filterDrawerOpen,  setFilterDrawerOpen]  = useState(false);
 
   // Checkin dialog state
   const [checkinTarget, setCheckinTarget] = useState<DeviceAssignment | null>(null);
@@ -86,81 +93,75 @@ export default function CheckoutPage() {
   });
 
   // ── Columns ────────────────────────────────────────────────────────────
-  const columns: GridColDef<DeviceAssignment>[] = [
+  const columns: Column<DeviceAssignment>[] = [
     {
-      field: 'assigneeName',
-      headerName: 'Assignee',
-      flex: 1.5,
-      valueGetter: (_, row) => {
-        const u = row.user;
-        return u ? `${u.firstName} ${u.lastName}` : row.userId;
+      key:       'assigneeName',
+      label:     'Assignee',
+      isPrimary: true,
+      render:    (r) => {
+        const u = r.user;
+        return <span>{u ? `${u.firstName} ${u.lastName}` : r.userId}</span>;
       },
     },
     {
-      field: 'assigneeType',
-      headerName: 'Type',
-      width: 100,
-      renderCell: ({ value }) => (
+      key:         'assigneeType',
+      label:       'Type',
+      isSecondary: true,
+      render:      (r) => (
         <Chip
-          label={value === 'student' ? 'Student' : 'Staff'}
+          label={r.assigneeType === 'student' ? 'Student' : 'Staff'}
           size="small"
-          color={value === 'student' ? 'primary' : 'secondary'}
+          color={r.assigneeType === 'student' ? 'primary' : 'secondary'}
           variant="outlined"
+          sx={{ whiteSpace: 'nowrap', flexShrink: 0 }}
         />
       ),
     },
     {
-      field: 'location',
-      headerName: 'Location',
-      flex: 1,
-      valueGetter: (_, row) => row.location?.name ?? '—',
-    },
-    {
-      field: 'assetTag',
-      headerName: 'Device',
-      flex: 1.5,
-      valueGetter: (_, row) => {
-        const eq = row.equipment;
-        return eq ? `${eq.assetTag} — ${eq.name}` : row.equipmentId;
+      key:    'assetTag',
+      label:  'Device',
+      render: (r) => {
+        const eq = r.equipment;
+        return <span>{eq ? `${eq.assetTag} — ${eq.name}` : r.equipmentId}</span>;
       },
     },
     {
-      field: 'checkoutAt',
-      headerName: 'Checked Out',
-      width: 150,
-      valueGetter: (_, row) =>
-        new Date(row.checkoutAt).toLocaleDateString('en-US', {
+      key:          'location',
+      label:        'Location',
+      hideOnMobile: true,
+      render:       (r) => <span>{r.location?.name ?? '—'}</span>,
+    },
+    {
+      key:          'checkoutAt',
+      label:        'Checked Out',
+      hideOnMobile: true,
+      render:       (r) =>
+        new Date(r.checkoutAt).toLocaleDateString('en-US', {
           month: 'short', day: 'numeric', year: 'numeric',
         }),
     },
     {
-      field: 'checkoutCondition',
-      headerName: 'Condition',
-      width: 120,
-      renderCell: ({ value }) => <ConditionChip condition={value} />,
+      key:    'checkoutCondition',
+      label:  'Condition',
+      render: (r) => <ConditionChip condition={r.checkoutCondition} />,
     },
     {
-      field: 'status',
-      headerName: 'Status',
-      width: 130,
-      renderCell: ({ row }) => <DeviceStatusChip status={row.equipment?.status ?? 'checked_out'} />,
+      key:    'status',
+      label:  'Status',
+      render: (r) => <DeviceStatusChip status={r.equipment?.status ?? 'checked_out'} />,
     },
     {
-      field: 'actions',
-      headerName: 'Actions',
-      width: 110,
-      sortable: false,
-      renderCell: ({ row }) => (
-        <Button
-          size="small"
-          variant="outlined"
-          onClick={() => setCheckinTarget(row)}
-        >
+      key:    'actions',
+      label:  '',
+      render: (r) => (
+        <Button size="small" variant="outlined" onClick={(e) => { e.stopPropagation(); setCheckinTarget(r); }}>
           Check In
         </Button>
       ),
     },
   ];
+
+  const activeFilterCount = (assigneeFilter ? 1 : 0) + (locationFilter ? 1 : 0) + (gradeLevelFilter ? 1 : 0);
 
   // ── Client-side search filter ──────────────────────────────────────────
   const rows = (data?.items ?? []).filter((r) => {
@@ -172,8 +173,8 @@ export default function CheckoutPage() {
   });
 
   return (
-    <Box sx={{ p: 3, maxWidth: 1400, mx: 'auto' }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+    <Box sx={{ p: { xs: 1, sm: 3 }, maxWidth: 1400, mx: 'auto' }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2, flexWrap: 'wrap', gap: 1 }}>
         <Typography variant="h5" fontWeight={600}>
           Active Checkouts
         </Typography>
@@ -186,72 +187,95 @@ export default function CheckoutPage() {
       )}
 
       {/* Filter bar */}
-      <Paper sx={{ p: 1.5, mb: 2, display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
-        <TextField
-          label="Search by name or asset tag"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          size="small"
-          sx={{ minWidth: 250 }}
-        />
-        <FormControl size="small" sx={{ minWidth: 160 }}>
-          <InputLabel>Assignee Type</InputLabel>
-          <Select
-            value={assigneeFilter}
-            onChange={(e) => setAssigneeFilter(e.target.value)}
-            label="Assignee Type"
-          >
-            <MenuItem value="">All</MenuItem>
-            <MenuItem value="student">Students</MenuItem>
-            <MenuItem value="staff">Staff</MenuItem>
-          </Select>
-        </FormControl>
-        <FormControl size="small" sx={{ minWidth: 200 }}>
-          <InputLabel>Location</InputLabel>
-          <Select
-            value={locationFilter}
-            onChange={(e) => { setLocationFilter(e.target.value); setPage(0); }}
-            label="Location"
-          >
-            <MenuItem value="">All Locations</MenuItem>
-            {locations
-              ?.filter((loc) => loc.type === 'SCHOOL' || loc.type === 'DISTRICT_OFFICE')
-              .map((loc) => (
-                <MenuItem key={loc.id} value={loc.id}>{loc.name}</MenuItem>
-              ))}
-          </Select>
-        </FormControl>
-        <FormControl size="small" sx={{ minWidth: 150 }}>
-          <InputLabel>Grade</InputLabel>
-          <Select
-            value={gradeLevelFilter}
-            onChange={(e) => { setGradeLevelFilter(e.target.value); setPage(0); }}
-            label="Grade"
-          >
-            <MenuItem value="">All Grades</MenuItem>
-            {GRADE_LEVELS.map((g) => (
-              <MenuItem key={g} value={g}>{gradeLevelLabel(g)}</MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-      </Paper>
+      {isMobile ? (
+        <Box sx={{ mb: 2 }}>
+          <MobileFilterBar
+            searchValue={search}
+            onSearchChange={(v) => { setSearch(v); setPage(0); }}
+            filterCount={activeFilterCount}
+            onOpenFilters={() => setFilterDrawerOpen(!filterDrawerOpen)}
+            searchPlaceholder="Search by name or asset tag…"
+          />
+          {filterDrawerOpen && (
+            <Paper sx={{ p: 2, mt: 1 }}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                <Select size="small" displayEmpty value={assigneeFilter}
+                  onChange={(e) => { setAssigneeFilter(e.target.value); setPage(0); }} fullWidth>
+                  <MenuItem value="">All Types</MenuItem>
+                  <MenuItem value="student">Students</MenuItem>
+                  <MenuItem value="staff">Staff</MenuItem>
+                </Select>
+                <Select size="small" displayEmpty value={locationFilter}
+                  onChange={(e) => { setLocationFilter(e.target.value); setPage(0); }} fullWidth>
+                  <MenuItem value="">All Locations</MenuItem>
+                  {locations?.filter((loc) => loc.type === 'SCHOOL' || loc.type === 'DISTRICT_OFFICE')
+                    .map((loc) => <MenuItem key={loc.id} value={loc.id}>{loc.name}</MenuItem>)}
+                </Select>
+                <Select size="small" displayEmpty value={gradeLevelFilter}
+                  onChange={(e) => { setGradeLevelFilter(e.target.value); setPage(0); }} fullWidth>
+                  <MenuItem value="">All Grades</MenuItem>
+                  {GRADE_LEVELS.map((g) => <MenuItem key={g} value={g}>{gradeLevelLabel(g)}</MenuItem>)}
+                </Select>
+                <Button size="small" variant="text"
+                  onClick={() => { setAssigneeFilter(''); setLocationFilter(''); setGradeLevelFilter(''); setPage(0); }}>
+                  Clear Filters
+                </Button>
+              </Box>
+            </Paper>
+          )}
+        </Box>
+      ) : (
+        <Paper sx={{ p: 1.5, mb: 2, display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+          <TextField
+            label="Search by name or asset tag"
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setPage(0); }}
+            size="small"
+            sx={{ minWidth: 250 }}
+            InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> }}
+          />
+          <FormControl size="small" sx={{ minWidth: 160 }}>
+            <InputLabel>Assignee Type</InputLabel>
+            <Select value={assigneeFilter} onChange={(e) => { setAssigneeFilter(e.target.value); setPage(0); }} label="Assignee Type">
+              <MenuItem value="">All</MenuItem>
+              <MenuItem value="student">Students</MenuItem>
+              <MenuItem value="staff">Staff</MenuItem>
+            </Select>
+          </FormControl>
+          <FormControl size="small" sx={{ minWidth: 200 }}>
+            <InputLabel>Location</InputLabel>
+            <Select value={locationFilter} onChange={(e) => { setLocationFilter(e.target.value); setPage(0); }} label="Location">
+              <MenuItem value="">All Locations</MenuItem>
+              {locations?.filter((loc) => loc.type === 'SCHOOL' || loc.type === 'DISTRICT_OFFICE')
+                .map((loc) => <MenuItem key={loc.id} value={loc.id}>{loc.name}</MenuItem>)}
+            </Select>
+          </FormControl>
+          <FormControl size="small" sx={{ minWidth: 150 }}>
+            <InputLabel>Grade</InputLabel>
+            <Select value={gradeLevelFilter} onChange={(e) => { setGradeLevelFilter(e.target.value); setPage(0); }} label="Grade">
+              <MenuItem value="">All Grades</MenuItem>
+              {GRADE_LEVELS.map((g) => <MenuItem key={g} value={g}>{gradeLevelLabel(g)}</MenuItem>)}
+            </Select>
+          </FormControl>
+        </Paper>
+      )}
 
-      <Paper>
-        <DataGrid
-          rows={rows}
-          columns={columns}
-          loading={isLoading}
-          pagination
-          paginationMode="server"
-          rowCount={data?.total ?? 0}
-          paginationModel={{ page, pageSize }}
-          onPaginationModelChange={(m) => { setPage(m.page); setPageSize(m.pageSize); }}
-          pageSizeOptions={[10, 25, 50]}
-          autoHeight
-          disableRowSelectionOnClick
-          sx={{ border: 0 }}
-        />
-      </Paper>
+      <ResponsiveTable
+        columns={columns}
+        rows={rows}
+        getRowKey={(r) => r.id}
+        loading={isLoading}
+        emptyMessage="No active checkouts found."
+      />
+      <TablePagination
+        component="div"
+        count={data?.total ?? 0}
+        page={page}
+        onPageChange={(_, p) => setPage(p)}
+        rowsPerPage={pageSize}
+        onRowsPerPageChange={(e) => { setPageSize(Number(e.target.value)); setPage(0); }}
+        rowsPerPageOptions={[10, 25, 50]}
+      />
 
       {/* Checkin dialog */}
       <Dialog

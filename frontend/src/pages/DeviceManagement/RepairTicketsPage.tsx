@@ -8,14 +8,21 @@ import {
   DialogContent,
   DialogTitle,
   FormControl,
+  InputAdornment,
   InputLabel,
   MenuItem,
+  Paper,
   Select,
+  TablePagination,
   TextField,
   Typography,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
-import { DataGrid, type GridColDef } from '@mui/x-data-grid';
+import SearchIcon from '@mui/icons-material/Search';
+import Chip from '@mui/material/Chip';
+import { ResponsiveTable, MobileFilterBar } from '../../components/responsive';
+import type { Column } from '../../components/responsive';
+import { useIsMobile } from '../../hooks/useResponsive';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { repairTicketService } from '../../services/repairTicket.service';
@@ -38,12 +45,16 @@ export default function RepairTicketsPage() {
   const navigate     = useNavigate();
   const queryClient  = useQueryClient();
 
-  const [statusFilter, setStatusFilter] = useState('');
-  const [page,         setPage]         = useState(0);
-  const [pageSize,     setPageSize]     = useState(25);
-  const [dialogOpen,   setDialogOpen]   = useState(false);
-  const [form,         setForm]         = useState<CreateRepairTicketData>(emptyForm);
-  const [formError,    setFormError]    = useState<string | null>(null);
+  const isMobile = useIsMobile();
+
+  const [statusFilter,    setStatusFilter]    = useState('');
+  const [search,          setSearch]          = useState('');
+  const [page,            setPage]            = useState(0);
+  const [pageSize,        setPageSize]        = useState(25);
+  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
+  const [dialogOpen,      setDialogOpen]      = useState(false);
+  const [form,            setForm]            = useState<CreateRepairTicketData>(emptyForm);
+  const [formError,       setFormError]       = useState<string | null>(null);
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['repair-tickets', { page, pageSize, statusFilter }],
@@ -66,109 +77,175 @@ export default function RepairTicketsPage() {
     onError: () => setFormError('Failed to create ticket. Please try again.'),
   });
 
-  const columns: GridColDef<RepairTicket>[] = [
+  const columns: Column<RepairTicket>[] = [
     {
-      field:      'ticketNumber',
-      headerName: 'Ticket #',
-      width:      150,
-      renderCell: ({ value }) => (
-        <Typography variant="body2" fontFamily="monospace">{value}</Typography>
+      key:       'ticketNumber',
+      label:     'Ticket #',
+      isPrimary: true,
+      render:    (t) => (
+        <Typography variant="body2" fontFamily="monospace">{t.ticketNumber}</Typography>
       ),
     },
     {
-      field:       'equipment',
-      headerName:  'Device',
-      flex:        1.5,
-      valueGetter: (_, row) =>
-        row.equipment ? `${row.equipment.assetTag} — ${row.equipment.name}` : row.equipmentId,
+      key:         'equipment',
+      label:       'Device',
+      isSecondary: true,
+      render:      (t) => (
+        <span>{t.equipment ? `${t.equipment.assetTag} — ${t.equipment.name}` : t.equipmentId}</span>
+      ),
     },
     {
-      field:       'vendor',
-      headerName:  'Vendor',
-      width:       140,
-      valueGetter: (_, row) => row.vendor?.name ?? '—',
+      key:    'vendor',
+      label:  'Vendor',
+      render: (t) => <span>{t.vendor?.name ?? '—'}</span>,
     },
     {
-      field:      'status',
-      headerName: 'Status',
-      width:      260,
-      renderCell: ({ value }) => (
-        <Box sx={{ py: 0.5, width: '100%' }}>
-          <RepairStatusStepper status={value as RepairTicketStatus} />
+      key:    'status',
+      label:  'Status',
+      width:  400,
+      render: (t) => isMobile ? (
+        <Chip
+          label={t.status.replace(/_/g, ' ')}
+          size="small"
+          sx={{ textTransform: 'capitalize', whiteSpace: 'nowrap', flexShrink: 0 }}
+        />
+      ) : (
+        <Box sx={{ py: 0.5 }}>
+          <RepairStatusStepper status={t.status} />
         </Box>
       ),
     },
     {
-      field:       'sentForRepairAt',
-      headerName:  'Sent',
-      width:       120,
-      valueGetter: (_, row) =>
-        row.sentForRepairAt
-          ? new Date(row.sentForRepairAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+      key:          'sentForRepairAt',
+      label:        'Sent',
+      hideOnMobile: true,
+      render:       (t) =>
+        t.sentForRepairAt
+          ? new Date(t.sentForRepairAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
           : '—',
     },
     {
-      field:       'expectedReturnDate',
-      headerName:  'Expected Return',
-      width:       140,
-      valueGetter: (_, row) =>
-        row.expectedReturnDate
-          ? new Date(row.expectedReturnDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+      key:          'expectedReturnDate',
+      label:        'Expected Return',
+      hideOnMobile: true,
+      render:       (t) =>
+        t.expectedReturnDate
+          ? new Date(t.expectedReturnDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
           : '—',
     },
     {
-      field:       'repairCost',
-      headerName:  'Repair Cost',
-      width:       110,
-      valueGetter: (_, row) => (row.repairCost ? `$${row.repairCost}` : '—'),
+      key:          'repairCost',
+      label:        'Repair Cost',
+      hideOnMobile: true,
+      render:       (t) => (t.repairCost ? `$${t.repairCost}` : '—'),
     },
     {
-      field:      'actions',
-      headerName: 'Actions',
-      width:      90,
-      sortable:   false,
-      renderCell: ({ row }) => (
-        <Button size="small" onClick={() => navigate(`/device-management/repair-tickets/${row.id}`)}>
+      key:    'actions',
+      label:  '',
+      render: (t) => (
+        <Button size="small" onClick={(e) => { e.stopPropagation(); navigate(`/device-management/repair-tickets/${t.id}`); }}>
           View
         </Button>
       ),
     },
   ];
 
+  const activeFilterCount = statusFilter ? 1 : 0;
+
+  const filteredRows = (data?.items ?? []).filter((r) => {
+    if (!search) return true;
+    const q = search.toLowerCase();
+    return (
+      (r.ticketNumber ?? '').toLowerCase().includes(q) ||
+      (r.equipment?.assetTag ?? '').toLowerCase().includes(q) ||
+      (r.equipment?.name ?? '').toLowerCase().includes(q) ||
+      (r.vendor?.name ?? '').toLowerCase().includes(q)
+    );
+  });
+
   return (
-    <Box p={3}>
-      <div className="flex items-center justify-between mb-4">
+    <Box sx={{ p: { xs: 1, sm: 3 } }}>
+      {/* Header */}
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1, mb: 3 }}>
         <Typography variant="h5" fontWeight={600}>Repair Tickets</Typography>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={() => setDialogOpen(true)}>
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={() => setDialogOpen(true)}
+          sx={{ ...(isMobile && { width: '100%' }) }}
+        >
           Create Ticket
         </Button>
-      </div>
+      </Box>
 
-      {/* Filters */}
-      <div className="grid grid-cols-2 gap-4 mb-4">
-        <FormControl size="small">
-          <InputLabel>Status</InputLabel>
-          <Select value={statusFilter} label="Status" onChange={(e) => setStatusFilter(e.target.value)}>
-            <MenuItem value="">All</MenuItem>
-            {STATUSES.map((s) => <MenuItem key={s} value={s}>{s.replace(/_/g, ' ')}</MenuItem>)}
-          </Select>
-        </FormControl>
-      </div>
+      {/* Filter bar */}
+      {isMobile ? (
+        <Box sx={{ mb: 2 }}>
+          <MobileFilterBar
+            searchValue={search}
+            onSearchChange={(v) => { setSearch(v); setPage(0); }}
+            filterCount={activeFilterCount}
+            onOpenFilters={() => setFilterDrawerOpen(!filterDrawerOpen)}
+            searchPlaceholder="Search tickets…"
+          />
+          {filterDrawerOpen && (
+            <Paper sx={{ p: 2, mt: 1 }}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                <Select
+                  size="small"
+                  displayEmpty
+                  value={statusFilter}
+                  onChange={(e) => { setStatusFilter(e.target.value); setPage(0); }}
+                  fullWidth
+                >
+                  <MenuItem value="">All Statuses</MenuItem>
+                  {STATUSES.map((s) => <MenuItem key={s} value={s}>{s.replace(/_/g, ' ')}</MenuItem>)}
+                </Select>
+                <Button size="small" variant="text" onClick={() => { setStatusFilter(''); setPage(0); }}>
+                  Clear Filters
+                </Button>
+              </Box>
+            </Paper>
+          )}
+        </Box>
+      ) : (
+        <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap' }}>
+          <TextField
+            size="small"
+            placeholder="Search tickets…"
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setPage(0); }}
+            InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> }}
+            sx={{ minWidth: 220 }}
+          />
+          <FormControl size="small" sx={{ minWidth: 180 }}>
+            <InputLabel>Status</InputLabel>
+            <Select value={statusFilter} label="Status" onChange={(e) => { setStatusFilter(e.target.value); setPage(0); }}>
+              <MenuItem value="">All</MenuItem>
+              {STATUSES.map((s) => <MenuItem key={s} value={s}>{s.replace(/_/g, ' ')}</MenuItem>)}
+            </Select>
+          </FormControl>
+        </Box>
+      )}
 
       {isError && <Alert severity="error" sx={{ mb: 2 }}>Failed to load repair tickets.</Alert>}
 
-      <DataGrid
-        rows={data?.items ?? []}
+      <ResponsiveTable
         columns={columns}
+        rows={filteredRows}
+        getRowKey={(t) => t.id}
+        onRowClick={(t) => navigate(`/device-management/repair-tickets/${t.id}`)}
         loading={isLoading}
-        rowCount={data?.total ?? 0}
-        paginationMode="server"
-        paginationModel={{ page, pageSize }}
-        onPaginationModelChange={({ page: p, pageSize: ps }) => { setPage(p); setPageSize(ps); }}
-        pageSizeOptions={[10, 25, 50]}
-        rowHeight={64}
-        autoHeight
-        disableRowSelectionOnClick
+        emptyMessage="No repair tickets found."
+      />
+      <TablePagination
+        component="div"
+        count={data?.total ?? 0}
+        page={page}
+        onPageChange={(_, p) => setPage(p)}
+        rowsPerPage={pageSize}
+        onRowsPerPageChange={(e) => { setPageSize(Number(e.target.value)); setPage(0); }}
+        rowsPerPageOptions={[10, 25, 50]}
       />
 
       {/* Create Ticket Dialog */}

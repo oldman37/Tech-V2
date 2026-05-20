@@ -20,6 +20,7 @@ import {
 import { InventoryItem, InventoryFilters, EquipmentStatus } from '../types/inventory.types';
 import EquipmentDetailDrawer from '../components/inventory/EquipmentDetailDrawer';
 import { formatDate, formatCurrency, getStatusBadgeClass } from '../utils/inventoryFormatters';
+import { Box, Paper } from '@mui/material';
 import { ResponsiveTable, MobileFilterBar, Column } from '../components/responsive';
 import { useIsMobile } from '../hooks/useResponsive';
 
@@ -389,9 +390,7 @@ const EquipmentSearch = () => {
   ];
 
   return (
-    <div>
-      <main className="page-content">
-        <div className="container">
+    <Box sx={{ p: { xs: 2, sm: 3 } }}>
           {/* Page Header */}
           <div className="page-header">
             <h2 className="page-title">Equipment Search</h2>
@@ -555,10 +554,10 @@ const EquipmentSearch = () => {
               )}
             </div>
           ) : (
-            <div className="card mb-6">
+            <Paper sx={{ p: 2, mb: 2 }}>
               {/* Row 1: Keyword (span 2) + Category + Brand */}
-              <div className="grid grid-cols-4 gap-4">
-                <div style={{ gridColumn: '1 / 3' }}>
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: 'repeat(4, 1fr)' }, gap: 2 }}>
+                <Box sx={{ gridColumn: { md: '1 / 3' } }}>
                   <label className="form-label">Search by tag, name, or serial</label>
                   <input
                     type="text"
@@ -568,7 +567,7 @@ const EquipmentSearch = () => {
                     onKeyDown={handleKeyDown}
                     className="form-input"
                   />
-                </div>
+                </Box>
                 <div>
                   <label className="form-label">Category</label>
                   <select
@@ -597,10 +596,10 @@ const EquipmentSearch = () => {
                     ))}
                   </select>
                 </div>
-              </div>
+              </Box>
 
               {/* Row 2: Model + Vendor + Campus + Room */}
-              <div className="grid grid-cols-4 gap-4" style={{ marginTop: '1rem' }}>
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: 'repeat(4, 1fr)' }, gap: 2, mt: 2 }}>
                 <div>
                   <label className="form-label">Model</label>
                   <select
@@ -658,10 +657,10 @@ const EquipmentSearch = () => {
                     ))}
                   </select>
                 </div>
-              </div>
+              </Box>
 
               {/* Row 3: Status + Show Disposed + Purchase Date Range */}
-              <div className="grid grid-cols-4 gap-4" style={{ marginTop: '1rem' }}>
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: 'repeat(4, 1fr)' }, gap: 2, mt: 2 }}>
                 <div>
                   <label className="form-label">Status</label>
                   <select
@@ -714,10 +713,10 @@ const EquipmentSearch = () => {
                     className="form-input"
                   />
                 </div>
-              </div>
+              </Box>
 
               {/* Row 4: Price Range */}
-              <div className="grid grid-cols-4 gap-4" style={{ marginTop: '1rem' }}>
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: 'repeat(4, 1fr)' }, gap: 2, mt: 2 }}>
                 <div>
                   <label className="form-label">Price Min ($)</label>
                   <input
@@ -744,7 +743,7 @@ const EquipmentSearch = () => {
                     step="0.01"
                   />
                 </div>
-              </div>
+              </Box>
 
               {/* Action Buttons */}
               <div
@@ -769,7 +768,7 @@ const EquipmentSearch = () => {
                   🔍 Search
                 </button>
               </div>
-            </div>
+            </Paper>
           )}
 
           {/* Results Info */}
@@ -879,8 +878,6 @@ const EquipmentSearch = () => {
               </div>
             )}
           </div>
-        </div>
-      </main>
 
       {/* Equipment Detail Drawer */}
       <EquipmentDetailDrawer
@@ -888,7 +885,7 @@ const EquipmentSearch = () => {
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
       />
-    </div>
+    </Box>
   );
 };
 

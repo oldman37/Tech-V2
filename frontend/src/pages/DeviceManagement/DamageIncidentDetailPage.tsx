@@ -68,15 +68,15 @@ export default function DamageIncidentDetailPage() {
   const eq = incident.equipment;
 
   return (
-    <Box p={3} maxWidth={900} mx="auto">
+    <Box sx={{ p: { xs: 1, sm: 3 }, maxWidth: 900, mx: 'auto' }}>
       <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/device-management/incidents')} sx={{ mb: 2 }}>
         Back to Incidents
       </Button>
 
       {/* Header */}
       <Paper sx={{ p: 2, mb: 3 }}>
-        <div className="flex items-center justify-between flex-wrap gap-2">
-          <div>
+        <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
+          <Box>
             <Typography variant="h6" fontWeight={600}>
               {eq ? `${eq.assetTag} — ${eq.name}` : incident.equipmentId}
             </Typography>
@@ -90,8 +90,8 @@ export default function DamageIncidentDetailPage() {
                 {eq.brands.name}{eq.models ? ` / ${eq.models.name}` : ''}
               </Typography>
             )}
-          </div>
-          <div className="flex gap-2 flex-wrap items-center">
+          </Box>
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
             <DamageTypeBadge type={incident.damageType} />
             <Chip
               label={incident.severity.replace('_', ' ')}
@@ -107,17 +107,17 @@ export default function DamageIncidentDetailPage() {
             >
               Create Invoice
             </Button>
-          </div>
-        </div>
+          </Box>
+        </Box>
       </Paper>
 
-      <div className="grid grid-cols-2 gap-4">
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: { xs: 2, md: 3 } }}>
         {/* Details */}
         <Card>
           <CardContent>
             <Typography variant="subtitle1" fontWeight={600} gutterBottom>Details</Typography>
             <Divider sx={{ mb: 1.5 }} />
-            <div className="grid grid-cols-2 gap-2 text-sm">
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1 }}>
               <Typography variant="body2" color="text.secondary">Reported By</Typography>
               <Typography variant="body2">
                 {incident.reporter ? `${incident.reporter.firstName} ${incident.reporter.lastName}` : incident.reportedBy}
@@ -142,7 +142,7 @@ export default function DamageIncidentDetailPage() {
                   <Typography variant="body2">{incident.resolutionNotes}</Typography>
                 </>
               )}
-            </div>
+            </Box>
           </CardContent>
         </Card>
 
@@ -152,7 +152,7 @@ export default function DamageIncidentDetailPage() {
             <Typography variant="subtitle1" fontWeight={600} gutterBottom>Assigned User</Typography>
             <Divider sx={{ mb: 1.5 }} />
             {incident.user ? (
-              <div className="grid grid-cols-2 gap-2 text-sm">
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1 }}>
                 <Typography variant="body2" color="text.secondary">Name</Typography>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Typography variant="body2">{incident.user.firstName} {incident.user.lastName}</Typography>
@@ -167,13 +167,13 @@ export default function DamageIncidentDetailPage() {
                 </Box>
                 <Typography variant="body2" color="text.secondary">Email</Typography>
                 <Typography variant="body2">{incident.user.email}</Typography>
-              </div>
+              </Box>
             ) : (
               <Typography variant="body2" color="text.secondary">No user linked</Typography>
             )}
           </CardContent>
         </Card>
-      </div>
+      </Box>
 
       {/* Photos */}
       <Card sx={{ mt: 3 }}>
@@ -194,7 +194,7 @@ export default function DamageIncidentDetailPage() {
           <Typography variant="subtitle1" fontWeight={600} gutterBottom>Update Status</Typography>
           <Divider sx={{ mb: 2 }} />
           {statusError && <Alert severity="error" sx={{ mb: 2 }}>{statusError}</Alert>}
-          <div className="grid grid-cols-2 gap-4">
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
             <FormControl size="small">
               <InputLabel>Status</InputLabel>
               <Select value={statusValue} label="Status" onChange={(e) => setStatusValue(e.target.value)}>
@@ -207,7 +207,7 @@ export default function DamageIncidentDetailPage() {
               value={resolution}
               onChange={(e) => setResolution(e.target.value)}
             />
-          </div>
+          </Box>
           <Button
             variant="contained"
             size="small"
@@ -227,13 +227,13 @@ export default function DamageIncidentDetailPage() {
             <Typography variant="subtitle1" fontWeight={600} gutterBottom>Repair Tickets</Typography>
             <Divider sx={{ mb: 1.5 }} />
             {incident.repairTickets!.map((t: { id: string; ticketNumber: string; status: string }) => (
-              <div key={t.id} className="flex items-center justify-between py-1">
+              <Box key={t.id} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1, py: 0.5 }}>
                 <Typography variant="body2" fontFamily="monospace">{t.ticketNumber}</Typography>
                 <Chip label={t.status} size="small" variant="outlined" />
                 <Button size="small" onClick={() => navigate(`/device-management/repair-tickets/${t.id}`)}>
                   View
                 </Button>
-              </div>
+              </Box>
             ))}
           </CardContent>
         </Card>
@@ -246,14 +246,14 @@ export default function DamageIncidentDetailPage() {
             <Typography variant="subtitle1" fontWeight={600} gutterBottom>Invoices</Typography>
             <Divider sx={{ mb: 1.5 }} />
             {incident.invoices!.map((inv: { id: string; invoiceNumber: string; status: string; amount: string }) => (
-              <div key={inv.id} className="flex items-center justify-between py-1">
+              <Box key={inv.id} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1, py: 0.5 }}>
                 <Typography variant="body2" fontFamily="monospace">{inv.invoiceNumber}</Typography>
                 <Typography variant="body2">${parseFloat(inv.amount).toFixed(2)}</Typography>
                 <Chip label={inv.status} size="small" variant="outlined" />
                 <Button size="small" onClick={() => navigate(`/device-management/invoices/${inv.id}`)}>
                   View
                 </Button>
-              </div>
+              </Box>
             ))}
           </CardContent>
         </Card>

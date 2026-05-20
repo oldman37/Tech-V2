@@ -15,7 +15,7 @@ interface DeviceStatusChipProps {
 
 export function DeviceStatusChip({ status, size = 'small' }: DeviceStatusChipProps) {
   const config = STATUS_CONFIG[status] ?? { label: status, color: 'default' as const };
-  return <Chip label={config.label} color={config.color} size={size} />;
+  return <Chip label={config.label} color={config.color} size={size} sx={{ whiteSpace: 'nowrap', flexShrink: 0 }} />;
 }
 
 export default DeviceStatusChip;

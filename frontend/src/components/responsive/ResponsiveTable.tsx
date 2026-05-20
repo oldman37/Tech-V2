@@ -136,6 +136,7 @@ export function ResponsiveTable<T>({
                     textAlign: col.align ?? 'left',
                     cursor: col.sortable ? 'pointer' : undefined,
                     userSelect: col.sortable ? 'none' : undefined,
+                    whiteSpace: 'nowrap',
                   }}
                   onClick={() => handleHeaderClick(col)}
                 >

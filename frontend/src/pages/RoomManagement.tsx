@@ -1,5 +1,16 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import {
+  Box,
+  Button,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Paper,
+  Select,
+  TextField,
+  Typography,
+} from '@mui/material';
 import roomService from '../services/roomService';
 import locationService from '../services/location.service';
 import { RoomWithLocation, CreateRoomRequest, UpdateRoomRequest, RoomType } from '../types/room.types';
@@ -8,6 +19,7 @@ import RoomFormModal from '../components/RoomFormModal';
 import { PaginationControls } from '../components/PaginationControls';
 import { usePaginatedRooms } from '../hooks/queries/useRooms';
 import { useIsMobile } from '../hooks/useResponsive';
+import { ResponsiveTable, MobileFilterBar, Column } from '../components/responsive';
 
 export const RoomManagement = () => {
   // URL-based pagination and filter state
@@ -39,6 +51,7 @@ export const RoomManagement = () => {
 
   // Screen reader announcement for accessibility
   const [announcement, setAnnouncement] = useState('');
+  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
 
   // Use React Query hook for paginated rooms
   const {
@@ -215,8 +228,65 @@ export const RoomManagement = () => {
     return acc;
   }, {} as Record<string, RoomWithLocation[]>);
 
+  // Column definitions for ResponsiveTable
+  const roomColumns: Column<RoomWithLocation>[] = [
+    {
+      key: 'name',
+      label: 'Room',
+      isPrimary: true,
+      render: (room) => (
+        <>
+          <strong style={{ display: 'block', fontWeight: 600 }}>{room.name}</strong>
+          {room.notes && (
+            <div style={{ fontSize: '0.75rem', color: 'var(--slate-500)', marginTop: '0.25rem' }}>{room.notes}</div>
+          )}
+        </>
+      ),
+    },
+    {
+      key: 'type',
+      label: 'Type',
+      hideOnMobile: true,
+      render: (room) => (
+        <span className={`badge ${getRoomTypeBadgeClass(room.type)}`}>
+          {getRoomTypeLabel(room.type)}
+        </span>
+      ),
+    },
+    {
+      key: 'building',
+      label: 'Building',
+      isSecondary: true,
+      render: (room) => <>{room.building || '—'}</>,
+    },
+    {
+      key: 'floor',
+      label: 'Floor',
+      hideOnMobile: true,
+      render: (room) => <>{room.floor !== null ? room.floor : '—'}</>,
+    },
+    {
+      key: 'capacity',
+      label: 'Capacity',
+      hideOnMobile: true,
+      render: (room) => <>{room.capacity !== null ? room.capacity : '—'}</>,
+    },
+    {
+      key: 'isActive',
+      label: 'Status',
+      render: (room) => (
+        <span className={`badge ${room.isActive ? 'badge-success' : 'badge-error'}`}>
+          {room.isActive ? 'Active' : 'Inactive'}
+        </span>
+      ),
+    },
+  ];
+
+  const activeFilterCount =
+    (filters.locationId ? 1 : 0) + (filters.type ? 1 : 0) + (!filters.isActive ? 1 : 0);
+
   return (
-    <div>
+    <Box sx={{ p: { xs: 2, sm: 3 } }}>
       {/* Screen reader announcement for accessibility */}
       <div
         role="status"
@@ -233,302 +303,264 @@ export const RoomManagement = () => {
         {announcement}
       </div>
 
-      {/* MAIN CONTENT */}
-      <main className="page-content">
-        <div className="container">
-          {/* Page Header */}
-          <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem' }}>
-            <div>
-              <h2 className="page-title">Room Management</h2>
-              <p className="page-description">Manage rooms and spaces across all locations</p>
-            </div>
-            <button onClick={openCreateModal} className="btn btn-primary">
-              + Add Room
-            </button>
-          </div>
+      {/* Page Header */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 1, mb: 3 }}>
+        <Box>
+          <Typography variant="h5" fontWeight={600}>Room Management</Typography>
+          <Typography variant="body2" color="text.secondary">Manage rooms and spaces across all locations</Typography>
+        </Box>
+        <Button variant="contained" onClick={openCreateModal}>
+          + Add Room
+        </Button>
+      </Box>
 
-          {/* Stats Summary */}
-          <div className="grid grid-cols-4 gap-6 mb-6">
-            <div className="card">
-              <p className="form-label">Total Rooms</p>
-              <p style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--slate-900)' }}>
-                {pagination?.total || 0}
-              </p>
-            </div>
-            <div className="card">
-              <p className="form-label">Locations</p>
-              <p style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--slate-900)' }}>
-                {locations.length}
-              </p>
-            </div>
-            <div className="card">
-              <p className="form-label">Active (this page)</p>
-              <p style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--emerald-800)' }}>
-                {rooms.filter(r => r.isActive).length}
-              </p>
-            </div>
-            <div className="card">
-              <p className="form-label">Inactive (this page)</p>
-              <p style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--slate-400)' }}>
-                {rooms.filter(r => !r.isActive).length}
-              </p>
-            </div>
-          </div>
+      {/* Stats Summary */}
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', sm: '1fr 1fr 1fr 1fr' }, gap: 2, mb: 3 }}>
+        <div className="card">
+          <p className="form-label">Total Rooms</p>
+          <p style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--slate-900)' }}>
+            {pagination?.total || 0}
+          </p>
+        </div>
+        <div className="card">
+          <p className="form-label">Locations</p>
+          <p style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--slate-900)' }}>
+            {locations.length}
+          </p>
+        </div>
+        <div className="card">
+          <p className="form-label">Active (this page)</p>
+          <p style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--emerald-800)' }}>
+            {rooms.filter(r => r.isActive).length}
+          </p>
+        </div>
+        <div className="card">
+          <p className="form-label">Inactive (this page)</p>
+          <p style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--slate-400)' }}>
+            {rooms.filter(r => !r.isActive).length}
+          </p>
+        </div>
+      </Box>
 
-          {/* Filters */}
-          <div className="card mb-6">
-            <div className="grid grid-cols-4 gap-4">
-              <div>
-                <label className="form-label">Location</label>
-                <select
-                  value={filters.locationId}
-                  onChange={(e) => handleFilterChange({ ...filters, locationId: e.target.value })}
-                  className="form-select"
-                >
-                  <option value="">All Locations</option>
-                  {locations.map((loc) => (
-                    <option key={loc.id} value={loc.id}>
-                      {loc.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+      {/* Filters */}
+      {isMobile ? (
+        <Box sx={{ mb: 2 }}>
+          <MobileFilterBar
+            searchValue={filters.search}
+            onSearchChange={(value) => handleFilterChange({ ...filters, search: value })}
+            filterCount={activeFilterCount}
+            onOpenFilters={() => setFilterDrawerOpen(!filterDrawerOpen)}
+            searchPlaceholder="Search rooms…"
+          />
+          {filterDrawerOpen && (
+            <Paper sx={{ p: 2, mt: 1 }}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                <FormControl size="small" fullWidth>
+                  <InputLabel>Location</InputLabel>
+                  <Select
+                    value={filters.locationId}
+                    label="Location"
+                    onChange={(e) => handleFilterChange({ ...filters, locationId: e.target.value })}
+                  >
+                    <MenuItem value="">All Locations</MenuItem>
+                    {locations.map((loc) => (
+                      <MenuItem key={loc.id} value={loc.id}>{loc.name}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                <FormControl size="small" fullWidth>
+                  <InputLabel>Type</InputLabel>
+                  <Select
+                    value={filters.type}
+                    label="Type"
+                    onChange={(e) => handleFilterChange({ ...filters, type: e.target.value as RoomType | '' })}
+                  >
+                    <MenuItem value="">All Types</MenuItem>
+                    <MenuItem value="CLASSROOM">Classroom</MenuItem>
+                    <MenuItem value="OFFICE">Office</MenuItem>
+                    <MenuItem value="GYM">Gym</MenuItem>
+                    <MenuItem value="CAFETERIA">Cafeteria</MenuItem>
+                    <MenuItem value="LIBRARY">Library</MenuItem>
+                    <MenuItem value="LAB">Lab</MenuItem>
+                    <MenuItem value="MAINTENANCE">Maintenance</MenuItem>
+                    <MenuItem value="SPORTS">Sports</MenuItem>
+                    <MenuItem value="MUSIC">Music</MenuItem>
+                    <MenuItem value="MEDICAL">Medical</MenuItem>
+                    <MenuItem value="CONFERENCE">Conference</MenuItem>
+                    <MenuItem value="TECHNOLOGY">Technology</MenuItem>
+                    <MenuItem value="TRANSPORTATION">Transportation</MenuItem>
+                    <MenuItem value="SPECIAL_ED">Special Ed</MenuItem>
+                    <MenuItem value="GENERAL">General</MenuItem>
+                    <MenuItem value="OTHER">Other</MenuItem>
+                  </Select>
+                </FormControl>
+                <FormControl size="small" fullWidth>
+                  <InputLabel>Status</InputLabel>
+                  <Select
+                    value={filters.isActive.toString()}
+                    label="Status"
+                    onChange={(e) => handleFilterChange({ ...filters, isActive: e.target.value === 'true' })}
+                  >
+                    <MenuItem value="true">Active Only</MenuItem>
+                    <MenuItem value="false">Inactive Only</MenuItem>
+                  </Select>
+                </FormControl>
+              </Box>
+            </Paper>
+          )}
+        </Box>
+      ) : (
+        <Paper sx={{ p: 2, mb: 2, display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+          <FormControl size="small" sx={{ minWidth: 180 }}>
+            <InputLabel>Location</InputLabel>
+            <Select
+              value={filters.locationId}
+              label="Location"
+              onChange={(e) => handleFilterChange({ ...filters, locationId: e.target.value })}
+            >
+              <MenuItem value="">All Locations</MenuItem>
+              {locations.map((loc) => (
+                <MenuItem key={loc.id} value={loc.id}>{loc.name}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <FormControl size="small" sx={{ minWidth: 150 }}>
+            <InputLabel>Type</InputLabel>
+            <Select
+              value={filters.type}
+              label="Type"
+              onChange={(e) => handleFilterChange({ ...filters, type: e.target.value as RoomType | '' })}
+            >
+              <MenuItem value="">All Types</MenuItem>
+              <MenuItem value="CLASSROOM">Classroom</MenuItem>
+              <MenuItem value="OFFICE">Office</MenuItem>
+              <MenuItem value="GYM">Gym</MenuItem>
+              <MenuItem value="CAFETERIA">Cafeteria</MenuItem>
+              <MenuItem value="LIBRARY">Library</MenuItem>
+              <MenuItem value="LAB">Lab</MenuItem>
+              <MenuItem value="MAINTENANCE">Maintenance</MenuItem>
+              <MenuItem value="SPORTS">Sports</MenuItem>
+              <MenuItem value="MUSIC">Music</MenuItem>
+              <MenuItem value="MEDICAL">Medical</MenuItem>
+              <MenuItem value="CONFERENCE">Conference</MenuItem>
+              <MenuItem value="TECHNOLOGY">Technology</MenuItem>
+              <MenuItem value="TRANSPORTATION">Transportation</MenuItem>
+              <MenuItem value="SPECIAL_ED">Special Ed</MenuItem>
+              <MenuItem value="GENERAL">General</MenuItem>
+              <MenuItem value="OTHER">Other</MenuItem>
+            </Select>
+          </FormControl>
+          <FormControl size="small" sx={{ minWidth: 140 }}>
+            <InputLabel>Status</InputLabel>
+            <Select
+              value={filters.isActive.toString()}
+              label="Status"
+              onChange={(e) => handleFilterChange({ ...filters, isActive: e.target.value === 'true' })}
+            >
+              <MenuItem value="true">Active Only</MenuItem>
+              <MenuItem value="false">Inactive Only</MenuItem>
+            </Select>
+          </FormControl>
+          <TextField
+            size="small"
+            placeholder="Search rooms..."
+            value={filters.search}
+            onChange={(e) => handleFilterChange({ ...filters, search: e.target.value })}
+            sx={{ minWidth: 200 }}
+          />
+        </Paper>
+      )}
 
-              <div>
-                <label className="form-label">Type</label>
-                <select
-                  value={filters.type}
-                  onChange={(e) => handleFilterChange({ ...filters, type: e.target.value as RoomType | '' })}
-                  className="form-select"
-                >
-                  <option value="">All Types</option>
-                  <option value="CLASSROOM">Classroom</option>
-                  <option value="OFFICE">Office</option>
-                  <option value="GYM">Gym</option>
-                  <option value="CAFETERIA">Cafeteria</option>
-                  <option value="LIBRARY">Library</option>
-                  <option value="LAB">Lab</option>
-                  <option value="MAINTENANCE">Maintenance</option>
-                  <option value="SPORTS">Sports</option>
-                  <option value="MUSIC">Music</option>
-                  <option value="MEDICAL">Medical</option>
-                  <option value="CONFERENCE">Conference</option>
-                  <option value="TECHNOLOGY">Technology</option>
-                  <option value="TRANSPORTATION">Transportation</option>
-                  <option value="SPECIAL_ED">Special Ed</option>
-                  <option value="GENERAL">General</option>
-                  <option value="OTHER">Other</option>
-                </select>
-              </div>
+      {/* Loading State */}
+      {isLoading && (
+        <div className="card" style={{ padding: '3rem', textAlign: 'center' }}>
+          <div style={{ 
+            width: '3rem', 
+            height: '3rem', 
+            border: '4px solid var(--slate-200)',
+            borderTop: '4px solid var(--primary-blue)',
+            borderRadius: '50%',
+            margin: '0 auto 1rem',
+            animation: 'spin 1s linear infinite'
+          }} />
+          <p style={{ color: 'var(--slate-600)' }}>Loading rooms...</p>
+        </div>
+      )}
 
-              <div>
-                <label className="form-label">Status</label>
-                <select
-                  value={filters.isActive.toString()}
-                  onChange={(e) => handleFilterChange({ ...filters, isActive: e.target.value === 'true' })}
-                  className="form-select"
-                >
-                  <option value="true">Active Only</option>
-                  <option value="false">Inactive Only</option>
-                </select>
-              </div>
+      {/* Error State */}
+      {isError && (
+        <div className="badge badge-error" style={{ padding: '1rem', display: 'block', marginBottom: '1.5rem' }}>
+          {error?.message || 'Failed to fetch rooms'}
+        </div>
+      )}
 
-              <div>
-                <label className="form-label">Search</label>
-                <input
-                  type="text"
-                  placeholder="Search rooms..."
-                  value={filters.search}
-                  onChange={(e) => handleFilterChange({ ...filters, search: e.target.value })}
-                  className="form-input"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Loading State */}
-          {isLoading && (
+      {/* Rooms List */}
+      {!isLoading && !isError && (
+        <>
+          {Object.keys(groupedRooms).length === 0 ? (
             <div className="card" style={{ padding: '3rem', textAlign: 'center' }}>
-              <div style={{ 
-                width: '3rem', 
-                height: '3rem', 
-                border: '4px solid var(--slate-200)',
-                borderTop: '4px solid var(--primary-blue)',
-                borderRadius: '50%',
-                margin: '0 auto 1rem',
-                animation: 'spin 1s linear infinite'
-              }} />
-              <p style={{ color: 'var(--slate-600)' }}>Loading rooms...</p>
+              <p style={{ color: 'var(--slate-500)', marginBottom: '1rem' }}>
+                No rooms found matching your filters.
+              </p>
+              <button onClick={openCreateModal} className="btn btn-secondary">
+                Create First Room
+              </button>
             </div>
-          )}
-
-          {/* Error State */}
-          {isError && (
-            <div className="badge badge-error" style={{ padding: '1rem', display: 'block', marginBottom: '1.5rem' }}>
-              {error?.message || 'Failed to fetch rooms'}
-            </div>
-          )}
-
-          {/* Rooms List */}
-          {!isLoading && !isError && (
+          ) : (
             <>
-              {Object.keys(groupedRooms).length === 0 ? (
-                <div className="card" style={{ padding: '3rem', textAlign: 'center' }}>
-                  <p style={{ color: 'var(--slate-500)', marginBottom: '1rem' }}>
-                    No rooms found matching your filters.
-                  </p>
-                  <button onClick={openCreateModal} className="btn btn-secondary">
-                    Create First Room
-                  </button>
-                </div>
-              ) : (
-                <>
-                  {Object.entries(groupedRooms).map(([locationName, locationRooms]) => (
-                    <div key={locationName} className="card mb-6" style={{ padding: 0 }}>
-                      <div style={{ 
-                        padding: '1rem 1.5rem', 
-                        backgroundColor: 'var(--slate-50)', 
-                        borderBottom: '1px solid var(--slate-200)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.75rem'
-                      }}>
-                        <h3 style={{ margin: 0, fontSize: '1.125rem', fontWeight: 600, color: 'var(--slate-900)' }}>
-                          {locationName}
-                        </h3>
-                        <span style={{ fontSize: '0.875rem', color: 'var(--slate-500)' }}>
-                          ({locationRooms.length} rooms)
-                        </span>
-                      </div>
+              {Object.entries(groupedRooms).map(([locationName, locationRooms]) => (
+                <Box key={locationName} className="card" sx={{ mb: 3, p: 0 }}>
+                  <div style={{ 
+                    padding: '1rem 1.5rem', 
+                    backgroundColor: 'var(--slate-50)', 
+                    borderBottom: '1px solid var(--slate-200)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.75rem'
+                  }}>
+                    <h3 style={{ margin: 0, fontSize: '1.125rem', fontWeight: 600, color: 'var(--slate-900)' }}>
+                      {locationName}
+                    </h3>
+                    <span style={{ fontSize: '0.875rem', color: 'var(--slate-500)' }}>
+                      ({locationRooms.length} rooms)
+                    </span>
+                  </div>
 
-                      {isMobile ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', padding: '0.75rem' }}>
-                          {locationRooms.map((room) => (
-                            <div key={room.id} style={{ border: '1px solid var(--slate-200)', borderRadius: '0.5rem', padding: '0.75rem', opacity: !room.isActive ? 0.6 : 1 }}>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
-                                <div>
-                                  <span style={{ fontWeight: 600, wordBreak: 'break-word' }}>{room.name}</span>
-                                  {room.notes && (
-                                    <div style={{ fontSize: '0.75rem', color: 'var(--slate-500)', marginTop: '0.25rem' }}>{room.notes}</div>
-                                  )}
-                                </div>
-                                <span className={`badge ${room.isActive ? 'badge-success' : 'badge-error'}`}>
-                                  {room.isActive ? 'Active' : 'Inactive'}
-                                </span>
-                              </div>
-                              <div style={{ fontSize: '0.813rem', color: 'var(--slate-600)', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                                <div><span className={`badge ${getRoomTypeBadgeClass(room.type)}`}>{getRoomTypeLabel(room.type)}</span></div>
-                                {room.building && <div><strong>Building:</strong> {room.building}</div>}
-                                {room.floor !== null && <div><strong>Floor:</strong> {room.floor}</div>}
-                                {room.capacity !== null && <div><strong>Capacity:</strong> {room.capacity}</div>}
-                              </div>
-                              <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem' }}>
-                                <button onClick={() => openEditModal(room)} className="btn btn-sm btn-secondary">Edit</button>
-                                <button onClick={() => handleToggleActive(room)} className="btn btn-sm btn-secondary">
-                                  {room.isActive ? 'Deactivate' : 'Activate'}
-                                </button>
-                                {room.isActive && (
-                                  <button onClick={() => handleDeleteRoom(room.id, room.name)} className="btn btn-sm btn-danger">Delete</button>
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                      <div style={{ overflowX: 'auto' }}>
-                        <table className="table">
-                          <thead>
-                            <tr>
-                              <th>Room</th>
-                              <th>Type</th>
-                              <th>Building</th>
-                              <th>Floor</th>
-                              <th>Capacity</th>
-                              <th>Status</th>
-                              <th>Actions</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {locationRooms.map((room) => (
-                              <tr key={room.id} style={{ opacity: !room.isActive ? 0.6 : 1 }}>
-                                <td>
-                                  <strong style={{ display: 'block', fontWeight: 600 }}>
-                                    {room.name}
-                                  </strong>
-                                  {room.notes && (
-                                    <div style={{ fontSize: '0.75rem', color: 'var(--slate-500)', marginTop: '0.25rem' }}>
-                                      {room.notes}
-                                    </div>
-                                  )}
-                                </td>
-                                <td>
-                                  <span className={`badge ${getRoomTypeBadgeClass(room.type)}`}>
-                                    {getRoomTypeLabel(room.type)}
-                                  </span>
-                                </td>
-                                <td>{room.building || '—'}</td>
-                                <td>{room.floor !== null ? room.floor : '—'}</td>
-                                <td>{room.capacity !== null ? room.capacity : '—'}</td>
-                                <td>
-                                  <span className={`badge ${room.isActive ? 'badge-success' : 'badge-error'}`}>
-                                    {room.isActive ? 'Active' : 'Inactive'}
-                                  </span>
-                                </td>
-                                <td>
-                                  <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                    <button
-                                      onClick={() => openEditModal(room)}
-                                      className="btn btn-sm btn-ghost"
-                                      title="Edit room"
-                                    >
-                                      ✏️
-                                    </button>
-                                    <button
-                                      onClick={() => handleToggleActive(room)}
-                                      className="btn btn-sm btn-ghost"
-                                      title={room.isActive ? 'Deactivate' : 'Activate'}
-                                    >
-                                      {room.isActive ? '🔒' : '🔓'}
-                                    </button>
-                                    {room.isActive && (
-                                      <button
-                                        onClick={() => handleDeleteRoom(room.id, room.name)}
-                                        className="btn btn-sm btn-ghost"
-                                        title="Deactivate room"
-                                        style={{ color: 'var(--red-800)' }}
-                                      >
-                                        🗑️
-                                      </button>
-                                    )}
-                                  </div>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                  <ResponsiveTable<RoomWithLocation>
+                    columns={roomColumns}
+                    rows={locationRooms}
+                    getRowKey={(room) => room.id}
+                    rowActions={(room) => (
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <button onClick={() => openEditModal(room)} className="btn btn-sm btn-secondary">Edit</button>
+                        <button onClick={() => handleToggleActive(room)} className="btn btn-sm btn-secondary">
+                          {room.isActive ? 'Deactivate' : 'Activate'}
+                        </button>
+                        {room.isActive && (
+                          <button onClick={() => handleDeleteRoom(room.id, room.name)} className="btn btn-sm btn-danger">Delete</button>
+                        )}
                       </div>
-                      )}
-                    </div>
-                  ))}
+                    )}
+                  />
+                </Box>
+              ))}
 
-                  {/* Pagination Controls */}
-                  {pagination && pagination.totalPages > 1 && (
-                    <PaginationControls
-                      currentPage={pagination.page}
-                      totalPages={pagination.totalPages}
-                      totalItems={pagination.total}
-                      pageSize={pagination.limit}
-                      onPageChange={handlePageChange}
-                      onPageSizeChange={handlePageSizeChange}
-                      itemLabel="rooms"
-                    />
-                  )}
-                </>
+              {/* Pagination Controls */}
+              {pagination && pagination.totalPages > 1 && (
+                <PaginationControls
+                  currentPage={pagination.page}
+                  totalPages={pagination.totalPages}
+                  totalItems={pagination.total}
+                  pageSize={pagination.limit}
+                  onPageChange={handlePageChange}
+                  onPageSizeChange={handlePageSizeChange}
+                  itemLabel="rooms"
+                />
               )}
             </>
           )}
-        </div>
-      </main>
+        </>
+      )}
 
       {/* MODAL - Keep existing RoomFormModal */}
       <RoomFormModal
@@ -546,7 +578,7 @@ export const RoomManagement = () => {
           100% { transform: rotate(360deg); }
         }
       `}</style>
-    </div>
+    </Box>
   );
 };
 

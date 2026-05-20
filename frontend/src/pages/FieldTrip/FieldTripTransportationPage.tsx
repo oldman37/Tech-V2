@@ -126,7 +126,7 @@ export function FieldTripTransportationPage() {
       {/* Header */}
       <Box sx={{ mb: 3 }}>
         <PageBackButton to={`/field-trips/${id}`} label="Back to Field Trip" />
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mt: 1 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 1, mt: 1 }}>
           <Box>
             <Typography variant="h4" component="h1">Step 2 — Transportation Request</Typography>
             <Typography variant="subtitle1" color="text.secondary">

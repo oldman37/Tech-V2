@@ -80,6 +80,7 @@ const columns: Column<TransportationRequest>[] = [
   {
     key: 'status',
     label: 'Status',
+    width: 230,
     render: (row) => {
       const status = row.status as TransportationRequestStatus;
       return (
@@ -87,6 +88,7 @@ const columns: Column<TransportationRequest>[] = [
           label={TRANSPORTATION_REQUEST_STATUS_LABELS[status] ?? status}
           color={TRANSPORTATION_REQUEST_STATUS_COLORS[status] ?? 'default'}
           size="small"
+          sx={{ whiteSpace: 'nowrap', flexShrink: 0 }}
         />
       );
     },
@@ -137,7 +139,7 @@ export function TransportationRequestsPage() {
   const activeFilterCount = (statusFilter ? 1 : 0) + (fromFilter ? 1 : 0) + (toFilter ? 1 : 0);
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ p: { xs: 2, sm: 3 } }}>
       {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 3 }}>
         <Typography variant="h5" fontWeight={600}>

@@ -182,7 +182,7 @@ export function TransportationRequestFormPage() {
   };
 
   return (
-    <Box sx={{ p: 3, maxWidth: 900, mx: 'auto' }}>
+    <Box sx={{ p: { xs: 2, sm: 3 }, maxWidth: 900, mx: 'auto' }}>
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 3, gap: 1 }}>
         <PageBackButton to="/transportation-requests" label="Back to Requests" />
       </Box>
@@ -200,7 +200,7 @@ export function TransportationRequestFormPage() {
       <form onSubmit={handleSubmit} noValidate>
 
         {/* Part A — Trip Information */}
-        <Paper sx={{ p: 3, mb: 3 }}>
+        <Paper sx={{ p: { xs: 1.5, sm: 3 }, mb: 3 }}>
           <Typography variant="h6" sx={{ mb: 2 }}>Part A — Trip Information</Typography>
           <Divider sx={{ mb: 3 }} />
           <Grid container spacing={2}>
@@ -306,7 +306,7 @@ export function TransportationRequestFormPage() {
         </Paper>
 
         {/* Part B — Logistics */}
-        <Paper sx={{ p: 3, mb: 3 }}>
+        <Paper sx={{ p: { xs: 1.5, sm: 3 }, mb: 3 }}>
           <Typography variant="h6" sx={{ mb: 2 }}>Part B — Logistics & Times</Typography>
           <Divider sx={{ mb: 3 }} />
           <Grid container spacing={2}>
@@ -402,7 +402,7 @@ export function TransportationRequestFormPage() {
         </Paper>
 
         {/* Part C — Destinations */}
-        <Paper sx={{ p: 3, mb: 3 }}>
+        <Paper sx={{ p: { xs: 1.5, sm: 3 }, mb: 3 }}>
           <Typography variant="h6" sx={{ mb: 2 }}>Part C — Destinations</Typography>
           <Divider sx={{ mb: 3 }} />
           <Grid container spacing={2}>
@@ -428,7 +428,7 @@ export function TransportationRequestFormPage() {
             <Box sx={{ mt: 2 }}>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>Additional Stops</Typography>
               {additionalDestinations.map((dest, idx) => (
-                <Box key={idx} sx={{ display: 'flex', gap: 2, mb: 2, alignItems: 'flex-start' }}>
+                <Box key={idx} sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 2, alignItems: 'flex-start' }}>
                   <TextField
                     label={`Stop ${idx + 2} Name`}
                     value={dest.name}
@@ -469,7 +469,7 @@ export function TransportationRequestFormPage() {
         </Paper>
 
         {/* Part D — Notes */}
-        <Paper sx={{ p: 3, mb: 3 }}>
+        <Paper sx={{ p: { xs: 1.5, sm: 3 }, mb: 3 }}>
           <Typography variant="h6" sx={{ mb: 2 }}>Part D — Additional Notes</Typography>
           <Divider sx={{ mb: 3 }} />
           <TextField
@@ -485,7 +485,7 @@ export function TransportationRequestFormPage() {
         </Paper>
 
         {/* Actions */}
-        <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, justifyContent: 'flex-end' }}>
           <Button
             variant="outlined"
             onClick={() => navigate('/transportation-requests')}

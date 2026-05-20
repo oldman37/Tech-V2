@@ -44,7 +44,13 @@ export function RepairStatusStepper({ status, vertical = false }: RepairStatusSt
     <Stepper
       activeStep={activeStep}
       orientation={vertical ? 'vertical' : 'horizontal'}
-      sx={{ width: '100%' }}
+      sx={{
+        width: '100%',
+        '& .MuiStepLabel-label': {
+          whiteSpace: 'nowrap',
+          fontSize: '0.75rem',
+        },
+      }}
     >
       {STEPS.map((step, index) => {
         const isCurrentError = isError && index === activeStep;

@@ -11,14 +11,20 @@ import {
   DialogTitle,
   FormControl,
   FormControlLabel,
+  InputAdornment,
   InputLabel,
   MenuItem,
+  Paper,
   Select,
+  TablePagination,
   TextField,
   Typography,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
-import { DataGrid, type GridColDef } from '@mui/x-data-grid';
+import SearchIcon from '@mui/icons-material/Search';
+import { ResponsiveTable, MobileFilterBar } from '../../components/responsive';
+import type { Column } from '../../components/responsive';
+import { useIsMobile } from '../../hooks/useResponsive';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { damageIncidentService } from '../../services/damageIncident.service';
@@ -61,12 +67,15 @@ export default function DamageIncidentsPage() {
   const navigate      = useNavigate();
   const queryClient   = useQueryClient();
 
-  const [statusFilter,   setStatusFilter]   = useState('');
-  const [severityFilter, setSeverityFilter] = useState('');
-  const [search,         setSearch]         = useState('');
-  const [page,           setPage]           = useState(0);
-  const [pageSize,       setPageSize]       = useState(25);
-  const [dialogOpen,     setDialogOpen]     = useState(false);
+  const isMobile = useIsMobile();
+
+  const [statusFilter,     setStatusFilter]     = useState('');
+  const [severityFilter,   setSeverityFilter]   = useState('');
+  const [search,           setSearch]           = useState('');
+  const [page,             setPage]             = useState(0);
+  const [pageSize,         setPageSize]         = useState(25);
+  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
+  const [dialogOpen,       setDialogOpen]       = useState(false);
   const [form,           setForm]           = useState<CreateDamageIncidentData>(emptyForm);
   const [formError,      setFormError]      = useState<string | null>(null);
   const [selectedUser,        setSelectedUser]        = useState<UserOption | null>(null);
@@ -139,123 +148,174 @@ export default function DamageIncidentsPage() {
     return tag.includes(q) || nm.includes(q);
   });
 
-  const columns: GridColDef<DamageIncident>[] = [
+  const columns: Column<DamageIncident>[] = [
     {
-      field:      'incidentNumber',
-      headerName: 'Incident #',
-      width:      150,
-      renderCell: ({ value }) => (
+      key:       'incidentNumber',
+      label:     'Incident #',
+      isPrimary: true,
+      render:    (r) => (
         <Typography variant="body2" fontFamily="monospace">
-          {(value as string | null) ?? '—'}
+          {r.incidentNumber ?? '—'}
         </Typography>
       ),
     },
     {
-      field:       'equipment',
-      headerName:  'Device',
-      flex:        1.5,
-      valueGetter: (_, row) =>
-        row.equipment ? `${row.equipment.assetTag} — ${row.equipment.name}` : row.equipmentId,
+      key:         'equipment',
+      label:       'Device',
+      isSecondary: true,
+      render:      (r) => (
+        <span>{r.equipment ? `${r.equipment.assetTag} — ${r.equipment.name}` : r.equipmentId}</span>
+      ),
     },
     {
-      field:       'user',
-      headerName:  'User',
-      flex:        1,
-      valueGetter: (_, row) =>
-        row.user ? `${row.user.firstName} ${row.user.lastName}` : '—',
+      key:    'user',
+      label:  'User',
+      render: (r) => (
+        <span>{r.user ? `${r.user.firstName} ${r.user.lastName}` : '—'}</span>
+      ),
     },
     {
-      field:      'damageType',
-      headerName: 'Damage Type',
-      width:      160,
-      renderCell: ({ value }) => <DamageTypeBadge type={value as DamageType} />,
+      key:    'damageType',
+      label:  'Damage Type',
+      width:  160,
+      render: (r) => <DamageTypeBadge type={r.damageType} />,
     },
     {
-      field:      'severity',
-      headerName: 'Severity',
-      width:      110,
-      renderCell: ({ value }) => (
+      key:    'severity',
+      label:  'Severity',
+      width:  100,
+      render: (r) => (
         <Chip
-          label={String(value).replace('_', ' ')}
-          color={SEVERITY_COLORS[value as string] ?? 'default'}
+          label={String(r.severity).replace(/_/g, ' ')}
+          color={SEVERITY_COLORS[r.severity] ?? 'default'}
           size="small"
+          sx={{ whiteSpace: 'nowrap', flexShrink: 0 }}
         />
       ),
     },
     {
-      field:      'status',
-      headerName: 'Status',
-      width:      120,
-      renderCell: ({ value }) => (
-        <Chip label={String(value)} size="small" variant="outlined" />
+      key:    'status',
+      label:  'Status',
+      width:  100,
+      render: (r) => (
+        <Chip
+          label={r.status.replace(/_/g, ' ')}
+          size="small"
+          variant="outlined"
+          sx={{ whiteSpace: 'nowrap', flexShrink: 0, textTransform: 'capitalize' }}
+        />
       ),
     },
     {
-      field:       'reportedAt',
-      headerName:  'Reported',
-      width:       130,
-      valueGetter: (_, row) =>
-        new Date(row.reportedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      key:          'reportedAt',
+      label:        'Reported',
+      hideOnMobile: true,
+      render:       (r) =>
+        new Date(r.reportedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
     },
     {
-      field:      'actions',
-      headerName: 'Actions',
-      width:      90,
-      sortable:   false,
-      renderCell: ({ row }) => (
-        <Button size="small" onClick={() => navigate(`/device-management/incidents/${row.id}`)}>
+      key:    'actions',
+      label:  '',
+      render: (r) => (
+        <Button size="small" onClick={(e) => { e.stopPropagation(); navigate(`/device-management/incidents/${r.id}`); }}>
           View
         </Button>
       ),
     },
   ];
 
+  const activeFilterCount = (statusFilter ? 1 : 0) + (severityFilter ? 1 : 0);
+
   return (
-    <Box p={3}>
-      <div className="flex items-center justify-between mb-4">
+    <Box sx={{ p: { xs: 1, sm: 3 } }}>
+      {/* Header */}
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1, mb: 3 }}>
         <Typography variant="h5" fontWeight={600}>Damage Incidents</Typography>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={() => setDialogOpen(true)}>
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={() => setDialogOpen(true)}
+          sx={{ ...(isMobile && { width: '100%' }) }}
+        >
           Report Damage
         </Button>
-      </div>
+      </Box>
 
-      {/* Filters */}
-      <div className="grid grid-cols-3 gap-4 mb-4">
-        <TextField
-          label="Search device / user"
-          size="small"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-        <FormControl size="small">
-          <InputLabel>Status</InputLabel>
-          <Select value={statusFilter} label="Status" onChange={(e) => setStatusFilter(e.target.value)}>
-            <MenuItem value="">All</MenuItem>
-            {STATUSES.map((s) => <MenuItem key={s} value={s}>{s}</MenuItem>)}
-          </Select>
-        </FormControl>
-        <FormControl size="small">
-          <InputLabel>Severity</InputLabel>
-          <Select value={severityFilter} label="Severity" onChange={(e) => setSeverityFilter(e.target.value)}>
-            <MenuItem value="">All</MenuItem>
-            {SEVERITIES.map((s) => <MenuItem key={s} value={s}>{s}</MenuItem>)}
-          </Select>
-        </FormControl>
-      </div>
+      {/* Filter bar */}
+      {isMobile ? (
+        <Box sx={{ mb: 2 }}>
+          <MobileFilterBar
+            searchValue={search}
+            onSearchChange={(v) => { setSearch(v); setPage(0); }}
+            filterCount={activeFilterCount}
+            onOpenFilters={() => setFilterDrawerOpen(!filterDrawerOpen)}
+            searchPlaceholder="Search device / user…"
+          />
+          {filterDrawerOpen && (
+            <Paper sx={{ p: 2, mt: 1 }}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                <Select size="small" displayEmpty value={statusFilter}
+                  onChange={(e) => { setStatusFilter(e.target.value); setPage(0); }} fullWidth>
+                  <MenuItem value="">All Statuses</MenuItem>
+                  {STATUSES.map((s) => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+                </Select>
+                <Select size="small" displayEmpty value={severityFilter}
+                  onChange={(e) => { setSeverityFilter(e.target.value); setPage(0); }} fullWidth>
+                  <MenuItem value="">All Severities</MenuItem>
+                  {SEVERITIES.map((s) => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+                </Select>
+                <Button size="small" variant="text" onClick={() => { setStatusFilter(''); setSeverityFilter(''); setPage(0); }}>
+                  Clear Filters
+                </Button>
+              </Box>
+            </Paper>
+          )}
+        </Box>
+      ) : (
+        <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap' }}>
+          <TextField
+            size="small"
+            placeholder="Search device / user…"
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setPage(0); }}
+            InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> }}
+            sx={{ minWidth: 220 }}
+          />
+          <FormControl size="small" sx={{ minWidth: 160 }}>
+            <InputLabel>Status</InputLabel>
+            <Select value={statusFilter} label="Status" onChange={(e) => { setStatusFilter(e.target.value); setPage(0); }}>
+              <MenuItem value="">All</MenuItem>
+              {STATUSES.map((s) => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+            </Select>
+          </FormControl>
+          <FormControl size="small" sx={{ minWidth: 160 }}>
+            <InputLabel>Severity</InputLabel>
+            <Select value={severityFilter} label="Severity" onChange={(e) => { setSeverityFilter(e.target.value); setPage(0); }}>
+              <MenuItem value="">All</MenuItem>
+              {SEVERITIES.map((s) => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+            </Select>
+          </FormControl>
+        </Box>
+      )}
 
       {isError && <Alert severity="error" sx={{ mb: 2 }}>Failed to load incidents.</Alert>}
 
-      <DataGrid
-        rows={filteredRows}
+      <ResponsiveTable
         columns={columns}
+        rows={filteredRows}
+        getRowKey={(r) => r.id}
+        onRowClick={(r) => navigate(`/device-management/incidents/${r.id}`)}
         loading={isLoading}
-        rowCount={data?.total ?? 0}
-        paginationMode="server"
-        paginationModel={{ page, pageSize }}
-        onPaginationModelChange={({ page: p, pageSize: ps }) => { setPage(p); setPageSize(ps); }}
-        pageSizeOptions={[10, 25, 50]}
-        autoHeight
-        disableRowSelectionOnClick
+        emptyMessage="No damage incidents found."
+      />
+      <TablePagination
+        component="div"
+        count={data?.total ?? 0}
+        page={page}
+        onPageChange={(_, p) => setPage(p)}
+        rowsPerPage={pageSize}
+        onRowsPerPageChange={(e) => { setPageSize(Number(e.target.value)); setPage(0); }}
+        rowsPerPageOptions={[10, 25, 50]}
       />
 
       {/* Report Damage Dialog */}

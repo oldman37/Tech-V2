@@ -13,6 +13,7 @@ import InventoryFormDialog from '../components/inventory/InventoryFormDialog';
 import InventoryHistoryDialog from '../components/inventory/InventoryHistoryDialog';
 import ImportInventoryDialog from '../components/inventory/ImportInventoryDialog';
 import { AssignmentDialog } from '../components/inventory/AssignmentDialog';
+import { Box, Paper } from '@mui/material';
 import { ResponsiveTable, MobileFilterBar, Column } from '../components/responsive';
 import { useIsMobile } from '../hooks/useResponsive';
 
@@ -219,6 +220,7 @@ export const InventoryManagement = () => {
       key: 'status',
       label: 'Status',
       sortable: true,
+      width: 100,
       render: (item) => (
         <span className={`badge ${getStatusBadgeClass(item.status)}`}>{item.status}</span>
       ),
@@ -317,15 +319,12 @@ export const InventoryManagement = () => {
   );
 
   return (
-    <div>
-      {/* MAIN CONTENT */}
-      <main className="page-content">
-        <div className="container">
-          {/* Page Header */}
-          <div className="page-header">
-            <h2 className="page-title">Inventory Management</h2>
-            <p className="page-description">Manage all equipment and assets</p>
-          </div>
+    <Box sx={{ p: { xs: 2, sm: 3 } }}>
+      {/* Page Header */}
+      <div className="page-header">
+        <h2 className="page-title">Inventory Management</h2>
+        <p className="page-description">Manage all equipment and assets</p>
+      </div>
 
           {/* Action Buttons */}
           <div className="card mb-6">
@@ -363,7 +362,7 @@ export const InventoryManagement = () => {
 
           {/* Stats Cards */}
           {stats && (
-            <div className="grid grid-cols-4 gap-6 mb-6">
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', sm: 'repeat(4, 1fr)' }, gap: 2, mb: 3 }}>
               <div className="card">
                 <p className="form-label">Total Items</p>
                 <p style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--slate-900)' }}>
@@ -388,7 +387,7 @@ export const InventoryManagement = () => {
                   ${stats.totalValue.toLocaleString()}
                 </p>
               </div>
-            </div>
+            </Box>
           )}
 
           {/* Error Message */}
@@ -450,9 +449,9 @@ export const InventoryManagement = () => {
               )}
             </div>
           ) : (
-            <div className="card mb-6">
-              <div className="grid grid-cols-4 gap-4">
-                <div style={{ gridColumn: '1 / 3' }}>
+            <Paper sx={{ p: 2, mb: 2 }}>
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: 'repeat(4, 1fr)' }, gap: 2 }}>
+                <Box sx={{ gridColumn: { md: '1 / 3' } }}>
                   <label className="form-label">Search</label>
                   <input
                     type="text"
@@ -461,7 +460,7 @@ export const InventoryManagement = () => {
                     onChange={(e) => setFilters({ ...filters, search: e.target.value })}
                     className="form-input"
                   />
-                </div>
+                </Box>
                 <div>
                   <label className="form-label">Status</label>
                   <select
@@ -488,7 +487,7 @@ export const InventoryManagement = () => {
                     <option value="true">Disposed Only</option>
                   </select>
                 </div>
-              </div>
+              </Box>
               <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'flex-end' }}>
                 <button
                   onClick={() => setFilters({ search: '', status: undefined, isDisposed: false })}
@@ -497,7 +496,7 @@ export const InventoryManagement = () => {
                   Clear Filters
                 </button>
               </div>
-            </div>
+            </Paper>
           )}
 
           {/* Data Table / Mobile Cards */}
@@ -563,9 +562,6 @@ export const InventoryManagement = () => {
               </div>
             )}
           </div>
-        </div>
-      </main>
-
       {/* DIALOGS - Keep existing dialog components */}
       <InventoryFormDialog
         open={formDialogOpen}
@@ -592,7 +588,7 @@ export const InventoryManagement = () => {
         onClose={() => setAssignmentDialogOpen(false)}
         onSuccess={handleAssignmentSuccess}
       />
-    </div>
+    </Box>
   );
 };
 

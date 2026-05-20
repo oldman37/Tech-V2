@@ -31,6 +31,7 @@ import {
   AssignSupervisorRequest,
   CreateLocationRequest,
 } from '../types/location.types';
+import { Box, Paper, Button } from '@mui/material';
 import locationService from '../services/location.service';
 import { UserSearchAutocomplete } from '../components/UserSearchAutocomplete';
 
@@ -114,9 +115,7 @@ export const SupervisorManagement: React.FC = () => {
   }
 
   return (
-    <div>
-      <main className="page-content">
-        <div className="container">
+    <Box sx={{ p: { xs: 2, sm: 3 } }}>
           <div className="page-header">
             <h2 className="page-title">Office Locations & Supervisors</h2>
             <p className="page-description">
@@ -133,8 +132,6 @@ export const SupervisorManagement: React.FC = () => {
             }}
             onDeleteLocation={handleDeleteLocation}
           />
-        </div>
-      </main>
 
       {showAddLocation && (
         <AddLocationModal
@@ -159,7 +156,7 @@ export const SupervisorManagement: React.FC = () => {
           }}
         />
       )}
-    </div>
+    </Box>
   );
 };
 
@@ -179,8 +176,8 @@ const LocationsTab: React.FC<LocationsTabProps> = ({ locations, onAddLocation, o
 
   return (
     <div>
-      <div className="flex" style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-        <div className="flex" style={{ alignItems: 'center', gap: '1rem' }}>
+      <Paper sx={{ p: 2, mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1.5 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <label className="form-label" style={{ marginBottom: 0 }}>Filter:</label>
           <select
             value={filter}
@@ -194,13 +191,13 @@ const LocationsTab: React.FC<LocationsTabProps> = ({ locations, onAddLocation, o
             <option value="DEPARTMENT">Departments</option>
             <option value="PROGRAM">Programs</option>
           </select>
-        </div>
-        <button onClick={onAddLocation} className="btn btn-primary">
+        </Box>
+        <Button variant="contained" onClick={onAddLocation}>
           + Add Location
-        </button>
-      </div>
+        </Button>
+      </Paper>
 
-      <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1.5rem' }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: 'repeat(auto-fill, minmax(320px, 1fr))' }, gap: 3 }}>
         {sortedLocations.map((location) => (
           <LocationCard 
             key={location.id} 
@@ -209,7 +206,7 @@ const LocationsTab: React.FC<LocationsTabProps> = ({ locations, onAddLocation, o
             onDelete={onDeleteLocation}
           />
         ))}
-      </div>
+      </Box>
     </div>
   );
 };

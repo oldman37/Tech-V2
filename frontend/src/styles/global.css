@@ -304,6 +304,7 @@ body {
   color: var(--slate-700);
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  white-space: nowrap;
 }
 
 .table td {
@@ -311,6 +312,20 @@ body {
   border-bottom: 1px solid var(--slate-200);
   word-break: break-word;
   overflow-wrap: break-word;
+}
+
+/* Prevent chip/badge label text from wrapping inside table cells */
+/* MUI v7 inherits overflow-wrap which can break chip labels */
+.table td .MuiChip-label,
+.table th .MuiChip-label {
+  white-space: nowrap !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mobile-card__subtitle .MuiChip-label,
+.mobile-card__value .MuiChip-label {
+  white-space: nowrap !important;
 }
 
 .table tbody tr {
@@ -331,6 +346,7 @@ body {
   border-radius: 9999px;
   text-transform: uppercase;
   letter-spacing: 0.025em;
+  white-space: nowrap;
 }
 
 .badge-success {

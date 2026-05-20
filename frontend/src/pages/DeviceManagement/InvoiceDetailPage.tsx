@@ -113,7 +113,7 @@ function RecordPaymentDialog({
       <DialogTitle>Record Payment</DialogTitle>
       <DialogContent>
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-        <div className="grid grid-cols-1 gap-3 mt-2">
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mt: 1 }}>
           <TextField
             label="Amount ($)"
             type="number"
@@ -173,7 +173,7 @@ function RecordPaymentDialog({
             fullWidth
             size="small"
           />
-        </div>
+        </Box>
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
@@ -283,7 +283,7 @@ export default function InvoiceDetailPage() {
   const overdue   = isPastDue && invoice.status !== 'paid' && invoice.status !== 'waived';
 
   return (
-    <Box sx={{ p: 3, maxWidth: 900, mx: 'auto' }}>
+    <Box sx={{ p: { xs: 1, sm: 3 }, maxWidth: 900, mx: 'auto' }}>
       {/* Back button */}
       <Button
         startIcon={<ArrowBackIcon />}
@@ -294,13 +294,13 @@ export default function InvoiceDetailPage() {
       </Button>
 
       {/* Header */}
-      <div className="flex items-center gap-3 mb-4">
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3, flexWrap: 'wrap' }}>
         <Typography variant="h5">{invoice.invoiceNumber}</Typography>
         <InvoiceStatusChip status={invoice.status} />
         <Typography variant="body2" color="text.secondary">
           Created {new Date(invoice.createdAt).toLocaleDateString()}
         </Typography>
-      </div>
+      </Box>
 
       {actionError && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setActionError(null)}>
@@ -308,7 +308,7 @@ export default function InvoiceDetailPage() {
         </Alert>
       )}
 
-      <div className="grid grid-cols-2 gap-4 mb-4">
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: { xs: 2, md: 3 }, mb: 3 }}>
         {/* Bill To */}
         <Card>
           <CardContent>
@@ -338,17 +338,17 @@ export default function InvoiceDetailPage() {
           <CardContent>
             <Typography variant="subtitle1" fontWeight="bold" gutterBottom>Invoice Details</Typography>
             {editMode ? (
-              <div className="grid grid-cols-1 gap-2">
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                 <TextField label="Recipient Email" value={editEmail} onChange={e => setEditEmail(e.target.value)} size="small" fullWidth />
                 <TextField label="Recipient Name"  value={editName}  onChange={e => setEditName(e.target.value)}  size="small" fullWidth />
                 <TextField label="Amount ($)"       value={editAmount} onChange={e => setEditAmount(e.target.value)} type="number" size="small" fullWidth />
                 <TextField label="Due Date" value={editDue} onChange={e => setEditDue(e.target.value)} type="date" size="small" fullWidth InputLabelProps={{ shrink: true }} />
                 <TextField label="Notes" value={editNotes} onChange={e => setEditNotes(e.target.value)} multiline rows={2} size="small" fullWidth />
-                <div className="flex gap-2">
+                <Box sx={{ display: 'flex', gap: 1 }}>
                   <Button size="small" variant="contained" onClick={() => updateMutation.mutate()} disabled={updateMutation.isPending}>Save</Button>
                   <Button size="small" onClick={() => setEditMode(false)}>Cancel</Button>
-                </div>
-              </div>
+                </Box>
+              </Box>
             ) : (
               <>
                 <Typography><strong>Amount:</strong> ${amount.toFixed(2)}</Typography>
@@ -369,9 +369,7 @@ export default function InvoiceDetailPage() {
             )}
           </CardContent>
         </Card>
-      </div>
-
-      {/* Device & Damage */}
+      </Box>
       {invoice.damageIncident && (
         <Card sx={{ mb: 2 }}>
           <CardContent>
@@ -382,15 +380,15 @@ export default function InvoiceDetailPage() {
               </Typography>
             )}
             {invoice.damageIncident.equipment && (
-              <div className="grid grid-cols-2 gap-2 mb-2">
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1, mb: 1 }}>
                 <Typography><strong>Asset Tag:</strong> {invoice.damageIncident.equipment.assetTag}</Typography>
                 <Typography><strong>Device:</strong> {invoice.damageIncident.equipment.name}</Typography>
                 <Typography><strong>Brand:</strong> {invoice.damageIncident.equipment.brands?.name ?? '—'}</Typography>
                 <Typography><strong>Model:</strong> {invoice.damageIncident.equipment.models?.name ?? '—'}</Typography>
-              </div>
+              </Box>
             )}
             <Divider sx={{ my: 1 }} />
-            <div className="grid grid-cols-2 gap-2">
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1 }}>
               <Typography>
                 <strong>Damage Type:</strong>{' '}
                 <Chip label={DAMAGE_LABELS[invoice.damageIncident.damageType] ?? invoice.damageIncident.damageType} size="small" />
@@ -407,13 +405,13 @@ export default function InvoiceDetailPage() {
               <Typography>
                 <strong>Reported:</strong> {new Date(invoice.damageIncident.reportedAt).toLocaleDateString()}
               </Typography>
-            </div>
+            </Box>
           </CardContent>
         </Card>
       )}
 
       {/* Action toolbar */}
-      <div className="flex gap-2 mb-4">
+      <Box sx={{ display: 'flex', gap: 1, mb: 3, flexWrap: 'wrap' }}>
         <Button startIcon={<PictureAsPdfIcon />} variant="outlined" onClick={handleDownloadPdf}>
           Download PDF
         </Button>
@@ -445,12 +443,12 @@ export default function InvoiceDetailPage() {
             {resendMutation.isPending ? 'Resending…' : 'Resend'}
           </Button>
         )}
-      </div>
+      </Box>
 
       {/* Payments */}
       <Card>
         <CardContent>
-          <div className="flex items-center justify-between mb-2">
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2, flexWrap: 'wrap', gap: 1 }}>
             <Typography variant="subtitle1" fontWeight="bold">
               Payments ({invoice._count?.payments ?? invoice.payments?.length ?? 0})
             </Typography>
@@ -459,28 +457,30 @@ export default function InvoiceDetailPage() {
                 Record Payment
               </Button>
             )}
-          </div>
+          </Box>
           {invoice.payments && invoice.payments.length > 0 ? (
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
-              <thead>
-                <tr>
-                  {['Date', 'Amount', 'Method', 'Check #', 'Notes'].map(h => (
-                    <th key={h} style={{ textAlign: 'left', borderBottom: '1px solid #ccc', padding: '4px 8px' }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {invoice.payments.map(p => (
-                  <tr key={p.id}>
-                    <td style={{ padding: '4px 8px' }}>{new Date(p.paidAt).toLocaleDateString()}</td>
-                    <td style={{ padding: '4px 8px' }}>${parseFloat(p.amount).toFixed(2)}</td>
-                    <td style={{ padding: '4px 8px' }}>{p.paymentMethod ?? '—'}</td>
-                    <td style={{ padding: '4px 8px' }}>{p.checkNumber ?? '—'}</td>
-                    <td style={{ padding: '4px 8px' }}>{p.notes ?? '—'}</td>
+            <Box sx={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr>
+                    {['Date', 'Amount', 'Method', 'Check #', 'Notes'].map(h => (
+                      <th key={h} style={{ textAlign: 'left', borderBottom: '1px solid #ccc', padding: '4px 8px' }}>{h}</th>
+                    ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {invoice.payments.map(p => (
+                    <tr key={p.id}>
+                      <td style={{ padding: '4px 8px' }}>{new Date(p.paidAt).toLocaleDateString()}</td>
+                      <td style={{ padding: '4px 8px' }}>${parseFloat(p.amount).toFixed(2)}</td>
+                      <td style={{ padding: '4px 8px' }}>{p.paymentMethod ?? '—'}</td>
+                      <td style={{ padding: '4px 8px' }}>{p.checkNumber ?? '—'}</td>
+                      <td style={{ padding: '4px 8px' }}>{p.notes ?? '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </Box>
           ) : (
             <Typography color="text.secondary">No payments recorded.</Typography>
           )}

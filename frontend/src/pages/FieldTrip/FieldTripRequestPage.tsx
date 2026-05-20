@@ -949,7 +949,7 @@ export function FieldTripRequestPage() {
             </Grid>
 
             {/* Needs driver */}
-            <Grid size={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <FormControl error={!!errors.transportNeedsDriver}>
                 <FormLabel>Do you need a driver?</FormLabel>
                 <RadioGroup
@@ -964,7 +964,7 @@ export function FieldTripRequestPage() {
             </Grid>
 
             {/* SPED bus */}
-            <Grid size={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <FormControl>
                 <FormLabel>Will a SPED bus be needed?</FormLabel>
                 <RadioGroup

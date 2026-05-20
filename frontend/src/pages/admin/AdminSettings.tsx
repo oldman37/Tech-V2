@@ -288,7 +288,7 @@ export default function AdminSettings() {
   }
 
   return (
-    <Box maxWidth={activeTab === 3 || activeTab === 4 ? 1100 : 800} mx="auto" mt={3}>
+    <Box maxWidth={activeTab === 3 || activeTab === 4 ? 1100 : 800} mx="auto" mt={3} px={{ xs: 2, sm: 0 }}>
       <Typography variant="h5" gutterBottom>
         Admin Settings
       </Typography>
@@ -302,6 +302,7 @@ export default function AdminSettings() {
           onChange={handleTabChange}
           variant="scrollable"
           scrollButtons="auto"
+          allowScrollButtonsMobile
         >
           <Tab label="General" />
           <Tab label="Requisitions & POs" />
@@ -842,7 +843,7 @@ function FiscalYearTab({ settings, isFiscalYearExpired }: FiscalYearTabProps) {
 
           {summary && (
             <>
-              <Stepper activeStep={activeStep} sx={{ mb: 1 }}>
+              <Stepper activeStep={activeStep} sx={{ mb: 1 }} orientation={isMobile ? 'vertical' : 'horizontal'}>
                 {WIZARD_STEPS.map((label) => (
                   <Step key={label}>
                     <StepLabel>{label}</StepLabel>

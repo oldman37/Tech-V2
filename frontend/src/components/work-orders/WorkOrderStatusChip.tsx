@@ -26,6 +26,7 @@ export function WorkOrderStatusChip({ status, size = 'small' }: WorkOrderStatusC
       color={STATUS_COLOR[key] ?? 'default'}
       size={size}
       variant={key === 'CLOSED' ? 'outlined' : 'filled'}
+      sx={{ whiteSpace: 'nowrap', flexShrink: 0 }}
     />
   );
 }

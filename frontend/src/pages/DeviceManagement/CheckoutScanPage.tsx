@@ -101,7 +101,7 @@ export default function CheckoutScanPage() {
   }
 
   return (
-    <Box sx={{ maxWidth: 700, mx: 'auto', mt: 3 }}>
+    <Box sx={{ maxWidth: 700, mx: 'auto', mt: 3, px: { xs: 2, sm: 0 } }}>
       <Typography variant="h5" fontWeight={600} gutterBottom>
         Device Scan
       </Typography>
@@ -126,7 +126,7 @@ export default function CheckoutScanPage() {
               <Typography variant="h6" gutterBottom>
                 {scanResult.equipment.name}
               </Typography>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', sm: '1fr 1fr 1fr' }, gap: 1 }}>
                 <div>
                   <Typography variant="caption" color="text.secondary">Asset Tag</Typography>
                   <Typography>{scanResult.equipment.assetTag}</Typography>
@@ -163,7 +163,7 @@ export default function CheckoutScanPage() {
                     </Box>
                   </div>
                 )}
-              </div>
+              </Box>
 
               {/* Active assignment info */}
               {scanResult.activeAssignment && (

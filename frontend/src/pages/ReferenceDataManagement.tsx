@@ -1322,7 +1322,6 @@ const TAB_NAMES = ['brands', 'vendors', 'categories', 'models', 'funding-sources
 type TabName = typeof TAB_NAMES[number];
 
 const ReferenceDataManagement = () => {
-  const isMobile = useIsMobile();
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab') as TabName | null;
   const tabIndex = TAB_NAMES.indexOf(tabParam as TabName);
@@ -1333,7 +1332,7 @@ const ReferenceDataManagement = () => {
   };
 
   return (
-    <div>
+    <Box sx={{ p: { xs: 2, sm: 3 } }}>
       <div className="page-header" style={{ marginBottom: '1rem' }}>
         <div>
           <h2 className="page-title">Reference Data</h2>
@@ -1346,8 +1345,9 @@ const ReferenceDataManagement = () => {
           value={tab}
           onChange={handleTabChange}
           aria-label="reference data tabs"
-          variant={isMobile ? 'scrollable' : 'standard'}
-          scrollButtons={isMobile ? 'auto' : undefined}
+          variant="scrollable"
+          scrollButtons="auto"
+          allowScrollButtonsMobile
         >
           <Tab label="Brands" />
           <Tab label="Vendors" />
@@ -1368,7 +1368,7 @@ const ReferenceDataManagement = () => {
       <TabPanel value={tab} index={5}><LocationsTab /></TabPanel>
       <TabPanel value={tab} index={6}><RoomsTab /></TabPanel>
       <TabPanel value={tab} index={7}><WorkOrderCategoriesTab /></TabPanel>
-    </div>
+    </Box>
   );
 };
 

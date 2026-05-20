@@ -72,7 +72,7 @@ export default function RepairTicketDetailPage() {
   const canCancel = status !== 'returned' && status !== 'unrepairable' && status !== 'cancelled';
 
   return (
-    <Box p={3} maxWidth={900} mx="auto">
+    <Box sx={{ p: { xs: 1, sm: 3 }, maxWidth: 900, mx: 'auto' }}>
       <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/device-management/repair-tickets')} sx={{ mb: 2 }}>
         Back to Repair Tickets
       </Button>
@@ -93,12 +93,12 @@ export default function RepairTicketDetailPage() {
       {actionError && <Alert severity="error" sx={{ mb: 2 }}>{actionError}</Alert>}
 
       {/* Details */}
-      <div className="grid grid-cols-2 gap-4">
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: { xs: 2, md: 3 } }}>
         <Card>
           <CardContent>
             <Typography variant="subtitle1" fontWeight={600} gutterBottom>Ticket Details</Typography>
             <Divider sx={{ mb: 1.5 }} />
-            <div className="grid grid-cols-2 gap-2 text-sm">
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1 }}>
               <Typography variant="body2" color="text.secondary">Vendor</Typography>
               <Typography variant="body2">{ticket.vendor?.name ?? '—'}</Typography>
               <Typography variant="body2" color="text.secondary">Created By</Typography>
@@ -117,7 +117,7 @@ export default function RepairTicketDetailPage() {
               <Typography variant="body2">
                 {ticket.returnedAt ? new Date(ticket.returnedAt).toLocaleDateString() : '—'}
               </Typography>
-            </div>
+            </Box>
           </CardContent>
         </Card>
 
@@ -126,7 +126,7 @@ export default function RepairTicketDetailPage() {
           <CardContent>
             <Typography variant="subtitle1" fontWeight={600} gutterBottom>Update Fields</Typography>
             <Divider sx={{ mb: 1.5 }} />
-            <div className="grid grid-cols-1 gap-3">
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
               <TextField
                 label="Tracking Number"
                 size="small"
@@ -149,17 +149,17 @@ export default function RepairTicketDetailPage() {
                 value={repairNotes}
                 onChange={(e) => setRepairNotes(e.target.value)}
               />
-            </div>
+            </Box>
           </CardContent>
         </Card>
-      </div>
+      </Box>
 
       {/* Status Transition Buttons */}
       <Card sx={{ mt: 3 }}>
         <CardContent>
           <Typography variant="subtitle1" fontWeight={600} gutterBottom>Actions</Typography>
           <Divider sx={{ mb: 2 }} />
-          <div className="flex flex-wrap gap-2">
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
             {status === 'pending' && (
               <Button
                 variant="contained"
@@ -208,7 +208,7 @@ export default function RepairTicketDetailPage() {
                 Cancel Ticket
               </Button>
             )}
-          </div>
+          </Box>
         </CardContent>
       </Card>
 
@@ -218,7 +218,7 @@ export default function RepairTicketDetailPage() {
           <CardContent>
             <Typography variant="subtitle1" fontWeight={600} gutterBottom>Linked Damage Incident</Typography>
             <Divider sx={{ mb: 1.5 }} />
-            <div className="flex items-center justify-between">
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1 }}>
               <div>
                 <Typography variant="body2">
                   Type: {ticket.damageIncident.damageType.replace(/_/g, ' ')}
@@ -233,7 +233,7 @@ export default function RepairTicketDetailPage() {
               >
                 View Incident
               </Button>
-            </div>
+            </Box>
           </CardContent>
         </Card>
       )}

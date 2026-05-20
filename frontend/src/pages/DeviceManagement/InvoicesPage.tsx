@@ -4,20 +4,26 @@ import {
   Box,
   Button,
   Chip,
-  CircularProgress,
   FormControlLabel,
+  InputAdornment,
   MenuItem,
+  Paper,
   Select,
+  TablePagination,
+  TextField,
   Typography,
   Checkbox,
 } from '@mui/material';
-import { DataGrid, type GridColDef } from '@mui/x-data-grid';
 import AddIcon from '@mui/icons-material/Add';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import SendIcon from '@mui/icons-material/Send';
+import SearchIcon from '@mui/icons-material/Search';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { invoiceService } from '../../services/invoice.service';
+import { ResponsiveTable, MobileFilterBar } from '../../components/responsive';
+import type { Column } from '../../components/responsive';
+import { useIsMobile } from '../../hooks/useResponsive';
 import CreateInvoiceDialog from '../../components/DeviceManagement/CreateInvoiceDialog';
 import type { Invoice } from '../../types/invoice.types';
 import type { InvoiceStatus } from '@mgspe/shared-types';
@@ -40,6 +46,7 @@ function InvoiceStatusChip({ status }: { status: InvoiceStatus }) {
       label={status.charAt(0).toUpperCase() + status.slice(1)}
       color={STATUS_COLORS[status] ?? 'default'}
       size="small"
+      sx={{ whiteSpace: 'nowrap', flexShrink: 0 }}
     />
   );
 }
@@ -50,9 +57,14 @@ function InvoiceStatusChip({ status }: { status: InvoiceStatus }) {
 
 export default function InvoicesPage() {
   const queryClient = useQueryClient();
+  const isMobile = useIsMobile();
 
   const [statusFilter, setStatusFilter]     = useState('');
   const [overdueOnly,  setOverdueOnly]       = useState(false);
+  const [search,       setSearch]           = useState('');
+  const [page,         setPage]             = useState(0);
+  const [pageSize,     setPageSize]         = useState(25);
+  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
   const [createOpen,   setCreateOpen]        = useState(false);
   const [actionError,  setActionError]       = useState<string | null>(null);
 
@@ -89,98 +101,73 @@ export default function InvoicesPage() {
     }
   };
 
-  const columns: GridColDef<Invoice>[] = [
-    { field: 'invoiceNumber', headerName: 'Invoice #', width: 140 },
+  const columns: Column<Invoice>[] = [
     {
-      field: 'incident',
-      headerName: 'Incident',
-      width: 160,
-      valueGetter: (_value: unknown, row: Invoice) => {
-        const inc = row.damageIncident;
-        return inc?.incidentNumber ?? row.damageIncidentId.slice(0, 8) + '…';
-      },
+      key:       'invoiceNumber',
+      label:     'Invoice #',
+      isPrimary: true,
+      render:    (inv) => <span style={{ fontFamily: 'monospace' }}>{inv.invoiceNumber}</span>,
     },
     {
-      field: 'user',
-      headerName: 'Student',
-      width: 160,
-      valueGetter: (_value, row) =>
-        row.user ? `${row.user.firstName} ${row.user.lastName}` : '—',
-    },
-    { field: 'recipientEmail', headerName: 'Recipient Email', width: 200 },
-    {
-      field: 'equipment',
-      headerName: 'Device',
-      width: 180,
-      valueGetter: (_value, row) => {
-        const eq = row.damageIncident?.equipment;
-        return eq ? `${eq.assetTag} — ${eq.name}` : '—';
-      },
+      key:         'recipientName',
+      label:       'Recipient',
+      isSecondary: true,
+      render:      (inv) => <span>{inv.recipientName ?? inv.recipientEmail}</span>,
     },
     {
-      field: 'amount',
-      headerName: 'Amount',
-      width: 100,
-      valueGetter: (_value, row) => `$${parseFloat(row.amount).toFixed(2)}`,
+      key:    'user',
+      label:  'Student',
+      render: (inv) => <span>{inv.user ? `${inv.user.firstName} ${inv.user.lastName}` : '—'}</span>,
     },
     {
-      field: 'status',
-      headerName: 'Status',
-      width: 120,
-      renderCell: params => <InvoiceStatusChip status={params.value as InvoiceStatus} />,
+      key:    'amount',
+      label:  'Amount',
+      render: (inv) => <span>${parseFloat(inv.amount).toFixed(2)}</span>,
     },
     {
-      field: 'dueDate',
-      headerName: 'Due Date',
-      width: 120,
-      renderCell: params => {
-        const isPast = new Date(params.value) < new Date();
-        const s      = params.row.status;
-        const overdue = isPast && s !== 'paid' && s !== 'waived';
+      key:    'status',
+      label:  'Status',
+      width:  120,
+      render: (inv) => <InvoiceStatusChip status={inv.status} />,
+    },
+    {
+      key:          'dueDate',
+      label:        'Due Date',
+      hideOnMobile: true,
+      render:       (inv) => {
+        const isPast  = new Date(inv.dueDate) < new Date();
+        const overdue = isPast && inv.status !== 'paid' && inv.status !== 'waived';
         return (
           <span style={{ color: overdue ? 'red' : undefined }}>
-            {new Date(params.value).toLocaleDateString()}
+            {new Date(inv.dueDate).toLocaleDateString()}
             {overdue && ' ⚠'}
           </span>
         );
       },
     },
     {
-      field: 'sentAt',
-      headerName: 'Sent',
-      width: 110,
-      valueGetter: (_value, row) =>
-        row.sentAt ? new Date(row.sentAt).toLocaleDateString() : '—',
+      key:          'sentAt',
+      label:        'Sent',
+      hideOnMobile: true,
+      render:       (inv) => inv.sentAt ? new Date(inv.sentAt).toLocaleDateString() : '—',
     },
     {
-      field: 'actions',
-      headerName: 'Actions',
-      width: 230,
-      sortable: false,
-      renderCell: params => (
-        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', height: '100%' }}>
-          <Button
-            size="small"
-            component={Link}
-            to={`/device-management/invoices/${params.row.id}`}
-          >
+      key:    'actions',
+      label:  '',
+      render: (inv) => (
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'nowrap', whiteSpace: 'nowrap' }}>
+          <Button size="small" component={Link} to={`/device-management/invoices/${inv.id}`} onClick={(e) => e.stopPropagation()}>
             View
           </Button>
-          {params.row.status === 'draft' && (
-            <Button
-              size="small"
-              startIcon={<SendIcon />}
-              onClick={() => sendMutation.mutate(params.row.id)}
-              disabled={sendMutation.isPending}
-            >
+          {inv.status === 'draft' && (
+            <Button size="small" startIcon={<SendIcon />}
+              onClick={(e) => { e.stopPropagation(); sendMutation.mutate(inv.id); }}
+              disabled={sendMutation.isPending}>
               Send
             </Button>
           )}
-          <Button
-            size="small"
-            startIcon={<PictureAsPdfIcon />}
-            onClick={() => handleDownloadPdf(params.row)}
-          >
+          <Button size="small" startIcon={<PictureAsPdfIcon />}
+            onClick={(e) => { e.stopPropagation(); handleDownloadPdf(inv); }}>
             PDF
           </Button>
         </Box>
@@ -188,44 +175,92 @@ export default function InvoicesPage() {
     },
   ];
 
+  const activeFilterCount = (statusFilter ? 1 : 0) + (overdueOnly ? 1 : 0);
+
+  const filteredRows = (data?.items ?? []).filter((inv) => {
+    if (!search) return true;
+    const q = search.toLowerCase();
+    return (
+      (inv.invoiceNumber ?? '').toLowerCase().includes(q) ||
+      (inv.recipientEmail ?? '').toLowerCase().includes(q) ||
+      (inv.recipientName ?? '').toLowerCase().includes(q) ||
+      (inv.user ? `${inv.user.firstName} ${inv.user.lastName}` : '').toLowerCase().includes(q)
+    );
+  });
+
   return (
-    <Box sx={{ p: 3 }}>
-      <div className="flex items-center justify-between mb-4">
+    <Box sx={{ p: { xs: 1, sm: 3 } }}>
+      {/* Header */}
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1, mb: 3 }}>
         <Typography variant="h5">Invoices</Typography>
         <Button
           variant="contained"
           startIcon={<AddIcon />}
           onClick={() => setCreateOpen(true)}
+          sx={{ ...(isMobile && { width: '100%' }) }}
         >
           Create Invoice
         </Button>
-      </div>
+      </Box>
 
-      {/* Filter toolbar */}
-      <div className="grid grid-cols-3 gap-3 mb-4">
-        <Select
-          value={statusFilter}
-          onChange={e => setStatusFilter(e.target.value)}
-          displayEmpty
-          size="small"
-        >
-          <MenuItem value="">All statuses</MenuItem>
-          <MenuItem value="draft">Draft</MenuItem>
-          <MenuItem value="sent">Sent</MenuItem>
-          <MenuItem value="paid">Paid</MenuItem>
-          <MenuItem value="waived">Waived</MenuItem>
-          <MenuItem value="collections">Collections</MenuItem>
-        </Select>
-        <FormControlLabel
-          control={
-            <Checkbox
-              checked={overdueOnly}
-              onChange={e => setOverdueOnly(e.target.checked)}
-            />
-          }
-          label="Overdue only"
-        />
-      </div>
+      {/* Filter bar */}
+      {isMobile ? (
+        <Box sx={{ mb: 2 }}>
+          <MobileFilterBar
+            searchValue={search}
+            onSearchChange={(v) => { setSearch(v); setPage(0); }}
+            filterCount={activeFilterCount}
+            onOpenFilters={() => setFilterDrawerOpen(!filterDrawerOpen)}
+            searchPlaceholder="Search invoices…"
+          />
+          {filterDrawerOpen && (
+            <Paper sx={{ p: 2, mt: 1 }}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                <Select size="small" displayEmpty value={statusFilter}
+                  onChange={(e) => { setStatusFilter(e.target.value); setPage(0); }} fullWidth>
+                  <MenuItem value="">All Statuses</MenuItem>
+                  <MenuItem value="draft">Draft</MenuItem>
+                  <MenuItem value="sent">Sent</MenuItem>
+                  <MenuItem value="paid">Paid</MenuItem>
+                  <MenuItem value="waived">Waived</MenuItem>
+                  <MenuItem value="collections">Collections</MenuItem>
+                </Select>
+                <FormControlLabel
+                  control={<Checkbox checked={overdueOnly} onChange={(e) => { setOverdueOnly(e.target.checked); setPage(0); }} size="small" />}
+                  label="Overdue only"
+                />
+                <Button size="small" variant="text" onClick={() => { setStatusFilter(''); setOverdueOnly(false); setPage(0); }}>
+                  Clear Filters
+                </Button>
+              </Box>
+            </Paper>
+          )}
+        </Box>
+      ) : (
+        <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+          <TextField
+            size="small"
+            placeholder="Search invoices…"
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setPage(0); }}
+            InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> }}
+            sx={{ minWidth: 220 }}
+          />
+          <Select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(0); }}
+            displayEmpty size="small" sx={{ minWidth: 160 }}>
+            <MenuItem value="">All statuses</MenuItem>
+            <MenuItem value="draft">Draft</MenuItem>
+            <MenuItem value="sent">Sent</MenuItem>
+            <MenuItem value="paid">Paid</MenuItem>
+            <MenuItem value="waived">Waived</MenuItem>
+            <MenuItem value="collections">Collections</MenuItem>
+          </Select>
+          <FormControlLabel
+            control={<Checkbox checked={overdueOnly} onChange={(e) => { setOverdueOnly(e.target.checked); setPage(0); }} />}
+            label="Overdue only"
+          />
+        </Box>
+      )}
 
       {actionError && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setActionError(null)}>
@@ -233,19 +268,24 @@ export default function InvoicesPage() {
         </Alert>
       )}
 
-      {isLoading && <CircularProgress />}
-      {isError   && <Alert severity="error">Failed to load invoices.</Alert>}
+      {isError && <Alert severity="error" sx={{ mb: 2 }}>Failed to load invoices.</Alert>}
 
-      {data && (
-        <DataGrid
-          rows={data.items}
-          columns={columns}
-          rowCount={data.total}
-          pageSizeOptions={[25, 50, 100]}
-          autoHeight
-          disableRowSelectionOnClick
-        />
-      )}
+      <ResponsiveTable
+        columns={columns}
+        rows={filteredRows}
+        getRowKey={(inv) => inv.id}
+        loading={isLoading}
+        emptyMessage="No invoices found."
+      />
+      <TablePagination
+        component="div"
+        count={data?.total ?? 0}
+        page={page}
+        onPageChange={(_, p) => setPage(p)}
+        rowsPerPage={pageSize}
+        onRowsPerPageChange={(e) => { setPageSize(Number(e.target.value)); setPage(0); }}
+        rowsPerPageOptions={[10, 25, 50]}
+      />
 
       <CreateInvoiceDialog
         open={createOpen}

@@ -241,6 +241,7 @@ export default function PurchaseOrderList() {
     {
       key: 'status',
       label: 'Status',
+      width: 260,
       render: (po) => {
         // On the "Pending My Approval" tab, show the awaiting-approval stage instead of the current status
         const pendingLabels: Partial<Record<POStatus, string>> = {
@@ -259,14 +260,21 @@ export default function PurchaseOrderList() {
           : PO_STATUS_CHIP_COLOR[po.status];
 
         return (
-          <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center', flexWrap: 'wrap' }}>
+          <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'flex-start', flexWrap: 'wrap' }}>
             <Chip
               label={label}
               color={chipColor}
               size="small"
+              sx={{ whiteSpace: 'nowrap', flexShrink: 0 }}
             />
             {po.workflowType === 'food_service' && (
-              <Chip label="Food Service" size="small" variant="outlined" color="secondary" />
+              <Chip
+                label="Food Service"
+                size="small"
+                variant="outlined"
+                color="secondary"
+                sx={{ whiteSpace: 'nowrap', flexShrink: 0 }}
+              />
             )}
           </Box>
         );
@@ -286,7 +294,7 @@ export default function PurchaseOrderList() {
   ];
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ p: { xs: 2, sm: 3 } }}>
       {/* ── Page Header ── */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 3 }}>
         <Box>

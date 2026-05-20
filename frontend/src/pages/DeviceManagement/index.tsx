@@ -17,7 +17,7 @@ export default function DeviceManagementDashboard() {
   });
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ p: { xs: 1, sm: 3 } }}>
       <Typography variant="h4" fontWeight={600} gutterBottom>
         Device Management Dashboard
       </Typography>

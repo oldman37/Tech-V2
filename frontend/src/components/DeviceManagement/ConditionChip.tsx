@@ -17,7 +17,7 @@ interface ConditionChipProps {
 export function ConditionChip({ condition, size = 'small' }: ConditionChipProps) {
   const key = condition as CheckoutCondition;
   const config = CONDITION_CONFIG[key] ?? { label: condition, color: 'default' as const };
-  return <Chip label={config.label} color={config.color} size={size} />;
+  return <Chip label={config.label} color={config.color} size={size} sx={{ whiteSpace: 'nowrap', flexShrink: 0 }} />;
 }
 
 export default ConditionChip;

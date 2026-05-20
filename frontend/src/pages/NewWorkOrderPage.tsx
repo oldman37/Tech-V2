@@ -175,7 +175,7 @@ export default function NewWorkOrderPage() {
   };
 
   return (
-    <Box sx={{ p: 3, maxWidth: 800, mx: 'auto' }}>
+    <Box sx={{ p: { xs: 2, sm: 3 }, maxWidth: 800, mx: 'auto' }}>
       {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
         <PageBackButton to="/work-orders" />
@@ -185,7 +185,7 @@ export default function NewWorkOrderPage() {
       </Box>
 
       {/* Step 1 — Department */}
-      <Paper variant="outlined" sx={{ p: 3, mb: 3 }}>
+      <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 }, mb: 3 }}>
         <Typography variant="subtitle1" fontWeight={600} gutterBottom>
           What type of request is this?
         </Typography>
@@ -199,7 +199,7 @@ export default function NewWorkOrderPage() {
 
       {/* Step 2 — Rest of form (shown after department is selected) */}
       {form.department && (
-        <Paper variant="outlined" sx={{ p: 3 }}>
+        <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
           <Typography variant="subtitle1" fontWeight={600} gutterBottom>
             Request Details
           </Typography>

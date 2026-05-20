@@ -11,19 +11,12 @@ import {
   CardContent,
   CircularProgress,
   LinearProgress,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
   TablePagination,
-  TableRow,
   Typography,
   Alert,
   Chip,
   IconButton,
   Tooltip,
-  Paper,
   Stack,
 } from '@mui/material';
 import {
@@ -36,11 +29,10 @@ import { InventoryItem } from '../types/inventory.types';
 import { AssignmentCard } from '../components/inventory/AssignmentCard';
 import { AssignmentHistoryList } from '../components/inventory/AssignmentHistoryList';
 import { useAuthStore } from '../store/authStore';
-import { useIsMobile } from '../hooks/useResponsive';
+import { ResponsiveTable, Column } from '../components/responsive';
 
 export const MyEquipment = () => {
   const { user } = useAuthStore();
-  const isMobile = useIsMobile();
   const [loading, setLoading] = useState(true);
   const [pageLoading, setPageLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -105,20 +97,107 @@ export const MyEquipment = () => {
     return conditionMap[condition] || 'default';
   };
 
+  // Column definitions for ResponsiveTable
+  const columns: Column<InventoryItem>[] = [
+    {
+      key: 'assetTag',
+      label: 'Asset Tag',
+      isPrimary: true,
+      render: (item) => (
+        <Typography variant="body2" fontWeight="medium">
+          {item.assetTag}
+        </Typography>
+      ),
+    },
+    {
+      key: 'name',
+      label: 'Name',
+      isSecondary: true,
+      render: (item) => (
+        <>
+          <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>{item.name}</Typography>
+          {item.serialNumber && (
+            <Typography variant="caption" color="text.secondary" sx={{ wordBreak: 'break-all' }}>
+              S/N: {item.serialNumber}
+            </Typography>
+          )}
+        </>
+      ),
+    },
+    {
+      key: 'category',
+      label: 'Category',
+      hideOnMobile: true,
+      render: (item) => <Typography variant="body2">{item.category?.name || 'N/A'}</Typography>,
+    },
+    {
+      key: 'officeLocation',
+      label: 'Location',
+      hideOnMobile: true,
+      render: (item) => (
+        <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
+          {item.officeLocation?.name || 'N/A'}
+        </Typography>
+      ),
+    },
+    {
+      key: 'room',
+      label: 'Room',
+      hideOnMobile: true,
+      render: (item) => (
+        <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
+          {item.room?.name || 'N/A'}
+        </Typography>
+      ),
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      render: (item) => (
+        <Chip label={item.status} size="small" color={getStatusColor(item.status)} />
+      ),
+    },
+    {
+      key: 'condition',
+      label: 'Condition',
+      hideOnMobile: true,
+      render: (item) =>
+        item.condition ? (
+          <Chip label={item.condition} size="small" color={getConditionColor(item.condition)} variant="outlined" />
+        ) : (
+          <Typography variant="body2" color="text.secondary">N/A</Typography>
+        ),
+    },
+    {
+      key: 'assignmentSource',
+      label: 'Assignment',
+      hideOnMobile: true,
+      render: (item) =>
+        item.assignmentSource === 'user' || item.assignedToUserId === user?.id ? (
+          <Chip label="Assigned" size="small" color="primary" />
+        ) : (
+          <Chip label={`My Room${item.room?.name ? `: ${item.room.name}` : ''}`} size="small" color="default" />
+        ),
+    },
+    {
+      key: 'updatedAt',
+      label: 'Assigned Date',
+      hideOnMobile: true,
+      render: (item) => <Typography variant="body2">{formatDate(item.updatedAt)}</Typography>,
+    },
+  ];
+
   return (
-    <div>
-      {/* Main Content */}
-      <main className="page-content">
-        <div className="container">
-          {/* Page Header */}
-          <Box sx={{ mb: 4 }}>
-            <Typography variant="h4" gutterBottom>
-              My Equipment
-            </Typography>
-            <Typography variant="body1" color="text.secondary">
-              Equipment assigned to you or your primary room
-            </Typography>
-          </Box>
+    <Box sx={{ p: { xs: 2, sm: 3 } }}>
+      {/* Page Header */}
+      <Box sx={{ mb: 4 }}>
+        <Typography variant="h4" gutterBottom>
+          My Equipment
+        </Typography>
+        <Typography variant="body1" color="text.secondary">
+          Equipment assigned to you or your primary room
+        </Typography>
+      </Box>
 
           {/* Action Bar */}
           <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -157,155 +236,39 @@ export const MyEquipment = () => {
           {/* Equipment Table */}
           {!loading && equipment.length > 0 && (
             <Box>
-              {isMobile ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                  {equipment.map((item) => (
-                    <div key={item.id} style={{ border: '1px solid var(--slate-200)', borderRadius: '0.5rem', padding: '0.75rem' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
-                        <div>
-                          <span style={{ fontWeight: 600, wordBreak: 'break-word' }}>{item.assetTag}</span>
-                          <div style={{ fontSize: '0.875rem', wordBreak: 'break-word' }}>{item.name}</div>
-                          {item.serialNumber && (
-                            <div style={{ fontSize: '0.75rem', color: 'var(--slate-500)' }}>S/N: {item.serialNumber}</div>
-                          )}
-                        </div>
-                        <Chip label={item.status} size="small" color={getStatusColor(item.status)} />
-                      </div>
-                      <div style={{ fontSize: '0.813rem', color: 'var(--slate-600)', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                        <div><strong>Category:</strong> {item.category?.name || 'N/A'}</div>
-                        <div><strong>Location:</strong> {item.officeLocation?.name || 'N/A'}{item.room?.name ? ` / ${item.room.name}` : ''}</div>
-                        {item.condition && <div><strong>Condition:</strong> {item.condition}</div>}
-                        <div><strong>Assignment:</strong> {item.assignmentSource === 'user' || item.assignedToUserId === user?.id ? 'Assigned' : `My Room${item.room?.name ? `: ${item.room.name}` : ''}`}</div>
-                        <div><strong>Assigned:</strong> {formatDate(item.updatedAt)}</div>
-                      </div>
-                      <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem' }}>
-                        <IconButton size="small" onClick={() => { setSelectedItem(item); setShowHistory(false); }}>
-                          <ViewIcon fontSize="small" />
-                        </IconButton>
-                        <IconButton size="small" onClick={() => { setSelectedItem(item); setShowHistory(true); }}>
-                          <InfoIcon fontSize="small" />
-                        </IconButton>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-              <TableContainer component={Paper}>
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Asset Tag</TableCell>
-                    <TableCell>Name</TableCell>
-                    <TableCell>Category</TableCell>
-                    <TableCell>Location</TableCell>
-                    <TableCell>Room</TableCell>
-                    <TableCell>Status</TableCell>
-                    <TableCell>Condition</TableCell>
-                    <TableCell>Assignment</TableCell>
-                    <TableCell>Assigned Date</TableCell>
-                    <TableCell align="center">Actions</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {equipment.map((item) => (
-                    <TableRow key={item.id} hover>
-                      <TableCell>
-                        <Typography variant="body2" fontWeight="medium">
-                          {item.assetTag}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>{item.name}</Typography>
-                        {item.serialNumber && (
-                          <Typography variant="caption" color="text.secondary" sx={{ wordBreak: 'break-all' }}>
-                            S/N: {item.serialNumber}
-                          </Typography>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2">
-                          {item.category?.name || 'N/A'}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
-                          {item.officeLocation?.name || 'N/A'}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
-                          {item.room?.name || 'N/A'}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          label={item.status}
-                          size="small"
-                          color={getStatusColor(item.status)}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        {item.condition ? (
-                          <Chip
-                            label={item.condition}
-                            size="small"
-                            color={getConditionColor(item.condition)}
-                            variant="outlined"
-                          />
-                        ) : (
-                          <Typography variant="body2" color="text.secondary">
-                            N/A
-                          </Typography>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {item.assignmentSource === 'user' || item.assignedToUserId === user?.id ? (
-                          <Chip label="Assigned" size="small" color="primary" />
-                        ) : (
-                          <Chip
-                            label={`My Room${item.room?.name ? `: ${item.room.name}` : ''}`}
-                            size="small"
-                            color="default"
-                          />
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2">
-                          {formatDate(item.updatedAt)}
-                        </Typography>
-                      </TableCell>
-                      <TableCell align="center">
-                        <Stack direction="row" spacing={1} justifyContent="center">
-                          <Tooltip title="View Details">
-                            <IconButton
-                              size="small"
-                              onClick={() => {
-                                setSelectedItem(item);
-                                setShowHistory(false);
-                              }}
-                            >
-                              <ViewIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="View History">
-                            <IconButton
-                              size="small"
-                              onClick={() => {
-                                setSelectedItem(item);
-                                setShowHistory(true);
-                              }}
-                            >
-                              <InfoIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        </Stack>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-              )}
+              <ResponsiveTable<InventoryItem>
+                columns={columns}
+                rows={equipment}
+                getRowKey={(item) => item.id}
+                loading={false}
+                emptyMessage="No equipment found."
+                rowActions={(item) => (
+                  <Stack direction="row" spacing={1} justifyContent="center">
+                    <Tooltip title="View Details">
+                      <IconButton
+                        size="small"
+                        onClick={() => {
+                          setSelectedItem(item);
+                          setShowHistory(false);
+                        }}
+                      >
+                        <ViewIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="View History">
+                      <IconButton
+                        size="small"
+                        onClick={() => {
+                          setSelectedItem(item);
+                          setShowHistory(true);
+                        }}
+                      >
+                        <InfoIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </Stack>
+                )}
+              />
             <TablePagination
               component="div"
               count={pagination?.total ?? 0}
@@ -356,9 +319,7 @@ export const MyEquipment = () => {
               <AssignmentHistoryList equipmentId={selectedItem.id} limit={20} />
             </Box>
           )}
-        </div>
-      </main>
-    </div>
+    </Box>
   );
 };
 

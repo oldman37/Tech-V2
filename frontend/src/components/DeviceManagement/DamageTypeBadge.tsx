@@ -24,6 +24,7 @@ export function DamageTypeBadge({ type, size = 'small' }: DamageTypeBadgeProps) 
       color={config.color}
       size={size}
       variant="outlined"
+      sx={{ whiteSpace: 'nowrap', flexShrink: 0 }}
     />
   );
 }

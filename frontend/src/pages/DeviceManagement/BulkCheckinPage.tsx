@@ -226,7 +226,7 @@ export default function BulkCheckinPage() {
   const failCount = sessionLog.filter((e) => !e.success).length;
 
   return (
-    <Box sx={{ maxWidth: 700, mx: 'auto', mt: 3 }}>
+    <Box sx={{ maxWidth: 700, mx: 'auto', mt: 3, px: { xs: 2, sm: 0 } }}>
       {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
         <Typography variant="h5" fontWeight={600}>
@@ -305,7 +305,7 @@ export default function BulkCheckinPage() {
             <Box
               sx={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(3, 1fr)',
+                gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' },
                 gap: 1,
                 mb: 1.5,
               }}

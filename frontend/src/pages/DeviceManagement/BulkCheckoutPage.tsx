@@ -29,6 +29,7 @@ import { useQuery } from '@tanstack/react-query';
 import { locationService } from '../../services/location.service';
 import { deviceAssignmentService } from '../../services/deviceAssignment.service';
 import { DeviceManagementUserSearch, type UserOption } from '../../components/DeviceManagement/UserSearchAutocomplete';
+import { useIsMobile } from '../../hooks/useResponsive';
 import type { OfficeLocationWithSupervisors } from '../../types/location.types';
 import type { AssigneeType, CheckoutCondition } from '@mgspe/shared-types';
 import { GRADE_LEVELS, gradeLevelLabel } from '../../constants/gradeLevel';
@@ -46,6 +47,7 @@ interface AssignedDevice {
 
 export default function BulkCheckoutPage() {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
 
   // Stepper state
   const [activeStep, setActiveStep] = useState(0);
@@ -194,12 +196,12 @@ export default function BulkCheckoutPage() {
   };
 
   return (
-    <Box sx={{ p: 3, maxWidth: 1400, mx: 'auto' }}>
+    <Box sx={{ p: { xs: 2, sm: 3 }, maxWidth: 1400, mx: 'auto' }}>
       <Typography variant="h5" fontWeight={600} sx={{ mb: 3 }}>
         Bulk Device Checkout
       </Typography>
 
-      <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
+      <Stepper activeStep={activeStep} sx={{ mb: 4 }} orientation={isMobile ? 'vertical' : 'horizontal'}>
         {STEPS.map((label) => (
           <Step key={label}>
             <StepLabel>{label}</StepLabel>

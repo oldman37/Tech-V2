@@ -5,6 +5,7 @@ import { SyncResultDetail } from '../services/adminService';
 import SyncResultDialog from '../components/admin/SyncResultDialog';
 import { useAuthStore } from '../store/authStore';
 import { useNavigate } from 'react-router-dom';
+import { Box, Paper } from '@mui/material';
 import { ResponsiveTable, MobileFilterBar, Column } from '../components/responsive';
 import { useIsMobile } from '../hooks/useResponsive';
 
@@ -316,9 +317,7 @@ const Users: React.FC = () => {
   }
 
   return (
-    <div>
-      <main className="page-content">
-        <div className="container">
+    <Box sx={{ p: { xs: 2, sm: 3 } }}>
           <div className="page-header">
             <h2 className="page-title">User Management</h2>
             <p className="page-description">Manage user roles and permissions</p>
@@ -471,8 +470,8 @@ const Users: React.FC = () => {
               )}
             </div>
           ) : (
-            <div className="card mb-6">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+            <Paper sx={{ p: 2, mb: 2 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
                 <input
                   type="text"
                   placeholder="Search users by name or email..."
@@ -532,8 +531,8 @@ const Users: React.FC = () => {
                     per page
                   </span>
                 </div>
-              </div>
-            </div>
+              </Box>
+            </Paper>
           )}
 
           {/* Users table */}
@@ -643,8 +642,6 @@ const Users: React.FC = () => {
               </div>
             </div>
           )}
-        </div>
-      </main>
 
       {/* Sync Result Dialog */}
       <SyncResultDialog
@@ -665,10 +662,11 @@ const Users: React.FC = () => {
           onClose={closeSupervisorModal}
         />
       )}
-    </div>
+    </Box>
   );
 };
 
+// Supervisor Modal Component (with TanStack Query)
 // Supervisor Modal Component (with TanStack Query)
 interface SupervisorModalProps {
   user: User;

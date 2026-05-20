@@ -148,7 +148,7 @@ export default function ReportsPage() {
   };
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ p: { xs: 1, sm: 3 } }}>
       <Typography variant="h4" fontWeight={600} gutterBottom>
         Device Management Reports
       </Typography>
@@ -160,6 +160,7 @@ export default function ReportsPage() {
         sx={{ mb: 2 }}
         variant="scrollable"
         scrollButtons="auto"
+        allowScrollButtonsMobile
       >
         <Tab label="Active Checkouts by Campus" value="active-checkouts" />
         <Tab label="Damage Summary"             value="damage-summary" />
@@ -248,8 +249,7 @@ export default function ReportsPage() {
             <Box key={group.campus} sx={{ mb: 3 }}>
               <Typography variant="h6" sx={{ mb: 1 }}>
                 {group.campus} — {group.count} record{group.count !== 1 ? 's' : ''}
-              </Typography>
-              <Table size="small">
+              </Typography>              <Box sx={{ overflowX: 'auto' }}>              <Table size="small">
                 <TableHead>
                   <TableRow>
                     <TableCell>Asset Tag</TableCell>
@@ -287,6 +287,7 @@ export default function ReportsPage() {
                   ))}
                 </TableBody>
               </Table>
+              </Box>
             </Box>
           ))}
         </Box>
@@ -294,6 +295,7 @@ export default function ReportsPage() {
 
       {/* Damage Summary */}
       {selectedReport === 'damage-summary' && !loadingDamage && damageSummary && (
+        <Box sx={{ overflowX: 'auto' }}>
         <Table size="small">
           <TableHead>
             <TableRow>
@@ -317,10 +319,12 @@ export default function ReportsPage() {
             ))}
           </TableBody>
         </Table>
+        </Box>
       )}
 
       {/* Repair Costs by Vendor */}
       {selectedReport === 'repair-costs' && !loadingRepair && repairCosts && (
+        <Box sx={{ overflowX: 'auto' }}>
         <Table size="small">
           <TableHead>
             <TableRow>
@@ -344,11 +348,12 @@ export default function ReportsPage() {
             ))}
           </TableBody>
         </Table>
+        </Box>
       )}
 
       {/* Invoice Aging */}
       {selectedReport === 'invoice-aging' && !loadingAging && invoiceAging && (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', sm: 'repeat(5, 1fr)' }, gap: 1.5 }}>
           {(
             [
               { label: 'Current',    key: 'current' },
@@ -371,11 +376,12 @@ export default function ReportsPage() {
               </Card>
             );
           })}
-        </div>
+        </Box>
       )}
 
       {/* Grade Level Summary */}
       {selectedReport === 'grade-level-summary' && !loadingGrade && gradeSummary && (
+        <Box sx={{ overflowX: 'auto' }}>
         <Table size="small">
           <TableHead>
             <TableRow>
@@ -410,6 +416,7 @@ export default function ReportsPage() {
             ))}
           </TableBody>
         </Table>
+        </Box>
       )}
     </Box>
   );

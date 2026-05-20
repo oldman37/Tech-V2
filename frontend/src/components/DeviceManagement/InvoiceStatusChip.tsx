@@ -22,6 +22,7 @@ export function InvoiceStatusChip({ status, size = 'small' }: InvoiceStatusChipP
       color={config.color}
       size={size}
       variant="filled"
+      sx={{ whiteSpace: 'nowrap', flexShrink: 0 }}
     />
   );
 }

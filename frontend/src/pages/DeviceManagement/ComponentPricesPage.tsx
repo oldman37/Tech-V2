@@ -16,11 +16,6 @@ import {
   MenuItem,
   Select,
   Switch,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
   TextField,
   Tooltip,
   Typography,
@@ -32,6 +27,7 @@ import LocalOfferIcon from '@mui/icons-material/LocalOffer';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { componentPriceService } from '../../services/invoice.service';
 import { useAuthStore, selectCanAccessDeviceManagement } from '../../store/authStore';
+import { ResponsiveTable, Column } from '../../components/responsive';
 import type { DamageComponentPrice } from '../../types/invoice.types';
 
 // ---------------------------------------------------------------------------
@@ -203,14 +199,45 @@ export default function ComponentPricesPage() {
   };
 
   const isPending = createMutation.isPending || updateMutation.isPending;
-  const colSpan   = canWrite ? 5 : 4;
+
+  // Column definitions for ResponsiveTable
+  const priceColumns: Column<DamageComponentPrice>[] = [
+    {
+      key: 'name',
+      label: 'Name',
+      isPrimary: true,
+    },
+    {
+      key: 'category',
+      label: 'Category',
+      isSecondary: true,
+    },
+    {
+      key: 'unitPrice',
+      label: 'Unit Price',
+      align: 'right',
+      render: (price) => formatCurrency(price.unitPrice),
+    },
+    {
+      key: 'isActive',
+      label: 'Status',
+      hideOnMobile: true,
+      render: (price) => (
+        <Chip
+          label={price.isActive ? 'Active' : 'Inactive'}
+          color={price.isActive ? 'success' : 'default'}
+          size="small"
+        />
+      ),
+    },
+  ];
 
   // ---------------------------------------------------------------------------
   // Render
   // ---------------------------------------------------------------------------
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ p: { xs: 1, sm: 3 } }}>
       {/* Page header */}
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -253,69 +280,34 @@ export default function ComponentPricesPage() {
       )}
 
       {/* Price table */}
-      <Table size="small">
-        <TableHead>
-          <TableRow>
-            <TableCell>Name</TableCell>
-            <TableCell>Category</TableCell>
-            <TableCell align="right">Unit Price</TableCell>
-            <TableCell>Status</TableCell>
-            {canWrite && <TableCell align="center">Actions</TableCell>}
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {isLoading && (
-            <TableRow>
-              <TableCell colSpan={colSpan} sx={{ textAlign: 'center', py: 4, color: 'text.secondary' }}>
-                Loading…
-              </TableCell>
-            </TableRow>
-          )}
-          {!isLoading && prices.length === 0 && (
-            <TableRow>
-              <TableCell colSpan={colSpan} sx={{ textAlign: 'center', py: 4, color: 'text.secondary' }}>
-                No component prices found.
-              </TableCell>
-            </TableRow>
-          )}
-          {prices.map((price) => (
-            <TableRow key={price.id} sx={{ opacity: price.isActive ? 1 : 0.5 }}>
-              <TableCell>{price.name}</TableCell>
-              <TableCell>{price.category}</TableCell>
-              <TableCell align="right">{formatCurrency(price.unitPrice)}</TableCell>
-              <TableCell>
-                <Chip
-                  label={price.isActive ? 'Active' : 'Inactive'}
-                  color={price.isActive ? 'success' : 'default'}
+      <ResponsiveTable<DamageComponentPrice>
+        columns={priceColumns}
+        rows={prices}
+        getRowKey={(price) => price.id}
+        loading={isLoading}
+        emptyMessage="No component prices found."
+        rowActions={canWrite ? (price) => (
+          <>
+            <Tooltip title="Edit">
+              <IconButton size="small" onClick={() => handleOpenEdit(price)}>
+                <EditIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            {price.isActive && (
+              <Tooltip title="Deactivate">
+                <IconButton
                   size="small"
-                />
-              </TableCell>
-              {canWrite && (
-                <TableCell align="center">
-                  <Tooltip title="Edit">
-                    <IconButton size="small" onClick={() => handleOpenEdit(price)}>
-                      <EditIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                  {price.isActive && (
-                    <Tooltip title="Deactivate">
-                      <IconButton
-                        size="small"
-                        color="warning"
-                        onClick={() => handleDeactivate(price)}
-                        disabled={deactivateMutation.isPending}
-                      >
-                        <BlockIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                  )}
-                </TableCell>
-              )}
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-
+                  color="warning"
+                  onClick={() => handleDeactivate(price)}
+                  disabled={deactivateMutation.isPending}
+                >
+                  <BlockIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            )}
+          </>
+        ) : undefined}
+      />
       {/* Create / Edit dialog */}
       <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
         <DialogTitle>

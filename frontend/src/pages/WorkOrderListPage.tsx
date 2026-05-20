@@ -131,6 +131,7 @@ export default function WorkOrderListPage() {
           size="small"
           color={wo.department === 'TECHNOLOGY' ? 'primary' : 'secondary'}
           variant="outlined"
+          sx={{ whiteSpace: 'nowrap', flexShrink: 0 }}
         />
       ),
     },
@@ -138,11 +139,13 @@ export default function WorkOrderListPage() {
       key: 'status',
       label: 'Status',
       isSecondary: true,
+      width: 120,
       render: (wo) => <WorkOrderStatusChip status={wo.status} />,
     },
     {
       key: 'priority',
       label: 'Priority',
+      width: 100,
       render: (wo) => <WorkOrderPriorityChip priority={wo.priority} />,
     },
     {
@@ -173,7 +176,7 @@ export default function WorkOrderListPage() {
     (locationFilter ? 1 : 0) + (fiscalYearFilter ? 1 : 0);
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ p: { xs: 2, sm: 3 } }}>
       {/* Page header */}
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1, mb: 3 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>

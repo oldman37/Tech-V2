@@ -117,7 +117,7 @@ export function RoomAssignmentsPage() {
   }, [assignmentData?.rooms]);
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ p: { xs: 2, sm: 3 } }}>
       {/* Page header */}
       <Box display="flex" alignItems="center" gap={1} mb={3}>
         <MeetingRoomIcon color="primary" />

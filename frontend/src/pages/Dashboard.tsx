@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '../store/authStore';
 import { useNavigate } from 'react-router-dom';
+import { Box } from '@mui/material';
 import inventoryService from '../services/inventory.service';
 import { queryKeys } from '../lib/queryKeys';
 import './Dashboard.css';
@@ -21,7 +22,7 @@ export const Dashboard = () => {
   });
 
   return (
-    <div className="container">
+    <Box sx={{ p: { xs: 2, sm: 3 } }}>
       <div className="page-header">
         <h2 className="page-title">Welcome, {user?.firstName || user?.name}</h2>
         <p className="page-description">School Operations Management Portal</p>
@@ -29,7 +30,7 @@ export const Dashboard = () => {
 
       {/* Inventory Stats Summary */}
       {hasTechAccess && stats && (
-        <div className="grid grid-cols-4 gap-6 mb-8">
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', sm: 'repeat(4, 1fr)' }, gap: 3, mb: 4 }}>
           <div className="card" style={{ textAlign: 'center' }}>
             <p className="form-label">Total Items</p>
             <p style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--slate-900)' }}>
@@ -54,11 +55,11 @@ export const Dashboard = () => {
               ${stats.totalValue.toLocaleString()}
             </p>
           </div>
-        </div>
+        </Box>
       )}
 
       {/* Module Cards */}
-      <div className="grid grid-cols-3 gap-6">
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: 'repeat(3, 1fr)' }, gap: 3 }}>
         {hasTechAccess && (
           <div className="card">
             <div className="feature-icon inventory">INV</div>
@@ -124,7 +125,7 @@ export const Dashboard = () => {
             <button className="btn btn-primary" style={{ width: '100%' }} disabled>Coming Soon</button>
           </div>
         )}
-      </div>
-    </div>
+      </Box>
+    </Box>
   );
 };

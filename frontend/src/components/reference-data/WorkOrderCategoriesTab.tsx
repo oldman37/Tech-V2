@@ -24,6 +24,7 @@ import {
 } from '@mui/material';
 import workOrderCategoryService from '../../services/workOrderCategoryService';
 import type { WorkOrderCategory, WorkOrderCategoryModule } from '../../types/workOrderCategory.types';
+import { useIsMobile } from '../../hooks/useResponsive';
 
 // ─── Single-module section ────────────────────────────────────────────────────
 
@@ -33,6 +34,7 @@ interface CategorySectionProps {
 }
 
 function CategorySection({ module, label }: CategorySectionProps) {
+  const isMobile = useIsMobile();
   const [items, setItems]         = useState<WorkOrderCategory[]>([]);
   const [loading, setLoading]     = useState(false);
   const [error, setError]         = useState<string | null>(null);
@@ -169,6 +171,26 @@ function CategorySection({ module, label }: CategorySectionProps) {
             >
               Add one now.
             </button>
+          </div>
+        ) : isMobile ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', padding: '0.75rem' }}>
+            {items.map((cat) => (
+              <div key={cat.id} style={{ padding: '0.75rem', border: '1px solid var(--slate-200)', borderRadius: '8px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                  <span style={{ fontWeight: 600, fontSize: '0.875rem' }}>{cat.name}</span>
+                  <span className={`badge ${cat.isActive ? 'badge-success' : 'badge-secondary'}`}>
+                    {cat.isActive ? 'Active' : 'Inactive'}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--slate-500)' }}>Sort: {cat.sortOrder}</span>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <button className="btn btn-sm btn-secondary" onClick={() => openEdit(cat)}>Edit</button>
+                    <button className="btn btn-sm btn-danger" onClick={() => handleDelete(cat)}>Delete</button>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         ) : (
           <div style={{ overflowX: 'auto' }}>
