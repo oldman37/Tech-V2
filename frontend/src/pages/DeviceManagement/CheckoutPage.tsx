@@ -29,7 +29,7 @@ import { userService } from '../../services/userService';
 import { DeviceStatusChip } from '../../components/DeviceManagement/DeviceStatusChip';
 import { ConditionChip } from '../../components/DeviceManagement/ConditionChip';
 import { CheckinForm } from '../../components/DeviceManagement/CheckinForm';
-import { GRADE_LEVELS, gradeLevelLabel } from '../../constants/gradeLevel';
+import { GRADE_LEVELS, gradeLevelLabel, toDbGradeLevel } from '../../constants/gradeLevel';
 import type { DeviceAssignment, DeviceAssignmentUser } from '../../types/deviceAssignment.types';
 
 // Active checkouts page — /device-management/checkouts
@@ -83,7 +83,7 @@ export default function CheckoutPage() {
         limit:        pageSize,
         assigneeType: assigneeFilter  || undefined,
         campusId:     locationFilter  || undefined,
-        gradeLevel:   gradeLevelFilter || undefined,
+        gradeLevel:   gradeLevelFilter ? toDbGradeLevel(gradeLevelFilter) : undefined,
       }),
   });
 
@@ -119,6 +119,16 @@ export default function CheckoutPage() {
           sx={{ whiteSpace: 'nowrap', flexShrink: 0 }}
         />
       ),
+    },
+    {
+      key:          'gradeLevel',
+      label:        'Grade',
+      hideOnMobile: true,
+      render:       (r) => {
+        const gl = r.user?.gradeLevel;
+        if (r.assigneeType !== 'student' || !gl) return <span>—</span>;
+        return <span>{gradeLevelLabel(gl)}</span>;
+      },
     },
     {
       key:    'assetTag',
