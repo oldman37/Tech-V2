@@ -46,6 +46,7 @@ import InvoiceDetailPage from './pages/DeviceManagement/InvoiceDetailPage'
 import ComponentPricesPage from './pages/DeviceManagement/ComponentPricesPage'
 import DeviceManagementDashboard from './pages/DeviceManagement/index'
 import ReportsPage from './pages/DeviceManagement/ReportsPage'
+import BarcodePdfPage from './pages/DeviceManagement/BarcodePdfPage'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { PwaUpdatePrompt } from './components/layout/PwaUpdatePrompt'
 import { PwaInstallPrompt } from './components/layout/PwaInstallPrompt'
@@ -468,6 +469,16 @@ function App() {
             <ProtectedRoute requireDeviceManagement>
               <AppLayout>
                 <ReportsPage />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/device-management/barcode-pdf"
+          element={
+            <ProtectedRoute requireDeviceManagement>
+              <AppLayout>
+                <BarcodePdfPage />
               </AppLayout>
             </ProtectedRoute>
           }
