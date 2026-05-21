@@ -41,6 +41,7 @@ const NAV_SECTIONS: NavSection[] = [
       { label: 'Inventory', icon: '📦', path: '/inventory', requireTech: true },
       { label: 'Equipment Search', icon: '🔍', path: '/equipment-search', requireTech: true },
       { label: 'Disposed Equipment', icon: '🗑️', path: '/disposed-equipment', requireTech: true },
+      { label: 'Purge Disposed', icon: '⚠️', path: '/purge-disposed', requireTech: true },
     ],
   },
   {

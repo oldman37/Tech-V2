@@ -6,10 +6,11 @@
 import { useState, useEffect } from 'react';
 import inventoryService from '../services/inventory.service';
 import { locationService } from '../services/location.service';
-import { categoriesService, Category } from '../services/referenceDataService';
+import { categoriesService, modelsService, EquipmentModel, Category } from '../services/referenceDataService';
 import { InventoryItem, InventoryFilters } from '../types/inventory.types';
 import { ResponsiveTable, MobileFilterBar, Column } from '../components/responsive';
 import { useIsMobile } from '../hooks/useResponsive';
+
 
 interface PaginationModel {
   page: number;
@@ -20,6 +21,7 @@ interface DisposedFilters {
   search: string;
   officeLocationId: string;
   categoryId: string;
+  modelId: string;
   disposedDateFrom: string;
   disposedDateTo: string;
 }
@@ -42,12 +44,14 @@ const DisposedEquipment = () => {
   // Reference data for dropdowns
   const [locations, setLocations] = useState<OfficeLocationOption[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [models, setModels] = useState<EquipmentModel[]>([]);
 
   // Filter state
   const [filters, setFilters] = useState<DisposedFilters>({
     search: '',
     officeLocationId: '',
     categoryId: '',
+    modelId: '',
     disposedDateFrom: '',
     disposedDateTo: '',
   });
@@ -77,6 +81,7 @@ const DisposedEquipment = () => {
         search: filters.search || undefined,
         officeLocationId: filters.officeLocationId || undefined,
         categoryId: filters.categoryId || undefined,
+        modelId: filters.modelId || undefined,
         disposedDateFrom: filters.disposedDateFrom || undefined,
         disposedDateTo: filters.disposedDateTo || undefined,
       };
@@ -93,12 +98,14 @@ const DisposedEquipment = () => {
 
   const fetchReferenceData = async () => {
     try {
-      const [locData, catData] = await Promise.all([
+      const [locData, catData, modelData] = await Promise.all([
         locationService.getAllLocations(),
         categoriesService.getAll({ limit: 500 }),
+        modelsService.getAll({ limit: 500 }),
       ]);
       setLocations(locData.map((l) => ({ id: l.id, name: l.name })));
       setCategories(catData.items);
+      setModels(modelData.items);
     } catch {
       // Silent fail — dropdowns will just be empty
     }
@@ -146,6 +153,7 @@ const DisposedEquipment = () => {
       search: '',
       officeLocationId: '',
       categoryId: '',
+      modelId: '',
       disposedDateFrom: '',
       disposedDateTo: '',
     });
@@ -166,6 +174,7 @@ const DisposedEquipment = () => {
   const activeFilterCount = [
     filters.officeLocationId,
     filters.categoryId,
+    filters.modelId,
     filters.disposedDateFrom,
     filters.disposedDateTo,
   ].filter(Boolean).length;
@@ -270,7 +279,7 @@ const DisposedEquipment = () => {
   );
 
   return (
-    <div>
+    <>
       <main className="page-content">
         <div className="container">
           {/* Page Header */}
@@ -281,14 +290,16 @@ const DisposedEquipment = () => {
 
           {/* Action Bar */}
           <div className="card mb-6">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <button
-                onClick={fetchDisposedItems}
-                className="btn btn-ghost btn-sm"
-                title="Refresh"
-              >
-                🔄 Refresh
-              </button>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                <button
+                  onClick={fetchDisposedItems}
+                  className="btn btn-ghost btn-sm"
+                  title="Refresh"
+                >
+                  🔄 Refresh
+                </button>
+              </div>
               <button
                 onClick={handleExport}
                 className="btn btn-secondary"
@@ -345,6 +356,19 @@ const DisposedEquipment = () => {
                         <option value="">All Categories</option>
                         {categories.map((cat) => (
                           <option key={cat.id} value={cat.id}>{cat.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="form-label">Model</label>
+                      <select
+                        value={filters.modelId}
+                        onChange={(e) => setFilters({ ...filters, modelId: e.target.value })}
+                        className="form-select"
+                      >
+                        <option value="">All Models</option>
+                        {models.map((m) => (
+                          <option key={m.id} value={m.id}>{m.name}</option>
                         ))}
                       </select>
                     </div>
@@ -411,6 +435,19 @@ const DisposedEquipment = () => {
                     <option value="">All Categories</option>
                     {categories.map((cat) => (
                       <option key={cat.id} value={cat.id}>{cat.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="form-label">Model</label>
+                  <select
+                    value={filters.modelId}
+                    onChange={(e) => setFilters({ ...filters, modelId: e.target.value })}
+                    className="form-select"
+                  >
+                    <option value="">All Models</option>
+                    {models.map((m) => (
+                      <option key={m.id} value={m.id}>{m.name}</option>
                     ))}
                   </select>
                 </div>
@@ -512,7 +549,8 @@ const DisposedEquipment = () => {
           </div>
         </div>
       </main>
-    </div>
+
+    </>
   );
 };
 
