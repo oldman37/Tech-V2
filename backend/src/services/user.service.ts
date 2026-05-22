@@ -685,4 +685,43 @@ export class UserService {
       })(),
     };
   }
+
+  /**
+   * Get a lightweight user summary for display purposes only.
+   * Returns only non-sensitive display fields — no role or permission data.
+   * Protected by requireModule('TECHNOLOGY', 1) on the route.
+   */
+  async getUserSummary(id: string): Promise<{
+    id: string;
+    firstName:      string | null;
+    lastName:       string | null;
+    displayName:    string | null;
+    email:          string;
+    gradeLevel:     string | null;
+    officeLocation: string | null;
+    jobTitle:       string | null;
+    department:     string | null;
+    assignedDevice: { id: string; assetTag: string; name: string } | null;
+  }> {
+    const user = await this.prisma.user.findUnique({
+      where:  { id },
+      select: {
+        id:             true,
+        firstName:      true,
+        lastName:       true,
+        displayName:    true,
+        email:          true,
+        gradeLevel:     true,
+        officeLocation: true,
+        jobTitle:       true,
+        department:     true,
+        assignedEquipment: { take: 1, select: { id: true, assetTag: true, name: true } },
+      },
+    });
+    if (!user) throw new NotFoundError('User', id);
+    return {
+      ...user,
+      assignedDevice: user.assignedEquipment[0] ?? null,
+    };
+  }
 }

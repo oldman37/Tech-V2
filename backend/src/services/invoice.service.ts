@@ -127,6 +127,7 @@ export async function create(data: CreateData, createdByUserId: string) {
           userId:           data.userId ?? null,
           recipientEmail:   data.recipientEmail,
           recipientName:    data.recipientName ?? null,
+          parentEmail:      data.parentEmail ?? null,
           amount:           computedAmount,
           dueDate:          new Date(data.dueDate),
           notes:            data.notes ?? null,
@@ -221,13 +222,14 @@ export async function getAll(query: ListQuery) {
   const limit     = Number(query.limit)  || 25;
   const sortBy    = query.sortBy    ?? 'createdAt';
   const sortOrder = (query.sortOrder ?? 'desc') as 'asc' | 'desc';
-  const { status, userId, damageIncidentId, overdueOnly } = query;
+  const { status, userId, damageIncidentId, equipmentId, overdueOnly } = query;
   const skip = (page - 1) * limit;
 
   const where: Prisma.DamageInvoiceWhereInput = {
     ...(status           && { status }),
     ...(userId           && { userId }),
     ...(damageIncidentId && { damageIncidentId }),
+    ...(equipmentId      && { damageIncident: { equipmentId } }),
     ...(overdueOnly && {
       dueDate: { lt: new Date() },
       status:  { notIn: ['paid', 'waived'] },
@@ -312,6 +314,21 @@ export async function send(id: string, sentByUserId: string) {
     context:         'damage_invoice',
     relatedEntityId: invoice.id,
   });
+
+  if (invoice.parentEmail && invoice.parentEmail !== invoice.recipientEmail) {
+    await enqueueEmail({
+      to:      invoice.parentEmail,
+      subject: `Invoice ${invoice.invoiceNumber} — Device Damage`,
+      html:    htmlBody,
+      attachments: [{
+        filename:    `${invoice.invoiceNumber}.pdf`,
+        contentType: 'application/pdf',
+        data:        pdfBase64,
+      }],
+      context:         'damage_invoice',
+      relatedEntityId: invoice.id,
+    });
+  }
 
   return prisma.damageInvoice.update({
     where: { id },

@@ -1223,7 +1223,7 @@ model DeviceAssignment {
 model DamageIncident {
   id              String    @id @default(uuid())
   incidentNumber  String?   @unique
-  equipmentId     String
+  equipmentId     String?   // Nullable — wizard supports user-only incidents (no device)
   assignmentId    String?   // FK → DeviceAssignment (null for walk-in with no active checkout)
   userId          String?   // FK → User — the student/staff member responsible (denormalised)
   reportedBy      String    // User.id — technician who logged the incident
@@ -1240,7 +1240,20 @@ model DamageIncident {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
-  equipment     equipment             @relation(fields: [equipmentId], references: [id])
+  /// Actual date the damage occurred (user-selected in wizard Step 1).
+  /// Distinct from reportedAt which is set automatically to now().
+  damageDate      DateTime?
+
+  /// Whether the damage was accidental or intentional.
+  /// 'accidental' → sends to repair before invoice
+  /// 'intentional' → skips repair, goes directly to invoice
+  intent          String?   // 'accidental' | 'intentional'
+
+  /// Current step in the unified incident workflow wizard.
+  /// DAMAGE_REPORTED → PENDING_REPAIR → IN_REPAIR → REPAIR_COMPLETE → INVOICED → CLOSED
+  workflowStep    String?   // see IncidentWorkflowStep type
+
+  equipment     equipment?            @relation(fields: [equipmentId], references: [id])
   assignment    DeviceAssignment?     @relation(fields: [assignmentId], references: [id])
   user          User?                 @relation("DamageIncidentUser", fields: [userId], references: [id])
   reporter      User                  @relation("DamageIncidentReporter", fields: [reportedBy], references: [id])
@@ -1256,6 +1269,9 @@ model DamageIncident {
   @@index([reportedAt])
   @@index([incidentNumber])
   @@index([schoolYear])
+  @@index([intent])
+  @@index([workflowStep])
+  @@index([damageDate])
   @@map("damage_incidents")
 }
 
@@ -1318,6 +1334,7 @@ model DamageInvoice {
   userId           String?   // FK → User — the student the invoice is for (if applicable)
   recipientEmail   String    // Parent/guardian email — manually entered
   recipientName    String?   // Display name for email greeting
+  parentEmail      String?   // Secondary parent/guardian email
   amount           Decimal   @db.Decimal(10, 2)
   dueDate          DateTime
   status           String    @default("draft") // "draft"|"sent"|"paid"|"waived"|"collections"

@@ -97,6 +97,7 @@ export interface CreateInvoiceData {
   userId?:          string;
   recipientEmail:   string;
   recipientName?:   string;
+  parentEmail?:     string;
   amount?:          number;
   dueDate:          string;
   notes?:           string;

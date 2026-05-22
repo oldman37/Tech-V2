@@ -1,6 +1,6 @@
 import express from 'express';
 import { authenticate, requireAdmin } from '../middleware/auth';
-import { requireModule } from '../utils/groupAuth';
+import { requireModule, requireDeviceManagementAccess } from '../utils/groupAuth';
 import { validateRequest } from '../middleware/validation';
 import { validateCsrfToken } from '../middleware/csrf';
 import {
@@ -26,6 +26,8 @@ import {
   removeUserSupervisor,
   searchPotentialSupervisors,
   searchUsers,
+  getUserSummary,
+  getUserIncidentSummaryController,
 } from '../controllers/user.controller';
 
 const router = express.Router();
@@ -48,6 +50,26 @@ router.get('/me/office-location', authenticate, getMyOfficeLocation);
 
 // IT admin contacts — any authenticated user (for permission-denied pages)
 router.get('/admin-contacts', authenticate, getAdminContacts);
+
+// Lightweight user summary — accessible to TECHNOLOGY level 1+ (not admin-only)
+// Must be declared BEFORE router.use(requireAdmin) to bypass the admin gate
+router.get(
+  '/:id/summary',
+  authenticate,
+  requireModule('TECHNOLOGY', 1),
+  validateRequest(UserIdParamSchema, 'params'),
+  getUserSummary,
+);
+
+// User incident summary — accessible to device management users (not admin-only)
+// Must be declared BEFORE router.use(requireAdmin) to bypass the admin gate
+router.get(
+  '/:id/incident-summary',
+  authenticate,
+  requireDeviceManagementAccess(),
+  validateRequest(UserIdParamSchema, 'params'),
+  getUserIncidentSummaryController,
+);
 
 // All remaining routes require authentication and admin role
 router.use(authenticate);

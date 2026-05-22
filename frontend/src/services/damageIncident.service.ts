@@ -4,9 +4,16 @@ import type {
   DamageIncidentsResponse,
   CreateDamageIncidentData,
   DamageIncidentPhoto,
+  UpdateWorkflowStepData,
 } from '../types/damageIncident.types';
 
 const BASE = '/damage-incidents';
+
+export interface NotifyBuildingAdminResult {
+  queued: boolean;
+  recipientEmail?: string;
+  reason?: string;
+}
 
 export const damageIncidentService = {
   getAll: (params?: object): Promise<DamageIncidentsResponse> =>
@@ -24,6 +31,9 @@ export const damageIncidentService = {
   updateStatus: (id: string, data: { status: string; resolutionNotes?: string }): Promise<DamageIncident> =>
     api.patch(`${BASE}/${id}/status`, data).then((r) => r.data),
 
+  updateWorkflowStep: (id: string, data: UpdateWorkflowStepData): Promise<DamageIncident> =>
+    api.patch(`${BASE}/${id}/workflow-step`, data).then((r) => r.data),
+
   delete: (id: string): Promise<void> =>
     api.delete(`${BASE}/${id}`).then((r) => r.data),
 
@@ -37,4 +47,7 @@ export const damageIncidentService = {
 
   deletePhoto: (id: string, photoId: string): Promise<void> =>
     api.delete(`${BASE}/${id}/photos/${photoId}`).then((r) => r.data),
+
+  notifyBuildingAdmin: (data: { userId: string; techNote?: string }): Promise<NotifyBuildingAdminResult> =>
+    api.post(`${BASE}/notify-building-admin`, data).then((r) => r.data),
 };

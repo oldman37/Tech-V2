@@ -2,7 +2,7 @@ import { Chip } from '@mui/material';
 import type { DamageType } from '@mgspe/shared-types';
 
 const damageTypeConfig: Record<DamageType, { label: string; color: 'error' | 'info' | 'warning' | 'default' }> = {
-  cracked_screen:   { label: 'Cracked Screen',   color: 'error' },
+  broken_screen:    { label: 'Broken Screen',    color: 'error' },
   liquid_damage:    { label: 'Liquid Damage',    color: 'info' },
   physical_damage:  { label: 'Physical Damage',  color: 'warning' },
   missing_keys:     { label: 'Missing Keys',     color: 'default' },

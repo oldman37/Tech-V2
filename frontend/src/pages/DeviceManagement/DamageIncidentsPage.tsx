@@ -43,7 +43,7 @@ const SEVERITY_COLORS: Record<string, 'success' | 'warning' | 'error' | 'default
 };
 
 const DAMAGE_TYPES: DamageType[] = [
-  'cracked_screen', 'liquid_damage', 'physical_damage',
+  'broken_screen', 'liquid_damage', 'physical_damage',
   'missing_keys', 'missing_charger', 'missing_device', 'other',
 ];
 
@@ -161,6 +161,18 @@ export default function DamageIncidentsPage() {
       ),
     },
     {
+      key:    'type',
+      label:  'Type',
+      render: (r) => (
+        <Chip
+          label={r.equipment ? '💻 Device' : '👤 User'}
+          size="small"
+          color={r.equipment ? 'info' : 'secondary'}
+          variant="outlined"
+        />
+      ),
+    },
+    {
       key:         'equipment',
       label:       'Device',
       isSecondary: true,
@@ -238,7 +250,7 @@ export default function DamageIncidentsPage() {
         <Button
           variant="contained"
           startIcon={<AddIcon />}
-          onClick={() => setDialogOpen(true)}
+          onClick={() => navigate('/device-management/incidents/new')}
           sx={{ ...(isMobile && { width: '100%' }) }}
         >
           Report Damage

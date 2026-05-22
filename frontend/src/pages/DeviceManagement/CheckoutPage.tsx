@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import {
   Alert,
   Box,
@@ -10,6 +10,7 @@ import {
   FormControl,
   InputAdornment,
   InputLabel,
+  Link,
   MenuItem,
   Paper,
   Select,
@@ -18,6 +19,8 @@ import {
   Typography,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import AssignmentReturnIcon from '@mui/icons-material/AssignmentReturn';
+import ReportProblemIcon from '@mui/icons-material/ReportProblem';
 import SearchIcon from '@mui/icons-material/Search';
 import { ResponsiveTable, MobileFilterBar } from '../../components/responsive';
 import type { Column } from '../../components/responsive';
@@ -103,7 +106,16 @@ export default function CheckoutPage() {
       isPrimary: true,
       render:    (r) => {
         const u = r.user;
-        return <span>{u ? `${u.firstName} ${u.lastName}` : r.userId}</span>;
+        if (!u) return <span>{r.userId}</span>;
+        return (
+          <Link
+            component={RouterLink}
+            to={`/device-management/users/${u.id}/history`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {u.firstName} {u.lastName}
+          </Link>
+        );
       },
     },
     {
@@ -135,7 +147,20 @@ export default function CheckoutPage() {
       label:  'Device',
       render: (r) => {
         const eq = r.equipment;
-        return <span>{eq ? `${eq.assetTag} — ${eq.name}` : r.equipmentId}</span>;
+        if (!eq) return <span>{r.equipmentId}</span>;
+        return (
+          <span>
+            <Link
+              component={RouterLink}
+              to={`/device-management/devices/${eq.id}`}
+              sx={{ fontFamily: 'monospace', fontWeight: 600 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {eq.assetTag}
+            </Link>
+            {' — '}{eq.name}
+          </span>
+        );
       },
     },
     {
@@ -167,9 +192,21 @@ export default function CheckoutPage() {
       key:    'actions',
       label:  '',
       render: (r) => (
-        <Button size="small" variant="outlined" onClick={(e) => { e.stopPropagation(); setCheckinTarget(r); }}>
-          Check In
-        </Button>
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'nowrap' }}>
+          <Button size="small" startIcon={<AssignmentReturnIcon />} onClick={(e) => { e.stopPropagation(); setCheckinTarget(r); }}>
+            Check In
+          </Button>
+          <Button
+            size="small"
+            startIcon={<ReportProblemIcon />}
+            component={RouterLink}
+            to={`/incidents/new?equipmentId=${r.equipmentId}&userId=${r.userId ?? ''}&assignmentId=${r.id}&damageDate=${r.checkoutAt.slice(0, 10)}`}
+            onClick={(e) => e.stopPropagation()}
+            sx={{ whiteSpace: 'nowrap' }}
+          >
+            Create Incident
+          </Button>
+        </Box>
       ),
     },
   ];
@@ -301,12 +338,19 @@ export default function CheckoutPage() {
         fullWidth
       >
         <DialogContent>
+          {checkinTarget && !checkinTarget.user && (
+            <Alert severity="error">Assignment data incomplete — user not found.</Alert>
+          )}
           {checkinTarget && checkinTarget.user && (
             <CheckinForm
               assignmentId={checkinTarget.id}
               assignee={checkinTarget.user as DeviceAssignmentUser}
-              onSuccess={() => {
+              onSuccess={(shouldCreateIncident) => {
+                const target = checkinTarget;
                 setCheckinTarget(null);
+                if (shouldCreateIncident && target) {
+                  navigate(`/incidents/new?equipmentId=${target.equipmentId}&userId=${target.userId ?? ''}&assignmentId=${target.id}&damageDate=${new Date().toISOString().slice(0, 10)}`);
+                }
                 checkinMutation.mutate();
               }}
               onCancel={() => setCheckinTarget(null)}

@@ -18,7 +18,7 @@ export interface RepairTicket {
   createdAt:          string;
   updatedAt:          string;
   equipment?:      { id: string; assetTag: string; name: string; brands: { name: string } | null; models: { name: string } | null };
-  damageIncident?: { id: string; damageType: string; severity: string } | null;
+  damageIncident?: { id: string; incidentNumber: string | null; damageType: string; severity: string } | null;
   vendor?:         { id: string; name: string } | null;
   creator?:        { id: string; firstName: string; lastName: string };
 }

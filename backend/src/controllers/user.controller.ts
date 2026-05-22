@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { AuthRequest } from '../middleware/auth';
 import { UserService } from '../services/user.service';
+import { getUserIncidentSummary } from '../services/damageIncident.service';
 import { handleControllerError } from '../utils/errorHandler';
 import { prisma } from '../lib/prisma';
 import { logger } from '../lib/logger';
@@ -205,6 +206,34 @@ export const searchUsers = async (req: Request, res: Response) => {
 
     const users = await userService.searchForAutocomplete(q, limit, locationId);
     res.json(users);
+  } catch (error) {
+    handleControllerError(error, res);
+  }
+};
+
+/**
+ * Get a lightweight user summary (display fields only — no sensitive role/permission data).
+ * Protected by requireModule('TECHNOLOGY', 1) — not admin-only.
+ */
+export const getUserSummary = async (req: Request, res: Response) => {
+  try {
+    const id = req.params['id'] as string;
+    const summary = await userService.getUserSummary(id);
+    res.json(summary);
+  } catch (error) {
+    handleControllerError(error, res);
+  }
+};
+
+/**
+ * Get damage incident summary for a user (count + recent incidents).
+ * Protected by requireDeviceManagementAccess() — not admin-only.
+ */
+export const getUserIncidentSummaryController = async (req: Request, res: Response) => {
+  try {
+    const id = req.params['id'] as string;
+    const summary = await getUserIncidentSummary(id);
+    res.json(summary);
   } catch (error) {
     handleControllerError(error, res);
   }

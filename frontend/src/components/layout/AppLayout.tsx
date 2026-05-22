@@ -59,10 +59,10 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { label: 'DM Dashboard',   icon: '📱', path: '/device-management',               requireDeviceManagement: true },
       { label: 'Checkouts',      icon: '📤', path: '/device-management/checkouts',      requireDeviceManagement: true },
+      { label: 'Quick Check',    icon: '⚡', path: '/device-management/quick-check',             requireDeviceManagement: true },
       { label: 'Bulk Checkout',  icon: '📋', path: '/device-management/checkouts/bulk',          requireDeviceManagement: true },
       { label: 'Bulk Check-In',   icon: '📥', path: '/device-management/checkouts/bulk-checkin', requireDeviceManagement: true },
-      { label: 'Damage Reports', icon: '⚠️', path: '/device-management/incidents',      requireDeviceManagement: true },
-      { label: 'Repair Tickets', icon: '🔧', path: '/device-management/repair-tickets', requireDeviceManagement: true },
+      { label: 'Incidents',      icon: '⚠️', path: '/incidents',                       requireDeviceManagement: true },
       { label: 'Invoices',       icon: '💰', path: '/device-management/invoices',       requireDeviceManagement: true },
       { label: 'Component Prices', icon: '🏷️', path: '/device-management/component-prices', requireDeviceManagement: true },
       { label: 'DM Reports',     icon: '📊', path: '/device-management/reports',        requireDeviceManagement: true },

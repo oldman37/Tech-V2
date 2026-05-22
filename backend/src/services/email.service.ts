@@ -1159,3 +1159,50 @@ export async function sendTransportationRequestReadyForReview(
     relatedEntityId: request.id,
   });
 }
+
+// ---------------------------------------------------------------------------
+// Incident admin alert
+// ---------------------------------------------------------------------------
+
+/**
+ * Notify the building administrator that a user has reached 3+ damage incidents.
+ * The tech must notify the admin before creating an additional incident.
+ */
+export async function sendBuildingAdminIncidentAlert(opts: {
+  adminEmail:       string;
+  adminName:        string;
+  studentName:      string;
+  incidentCount:    number;
+  recentIncidents:  Array<{ incidentNumber: string | null; damageType: string; reportedAt: string }>;
+  techName:         string;
+  techNote?:        string;
+  schoolName:       string;
+}): Promise<void> {
+  const subject = `[Tech Alert] Repeat Incident — ${escapeHtml(opts.studentName)} (${opts.incidentCount} incidents)`;
+  const incidentListHtml = opts.recentIncidents
+    .map(
+      (i) =>
+        `<li>${escapeHtml(i.incidentNumber ?? 'N/A')} — ${escapeHtml(i.damageType)} — ` +
+        `${new Date(i.reportedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</li>`,
+    )
+    .join('');
+
+  const html = `
+    <h2 style="color:#C62828;">[Technology Alert] Repeat Damage Incident Notification</h2>
+    <p>Dear ${escapeHtml(opts.adminName)},</p>
+    <p>This is an automated notification from the MGSPE Technology Department.</p>
+    <p><strong>${escapeHtml(opts.studentName)}</strong> at ${escapeHtml(opts.schoolName)} has
+    <strong>${opts.incidentCount} damage incident(s)</strong> on record.
+    A technician is attempting to create an additional incident and has triggered this notification
+    per district policy. A consultation may be required before issuing another device.</p>
+    <h3>Recent Incidents</h3>
+    <ul>${incidentListHtml}</ul>
+    ${opts.techNote ? `<p><strong>Tech Note:</strong> ${escapeHtml(opts.techNote)}</p>` : ''}
+    <p>Logged by: ${escapeHtml(opts.techName)}</p>
+    <hr>
+    <p style="color:#666;font-size:12px;">This email was sent by the MGSPE Technology Management System.
+    Do not reply to this email.</p>
+  `;
+
+  await sendMail({ to: opts.adminEmail, subject, html, context: 'incident-admin-alert' });
+}

@@ -41,6 +41,38 @@ export interface PaginatedResponse<T> {
   };
 }
 
+export interface UserSummary {
+  id: string;
+  firstName: string | null;
+  lastName: string | null;
+  displayName: string | null;
+  email: string;
+  gradeLevel: string | null;
+  officeLocation: string | null;
+  jobTitle: string | null;
+  department: string | null;
+  assignedDevice: { id: string; assetTag: string; name: string } | null;
+}
+
+export interface UserIncidentSummaryItem {
+  id: string;
+  incidentNumber: string | null;
+  damageType: string;
+  severity: string;
+  status: string;
+  reportedAt: string;
+  equipment: { assetTag: string; name: string } | null;
+}
+
+export interface UserIncidentSummary {
+  userId: string;
+  totalCount: number;
+  activeCount: number;
+  schoolYear: string | null;
+  yearCount: number;
+  recentIncidents: UserIncidentSummaryItem[];
+}
+
 class UserService {
   // Get all users with pagination
   async getUsers(page: number = 1, limit: number = 50, search: string = '', accountType?: 'all' | 'staff' | 'student', locationId?: string, gradeLevel?: string): Promise<PaginatedResponse<User>> {
@@ -93,6 +125,18 @@ class UserService {
   async toggleUserStatus(id: string): Promise<User> {
     const response = await api.put(`/users/${id}/toggle-status`);
     return response.data.user;
+  }
+
+  // Get lightweight user summary (display fields only — no sensitive role/permission data)
+  async getUserSummary(id: string): Promise<UserSummary> {
+    const response = await api.get(`/users/${id}/summary`);
+    return response.data;
+  }
+
+  // Get damage incident summary for a user (count + recent incidents)
+  async getUserIncidentSummary(id: string): Promise<UserIncidentSummary> {
+    const response = await api.get(`/users/${id}/incident-summary`);
+    return response.data;
   }
 
 }

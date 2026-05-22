@@ -20,10 +20,12 @@ import type { CreateInvoiceData, LineItemDraft } from '../../types/invoice.types
 import type { DamageIncident } from '../../types/damageIncident.types';
 
 interface CreateInvoiceDialogProps {
-  open:               boolean;
-  onClose:            () => void;
-  onCreated:          () => void;
-  prefillIncidentId?: string;
+  open:                boolean;
+  onClose:             () => void;
+  onCreated:           () => void;
+  onCreatedWithId?:    (invoiceId: string) => void;
+  prefillIncidentId?:  string;
+  prefillParentEmail?: string;
 }
 
 const DEFAULT_DUE_DAYS = 30;
@@ -38,7 +40,9 @@ export default function CreateInvoiceDialog({
   open,
   onClose,
   onCreated,
+  onCreatedWithId,
   prefillIncidentId,
+  prefillParentEmail,
 }: CreateInvoiceDialogProps) {
   const queryClient = useQueryClient();
 
@@ -50,6 +54,7 @@ export default function CreateInvoiceDialog({
   // Form fields
   const [recipientEmail, setRecipientEmail] = useState('');
   const [recipientName,  setRecipientName]  = useState('');
+  const [parentEmail,    setParentEmail]    = useState('');
   const [dueDate,        setDueDate]        = useState(todayPlusDays(DEFAULT_DUE_DAYS));
   const [notes,          setNotes]          = useState('');
   const [lineItems,      setLineItems]      = useState<LineItemDraft[]>([]);
@@ -93,10 +98,13 @@ export default function CreateInvoiceDialog({
       setSelectedIncident(null);
       setRecipientEmail('');
       setRecipientName('');
+      setParentEmail('');
       setDueDate(todayPlusDays(DEFAULT_DUE_DAYS));
       setNotes('');
       setLineItems([]);
       setFormError(null);
+    } else if (prefillParentEmail) {
+      setParentEmail(prefillParentEmail);
     }
   }, [open]);
 
@@ -114,13 +122,14 @@ export default function CreateInvoiceDialog({
 
   const mutation = useMutation({
     mutationFn: (data: CreateInvoiceData) => invoiceService.create(data),
-    onSuccess: () => {
+    onSuccess: (invoice) => {
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
       if (activeIncident?.id) {
         queryClient.invalidateQueries({ queryKey: ['damage-incidents', activeIncident.id] });
         queryClient.invalidateQueries({ queryKey: ['damage-incidents'] });
       }
       onCreated();
+      onCreatedWithId?.(invoice.id);
       onClose();
     },
     onError: () => setFormError('Failed to create invoice. Please check all fields.'),
@@ -144,6 +153,7 @@ export default function CreateInvoiceDialog({
       damageIncidentId: activeIncident.id,
       recipientEmail,
       ...(recipientName && { recipientName }),
+      ...(parentEmail   && { parentEmail }),
       ...(activeIncident.userId && { userId: activeIncident.userId }),
       dueDate: `${dueDate}T00:00:00.000Z`,
       ...(notes && { notes }),
@@ -250,6 +260,16 @@ export default function CreateInvoiceDialog({
               size="small"
             />
           </Box>
+
+          {/* ── Parent Email ── */}
+          <TextField
+            label="Parent Email (optional)"
+            type="email"
+            value={parentEmail}
+            onChange={e => setParentEmail(e.target.value)}
+            fullWidth
+            size="small"
+          />
 
           {/* ── Due Date & Notes ── */}
           <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>

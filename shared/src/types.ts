@@ -199,7 +199,7 @@ export interface RoomWithAssignments extends Room {
 export type AssigneeType        = 'student' | 'staff';
 export type CheckoutCondition   = 'perfect' | 'good' | 'fair' | 'damaged';
 export type DamageType          =
-  | 'cracked_screen' | 'liquid_damage' | 'physical_damage'
+  | 'broken_screen' | 'liquid_damage' | 'physical_damage'
   | 'missing_keys'   | 'missing_charger' | 'missing_device' | 'other';
 export type DamageSeverity      = 'minor' | 'moderate' | 'severe' | 'total_loss';
 export type DamageIncidentStatus = 'reported' | 'invoiced' | 'in_repair' | 'resolved' | 'waived';
@@ -207,4 +207,17 @@ export type RepairTicketStatus  =
   | 'pending' | 'sent_to_vendor' | 'in_repair'
   | 'returned' | 'unrepairable'  | 'cancelled';
 export type InvoiceStatus       = 'draft' | 'sent' | 'paid' | 'waived' | 'collections';
+
+/** Whether the damage was deliberate or accidental — drives wizard routing */
+export type IncidentIntent = 'accidental' | 'intentional';
+
+/** Fine-grained position in the unified incident wizard state machine */
+export type IncidentWorkflowStep =
+  | 'DAMAGE_REPORTED'   // Wizard step 2 complete; intent recorded
+  | 'PENDING_REPAIR'    // Repair ticket created (accidental path only)
+  | 'IN_REPAIR'         // Repair ticket sent to vendor / in repair
+  | 'REPAIR_COMPLETE'   // Repair ticket returned or unrepairable
+  | 'INVOICED'          // DamageInvoice created (draft/sent status)
+  | 'DEVICE_EXCHANGE'   // Device exchange in progress (check-in broken / check-out replacement)
+  | 'CLOSED';           // Invoice paid/waived OR manually closed
 

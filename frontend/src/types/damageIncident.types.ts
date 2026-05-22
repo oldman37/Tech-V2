@@ -1,4 +1,4 @@
-import type { DamageType, DamageSeverity, DamageIncidentStatus } from '@mgspe/shared-types';
+import type { DamageType, DamageSeverity, DamageIncidentStatus, IncidentIntent, IncidentWorkflowStep } from '@mgspe/shared-types';
 
 export interface DamageIncidentPhoto {
   id:         string;
@@ -24,14 +24,16 @@ export interface DamageIncidentEquipment {
   assetTag:      string;
   name:          string;
   purchasePrice: string | null;
+  vendorId?:     string | null;
   brands:        { name: string } | null;
   models:        { name: string } | null;
+  vendor?:       { id: string; name: string; contactName: string | null; email: string | null; phone: string | null } | null;
 }
 
 export interface DamageIncident {
   id:              string;
   incidentNumber:  string | null;
-  equipmentId:     string;
+  equipmentId:     string | null;
   assignmentId:    string | null;
   userId:          string | null;
   reportedBy:      string;
@@ -44,9 +46,12 @@ export interface DamageIncident {
   resolvedAt:      string | null;
   resolvedBy:      string | null;
   resolutionNotes: string | null;
+  damageDate:      string | null;
+  intent:          IncidentIntent | null;
+  workflowStep:    IncidentWorkflowStep | null;
   createdAt:       string;
   updatedAt:       string;
-  equipment?:      DamageIncidentEquipment;
+  equipment?:      DamageIncidentEquipment | null;
   user?:           DamageIncidentUser | null;
   reporter?:       DamageIncidentUser;
   photos?:         DamageIncidentPhoto[];
@@ -56,9 +61,11 @@ export interface DamageIncident {
 }
 
 export interface CreateDamageIncidentData {
-  equipmentId:            string;
+  equipmentId?:           string;
   assignmentId?:          string;
   userId?:                string;
+  damageDate?:            string;
+  intent?:                IncidentIntent;
   damageType:             DamageType;
   severity:               DamageSeverity;
   description?:           string;
@@ -67,6 +74,11 @@ export interface CreateDamageIncidentData {
   autoCreateInvoice:      boolean;
   recipientEmail?:        string;
   recipientName?:         string;
+}
+
+export interface UpdateWorkflowStepData {
+  workflowStep: IncidentWorkflowStep;
+  notes?:       string;
 }
 
 export interface DamageIncidentsResponse {

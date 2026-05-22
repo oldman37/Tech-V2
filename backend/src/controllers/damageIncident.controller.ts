@@ -2,12 +2,17 @@ import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth';
 import { handleControllerError } from '../utils/errorHandler';
 import * as service from '../services/damageIncident.service';
+import { sendBuildingAdminIncidentAlert } from '../services/email.service';
+import { logger } from '../lib/logger';
 import type { z } from 'zod';
 import type {
   CreateDamageIncidentSchema,
   UpdateDamageIncidentSchema,
   UpdateIncidentStatusSchema,
   ListIncidentsQuerySchema,
+  UpdateIncidentWorkflowStepSchema,
+  DeviceExchangeSchema,
+  NotifyBuildingAdminSchema,
 } from '../validators/damageIncident.validators';
 
 // ---------------------------------------------------------------------------
@@ -125,6 +130,102 @@ export const deletePhoto = async (req: AuthRequest, res: Response): Promise<void
     const photoId = req.params['photoId'] as string;
     await service.deletePhoto(id, photoId, req.user!.id);
     res.status(204).send();
+  } catch (error) {
+    handleControllerError(error, res);
+  }
+};
+
+// ---------------------------------------------------------------------------
+// Update workflow step
+// ---------------------------------------------------------------------------
+
+export const updateWorkflowStep = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const id   = req.params['id'] as string;
+    const data = req.body as z.infer<typeof UpdateIncidentWorkflowStepSchema>;
+    const incident = await service.updateWorkflowStep(id, data, req.user!.id);
+    res.json(incident);
+  } catch (error) {
+    handleControllerError(error, res);
+  }
+};
+
+// ---------------------------------------------------------------------------
+// Device Exchange
+// ---------------------------------------------------------------------------
+
+export const deviceExchange = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const id     = req.params['id'] as string;
+    const data   = req.body as z.infer<typeof DeviceExchangeSchema>;
+    const result = await service.deviceExchange(id, data, req.user!.id);
+    res.json(result);
+  } catch (error) {
+    handleControllerError(error, res);
+  }
+};
+
+// ---------------------------------------------------------------------------
+// Notify building admin (rate-limited, 5 min per userId)
+// ---------------------------------------------------------------------------
+
+const ADMIN_NOTIFY_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes
+const recentAdminNotifications = new Map<string, number>(); // userId → lastSentTimestamp
+
+export const notifyBuildingAdmin = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { userId, techNote } = req.body as z.infer<typeof NotifyBuildingAdminSchema>;
+
+    const now      = Date.now();
+    const lastSent = recentAdminNotifications.get(userId);
+    if (lastSent && now - lastSent < ADMIN_NOTIFY_COOLDOWN_MS) {
+      res.status(429).json({ error: 'TOO_MANY_REQUESTS', message: 'Email already sent recently. Please wait before sending again.' });
+      return;
+    }
+
+    const adminInfo = await service.resolveBuildingAdmin(userId);
+    if (!adminInfo) {
+      res.status(422).json({ error: 'NO_ADMIN', message: 'No building administrator found for this user\'s location.' });
+      return;
+    }
+
+    const summary = await service.getUserIncidentSummary(userId);
+    const tech    = req.user!;
+    const techName = tech.name?.trim() || tech.email;
+
+    await sendBuildingAdminIncidentAlert({
+      adminEmail:      adminInfo.adminEmail,
+      adminName:       adminInfo.adminName,
+      studentName:     adminInfo.studentName,
+      incidentCount:   summary.totalCount,
+      recentIncidents: summary.recentIncidents.map((i) => ({
+        incidentNumber: i.incidentNumber,
+        damageType:     i.damageType,
+        reportedAt:     i.reportedAt.toISOString(),
+      })),
+      techName,
+      techNote:        techNote,
+      schoolName:      adminInfo.schoolName,
+    });
+
+    recentAdminNotifications.set(userId, now);
+    // Prune stale entries
+    for (const [key, ts] of recentAdminNotifications.entries()) {
+      if (now - ts > ADMIN_NOTIFY_COOLDOWN_MS) recentAdminNotifications.delete(key);
+    }
+
+    // Mask the recipient email for the response (show domain only)
+    const [localPart, domain] = adminInfo.adminEmail.split('@');
+    const maskedEmail = localPart ? `${localPart[0]}***@${domain ?? ''}` : adminInfo.adminEmail;
+
+    logger.info('Building admin incident alert queued', {
+      userId,
+      schoolName:   adminInfo.schoolName,
+      recipientEmail: maskedEmail,
+      sentBy:       tech.id,
+    });
+
+    res.json({ queued: true, recipientEmail: maskedEmail });
   } catch (error) {
     handleControllerError(error, res);
   }

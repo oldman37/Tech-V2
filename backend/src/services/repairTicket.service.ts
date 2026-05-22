@@ -31,7 +31,7 @@ const listInclude = {
       models:   { select: { name: true } },
     },
   },
-  damageIncident: { select: { id: true, damageType: true, severity: true } },
+  damageIncident: { select: { id: true, incidentNumber: true, damageType: true, severity: true } },
   vendor:         { select: { id: true, name: true } },
   creator:        { select: { id: true, firstName: true, lastName: true } },
 } as const;

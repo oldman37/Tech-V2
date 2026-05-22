@@ -23,7 +23,7 @@ import type { CheckoutCondition } from '@mgspe/shared-types';
 interface CheckinFormProps {
   assignmentId: string;
   assignee: DeviceAssignmentUser;
-  onSuccess: () => void;
+  onSuccess: (shouldCreateIncident?: boolean) => void;
   onCancel: () => void;
 }
 
@@ -59,8 +59,8 @@ export function CheckinForm({ assignmentId, assignee, onSuccess, onCancel }: Che
         returnNotes:          values.returnNotes || undefined,
         createDamageIncident: values.createDamageIncident || undefined,
       };
-      await deviceAssignmentService.checkin(assignmentId, data);
-      onSuccess();
+      const result = await deviceAssignmentService.checkin(assignmentId, data);
+      onSuccess(result.shouldCreateIncident);
     } catch (err: unknown) {
       const msg =
         err && typeof err === 'object' && 'response' in err

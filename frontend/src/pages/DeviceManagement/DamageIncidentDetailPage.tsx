@@ -99,6 +99,24 @@ export default function DamageIncidentDetailPage() {
               size="small"
             />
             <Chip label={incident.status} size="small" variant="outlined" />
+            {incident.workflowStep && (
+              <Chip
+                label={incident.workflowStep.replace(/_/g, ' ')}
+                size="small"
+                color="info"
+                variant="outlined"
+                sx={{ textTransform: 'capitalize', fontWeight: 600 }}
+              />
+            )}
+            {incident.intent && (
+              <Chip
+                label={incident.intent}
+                size="small"
+                color={incident.intent === 'intentional' ? 'error' : 'default'}
+                variant="filled"
+                sx={{ textTransform: 'capitalize' }}
+              />
+            )}
             <Button
               variant="contained"
               size="small"

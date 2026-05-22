@@ -35,9 +35,12 @@ import {
   TransportationRequestDetailPage,
 } from './pages/TransportationRequests'
 import CheckoutPage from './pages/DeviceManagement/CheckoutPage'
+import DeviceDetailPage from './pages/DeviceManagement/DeviceDetailPage'
+import UserCheckoutHistoryPage from './pages/DeviceManagement/UserCheckoutHistoryPage'
 import CheckoutScanPage from './pages/DeviceManagement/CheckoutScanPage'
 import BulkCheckoutPage from './pages/DeviceManagement/BulkCheckoutPage'
 import BulkCheckinPage from './pages/DeviceManagement/BulkCheckinPage'
+import QuickCheckPage from './pages/DeviceManagement/QuickCheckPage'
 import DamageIncidentsPage from './pages/DeviceManagement/DamageIncidentsPage'
 import DamageIncidentDetailPage from './pages/DeviceManagement/DamageIncidentDetailPage'
 import RepairTicketsPage from './pages/DeviceManagement/RepairTicketsPage'
@@ -49,6 +52,9 @@ import DeviceManagementDashboard from './pages/DeviceManagement/index'
 import ReportsPage from './pages/DeviceManagement/ReportsPage'
 import BarcodePdfPage from './pages/DeviceManagement/BarcodePdfPage'
 import DmRolloverPage from './pages/DeviceManagement/DmRolloverPage'
+import IncidentsPage from './pages/incidents/IncidentsPage'
+import IncidentDetailPage from './pages/incidents/IncidentDetailPage'
+import IncidentWizardPage from './pages/incidents/IncidentWizardPage'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { PwaUpdatePrompt } from './components/layout/PwaUpdatePrompt'
 import { PwaInstallPrompt } from './components/layout/PwaInstallPrompt'
@@ -356,6 +362,26 @@ function App() {
           }
         />
         <Route
+          path="/device-management/devices/:id"
+          element={
+            <ProtectedRoute requireDeviceManagement>
+              <AppLayout>
+                <DeviceDetailPage />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/device-management/users/:userId/history"
+          element={
+            <ProtectedRoute requireDeviceManagement>
+              <AppLayout>
+                <UserCheckoutHistoryPage />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/device-management/checkouts"
           element={
             <ProtectedRoute requireDeviceManagement>
@@ -391,6 +417,16 @@ function App() {
             <ProtectedRoute requireDeviceManagement>
               <AppLayout>
                 <BulkCheckinPage />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/device-management/quick-check"
+          element={
+            <ProtectedRoute requireDeviceManagement>
+              <AppLayout>
+                <QuickCheckPage />
               </AppLayout>
             </ProtectedRoute>
           }
@@ -501,6 +537,36 @@ function App() {
             <ProtectedRoute requireAdmin>
               <AppLayout>
                 <DmRolloverPage />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/incidents/new"
+          element={
+            <ProtectedRoute requireDeviceManagement>
+              <AppLayout>
+                <IncidentWizardPage />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/incidents"
+          element={
+            <ProtectedRoute requireDeviceManagement>
+              <AppLayout>
+                <IncidentsPage />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/incidents/:id"
+          element={
+            <ProtectedRoute requireDeviceManagement>
+              <AppLayout>
+                <IncidentDetailPage />
               </AppLayout>
             </ProtectedRoute>
           }

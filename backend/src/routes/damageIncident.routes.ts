@@ -13,6 +13,9 @@ import {
   UpdateDamageIncidentSchema,
   UpdateIncidentStatusSchema,
   ListIncidentsQuerySchema,
+  UpdateIncidentWorkflowStepSchema,
+  DeviceExchangeSchema,
+  NotifyBuildingAdminSchema,
 } from '../validators/damageIncident.validators';
 
 const UPLOAD_DIR = path.join(__dirname, '..', '..', 'public', 'uploads', 'damage-incidents');
@@ -54,6 +57,15 @@ router.get(
   controller.getById,
 );
 
+// Notify building admin — must be declared BEFORE /:id to avoid param collision
+router.post(
+  '/notify-building-admin',
+  validateCsrfToken,
+  requireDeviceManagementAccess(),
+  validateRequest(NotifyBuildingAdminSchema),
+  controller.notifyBuildingAdmin,
+);
+
 // Write
 router.post(
   '/',
@@ -75,6 +87,20 @@ router.patch(
   requireDeviceManagementAccess(),
   validateRequest(UpdateIncidentStatusSchema),
   controller.updateStatus,
+);
+router.patch(
+  '/:id/workflow-step',
+  validateCsrfToken,
+  requireDeviceManagementAccess(),
+  validateRequest(UpdateIncidentWorkflowStepSchema),
+  controller.updateWorkflowStep,
+);
+router.post(
+  '/:id/device-exchange',
+  validateCsrfToken,
+  requireDeviceManagementAccess(),
+  validateRequest(DeviceExchangeSchema),
+  controller.deviceExchange,
 );
 router.delete(
   '/:id',
