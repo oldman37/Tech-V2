@@ -15,12 +15,28 @@
  */
 
 import { PrismaClient } from '@prisma/client';
+import pg from 'pg';
+import { PrismaPg } from '@prisma/adapter-pg';
 import * as dotenv from 'dotenv';
 
-// Load .env when present (dev). In production, env vars come from the system/Docker.
 dotenv.config();
 
-const prisma = new PrismaClient();
+const DATABASE_URL = process.env.DATABASE_URL;
+if (!DATABASE_URL) {
+  console.error('');
+  console.error('❌  DATABASE_URL is not set.');
+  console.error('    If running with sudo, env vars are stripped. Use one of:');
+  console.error('');
+  console.error('      sudo -E npx tsx scripts/backfill-audit-fiscal-year.ts');
+  console.error('    or');
+  console.error('      DATABASE_URL="$(grep DATABASE_URL .env | cut -d= -f2-)" npx tsx scripts/backfill-audit-fiscal-year.ts');
+  console.error('');
+  process.exit(1);
+}
+
+const pool = new pg.Pool({ connectionString: DATABASE_URL });
+const adapter = new PrismaPg(pool);
+const prisma = new PrismaClient({ adapter });
 
 async function main() {
   const force = process.argv.includes('--force');
@@ -151,4 +167,5 @@ main()
   })
   .finally(async () => {
     await prisma.$disconnect();
+    await pool.end();
   });
