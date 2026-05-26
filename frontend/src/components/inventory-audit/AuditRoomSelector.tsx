@@ -22,10 +22,14 @@ interface AuditRoomSelectorProps {
     sessionId: string,
     context?: { officeLocationId: string; fiscalYear: string | null }
   ) => void;
+  /** Pre-select and lock this location, showing only rooms for this school. */
+  preselectedLocationId?: string;
+  /** If provided, only these room IDs are shown in the room dropdown. */
+  allowedRoomIds?: string[];
 }
 
-export function AuditRoomSelector({ onSessionStarted }: AuditRoomSelectorProps) {
-  const [locationId, setLocationId] = useState('');
+export function AuditRoomSelector({ onSessionStarted, preselectedLocationId, allowedRoomIds }: AuditRoomSelectorProps) {
+  const [locationId, setLocationId] = useState(preselectedLocationId ?? '');
   const [roomId, setRoomId] = useState('');
   const [notes, setNotes] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
@@ -75,7 +79,7 @@ export function AuditRoomSelector({ onSessionStarted }: AuditRoomSelectorProps) 
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: 520, width: '100%' }}>
       <Typography variant="h6">Select Location to Audit</Typography>
 
-      <FormControl fullWidth disabled={locationsLoading}>
+      <FormControl fullWidth disabled={locationsLoading || !!preselectedLocationId}>
         <InputLabel id="audit-location-label">School / Office</InputLabel>
         <Select
           labelId="audit-location-label"
@@ -100,7 +104,7 @@ export function AuditRoomSelector({ onSessionStarted }: AuditRoomSelectorProps) 
           onChange={handleRoomChange}
         >
           {rooms
-            .filter((r) => r.isActive)
+            .filter((r) => r.isActive && (!allowedRoomIds || allowedRoomIds.includes(r.id)))
             .map((room) => (
               <MenuItem key={room.id} value={room.id}>
                 {room.name}

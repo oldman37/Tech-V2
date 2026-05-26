@@ -223,6 +223,7 @@ export class InventoryAuditService {
     if (rooms.length === 0) {
       return {
         nextRoom: null,
+        remainingRooms: [],
         remainingCount: 0,
         totalActiveRooms: 0,
         completedCount: 0,
@@ -261,6 +262,7 @@ export class InventoryAuditService {
     };
 
     const completedCount = rooms.filter((room) => roomHasCompleted(room.id)).length;
+    const remainingRooms = rooms.filter((room) => !roomHasCompleted(room.id));
 
     // Priority 1: resume the oldest room (alphabetically) that has an in-progress session.
     const resumeRoom = rooms.find((room) => {
@@ -279,6 +281,7 @@ export class InventoryAuditService {
             sessionId: inProgressSession.id,
             mode: 'RESUME' as const,
           },
+          remainingRooms: remainingRooms.map((r) => ({ id: r.id, name: r.name })),
           remainingCount: rooms.length - completedCount,
           totalActiveRooms: rooms.length,
           completedCount,
@@ -292,6 +295,7 @@ export class InventoryAuditService {
     if (!nextRoomToStart) {
       return {
         nextRoom: null,
+        remainingRooms: [],
         remainingCount: 0,
         totalActiveRooms: rooms.length,
         completedCount,
@@ -305,6 +309,7 @@ export class InventoryAuditService {
         roomName: nextRoomToStart.name,
         mode: 'START' as const,
       },
+      remainingRooms: remainingRooms.map((r) => ({ id: r.id, name: r.name })),
       remainingCount: Math.max(rooms.length - completedCount, 0),
       totalActiveRooms: rooms.length,
       completedCount,

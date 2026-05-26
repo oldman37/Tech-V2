@@ -184,6 +184,7 @@ export interface NextRoomResponse {
     sessionId?: string;
     mode: 'RESUME' | 'START';
   } | null;
+  remainingRooms?: Array<{ id: string; name: string }>;
   remainingCount: number;
   totalActiveRooms: number;
   completedCount: number;

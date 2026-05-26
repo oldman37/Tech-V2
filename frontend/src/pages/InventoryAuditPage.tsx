@@ -16,7 +16,6 @@ import {
 } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { useAuditSession } from '@/hooks/queries/useInventoryAudit';
-import { useStartAuditSession } from '@/hooks/mutations/useInventoryAuditMutations';
 import { AuditRoomSelector } from '@/components/inventory-audit/AuditRoomSelector';
 import { AuditItemList } from '@/components/inventory-audit/AuditItemList';
 import inventoryAuditService from '@/services/inventoryAudit.service';
@@ -79,8 +78,7 @@ export function InventoryAuditPage() {
   const [flowError, setFlowError] = useState('');
   const [continuing, setContinuing] = useState(false);
   const [schoolFullyAudited, setSchoolFullyAudited] = useState(false);
-
-  const startMutation = useStartAuditSession();
+  const [continuationRoomIds, setContinuationRoomIds] = useState<string[] | null>(null);
 
   const handleSessionStarted = (
     sessionId: string,
@@ -94,6 +92,7 @@ export function InventoryAuditPage() {
       setActiveFiscalYear(context.fiscalYear ?? null);
     }
     setSchoolFullyAudited(false);
+    setContinuationRoomIds(null);
     setFlowError('');
     setStep('audit');
   };
@@ -128,33 +127,20 @@ export function InventoryAuditPage() {
     try {
       const next = await inventoryAuditService.getNextRoom(activeSchoolId, activeFiscalYear ?? undefined);
 
-      if (!next.nextRoom) {
+      if (!next.remainingRooms || next.remainingRooms.length === 0) {
         setSchoolFullyAudited(true);
         setContinuePromptOpen(false);
         return;
       }
 
-      if (next.nextRoom.mode === 'RESUME' && next.nextRoom.sessionId) {
-        setActiveSessionId(next.nextRoom.sessionId);
-        setContinuePromptOpen(false);
-        setStep('audit');
-        return;
-      }
-
-      const created = await startMutation.mutateAsync({
-        officeLocationId: activeSchoolId,
-        roomId: next.nextRoom.roomId,
-        fiscalYear: next.fiscalYear ?? activeFiscalYear ?? undefined,
-      });
-
-      setActiveSessionId(created.id);
-      setActiveFiscalYear(created.fiscalYear ?? next.fiscalYear ?? activeFiscalYear ?? null);
+      // Return to room selector with the school locked and only remaining rooms shown.
+      setContinuationRoomIds(next.remainingRooms.map((r) => r.id));
       setContinuePromptOpen(false);
-      setStep('audit');
+      setStep('select');
     } catch (err: any) {
       setFlowError(
         err?.response?.data?.message ??
-          'Unable to continue to the next room. You can start another audit manually.'
+          'Unable to load remaining rooms. You can start another audit manually.'
       );
     } finally {
       setContinuing(false);
@@ -176,6 +162,8 @@ export function InventoryAuditPage() {
       {step === 'select' && (
         <AuditRoomSelector
           onSessionStarted={(sessionId, context) => handleSessionStarted(sessionId, context)}
+          preselectedLocationId={continuationRoomIds !== null && activeSchoolId ? activeSchoolId : undefined}
+          allowedRoomIds={continuationRoomIds ?? undefined}
         />
       )}
 
@@ -217,7 +205,7 @@ export function InventoryAuditPage() {
         <DialogTitle>Continue Audit for This School?</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            This room is complete. Continue auditing the next room for the same school?
+            This room is complete. Would you like to pick another room to audit at the same school?
           </DialogContentText>
         </DialogContent>
         <DialogActions>
@@ -230,7 +218,7 @@ export function InventoryAuditPage() {
             disabled={continuing}
             startIcon={continuing ? <CircularProgress size={16} color="inherit" /> : null}
           >
-            {continuing ? 'Continuing...' : 'Continue'}
+            {continuing ? 'Loading...' : 'Pick Next Room'}
           </Button>
         </DialogActions>
       </Dialog>
