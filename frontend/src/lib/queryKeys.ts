@@ -159,6 +159,11 @@ export const queryKeys = {
       [...queryKeys.inventoryAudit.all, 'checkRecent', roomId] as const,
     equipmentLookup: (sessionId: string, assetTag: string) =>
       [...queryKeys.inventoryAudit.all, 'equipmentLookup', sessionId, assetTag] as const,
+    roomStatuses: (locationId: string | null, fiscalYear?: string | null) =>
+      [...queryKeys.inventoryAudit.all, 'roomStatuses', locationId, fiscalYear] as const,
+    fiscalYearAudits: () => [...queryKeys.inventoryAudit.all, 'fiscalYearAudits'] as const,
+    activeFiscalYearAudit: () => [...queryKeys.inventoryAudit.all, 'fiscalYearAudits', 'active'] as const,
+    fiscalYearAudit: (auditId: string) => [...queryKeys.inventoryAudit.all, 'fiscalYearAudits', auditId] as const,
   },
 } as const;
 

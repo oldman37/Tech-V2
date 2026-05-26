@@ -1,5 +1,5 @@
 import { Response } from 'express';
-import { isAppError } from './errors';
+import { isAppError, ConflictError } from './errors';
 import { loggers } from '../lib/logger';
 
 /**
@@ -11,6 +11,19 @@ import { loggers } from '../lib/logger';
  */
 export const handleControllerError = (error: unknown, res: Response): void => {
   // Custom application errors
+  if (error instanceof ConflictError) {
+    const response: any = {
+      error: error.code,
+      code: error.code,
+      message: error.message,
+    };
+    if (error.details) {
+      response.meta = error.details;
+    }
+    res.status(409).json(response);
+    return;
+  }
+
   if (isAppError(error)) {
     const response: any = {
       error: error.code,

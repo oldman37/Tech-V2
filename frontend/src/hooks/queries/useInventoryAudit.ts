@@ -8,6 +8,7 @@ import {
   AuditSessionFilters,
   UnresolvedFilters,
   EquipmentLookupResult,
+  RoomStatusMap,
 } from '@/types/inventoryAudit.types';
 import { queryKeys } from '@/lib/queryKeys';
 
@@ -73,5 +74,42 @@ export function useEquipmentLookup(
     staleTime: 0,
     retry: false,
     ...options,
+  });
+}
+
+export function useRoomStatuses(
+  officeLocationId: string | null,
+  fiscalYear?: string | null,
+  options?: Omit<UseQueryOptions<RoomStatusMap>, 'queryKey' | 'queryFn'>
+) {
+  return useQuery({
+    queryKey: queryKeys.inventoryAudit.roomStatuses(officeLocationId, fiscalYear),
+    queryFn: () => inventoryAuditService.getRoomStatuses(officeLocationId!, fiscalYear),
+    enabled: !!officeLocationId,
+    staleTime: 30_000,
+    ...options,
+  });
+}
+
+export function useFiscalYearAudits() {
+  return useQuery({
+    queryKey: queryKeys.inventoryAudit.fiscalYearAudits(),
+    queryFn: () => inventoryAuditService.getFiscalYearAudits(),
+  });
+}
+
+export function useActiveFiscalYearAudit() {
+  return useQuery({
+    queryKey: queryKeys.inventoryAudit.activeFiscalYearAudit(),
+    queryFn: () => inventoryAuditService.getActiveFiscalYearAudit(),
+    staleTime: 60_000,
+  });
+}
+
+export function useFiscalYearAudit(auditId: string | null) {
+  return useQuery({
+    queryKey: queryKeys.inventoryAudit.fiscalYearAudit(auditId ?? ''),
+    queryFn: () => inventoryAuditService.getFiscalYearAudit(auditId!),
+    enabled: !!auditId,
   });
 }

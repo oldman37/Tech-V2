@@ -7,7 +7,7 @@
  */
 
 import { PrismaClient, Prisma } from '@prisma/client';
-import { NotFoundError, ValidationError, AppError } from '../utils/errors';
+import { NotFoundError, ValidationError, AppError, ConflictError } from '../utils/errors';
 import { logger } from '../lib/logger';
 import {
   StartAuditSessionDto,
@@ -22,6 +22,9 @@ import {
   CheckRecentQueryDto,
   EquipmentLookupQueryDto,
   AddEquipmentToSessionDto,
+  StartFiscalYearAuditDto,
+  CompleteLocationDto,
+  CloseFiscalYearAuditDto,
 } from '../validators/inventoryAudit.validators';
 import { InventoryService } from './inventory.service';
 
@@ -69,7 +72,10 @@ export class InventoryAuditService {
       );
     }
 
-    // 3. Fetch all non-disposed active equipment assigned to this room
+    // 3. Resolve effective fiscal year (use system default when not provided)
+    const effectiveFiscalYear = dto.fiscalYear ?? (await this._getDefaultFiscalYear()) ?? null;
+
+    // 4. Fetch all non-disposed active equipment assigned to this room
     const equipment = await this.prisma.equipment.findMany({
       where: {
         roomId: dto.roomId,
@@ -84,15 +90,60 @@ export class InventoryAuditService {
       },
     });
 
-    // 4. Create the session and audit items in a transaction
+    // 5. Create the session and audit items in a transaction that also performs
+    //    the conflict check atomically (read-then-write in same transaction).
     const session = await this.prisma.$transaction(async (tx) => {
+      // ── CONFLICT CHECK ──────────────────────────────────────────────────
+      // Build fiscal-year match clause to handle null values correctly.
+      const fyWhere: Prisma.InventoryAuditSessionWhereInput =
+        effectiveFiscalYear !== null
+          ? { fiscalYear: effectiveFiscalYear }
+          : { fiscalYear: null };
+
+      const conflicting = await tx.inventoryAuditSession.findFirst({
+        where: {
+          roomId: dto.roomId,
+          OR: [
+            { status: 'IN_PROGRESS' },
+            { status: 'COMPLETED', ...fyWhere },
+          ],
+        },
+        select: {
+          id: true,
+          status: true,
+          conductedById: true,
+          conductedByName: true,
+          fiscalYear: true,
+        },
+      });
+
+      if (conflicting) {
+        if (conflicting.status === 'IN_PROGRESS' && conflicting.conductedById === user.id) {
+          throw new ConflictError(
+            `You already have an audit in progress for this room. Resume it instead.`,
+            { existingSessionId: conflicting.id, canResume: true }
+          );
+        }
+        if (conflicting.status === 'IN_PROGRESS') {
+          throw new ConflictError(
+            `This room is currently being audited by ${conflicting.conductedByName}. Please wait until they finish or ask them to abandon the session.`,
+            { existingSessionId: conflicting.id, canResume: false }
+          );
+        }
+        // COMPLETED
+        throw new ConflictError(
+          `This room has already been audited${conflicting.fiscalYear ? ` for fiscal year ${conflicting.fiscalYear}` : ''}. Audits can only be done once per fiscal year per room.`,
+          { existingSessionId: conflicting.id, canResume: false }
+        );
+      }
+
       const created = await tx.inventoryAuditSession.create({
         data: {
           officeLocationId: dto.officeLocationId,
           roomId: dto.roomId,
           conductedById: user.id,
           conductedByName: user.name,
-          fiscalYear: dto.fiscalYear,
+          fiscalYear: effectiveFiscalYear,
           notes: dto.notes,
           totalItems: equipment.length,
           status: 'IN_PROGRESS',
@@ -462,6 +513,11 @@ export class InventoryAuditService {
     // Count UNVERIFIED items — they become MISSING
     const unverifiedCount = session.items.filter((i) => i.status === 'UNVERIFIED').length;
 
+    // Collect equipment IDs for all items not found in room (already MISSING + UNVERIFIED → MISSING)
+    const notInRoomEquipmentIds = session.items
+      .filter((i) => i.status === 'MISSING' || i.status === 'UNVERIFIED')
+      .map((i) => i.equipmentId);
+
     const [updatedSession] = await this.prisma.$transaction([
       this.prisma.inventoryAuditSession.update({
         where: { id: sessionId },
@@ -483,6 +539,13 @@ export class InventoryAuditService {
         where: { sessionId, status: 'UNVERIFIED' },
         data: { status: 'MISSING', checkedAt: new Date() },
       }),
+      // Remove room assignment for all equipment not found in room → location becomes Unassigned
+      ...(notInRoomEquipmentIds.length > 0
+        ? [this.prisma.equipment.updateMany({
+            where: { id: { in: notInRoomEquipmentIds } },
+            data: { roomId: null },
+          })]
+        : []),
     ]);
 
     logger.info('Inventory audit session completed', {
@@ -490,6 +553,7 @@ export class InventoryAuditService {
       userId: user.id,
       missingCount: updatedSession.missingCount,
       presentCount: updatedSession.presentCount,
+      unassignedFromRoom: notInRoomEquipmentIds.length,
     });
 
     return updatedSession;
@@ -1156,6 +1220,67 @@ export class InventoryAuditService {
     return { presentCount, missingCount, unresolvedCount, additionCount };
   }
 
+  // ---------------------------------------------------------------------------
+  // Room status bulk query (conflict prevention)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Returns audit status for all rooms in an office location for a fiscal year.
+   * Used by the frontend to disable/warn on rooms already in-progress or completed.
+   */
+  async getRoomStatuses(officeLocationId: string, fiscalYear: string | null, user: UserContext) {
+    // Enforce location scoping — level-2 users are silently restricted to their own location
+    const scopedOfficeLocationId = await this._resolveScopedOfficeLocationId(
+      officeLocationId,
+      user
+    );
+
+    // Resolve effective fiscal year (same logic as startSession) so that sessions
+    // stored with the system-configured FY are visible when no FY is passed.
+    const effectiveFiscalYear = fiscalYear ?? (await this._getDefaultFiscalYear()) ?? null;
+
+    const where: Prisma.InventoryAuditSessionWhereInput = {
+      officeLocationId: scopedOfficeLocationId,
+      status: { in: ['IN_PROGRESS', 'COMPLETED'] },
+      ...(effectiveFiscalYear != null ? { fiscalYear: effectiveFiscalYear } : { fiscalYear: null }),
+    };
+
+    const sessions = await this.prisma.inventoryAuditSession.findMany({
+      where,
+      select: {
+        id: true,
+        roomId: true,
+        status: true,
+        conductedById: true,
+        conductedByName: true,
+        fiscalYear: true,
+      },
+    });
+
+    const map: Record<
+      string,
+      {
+        sessionId: string;
+        status: string;
+        conductedById: string;
+        conductedByName: string;
+        fiscalYear: string | null;
+      }
+    > = {};
+    for (const s of sessions) {
+      if (s.roomId) {
+        map[s.roomId] = {
+          sessionId: s.id,
+          status: s.status,
+          conductedById: s.conductedById,
+          conductedByName: s.conductedByName,
+          fiscalYear: s.fiscalYear,
+        };
+      }
+    }
+    return map;
+  }
+
   private async _assertSessionAccess(
     session: { officeLocationId: string; conductedById: string },
     user: UserContext
@@ -1217,5 +1342,272 @@ export class InventoryAuditService {
       select: { currentFiscalYear: true },
     });
     return settings?.currentFiscalYear ?? undefined;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Fiscal Year Audit management
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Start a new fiscal year audit. Only one ACTIVE audit per fiscal year allowed.
+   */
+  async startFiscalYearAudit(dto: StartFiscalYearAuditDto, user: UserContext) {
+    const existing = await this.prisma.fiscalYearAudit.findUnique({
+      where: { fiscalYear: dto.fiscalYear },
+    });
+    if (existing) {
+      if (existing.status === 'ACTIVE') {
+        throw new ConflictError(
+          `A fiscal year audit for ${dto.fiscalYear} is already active.`,
+          { existingAuditId: existing.id, canResume: true }
+        );
+      }
+      throw new ConflictError(
+        `A fiscal year audit for ${dto.fiscalYear} has already been completed.`,
+        { existingAuditId: existing.id, canResume: false }
+      );
+    }
+
+    const locationCount = await this.prisma.officeLocation.count({
+      where: { isActive: true },
+    });
+
+    const audit = await this.prisma.fiscalYearAudit.create({
+      data: {
+        fiscalYear: dto.fiscalYear,
+        status: 'ACTIVE',
+        startedById: user.id,
+        startedByName: user.name,
+        totalLocations: locationCount,
+        notes: dto.notes ?? null,
+      },
+      include: {
+        locationStatuses: {
+          include: { officeLocation: { select: { id: true, name: true, type: true } } },
+        },
+      },
+    });
+
+    logger.info('Fiscal year audit started', {
+      auditId: audit.id,
+      fiscalYear: dto.fiscalYear,
+      userId: user.id,
+    });
+
+    return audit;
+  }
+
+  /**
+   * List all fiscal year audits.
+   */
+  async getFiscalYearAudits(user: UserContext) {
+    return this.prisma.fiscalYearAudit.findMany({
+      orderBy: { startedAt: 'desc' },
+      include: {
+        locationStatuses: {
+          include: { officeLocation: { select: { id: true, name: true, type: true } } },
+          orderBy: { officeLocation: { name: 'asc' } },
+        },
+      },
+    });
+  }
+
+  /**
+   * Get the currently active fiscal year audit, if any.
+   */
+  async getActiveFiscalYearAudit(user: UserContext) {
+    return this.prisma.fiscalYearAudit.findFirst({
+      where: { status: 'ACTIVE' },
+      include: {
+        locationStatuses: {
+          include: { officeLocation: { select: { id: true, name: true, type: true } } },
+          orderBy: { officeLocation: { name: 'asc' } },
+        },
+      },
+    });
+  }
+
+  /**
+   * Get a single fiscal year audit by ID.
+   */
+  async getFiscalYearAudit(auditId: string, user: UserContext) {
+    const audit = await this.prisma.fiscalYearAudit.findUnique({
+      where: { id: auditId },
+      include: {
+        locationStatuses: {
+          include: { officeLocation: { select: { id: true, name: true, type: true } } },
+          orderBy: { officeLocation: { name: 'asc' } },
+        },
+      },
+    });
+    if (!audit) throw new NotFoundError('FiscalYearAudit', auditId);
+    return audit;
+  }
+
+  /**
+   * Mark a specific school/location as completed within a fiscal year audit.
+   * Requires all rooms in the location to have a COMPLETED session for the fiscal year.
+   * Level-2 users can only complete their own location.
+   */
+  async completeLocation(auditId: string, dto: CompleteLocationDto, user: UserContext) {
+    const audit = await this.prisma.fiscalYearAudit.findUnique({
+      where: { id: auditId },
+      include: { locationStatuses: true },
+    });
+    if (!audit) throw new NotFoundError('FiscalYearAudit', auditId);
+    if (audit.status !== 'ACTIVE') {
+      throw new ValidationError('Cannot update a completed fiscal year audit');
+    }
+
+    // Level-2 can only complete their own school
+    if ((user.permLevel ?? 0) < 3) {
+      if (!user.officeLocation) {
+        throw new AppError('You can only complete the audit for your own school', 403, 'FORBIDDEN');
+      }
+      const userLocation = await this.prisma.officeLocation.findFirst({
+        where: { name: user.officeLocation },
+        select: { id: true },
+      });
+      if (!userLocation || userLocation.id !== dto.officeLocationId) {
+        throw new AppError('You can only complete the audit for your own school', 403, 'FORBIDDEN');
+      }
+    }
+
+    // Verify all rooms in this location have a completed session for this fiscal year
+    const [totalRooms, completedRoomCount] = await Promise.all([
+      this.prisma.room.count({
+        where: { locationId: dto.officeLocationId, isActive: true },
+      }),
+      this.prisma.inventoryAuditSession.count({
+        where: {
+          officeLocationId: dto.officeLocationId,
+          fiscalYear: audit.fiscalYear,
+          status: 'COMPLETED',
+        },
+      }),
+    ]);
+
+    // Count unresolved items for this location
+    const unresolvedCount = await this.prisma.inventoryAuditItem.count({
+      where: {
+        session: {
+          officeLocationId: dto.officeLocationId,
+          fiscalYear: audit.fiscalYear,
+        },
+        status: 'MISSING',
+        resolvedAt: null,
+      },
+    });
+
+    if (unresolvedCount > 0) {
+      throw new ValidationError(
+        `Cannot complete this school audit: ${unresolvedCount} unresolved item(s) remain. All missing items must be resolved before marking the school complete.`
+      );
+    }
+
+    if (completedRoomCount < totalRooms) {
+      throw new ValidationError(
+        `Cannot complete this school audit: ${completedRoomCount} of ${totalRooms} rooms have been audited. All rooms must be audited before marking the school complete.`
+      );
+    }
+
+    const locationStatus = await this.prisma.fiscalYearLocationStatus.upsert({
+      where: {
+        fiscalYearAuditId_officeLocationId: {
+          fiscalYearAuditId: auditId,
+          officeLocationId: dto.officeLocationId,
+        },
+      },
+      update: {
+        status: 'COMPLETED',
+        completedAt: new Date(),
+        completedById: user.id,
+        completedByName: user.name,
+        totalRooms,
+        auditedRooms: completedRoomCount,
+      },
+      create: {
+        fiscalYearAuditId: auditId,
+        officeLocationId: dto.officeLocationId,
+        status: 'COMPLETED',
+        completedAt: new Date(),
+        completedById: user.id,
+        completedByName: user.name,
+        totalRooms,
+        auditedRooms: completedRoomCount,
+      },
+    });
+
+    const completedCount = await this.prisma.fiscalYearLocationStatus.count({
+      where: { fiscalYearAuditId: auditId, status: 'COMPLETED' },
+    });
+    await this.prisma.fiscalYearAudit.update({
+      where: { id: auditId },
+      data: { completedLocations: completedCount },
+    });
+
+    logger.info('Fiscal year audit location completed', {
+      auditId,
+      officeLocationId: dto.officeLocationId,
+      userId: user.id,
+    });
+
+    return locationStatus;
+  }
+
+  /**
+   * Close (finalize) a fiscal year audit.
+   * Fails if any unresolved items remain across ALL locations.
+   * Only level-3+ users can close a fiscal year audit.
+   */
+  async closeFiscalYearAudit(auditId: string, dto: CloseFiscalYearAuditDto, user: UserContext) {
+    if ((user.permLevel ?? 0) < 3) {
+      throw new AppError('Only administrators can close a fiscal year audit', 403, 'FORBIDDEN');
+    }
+
+    const audit = await this.prisma.fiscalYearAudit.findUnique({
+      where: { id: auditId },
+      include: { locationStatuses: true },
+    });
+    if (!audit) throw new NotFoundError('FiscalYearAudit', auditId);
+    if (audit.status !== 'ACTIVE') {
+      throw new ValidationError('This fiscal year audit is already completed');
+    }
+
+    const unresolvedCount = await this.prisma.inventoryAuditItem.count({
+      where: {
+        session: { fiscalYear: audit.fiscalYear },
+        status: 'MISSING',
+        resolvedAt: null,
+      },
+    });
+
+    if (unresolvedCount > 0) {
+      throw new ValidationError(
+        `Cannot close fiscal year audit: ${unresolvedCount} unresolved item(s) remain across all schools. All missing items must be resolved before closing.`
+      );
+    }
+
+    const updated = await this.prisma.fiscalYearAudit.update({
+      where: { id: auditId },
+      data: {
+        status: 'COMPLETED',
+        completedAt: new Date(),
+        notes: dto.notes ?? audit.notes,
+      },
+      include: {
+        locationStatuses: {
+          include: { officeLocation: { select: { id: true, name: true, type: true } } },
+        },
+      },
+    });
+
+    logger.info('Fiscal year audit closed', {
+      auditId,
+      fiscalYear: audit.fiscalYear,
+      userId: user.id,
+    });
+
+    return updated;
   }
 }

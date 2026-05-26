@@ -275,3 +275,46 @@ export const AddEquipmentToSessionSchema = z.object({
 });
 
 export type AddEquipmentToSessionDto = z.infer<typeof AddEquipmentToSessionSchema>;
+
+// ---------------------------------------------------------------------------
+// Room status query schema
+// ---------------------------------------------------------------------------
+
+/**
+ * GET /api/inventory-audit/room-statuses
+ * Query parameters for bulk room audit status by location and fiscal year.
+ */
+export const RoomStatusQuerySchema = z.object({
+  officeLocationId: z.string().uuid('Invalid office location ID'),
+  fiscalYear: z
+    .string()
+    .max(10)
+    .regex(/^\d{4}-\d{4}$/, 'fiscalYear must be in YYYY-YYYY format')
+    .optional(),
+});
+
+export type RoomStatusQueryDto = z.infer<typeof RoomStatusQuerySchema>;
+
+// ---- Fiscal Year Audit ----
+
+export const StartFiscalYearAuditSchema = z.object({
+  fiscalYear: z.string().regex(/^\d{4}-\d{4}$/, 'Fiscal year must be in YYYY-YYYY format (e.g., 2025-2026)'),
+  notes: z.string().max(500).optional(),
+});
+export type StartFiscalYearAuditDto = z.infer<typeof StartFiscalYearAuditSchema>;
+
+export const FiscalYearAuditIdParamSchema = z.object({
+  auditId: z.string().uuid('Invalid fiscal year audit ID'),
+});
+export type FiscalYearAuditIdParamDto = z.infer<typeof FiscalYearAuditIdParamSchema>;
+
+export const CompleteLocationSchema = z.object({
+  officeLocationId: z.string().uuid('Invalid office location ID'),
+  notes: z.string().max(500).optional(),
+});
+export type CompleteLocationDto = z.infer<typeof CompleteLocationSchema>;
+
+export const CloseFiscalYearAuditSchema = z.object({
+  notes: z.string().max(1000).optional(),
+});
+export type CloseFiscalYearAuditDto = z.infer<typeof CloseFiscalYearAuditSchema>;

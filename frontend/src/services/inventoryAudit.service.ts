@@ -24,6 +24,12 @@ import {
   EquipmentLookupResult,
   AddEquipmentToSessionRequest,
   AddEquipmentToSessionResponse,
+  RoomStatusMap,
+  FiscalYearAudit,
+  FiscalYearLocationStatus,
+  StartFiscalYearAuditRequest,
+  CompleteLocationRequest,
+  CloseFiscalYearAuditRequest,
 } from '../types/inventoryAudit.types';
 
 class InventoryAuditService {
@@ -162,6 +168,47 @@ class InventoryAuditService {
       `/inventory-audit/sessions/${sessionId}/additions`,
       data
     );
+    return response.data;
+  }
+
+  async getRoomStatuses(
+    officeLocationId: string,
+    fiscalYear?: string | null
+  ): Promise<RoomStatusMap> {
+    const params = new URLSearchParams({ officeLocationId });
+    if (fiscalYear) params.append('fiscalYear', fiscalYear);
+    const response = await api.get(`/inventory-audit/room-statuses?${params}`);
+    return response.data;
+  }
+
+  // Fiscal Year Audit API methods
+  async getFiscalYearAudits(): Promise<FiscalYearAudit[]> {
+    const response = await api.get('/inventory-audit/fiscal-years');
+    return response.data;
+  }
+
+  async getActiveFiscalYearAudit(): Promise<FiscalYearAudit | null> {
+    const response = await api.get('/inventory-audit/fiscal-years/active');
+    return response.data;
+  }
+
+  async getFiscalYearAudit(auditId: string): Promise<FiscalYearAudit> {
+    const response = await api.get(`/inventory-audit/fiscal-years/${auditId}`);
+    return response.data;
+  }
+
+  async startFiscalYearAudit(data: StartFiscalYearAuditRequest): Promise<FiscalYearAudit> {
+    const response = await api.post('/inventory-audit/fiscal-years', data);
+    return response.data;
+  }
+
+  async completeLocation(auditId: string, data: CompleteLocationRequest): Promise<FiscalYearLocationStatus> {
+    const response = await api.post(`/inventory-audit/fiscal-years/${auditId}/complete-location`, data);
+    return response.data;
+  }
+
+  async closeFiscalYearAudit(auditId: string, data: CloseFiscalYearAuditRequest = {}): Promise<FiscalYearAudit> {
+    const response = await api.post(`/inventory-audit/fiscal-years/${auditId}/close`, data);
     return response.data;
   }
 }

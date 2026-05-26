@@ -200,6 +200,58 @@ export interface ExportAuditHistoryFilters {
 }
 
 // ---------------------------------------------------------------------------
+// Fiscal Year Audit types
+// ---------------------------------------------------------------------------
+
+export type FiscalYearAuditStatus = 'ACTIVE' | 'COMPLETED';
+export type LocationAuditStatus = 'IN_PROGRESS' | 'COMPLETED';
+
+export interface FiscalYearLocationStatus {
+  id: string;
+  fiscalYearAuditId: string;
+  officeLocationId: string;
+  status: LocationAuditStatus;
+  completedAt: string | null;
+  completedById: string | null;
+  completedByName: string | null;
+  totalRooms: number;
+  auditedRooms: number;
+  createdAt: string;
+  updatedAt: string;
+  officeLocation?: { id: string; name: string; type: string };
+}
+
+export interface FiscalYearAudit {
+  id: string;
+  fiscalYear: string;
+  status: FiscalYearAuditStatus;
+  startedAt: string;
+  completedAt: string | null;
+  startedById: string;
+  startedByName: string;
+  totalLocations: number;
+  completedLocations: number;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+  locationStatuses: FiscalYearLocationStatus[];
+}
+
+export interface StartFiscalYearAuditRequest {
+  fiscalYear: string;
+  notes?: string;
+}
+
+export interface CompleteLocationRequest {
+  officeLocationId: string;
+  notes?: string;
+}
+
+export interface CloseFiscalYearAuditRequest {
+  notes?: string;
+}
+
+// ---------------------------------------------------------------------------
 // Equipment addition types
 // ---------------------------------------------------------------------------
 
@@ -232,4 +284,25 @@ export interface AddEquipmentToSessionResponse {
     unresolvedCount: number;
     additionCount: number;
   };
+}
+
+// ---------------------------------------------------------------------------
+// Room conflict prevention types
+// ---------------------------------------------------------------------------
+
+export interface RoomAuditStatus {
+  sessionId: string;
+  status: 'IN_PROGRESS' | 'COMPLETED';
+  conductedById: string;
+  conductedByName: string;
+  fiscalYear: string | null;
+}
+
+/** Map of roomId → RoomAuditStatus */
+export type RoomStatusMap = Record<string, RoomAuditStatus>;
+
+/** Structured conflict error payload returned in 409 response `meta` field */
+export interface AuditConflictMeta {
+  existingSessionId: string;
+  canResume: boolean;
 }

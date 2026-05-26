@@ -26,6 +26,11 @@ import {
   CheckRecentQuerySchema,
   EquipmentLookupQuerySchema,
   AddEquipmentToSessionSchema,
+  RoomStatusQuerySchema,
+  StartFiscalYearAuditSchema,
+  FiscalYearAuditIdParamSchema,
+  CompleteLocationSchema,
+  CloseFiscalYearAuditSchema,
 } from '../validators/inventoryAudit.validators';
 import * as auditController from '../controllers/inventoryAudit.controller';
 
@@ -41,8 +46,53 @@ router.use(validateCsrfToken);
 router.use(requireModule('TECHNOLOGY', 2));
 
 // ---------------------------------------------------------------------------
+// Fiscal Year Audit routes
+// ---------------------------------------------------------------------------
+
+router.post(
+  '/inventory-audit/fiscal-years',
+  validateRequest(StartFiscalYearAuditSchema, 'body'),
+  auditController.startFiscalYearAudit
+);
+
+router.get('/inventory-audit/fiscal-years', auditController.getFiscalYearAudits);
+
+router.get('/inventory-audit/fiscal-years/active', auditController.getActiveFiscalYearAudit);
+
+router.get(
+  '/inventory-audit/fiscal-years/:auditId',
+  validateRequest(FiscalYearAuditIdParamSchema, 'params'),
+  auditController.getFiscalYearAudit
+);
+
+router.post(
+  '/inventory-audit/fiscal-years/:auditId/complete-location',
+  validateRequest(FiscalYearAuditIdParamSchema, 'params'),
+  validateRequest(CompleteLocationSchema, 'body'),
+  auditController.completeLocation
+);
+
+router.post(
+  '/inventory-audit/fiscal-years/:auditId/close',
+  validateRequest(FiscalYearAuditIdParamSchema, 'params'),
+  validateRequest(CloseFiscalYearAuditSchema, 'body'),
+  auditController.closeFiscalYearAudit
+);
+
+// ---------------------------------------------------------------------------
 // Session routes
 // ---------------------------------------------------------------------------
+
+/**
+ * GET /api/inventory-audit/room-statuses
+ * Returns IN_PROGRESS/COMPLETED room sessions for an office location + fiscal year.
+ * Used by AuditRoomSelector to disable/warn on occupied rooms.
+ */
+router.get(
+  '/inventory-audit/room-statuses',
+  validateRequest(RoomStatusQuerySchema, 'query'),
+  auditController.getRoomStatuses
+);
 
 /**
  * GET /api/inventory-audit/sessions

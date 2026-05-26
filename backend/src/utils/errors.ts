@@ -67,6 +67,16 @@ export class NotFoundError extends AppError {
 }
 
 /**
+ * Conflict error (409 Conflict)
+ * Used when an operation cannot proceed because of a conflicting resource state.
+ */
+export class ConflictError extends AppError {
+  constructor(message: string, meta?: Record<string, unknown>) {
+    super(message, 409, 'CONFLICT', meta);
+  }
+}
+
+/**
  * External API error (502 Bad Gateway)
  * Used when an external service (like Microsoft Graph) fails
  */

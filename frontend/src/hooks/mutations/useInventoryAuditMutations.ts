@@ -7,6 +7,9 @@ import {
   BulkUpdateAuditItemsRequest,
   ResolveAuditItemRequest,
   AddEquipmentToSessionRequest,
+  StartFiscalYearAuditRequest,
+  CompleteLocationRequest,
+  CloseFiscalYearAuditRequest,
 } from '@/types/inventoryAudit.types';
 import { queryKeys } from '@/lib/queryKeys';
 
@@ -16,8 +19,13 @@ export function useStartAuditSession() {
   return useMutation({
     mutationFn: (data: StartAuditSessionRequest) =>
       inventoryAuditService.startSession(data),
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.inventoryAudit.sessions() });
+      // Use a 3-element prefix so all FY variants for this location are invalidated.
+      queryClient.invalidateQueries({
+        queryKey: [...queryKeys.inventoryAudit.all, 'roomStatuses', variables.officeLocationId],
+        exact: false,
+      });
     },
   });
 }
@@ -48,6 +56,11 @@ export function useAbandonAuditSession() {
     onSuccess: (_, sessionId) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.inventoryAudit.session(sessionId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.inventoryAudit.sessions() });
+      // Abandoning a room frees it up — invalidate all room status cache entries.
+      queryClient.invalidateQueries({
+        queryKey: [...queryKeys.inventoryAudit.all, 'roomStatuses'],
+        exact: false,
+      });
     },
   });
 }
@@ -120,6 +133,42 @@ export function useAddEquipmentToAudit() {
       queryClient.invalidateQueries({
         queryKey: queryKeys.inventoryAudit.session(sessionId),
       });
+    },
+  });
+}
+
+export function useStartFiscalYearAudit() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: StartFiscalYearAuditRequest) =>
+      inventoryAuditService.startFiscalYearAudit(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventoryAudit.fiscalYearAudits() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventoryAudit.activeFiscalYearAudit() });
+    },
+  });
+}
+
+export function useCompleteLocation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ auditId, data }: { auditId: string; data: CompleteLocationRequest }) =>
+      inventoryAuditService.completeLocation(auditId, data),
+    onSuccess: (_, { auditId }) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventoryAudit.fiscalYearAudit(auditId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventoryAudit.activeFiscalYearAudit() });
+    },
+  });
+}
+
+export function useCloseFiscalYearAudit() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ auditId, data }: { auditId: string; data?: CloseFiscalYearAuditRequest }) =>
+      inventoryAuditService.closeFiscalYearAudit(auditId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventoryAudit.fiscalYearAudits() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventoryAudit.activeFiscalYearAudit() });
     },
   });
 }

@@ -15,10 +15,14 @@ import {
   Typography,
 } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import { useAuditSession } from '@/hooks/queries/useInventoryAudit';
+import { useAuditSession, useActiveFiscalYearAudit } from '@/hooks/queries/useInventoryAudit';
+import { useCompleteLocation } from '@/hooks/mutations/useInventoryAuditMutations';
 import { AuditRoomSelector } from '@/components/inventory-audit/AuditRoomSelector';
 import { AuditItemList } from '@/components/inventory-audit/AuditItemList';
+import { FiscalYearAuditEntry } from '@/components/inventory-audit/FiscalYearAuditEntry';
+import { FiscalYearAuditHeader } from '@/components/inventory-audit/FiscalYearAuditHeader';
 import inventoryAuditService from '@/services/inventoryAudit.service';
+import { FiscalYearAudit } from '@/types/inventoryAudit.types';
 
 type AuditStep = 'select' | 'audit' | 'summary';
 
@@ -73,12 +77,42 @@ export function InventoryAuditPage() {
   const [step, setStep] = useState<AuditStep>(resumeId ? 'audit' : 'select');
   const [activeSessionId, setActiveSessionId] = useState<string | null>(resumeId ?? null);
   const [activeSchoolId, setActiveSchoolId] = useState<string | null>(null);
-  const [activeFiscalYear, setActiveFiscalYear] = useState<string | null>(null);
   const [continuePromptOpen, setContinuePromptOpen] = useState(false);
   const [flowError, setFlowError] = useState('');
   const [continuing, setContinuing] = useState(false);
   const [schoolFullyAudited, setSchoolFullyAudited] = useState(false);
   const [continuationRoomIds, setContinuationRoomIds] = useState<string[] | null>(null);
+
+  // Mark school complete state
+  const [markSchoolCompleteOpen, setMarkSchoolCompleteOpen] = useState(false);
+  const [markCompleteError, setMarkCompleteError] = useState('');
+
+  // Local override so the UI transitions immediately after start/resume
+  // without waiting for the background refetch to resolve.
+  const [localFyAudit, setLocalFyAudit] = useState<FiscalYearAudit | null>(null);
+
+  const {
+    data: activeFiscalYearAudit,
+    isLoading: fiscalYearLoading,
+    refetch: refetchFiscalYearAudit,
+  } = useActiveFiscalYearAudit();
+
+  // Use the locally-set audit first; fall back to the query result.
+  const effectiveFyAudit = localFyAudit ?? activeFiscalYearAudit ?? null;
+
+  const completeLocationMutation = useCompleteLocation();
+
+  const handleAuditStarted = (audit: FiscalYearAudit) => {
+    setLocalFyAudit(audit);
+    setStep('select');
+    refetchFiscalYearAudit();
+  };
+
+  const handleAuditResumed = (audit: FiscalYearAudit) => {
+    setLocalFyAudit(audit);
+    setStep('select');
+    refetchFiscalYearAudit();
+  };
 
   const handleSessionStarted = (
     sessionId: string,
@@ -87,9 +121,6 @@ export function InventoryAuditPage() {
     setActiveSessionId(sessionId);
     if (context?.officeLocationId) {
       setActiveSchoolId(context.officeLocationId);
-    }
-    if (context?.fiscalYear !== undefined) {
-      setActiveFiscalYear(context.fiscalYear ?? null);
     }
     setSchoolFullyAudited(false);
     setContinuationRoomIds(null);
@@ -100,7 +131,6 @@ export function InventoryAuditPage() {
   const handleAuditCompleted = ({
     sessionId,
     officeLocationId,
-    fiscalYear,
   }: {
     sessionId: string;
     officeLocationId: string;
@@ -108,7 +138,6 @@ export function InventoryAuditPage() {
   }) => {
     setActiveSessionId(sessionId);
     setActiveSchoolId(officeLocationId);
-    setActiveFiscalYear(fiscalYear);
     setSchoolFullyAudited(false);
     setContinuePromptOpen(true);
     setFlowError('');
@@ -125,7 +154,8 @@ export function InventoryAuditPage() {
     setFlowError('');
 
     try {
-      const next = await inventoryAuditService.getNextRoom(activeSchoolId, activeFiscalYear ?? undefined);
+      const fiscalYear = effectiveFyAudit?.fiscalYear ?? undefined;
+      const next = await inventoryAuditService.getNextRoom(activeSchoolId, fiscalYear);
 
       if (!next.remainingRooms || next.remainingRooms.length === 0) {
         setSchoolFullyAudited(true);
@@ -133,13 +163,13 @@ export function InventoryAuditPage() {
         return;
       }
 
-      // Return to room selector with the school locked and only remaining rooms shown.
       setContinuationRoomIds(next.remainingRooms.map((r) => r.id));
       setContinuePromptOpen(false);
       setStep('select');
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { message?: string } } };
       setFlowError(
-        err?.response?.data?.message ??
+        axiosErr?.response?.data?.message ??
           'Unable to load remaining rooms. You can start another audit manually.'
       );
     } finally {
@@ -147,11 +177,66 @@ export function InventoryAuditPage() {
     }
   };
 
+  const handleMarkSchoolComplete = () => {
+    setMarkCompleteError('');
+    setMarkSchoolCompleteOpen(true);
+  };
+
+  const handleConfirmMarkSchoolComplete = () => {
+    if (!effectiveFyAudit || !activeSchoolId) return;
+    setMarkCompleteError('');
+    completeLocationMutation.mutate(
+      { auditId: effectiveFyAudit.id, data: { officeLocationId: activeSchoolId } },
+      {
+        onSuccess: () => {
+          setMarkSchoolCompleteOpen(false);
+          refetchFiscalYearAudit();
+        },
+        onError: (err: unknown) => {
+          const axiosErr = err as { response?: { data?: { message?: string } } };
+          const message =
+            axiosErr?.response?.data?.message ?? 'Failed to mark school as complete.';
+          setMarkCompleteError(message);
+        },
+      }
+    );
+  };
+
+  // Loading state for fiscal year audit (initial load only)
+  if (fiscalYearLoading && !effectiveFyAudit) {
+    return (
+      <Box sx={{ p: { xs: 2, md: 3 }, display: 'flex', justifyContent: 'center', pt: 8 }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  // No active fiscal year audit — show entry screen
+  if (!effectiveFyAudit) {
+    return (
+      <Box sx={{ p: { xs: 2, md: 3 } }}>
+        <Typography variant="h5" gutterBottom>
+          Inventory Audit
+        </Typography>
+        <FiscalYearAuditEntry
+          onAuditStarted={handleAuditStarted}
+          onAuditResumed={handleAuditResumed}
+        />
+      </Box>
+    );
+  }
+
+  // Active fiscal year audit — show the room audit flow
   return (
     <Box sx={{ p: { xs: 2, md: 3 } }}>
       <Typography variant="h5" gutterBottom>
         Inventory Audit
       </Typography>
+
+      <FiscalYearAuditHeader
+        audit={effectiveFyAudit}
+        onClose={() => { setLocalFyAudit(null); refetchFiscalYearAudit(); }}
+      />
 
       {flowError && (
         <Alert severity="error" sx={{ mb: 2 }}>
@@ -164,6 +249,7 @@ export function InventoryAuditPage() {
           onSessionStarted={(sessionId, context) => handleSessionStarted(sessionId, context)}
           preselectedLocationId={continuationRoomIds !== null && activeSchoolId ? activeSchoolId : undefined}
           allowedRoomIds={continuationRoomIds ?? undefined}
+          fiscalYear={effectiveFyAudit.fiscalYear}
         />
       )}
 
@@ -178,9 +264,19 @@ export function InventoryAuditPage() {
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
           <CompletedSummary sessionId={activeSessionId} />
           {schoolFullyAudited && (
-            <Alert severity="success">
-              All active rooms for this school are complete for the selected fiscal year.
-            </Alert>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+              <Alert severity="success">
+                All active rooms for this school are complete for the selected fiscal year.
+              </Alert>
+              <Button
+                variant="contained"
+                color="success"
+                sx={{ alignSelf: 'flex-start' }}
+                onClick={handleMarkSchoolComplete}
+              >
+                Mark School Complete
+              </Button>
+            </Box>
           )}
           <Box>
             <Button
@@ -189,7 +285,6 @@ export function InventoryAuditPage() {
               onClick={() => {
                 setActiveSessionId(null);
                 setActiveSchoolId(null);
-                setActiveFiscalYear(null);
                 setSchoolFullyAudited(false);
                 setFlowError('');
                 setStep('select');
@@ -219,6 +314,49 @@ export function InventoryAuditPage() {
             startIcon={continuing ? <CircularProgress size={16} color="inherit" /> : null}
           >
             {continuing ? 'Loading...' : 'Pick Next Room'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Mark School Complete confirmation dialog */}
+      <Dialog
+        open={markSchoolCompleteOpen}
+        onClose={() => !completeLocationMutation.isPending && setMarkSchoolCompleteOpen(false)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>Mark School as Complete?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            This will record that all rooms at this school have been audited for FY{' '}
+            {effectiveFyAudit.fiscalYear}. All unresolved missing items must be resolved first.
+          </DialogContentText>
+          {markCompleteError && (
+            <Alert severity="error" sx={{ mt: 2 }}>
+              {markCompleteError}
+            </Alert>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => setMarkSchoolCompleteOpen(false)}
+            color="inherit"
+            disabled={completeLocationMutation.isPending}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            color="success"
+            onClick={handleConfirmMarkSchoolComplete}
+            disabled={completeLocationMutation.isPending}
+            startIcon={
+              completeLocationMutation.isPending ? (
+                <CircularProgress size={16} color="inherit" />
+              ) : null
+            }
+          >
+            {completeLocationMutation.isPending ? 'Saving…' : 'Confirm'}
           </Button>
         </DialogActions>
       </Dialog>

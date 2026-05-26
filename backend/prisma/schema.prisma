@@ -292,6 +292,7 @@ model OfficeLocation {
   transportationRequests  TransportationRequest[]
   deviceAssignments       DeviceAssignment[]
   auditSessions           InventoryAuditSession[]
+  fiscalYearLocationStatuses FiscalYearLocationStatus[]
 
   @@index([isActive])
   @@index([type])
@@ -539,6 +540,8 @@ model User {
   dmYearRollovers               DmYearRolloverHistory[]
   conductedAuditSessions        InventoryAuditSession[] @relation("AuditSessionConductor")
   resolvedAuditItems            InventoryAuditItem[]    @relation("AuditItemResolver")
+  fiscalYearAuditsStarted       FiscalYearAudit[]       @relation("FiscalYearAuditStartedBy")
+  locationAuditsCompleted       FiscalYearLocationStatus[] @relation("LocationAuditCompleter")
 
   @@index([employeeId])
   @@map("users")
@@ -1546,4 +1549,54 @@ model InventoryAuditItem {
   @@index([resolvedAt])
   @@index([isAddition])
   @@map("inventory_audit_items")
+}
+
+// ============================================
+// FISCAL YEAR AUDIT
+// ============================================
+
+model FiscalYearAudit {
+  id                  String   @id @default(uuid())
+  fiscalYear          String   // e.g., "2025-2026"
+  status              String   @default("ACTIVE") // ACTIVE | COMPLETED
+  startedAt           DateTime @default(now())
+  completedAt         DateTime?
+  startedById         String
+  startedByName       String
+  totalLocations      Int      @default(0)
+  completedLocations  Int      @default(0)
+  notes               String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  startedBy           User     @relation("FiscalYearAuditStartedBy", fields: [startedById], references: [id])
+  locationStatuses    FiscalYearLocationStatus[]
+
+  @@unique([fiscalYear])
+  @@index([status])
+  @@index([fiscalYear])
+  @@map("fiscal_year_audits")
+}
+
+model FiscalYearLocationStatus {
+  id                  String   @id @default(uuid())
+  fiscalYearAuditId   String
+  officeLocationId    String
+  status              String   @default("IN_PROGRESS") // IN_PROGRESS | COMPLETED
+  completedAt         DateTime?
+  completedById       String?
+  completedByName     String?
+  totalRooms          Int      @default(0)
+  auditedRooms        Int      @default(0)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  fiscalYearAudit     FiscalYearAudit  @relation(fields: [fiscalYearAuditId], references: [id], onDelete: Cascade)
+  officeLocation      OfficeLocation   @relation(fields: [officeLocationId], references: [id])
+  completedBy         User?            @relation("LocationAuditCompleter", fields: [completedById], references: [id])
+
+  @@unique([fiscalYearAuditId, officeLocationId])
+  @@index([fiscalYearAuditId])
+  @@index([officeLocationId])
+  @@map("fiscal_year_location_statuses")
 }

@@ -350,3 +350,97 @@ export const addEquipmentToSession = async (req: AuthRequest, res: Response) => 
     handleControllerError(error, res);
   }
 };
+
+// ---------------------------------------------------------------------------
+// GET /api/inventory-audit/room-statuses
+// ---------------------------------------------------------------------------
+
+export const getRoomStatuses = async (req: AuthRequest, res: Response) => {
+  try {
+    const user = buildUserContext(req);
+    const { officeLocationId, fiscalYear } = req.query as {
+      officeLocationId: string;
+      fiscalYear?: string;
+    };
+    const result = await auditService.getRoomStatuses(
+      officeLocationId,
+      fiscalYear ?? null,
+      user
+    );
+
+    logger.info('Room audit statuses retrieved', {
+      userId: user.id,
+      officeLocationId,
+      fiscalYear: fiscalYear ?? null,
+    });
+
+    res.json(result);
+  } catch (error) {
+    handleControllerError(error, res);
+  }
+};
+
+// ---------------------------------------------------------------------------
+// Fiscal Year Audit controllers
+// ---------------------------------------------------------------------------
+
+export const startFiscalYearAudit = async (req: AuthRequest, res: Response) => {
+  try {
+    const user = buildUserContext(req);
+    const result = await auditService.startFiscalYearAudit(req.body, user);
+    logger.info('Fiscal year audit started via API', { auditId: result.id, userId: user.id });
+    res.status(201).json(result);
+  } catch (error) {
+    handleControllerError(error, res);
+  }
+};
+
+export const getFiscalYearAudits = async (req: AuthRequest, res: Response) => {
+  try {
+    const user = buildUserContext(req);
+    const result = await auditService.getFiscalYearAudits(user);
+    res.json(result);
+  } catch (error) {
+    handleControllerError(error, res);
+  }
+};
+
+export const getActiveFiscalYearAudit = async (req: AuthRequest, res: Response) => {
+  try {
+    const user = buildUserContext(req);
+    const result = await auditService.getActiveFiscalYearAudit(user);
+    res.json(result ?? null);
+  } catch (error) {
+    handleControllerError(error, res);
+  }
+};
+
+export const getFiscalYearAudit = async (req: AuthRequest, res: Response) => {
+  try {
+    const user = buildUserContext(req);
+    const result = await auditService.getFiscalYearAudit(req.params.auditId as string, user);
+    res.json(result);
+  } catch (error) {
+    handleControllerError(error, res);
+  }
+};
+
+export const completeLocation = async (req: AuthRequest, res: Response) => {
+  try {
+    const user = buildUserContext(req);
+    const result = await auditService.completeLocation(req.params.auditId as string, req.body, user);
+    res.json(result);
+  } catch (error) {
+    handleControllerError(error, res);
+  }
+};
+
+export const closeFiscalYearAudit = async (req: AuthRequest, res: Response) => {
+  try {
+    const user = buildUserContext(req);
+    const result = await auditService.closeFiscalYearAudit(req.params.auditId as string, req.body, user);
+    res.json(result);
+  } catch (error) {
+    handleControllerError(error, res);
+  }
+};
