@@ -42,6 +42,9 @@ const NAV_SECTIONS: NavSection[] = [
       { label: 'Equipment Search', icon: '🔍', path: '/equipment-search', requireTech: true },
       { label: 'Disposed Equipment', icon: '🗑️', path: '/disposed-equipment', requireTech: true },
       { label: 'Purge Disposed', icon: '⚠️', path: '/purge-disposed', requireTech: true },
+      { label: 'Inventory Audit', icon: '📋', path: '/inventory-audit', requireTech: true },
+      { label: 'Audit History', icon: '📅', path: '/inventory-audit/history', requireTech: true },
+      { label: 'Unresolved Items', icon: '🔎', path: '/inventory-audit/unresolved', requireTech: true },
     ],
   },
   {

@@ -55,6 +55,9 @@ import DmRolloverPage from './pages/DeviceManagement/DmRolloverPage'
 import IncidentsPage from './pages/incidents/IncidentsPage'
 import IncidentDetailPage from './pages/incidents/IncidentDetailPage'
 import IncidentWizardPage from './pages/incidents/IncidentWizardPage'
+import InventoryAuditPage from './pages/InventoryAuditPage'
+import InventoryAuditHistoryPage from './pages/InventoryAuditHistoryPage'
+import UnresolvedInventoryPage from './pages/UnresolvedInventoryPage'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { PwaUpdatePrompt } from './components/layout/PwaUpdatePrompt'
 import { PwaInstallPrompt } from './components/layout/PwaInstallPrompt'
@@ -567,6 +570,36 @@ function App() {
             <ProtectedRoute requireDeviceManagement>
               <AppLayout>
                 <IncidentDetailPage />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/inventory-audit"
+          element={
+            <ProtectedRoute requireTech>
+              <AppLayout>
+                <InventoryAuditPage />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/inventory-audit/history"
+          element={
+            <ProtectedRoute requireTech>
+              <AppLayout>
+                <InventoryAuditHistoryPage />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/inventory-audit/unresolved"
+          element={
+            <ProtectedRoute requireTech>
+              <AppLayout>
+                <UnresolvedInventoryPage />
               </AppLayout>
             </ProtectedRoute>
           }

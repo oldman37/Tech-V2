@@ -144,6 +144,22 @@ export const queryKeys = {
     detail: (id: string) => [...queryKeys.workOrders.details(), id] as const,
     stats: (params?: Record<string, unknown>) => [...queryKeys.workOrders.all, 'stats', params] as const,
   },
+
+  // Inventory Audit queries
+  inventoryAudit: {
+    all: ['inventoryAudit'] as const,
+    sessions: () => [...queryKeys.inventoryAudit.all, 'sessions'] as const,
+    sessionList: (params?: Record<string, unknown>) =>
+      [...queryKeys.inventoryAudit.sessions(), 'list', params] as const,
+    session: (id: string) =>
+      [...queryKeys.inventoryAudit.sessions(), 'detail', id] as const,
+    unresolved: (params?: Record<string, unknown>) =>
+      [...queryKeys.inventoryAudit.all, 'unresolved', params] as const,
+    checkRecent: (roomId: string) =>
+      [...queryKeys.inventoryAudit.all, 'checkRecent', roomId] as const,
+    equipmentLookup: (sessionId: string, assetTag: string) =>
+      [...queryKeys.inventoryAudit.all, 'equipmentLookup', sessionId, assetTag] as const,
+  },
 } as const;
 
 // Export type for type-safe usage

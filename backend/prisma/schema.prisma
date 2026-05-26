@@ -99,6 +99,7 @@ model equipment {
   deviceAssignments DeviceAssignment[]
   damageIncidents   DamageIncident[]
   repairTickets     RepairTicket[]
+  auditItems        InventoryAuditItem[]
 
   @@index([assetTag])
   @@index([locationId])
@@ -290,6 +291,7 @@ model OfficeLocation {
   tickets                 Ticket[]
   transportationRequests  TransportationRequest[]
   deviceAssignments       DeviceAssignment[]
+  auditSessions           InventoryAuditSession[]
 
   @@index([isActive])
   @@index([type])
@@ -408,6 +410,7 @@ model Room {
   tickets         Ticket[]
   primaryUsers    User[]               @relation("UserPrimaryRoom")
   userAssignments UserRoomAssignment[] @relation("RoomUserAssignments")
+  auditSessions   InventoryAuditSession[]
 
   @@unique([locationId, name])
   @@index([isActive])
@@ -534,6 +537,8 @@ model User {
   damageInvoicesCreated         DamageInvoice[]       @relation("DamageInvoiceCreator")
   invoicePaymentsRecorded       InvoicePayment[]
   dmYearRollovers               DmYearRolloverHistory[]
+  conductedAuditSessions        InventoryAuditSession[] @relation("AuditSessionConductor")
+  resolvedAuditItems            InventoryAuditItem[]    @relation("AuditItemResolver")
 
   @@index([employeeId])
   @@map("users")
@@ -1435,4 +1440,110 @@ model DmYearRolloverHistory {
 
   @@map("dm_year_rollover_history")
   @@index([schoolYear])
+}
+
+// ============================================
+// INVENTORY AUDIT (PHYSICAL AUDIT)
+// ============================================
+
+model InventoryAuditSession {
+  id              String    @id @default(uuid())
+
+  // Scope
+  officeLocationId  String
+  roomId            String
+
+  // Auditor
+  conductedById     String
+  conductedByName   String    // Cached display name
+
+  // Timing
+  startedAt         DateTime  @default(now())
+  completedAt       DateTime?
+
+  // Status: IN_PROGRESS | COMPLETED | ABANDONED
+  status            String    @default("IN_PROGRESS")
+
+  // Fiscal year (matches purchase_orders pattern)
+  fiscalYear        String?
+
+  // Summary counts (denormalized for fast reads)
+  totalItems        Int       @default(0)
+  presentCount      Int       @default(0)
+  missingCount      Int       @default(0)
+  unresolvedCount   Int       @default(0)
+  additionCount     Int       @default(0)
+
+  // Notes
+  notes             String?
+
+  // Timestamps
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  // Relations
+  officeLocation    OfficeLocation  @relation(fields: [officeLocationId], references: [id])
+  room              Room            @relation(fields: [roomId], references: [id])
+  conductedBy       User            @relation("AuditSessionConductor", fields: [conductedById], references: [id])
+  items             InventoryAuditItem[]
+
+  @@index([officeLocationId])
+  @@index([roomId])
+  @@index([conductedById])
+  @@index([status])
+  @@index([fiscalYear])
+  @@index([startedAt])
+  @@index([officeLocationId, roomId, fiscalYear])
+  @@map("inventory_audit_sessions")
+}
+
+model InventoryAuditItem {
+  id              String    @id @default(uuid())
+
+  // Parent session
+  sessionId       String
+
+  // Equipment being audited
+  equipmentId     String
+
+  // Snapshot of equipment fields at audit time
+  equipmentTag    String
+  equipmentName   String
+  equipmentSerial String?
+
+  // Audit result: PRESENT | MISSING | UNVERIFIED
+  status          String
+
+  // Addition flag: true when item was not in original session snapshot but found in room
+  isAddition          Boolean   @default(false)
+
+  // Snapshot of where the equipment was assigned BEFORE this audit moved it
+  previousRoomId      String?
+  previousLocationId  String?
+
+  // Resolution (populated when admin resolves a MISSING item)
+  resolvedAt      DateTime?
+  resolvedById    String?
+  resolvedByName  String?
+  resolvedAction  String?
+  // FOUND_IN_ROOM | FOUND_ELSEWHERE | CONFIRMED_LOST | EQUIPMENT_UPDATED
+  resolutionNotes String?
+
+  // Timestamps
+  checkedAt       DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  session         InventoryAuditSession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  equipment       equipment              @relation(fields: [equipmentId], references: [id])
+  resolvedBy      User?                  @relation("AuditItemResolver", fields: [resolvedById], references: [id])
+
+  @@unique([sessionId, equipmentId])
+  @@index([sessionId])
+  @@index([equipmentId])
+  @@index([status])
+  @@index([resolvedAt])
+  @@index([isAddition])
+  @@map("inventory_audit_items")
 }
