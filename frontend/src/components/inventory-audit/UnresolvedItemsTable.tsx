@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { ChangeEvent, useEffect, useState } from 'react';
 import {
   Alert,
   Box,
@@ -13,6 +13,7 @@ import {
   FormControl,
   InputLabel,
   MenuItem,
+  Pagination,
   Select,
   SelectChangeEvent,
   TextField,
@@ -39,6 +40,8 @@ function daysAgo(dateStr: string | null): number | null {
   const ms = Date.now() - new Date(dateStr).getTime();
   return Math.floor(ms / (1000 * 60 * 60 * 24));
 }
+
+const PAGE_SIZE = 50;
 
 interface ResolveDialogProps {
   item: AuditItem | null;
@@ -174,8 +177,21 @@ interface UnresolvedItemsTableProps {
 export function UnresolvedItemsTable({ filters = {} }: UnresolvedItemsTableProps) {
   const [resolveItem, setResolveItem] = useState<AuditItem | null>(null);
   const [detailItem, setDetailItem] = useState<AuditItem | null>(null);
+  const [page, setPage] = useState(1);
 
-  const { data, isLoading, error, refetch } = useUnresolvedItems(filters);
+  // Reset to page 1 whenever any filter changes
+  useEffect(() => {
+    setPage(1);
+  }, [filters.officeLocationId, filters.roomId, filters.fiscalYear]);
+
+  const { data, isLoading, error, refetch } = useUnresolvedItems(
+    {
+      ...filters,
+      page,
+      limit: PAGE_SIZE,
+    },
+    { placeholderData: (prev) => prev }
+  );
 
   const items = data?.items ?? [];
 
@@ -259,6 +275,10 @@ export function UnresolvedItemsTable({ filters = {} }: UnresolvedItemsTableProps
     },
   ];
 
+  const handlePageChange = (_event: ChangeEvent<unknown>, value: number) => {
+    setPage(value);
+  };
+
   const rowActions = (item: AuditItem) => (
     <Button size="small" variant="outlined" color="primary" onClick={() => setResolveItem(item)}>
       Resolve
@@ -275,10 +295,33 @@ export function UnresolvedItemsTable({ filters = {} }: UnresolvedItemsTableProps
         emptyMessage="No unresolved items found."
       />
 
-      {data && data.totalPages > 1 && (
-        <Typography variant="caption" color="text.secondary" sx={{ mt: 1 }}>
-          Showing {items.length} of {data.total} items
-        </Typography>
+      {data && data.total > 0 && (
+        <Box
+          sx={{
+            mt: 1,
+            display: 'flex',
+            flexDirection: { xs: 'column', sm: 'row' },
+            alignItems: { xs: 'flex-start', sm: 'center' },
+            justifyContent: 'space-between',
+            gap: 1,
+          }}
+        >
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+            Showing {(page - 1) * PAGE_SIZE + 1}–{(page - 1) * PAGE_SIZE + items.length} of{' '}
+            {data.total} items
+          </Typography>
+          {data.totalPages > 1 && (
+            <Pagination
+              count={data.totalPages}
+              page={page}
+              onChange={handlePageChange}
+              color="primary"
+              size="small"
+              showFirstButton
+              showLastButton
+            />
+          )}
+        </Box>
       )}
 
       <ResolveDialog
