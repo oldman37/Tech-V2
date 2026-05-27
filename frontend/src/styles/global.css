@@ -310,7 +310,6 @@ body {
 .table td {
   padding: 1rem 1.5rem;
   border-bottom: 1px solid var(--slate-200);
-  word-break: break-word;
   overflow-wrap: break-word;
 }
 

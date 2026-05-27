@@ -191,7 +191,7 @@ export const InventoryManagement = () => {
       hideOnMobile: true,
       render: (item) =>
         item.serialNumber ? (
-          <span style={{ fontFamily: 'monospace', fontSize: '0.8125rem' }}>{item.serialNumber}</span>
+          <span style={{ fontFamily: 'monospace', fontSize: '0.8125rem', whiteSpace: 'nowrap' }}>{item.serialNumber}</span>
         ) : (
           <span style={{ color: 'var(--slate-400)' }}>—</span>
         ),
@@ -245,7 +245,7 @@ export const InventoryManagement = () => {
       hideOnMobile: true,
       render: (item) =>
         item.poNumber ? (
-          <span style={{ fontFamily: 'monospace', fontSize: '0.8125rem' }}>{item.poNumber}</span>
+          <span style={{ fontFamily: 'monospace', fontSize: '0.8125rem', whiteSpace: 'nowrap' }}>{item.poNumber}</span>
         ) : (
           <span style={{ color: 'var(--slate-400)' }}>—</span>
         ),
