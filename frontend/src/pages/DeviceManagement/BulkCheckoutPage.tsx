@@ -212,7 +212,7 @@ export default function BulkCheckoutPage() {
 
       {/* Step 1: Select Location */}
       {activeStep === 0 && (
-        <Paper sx={{ p: 3, maxWidth: 500 }}>
+        <Paper sx={{ p: { xs: 2, sm: 3 }, maxWidth: 500 }}>
           <Typography variant="h6" gutterBottom>
             Select Location
           </Typography>
@@ -240,7 +240,7 @@ export default function BulkCheckoutPage() {
 
       {/* Step 2: Find Person */}
       {activeStep === 1 && (
-        <Paper sx={{ p: 3, maxWidth: 600 }}>
+        <Paper sx={{ p: { xs: 2, sm: 3 }, maxWidth: 600 }}>
           <Typography variant="h6" gutterBottom>
             Find Person
           </Typography>
@@ -285,7 +285,7 @@ export default function BulkCheckoutPage() {
 
       {/* Step 3: Scan & Assign */}
       {activeStep === 2 && (
-        <Paper sx={{ p: 3, maxWidth: 700 }}>
+        <Paper sx={{ p: { xs: 2, sm: 3 }, maxWidth: 700 }}>
           <Typography variant="h6" gutterBottom>
             Scan & Assign Devices
           </Typography>

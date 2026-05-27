@@ -59,7 +59,10 @@ export function MobileCard<T>({ row, columns, onRowClick, rowActions }: MobileCa
       {detailCols.length > 0 && (
         <div className="mobile-card__details">
           {detailCols.map((col) => (
-            <div key={String(col.key)} className="mobile-card__field">
+            <div
+              key={String(col.key)}
+              className={`mobile-card__field${String(col.key) === 'actions' ? ' mobile-card__field--actions' : ''}`}
+            >
               <span className="mobile-card__label">{col.label}</span>
               <span className="mobile-card__value">{getCellValue(col)}</span>
             </div>

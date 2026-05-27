@@ -120,7 +120,7 @@ export default function UserCheckoutHistoryPage() {
       </Button>
 
       {/* ── User Header ───────────────────────────────────────────────── */}
-      <Paper sx={{ p: 3, mb: 3 }}>
+      <Paper sx={{ p: { xs: 2, sm: 3 }, mb: 3 }}>
         <Box sx={{ display: 'flex', alignItems: 'flex-start', flexWrap: 'wrap', gap: 2 }}>
           <Box sx={{ flex: 1, minWidth: 260 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>

@@ -157,7 +157,7 @@ export default function InvoicesPage() {
       key:    'actions',
       label:  '',
       render: (inv) => (
-        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'nowrap', whiteSpace: 'nowrap' }}>
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
           <Button size="small" component={Link} to={`/device-management/invoices/${inv.id}`} onClick={(e) => e.stopPropagation()}>
             View
           </Button>

@@ -648,6 +648,16 @@ body {
   overflow-wrap: break-word;
 }
 
+.mobile-card__field--actions {
+  grid-column: 1 / -1;
+}
+
+.mobile-card__field--actions .mobile-card__value {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
 .mobile-card__actions {
   display: flex;
   align-items: center;

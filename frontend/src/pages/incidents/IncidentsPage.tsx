@@ -152,7 +152,7 @@ export default function IncidentsPage() {
       ) : (
         <Paper variant="outlined">
           <TableContainer>
-            <Table size="small">
+            <Table size="small" sx={{ minWidth: 700 }}>
               <TableHead>
                 <TableRow>
                   <TableCell><strong>Incident #</strong></TableCell>
