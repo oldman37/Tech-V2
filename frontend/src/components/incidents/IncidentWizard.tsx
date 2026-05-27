@@ -19,6 +19,7 @@ import {
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import { useIsMobile } from '../../hooks/useResponsive';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import WizardStep1LinkAndDate from '../../pages/DeviceManagement/wizard/WizardStep1LinkAndDate';
 import WizardStep2DamageDetails from '../../pages/DeviceManagement/wizard/WizardStep2DamageDetails';
@@ -150,6 +151,7 @@ export interface IncidentWizardProps {
 
 export default function IncidentWizard({ open, onClose, onCreated, initialIncident, prefill, fullPage }: IncidentWizardProps) {
   const queryClient      = useQueryClient();
+  const isMobile         = useIsMobile();
   const [activeStep, setActiveStep] = useState(0);
   const [apiError,   setApiError]   = useState<string | null>(null);
   const [invoiceOpen,            setInvoiceOpen]            = useState(false);
@@ -594,7 +596,7 @@ export default function IncidentWizard({ open, onClose, onCreated, initialIncide
   function renderInnerContent() {
     return (
       <>
-        <Stepper activeStep={activeStep} sx={{ mb: 3 }}>
+        <Stepper activeStep={activeStep} orientation={isMobile ? 'vertical' : 'horizontal'} sx={{ mb: 3 }}>
           {stepLabels.map((label) => (
             <Step key={label}>
               <StepLabel>{label}</StepLabel>
