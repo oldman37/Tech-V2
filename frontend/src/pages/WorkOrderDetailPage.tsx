@@ -488,8 +488,8 @@ export default function WorkOrderDetailPage() {
       {/* ── Update Status Dialog ──────────────────────────────────────────── */}
       <Dialog open={statusOpen} onClose={() => setStatusOpen(false)} maxWidth="xs" fullWidth fullScreen={isMobile}>
         <DialogTitle>Update Work Order Status</DialogTitle>
-        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
-          <FormControl size="small" fullWidth>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 3 }}>
+          <FormControl size="small" fullWidth sx={{ mt: 1 }}>
             <InputLabel>New Status</InputLabel>
             <Select
               label="New Status"

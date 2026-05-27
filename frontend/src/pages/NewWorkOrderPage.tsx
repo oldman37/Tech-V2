@@ -73,6 +73,7 @@ const INITIAL: FormState = {
 interface FormErrors {
   description?: string;
   category?: string;
+  inventoryId?: string;
 }
 
 function validate(form: FormState): FormErrors {
@@ -81,6 +82,9 @@ function validate(form: FormState): FormErrors {
     errors.description = 'Description is required.';
   } else if (form.description.trim().length < 10) {
     errors.description = 'Description must be at least 10 characters.';
+  }
+  if (form.department === 'TECHNOLOGY' && !form.inventoryId.trim()) {
+    errors.inventoryId = 'Asset Tag / Inventory ID is required for Technology work orders.';
   }
   return errors;
 }
@@ -148,7 +152,7 @@ export default function NewWorkOrderPage() {
   };
 
   const handleSubmit = async () => {
-    setTouched({ description: true });
+    setTouched({ description: true, inventoryId: true });
     if (Object.keys(errors).length > 0 || !form.department) return;
 
     const dto: CreateWorkOrderDto = {
@@ -327,15 +331,17 @@ export default function NewWorkOrderPage() {
             {form.department === 'TECHNOLOGY' && (
               <>
                 <Typography variant="subtitle2" color="text.secondary">
-                  Equipment Details (optional)
+                  Equipment Details
                 </Typography>
                 <TextField
-                  label="Asset Tag / Inventory ID (optional)"
+                  label="Asset Tag / Inventory ID"
                   size="small"
                   fullWidth
                   value={form.inventoryId}
                   onChange={(e) => set('inventoryId', e.target.value)}
                   disabled={createWorkOrder.isPending}
+                  error={touched.inventoryId && !!errors.inventoryId}
+                  helperText={touched.inventoryId ? errors.inventoryId : undefined}
                 />
               </>
             )}
