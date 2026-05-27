@@ -4,6 +4,7 @@ import {
   Box,
   Button,
   Chip,
+  Divider,
   IconButton,
   Table,
   TableBody,
@@ -15,6 +16,7 @@ import {
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { useQuery } from '@tanstack/react-query';
+import { useIsMobile } from '../../hooks/useResponsive';
 import { componentPriceService } from '../../services/invoice.service';
 import type { LineItemDraft } from '../../types/invoice.types';
 
@@ -31,6 +33,7 @@ export default function LineItemsEditor({
   equipmentPurchasePrice,
   disabled = false,
 }: LineItemsEditorProps) {
+  const isMobile = useIsMobile();
   const { data: pricesData } = useQuery({
     queryKey: ['componentPrices'],
     queryFn:  () => componentPriceService.getAll({ limit: 100 }),
@@ -86,95 +89,157 @@ export default function LineItemsEditor({
         Line Items
       </Typography>
 
-      <Table size="small" sx={{ mb: 1 }}>
-        <TableHead>
-          <TableRow>
-            <TableCell>Description</TableCell>
-            <TableCell align="right">Unit Price</TableCell>
-            <TableCell align="right">Qty</TableCell>
-            <TableCell align="right">Total</TableCell>
-            <TableCell padding="none" />
-          </TableRow>
-        </TableHead>
-        <TableBody>
+      <Box sx={{ overflowX: 'auto' }}>
+      {isMobile ? (
+        /* ── Mobile: stacked cards per line item ── */
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mb: 1 }}>
           {lineItems.length === 0 && (
-            <TableRow>
-              <TableCell colSpan={5} sx={{ textAlign: 'center', color: 'text.secondary', py: 2 }}>
-                No line items. Use the buttons below to add components.
-              </TableCell>
-            </TableRow>
+            <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
+              No line items. Use the buttons below to add components.
+            </Typography>
           )}
           {lineItems.map((item, i) => (
-            <TableRow key={i}>
-              <TableCell>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <TextField
-                    value={item.description}
-                    onChange={e => updateItem(i, { description: e.target.value })}
-                    size="small"
-                    disabled={disabled}
-                    placeholder="Description"
-                    sx={{ minWidth: 180 }}
-                  />
-                  {item.isReplacement && (
-                    <Chip label="Replacement" color="warning" size="small" />
-                  )}
-                </Box>
-              </TableCell>
-              <TableCell align="right">
+            <Box key={i} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 1.5, display: 'flex', flexDirection: 'column', gap: 1 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <TextField
+                  value={item.description}
+                  onChange={e => updateItem(i, { description: e.target.value })}
+                  size="small"
+                  disabled={disabled}
+                  placeholder="Description"
+                  label="Description"
+                  fullWidth
+                />
+                {item.isReplacement && <Chip label="Replacement" color="warning" size="small" />}
+                <IconButton size="small" onClick={() => removeItem(i)} disabled={disabled}>
+                  <DeleteIcon fontSize="small" />
+                </IconButton>
+              </Box>
+              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
                 <TextField
                   type="number"
                   value={item.unitPrice}
                   onChange={e => updateItem(i, { unitPrice: Number(e.target.value) })}
                   size="small"
+                  label="Unit Price"
                   disabled={disabled || item.isReplacement}
                   inputProps={{ min: 0, step: '0.01', style: { textAlign: 'right' } }}
-                  sx={{ width: 100 }}
+                  sx={{ flex: 1 }}
                 />
-              </TableCell>
-              <TableCell align="right">
                 <TextField
                   type="number"
                   value={item.quantity}
-                  onChange={e =>
-                    updateItem(i, { quantity: Math.max(1, Number(e.target.value)) })
-                  }
+                  onChange={e => updateItem(i, { quantity: Math.max(1, Number(e.target.value)) })}
                   size="small"
+                  label="Qty"
                   disabled={disabled}
                   inputProps={{ min: 1, style: { textAlign: 'right' } }}
-                  sx={{ width: 70 }}
+                  sx={{ width: 80 }}
                 />
-              </TableCell>
-              <TableCell align="right">
-                ${(item.unitPrice * item.quantity).toFixed(2)}
-              </TableCell>
-              <TableCell padding="none">
-                <IconButton size="small" onClick={() => removeItem(i)} disabled={disabled}>
-                  <DeleteIcon fontSize="small" />
-                </IconButton>
-              </TableCell>
-            </TableRow>
+                <Typography variant="body2" fontWeight={600} sx={{ minWidth: 60, textAlign: 'right' }}>
+                  ${(item.unitPrice * item.quantity).toFixed(2)}
+                </Typography>
+              </Box>
+            </Box>
           ))}
           {lineItems.length > 0 && (
-            <TableRow>
-              <TableCell colSpan={3} align="right">
-                <Typography variant="body1" fontWeight="bold">
-                  Total:
-                </Typography>
-              </TableCell>
-              <TableCell align="right">
-                <Typography variant="body1" fontWeight="bold">
-                  ${total.toFixed(2)}
-                </Typography>
-              </TableCell>
-              <TableCell />
-            </TableRow>
+            <>
+              <Divider />
+              <Typography variant="body2" fontWeight={700} sx={{ textAlign: 'right' }}>
+                Total: ${total.toFixed(2)}
+              </Typography>
+            </>
           )}
-        </TableBody>
-      </Table>
+        </Box>
+      ) : (
+        /* ── Desktop: table layout ── */
+        <Table size="small" sx={{ mb: 1 }}>
+          <TableHead>
+            <TableRow>
+              <TableCell>Description</TableCell>
+              <TableCell align="right">Unit Price</TableCell>
+              <TableCell align="right">Qty</TableCell>
+              <TableCell align="right">Total</TableCell>
+              <TableCell padding="none" />
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {lineItems.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={5} sx={{ textAlign: 'center', color: 'text.secondary', py: 2 }}>
+                  No line items. Use the buttons below to add components.
+                </TableCell>
+              </TableRow>
+            )}
+            {lineItems.map((item, i) => (
+              <TableRow key={i}>
+                <TableCell>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <TextField
+                      value={item.description}
+                      onChange={e => updateItem(i, { description: e.target.value })}
+                      size="small"
+                      disabled={disabled}
+                      placeholder="Description"
+                      sx={{ minWidth: 180 }}
+                    />
+                    {item.isReplacement && (
+                      <Chip label="Replacement" color="warning" size="small" />
+                    )}
+                  </Box>
+                </TableCell>
+                <TableCell align="right">
+                  <TextField
+                    type="number"
+                    value={item.unitPrice}
+                    onChange={e => updateItem(i, { unitPrice: Number(e.target.value) })}
+                    size="small"
+                    disabled={disabled || item.isReplacement}
+                    inputProps={{ min: 0, step: '0.01', style: { textAlign: 'right' } }}
+                    sx={{ width: 100 }}
+                  />
+                </TableCell>
+                <TableCell align="right">
+                  <TextField
+                    type="number"
+                    value={item.quantity}
+                    onChange={e =>
+                      updateItem(i, { quantity: Math.max(1, Number(e.target.value)) })
+                    }
+                    size="small"
+                    disabled={disabled}
+                    inputProps={{ min: 1, style: { textAlign: 'right' } }}
+                    sx={{ width: 70 }}
+                  />
+                </TableCell>
+                <TableCell align="right">
+                  ${(item.unitPrice * item.quantity).toFixed(2)}
+                </TableCell>
+                <TableCell padding="none">
+                  <IconButton size="small" onClick={() => removeItem(i)} disabled={disabled}>
+                    <DeleteIcon fontSize="small" />
+                  </IconButton>
+                </TableCell>
+              </TableRow>
+            ))}
+            {lineItems.length > 0 && (
+              <TableRow>
+                <TableCell colSpan={3} align="right">
+                  <Typography variant="body1" fontWeight="bold">Total:</Typography>
+                </TableCell>
+                <TableCell align="right">
+                  <Typography variant="body1" fontWeight="bold">${total.toFixed(2)}</Typography>
+                </TableCell>
+                <TableCell />
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      )}
+      </Box>
 
       {!disabled && (
-        <div className="flex gap-2 flex-wrap items-center">
+        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center', mt: 1 }}>
           <Autocomplete
             options={prices}
             getOptionLabel={p =>
@@ -185,7 +250,7 @@ export default function LineItemsEditor({
             }}
             value={null}
             size="small"
-            sx={{ minWidth: 260 }}
+            sx={{ flex: { xs: '1 1 100%', sm: '0 0 auto' }, minWidth: { xs: 'unset', sm: 260 } }}
             renderInput={params => (
               <TextField {...params} label="Add from Price List" size="small" />
             )}
@@ -203,7 +268,7 @@ export default function LineItemsEditor({
               Add Total Replacement (+${equipmentPurchasePrice.toFixed(2)})
             </Button>
           )}
-        </div>
+        </Box>
       )}
     </Box>
   );

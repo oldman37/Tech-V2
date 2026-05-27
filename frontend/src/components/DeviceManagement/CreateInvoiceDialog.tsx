@@ -13,6 +13,7 @@ import {
   Typography,
 } from '@mui/material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useIsMobile } from '../../hooks/useResponsive';
 import { invoiceService } from '../../services/invoice.service';
 import { damageIncidentService } from '../../services/damageIncident.service';
 import LineItemsEditor from './LineItemsEditor';
@@ -45,6 +46,7 @@ export default function CreateInvoiceDialog({
   prefillParentEmail,
 }: CreateInvoiceDialogProps) {
   const queryClient = useQueryClient();
+  const isMobile = useIsMobile();
 
   const incidentLocked = !!prefillIncidentId;
 
@@ -170,9 +172,9 @@ export default function CreateInvoiceDialog({
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth fullScreen={isMobile}>
       <DialogTitle>Create Invoice</DialogTitle>
-      <DialogContent>
+      <DialogContent sx={{ pt: 3 }}>
         {formError && <Alert severity="error" sx={{ mb: 2 }}>{formError}</Alert>}
 
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
@@ -243,7 +245,7 @@ export default function CreateInvoiceDialog({
           )}
 
           {/* ── Recipient ── */}
-          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
             <TextField
               label="Recipient Email *"
               type="email"
@@ -272,7 +274,7 @@ export default function CreateInvoiceDialog({
           />
 
           {/* ── Due Date & Notes ── */}
-          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
             <TextField
               label="Due Date *"
               type="date"
