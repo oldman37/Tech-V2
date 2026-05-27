@@ -141,9 +141,26 @@ export class InventoryService {
       where.modelId = modelId;
     }
 
-    // Filter by funding source
+    // Filter by funding source — match both the FK and the legacy plain-text field
+    // so items created before the FundingSource FK system are also returned.
     if (fundingSourceId) {
-      where.fundingSourceId = fundingSourceId;
+      const fsRecord = await this.prisma.fundingSource.findUnique({
+        where: { id: fundingSourceId },
+        select: { name: true },
+      });
+      const fsConditions: Prisma.equipmentWhereInput[] = [
+        { fundingSourceId },
+        ...(fsRecord
+          ? [{ fundingSource: { equals: fsRecord.name, mode: 'insensitive' as const } } as Prisma.equipmentWhereInput]
+          : []),
+      ];
+      // If search already set where.OR, combine via AND so both conditions apply
+      if (where.OR) {
+        where.AND = [{ OR: where.OR }, { OR: fsConditions }];
+        delete where.OR;
+      } else {
+        where.OR = fsConditions;
+      }
     }
 
     // Filter by price range

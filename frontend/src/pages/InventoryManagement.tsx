@@ -44,6 +44,12 @@ export const InventoryManagement = () => {
   });
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
 
+  // Always reset to page 0 when any filter changes
+  const updateFilters = (newFilters: InventoryFilters) => {
+    setFilters(newFilters);
+    setPaginationModel(prev => ({ ...prev, page: 0 }));
+  };
+
   const isMobile = useIsMobile();
   const queryClient = useQueryClient();
 
@@ -411,7 +417,7 @@ export const InventoryManagement = () => {
             <div className="mb-6">
               <MobileFilterBar
                 searchValue={filters.search || ''}
-                onSearchChange={(value) => setFilters({ ...filters, search: value })}
+                onSearchChange={(value) => updateFilters({ ...filters, search: value })}
                 filterCount={activeFilterCount}
                 onOpenFilters={() => setFilterDrawerOpen(!filterDrawerOpen)}
                 searchPlaceholder="Asset tag, name, serial number..."
@@ -423,7 +429,7 @@ export const InventoryManagement = () => {
                       <label className="form-label">Status</label>
                       <select
                         value={filters.status || ''}
-                        onChange={(e) => setFilters({ ...filters, status: e.target.value as any })}
+                        onChange={(e) => updateFilters({ ...filters, status: e.target.value as any })}
                         className="form-select"
                       >
                         <option value="">All</option>
@@ -438,7 +444,7 @@ export const InventoryManagement = () => {
                       <label className="form-label">Show Disposed</label>
                       <select
                         value={filters.isDisposed ? 'true' : 'false'}
-                        onChange={(e) => setFilters({ ...filters, isDisposed: e.target.value === 'true' })}
+                        onChange={(e) => updateFilters({ ...filters, isDisposed: e.target.value === 'true' })}
                         className="form-select"
                       >
                         <option value="false">Active Only</option>
@@ -449,7 +455,7 @@ export const InventoryManagement = () => {
                       <label className="form-label">Funding Source</label>
                       <select
                         value={filters.fundingSourceId || ''}
-                        onChange={(e) => setFilters({ ...filters, fundingSourceId: e.target.value || undefined })}
+                        onChange={(e) => updateFilters({ ...filters, fundingSourceId: e.target.value || undefined })}
                         className="form-select"
                       >
                         <option value="">All</option>
@@ -460,7 +466,7 @@ export const InventoryManagement = () => {
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                       <button
-                        onClick={() => { setFilters({ search: '', status: undefined, isDisposed: false, fundingSourceId: undefined }); setFilterDrawerOpen(false); }}
+                        onClick={() => { updateFilters({ search: '', status: undefined, isDisposed: false, fundingSourceId: undefined }); setFilterDrawerOpen(false); }}
                         className="btn btn-secondary btn-sm"
                       >
                         Clear Filters
@@ -479,7 +485,7 @@ export const InventoryManagement = () => {
                     type="text"
                     placeholder="Asset tag, name, serial number..."
                     value={filters.search}
-                    onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+                    onChange={(e) => updateFilters({ ...filters, search: e.target.value })}
                     className="form-input"
                   />
                 </Box>
@@ -487,7 +493,7 @@ export const InventoryManagement = () => {
                   <label className="form-label">Status</label>
                   <select
                     value={filters.status || ''}
-                    onChange={(e) => setFilters({ ...filters, status: e.target.value as any })}
+                    onChange={(e) => updateFilters({ ...filters, status: e.target.value as any })}
                     className="form-select"
                   >
                     <option value="">All</option>
@@ -502,7 +508,7 @@ export const InventoryManagement = () => {
                   <label className="form-label">Show Disposed</label>
                   <select
                     value={filters.isDisposed ? 'true' : 'false'}
-                    onChange={(e) => setFilters({ ...filters, isDisposed: e.target.value === 'true' })}
+                    onChange={(e) => updateFilters({ ...filters, isDisposed: e.target.value === 'true' })}
                     className="form-select"
                   >
                     <option value="false">Active Only</option>
@@ -515,7 +521,7 @@ export const InventoryManagement = () => {
                   <label className="form-label">Funding Source</label>
                   <select
                     value={filters.fundingSourceId || ''}
-                    onChange={(e) => setFilters({ ...filters, fundingSourceId: e.target.value || undefined })}
+                    onChange={(e) => updateFilters({ ...filters, fundingSourceId: e.target.value || undefined })}
                     className="form-select"
                   >
                     <option value="">All</option>
@@ -527,7 +533,7 @@ export const InventoryManagement = () => {
               </Box>
               <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'flex-end' }}>
                 <button
-                  onClick={() => setFilters({ search: '', status: undefined, isDisposed: false, fundingSourceId: undefined })}
+                  onClick={() => updateFilters({ search: '', status: undefined, isDisposed: false, fundingSourceId: undefined })}
                   className="btn btn-secondary btn-sm"
                 >
                   Clear Filters
