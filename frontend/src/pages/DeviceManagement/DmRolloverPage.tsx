@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { useIsMobile } from '../../hooks/useResponsive';
 import {
   Alert,
   Box,
@@ -48,6 +49,7 @@ export default function DmRolloverPage() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const isAdmin = user?.roles?.includes('ADMIN') ?? false;
+  const isMobile = useIsMobile();
 
   const [activeStep, setActiveStep] = useState(0);
 
@@ -203,7 +205,7 @@ export default function DmRolloverPage() {
         keep their devices across the rollover.
       </Typography>
 
-      <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
+      <Stepper activeStep={activeStep} orientation={isMobile ? 'vertical' : 'horizontal'} sx={{ mb: 4 }}>
         {STEPS.map((label) => (
           <Step key={label}>
             <StepLabel>{label}</StepLabel>
