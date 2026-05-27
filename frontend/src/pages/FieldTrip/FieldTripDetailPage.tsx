@@ -76,6 +76,7 @@ export function FieldTripDetailPage() {
   const [pdfLoading, setPdfLoading]               = useState(false);
   const [sendBackDialogOpen, setSendBackDialogOpen] = useState(false);
   const [sendBackReason, setSendBackReason]         = useState('');
+  const [adminDeleteDialogOpen, setAdminDeleteDialogOpen] = useState(false);
 
   const { data: trip, isLoading, error } = useQuery<FieldTripRequest>({
     queryKey: ['field-trips', id],
@@ -131,6 +132,18 @@ export function FieldTripDetailPage() {
     },
   });
 
+  const adminDeleteMutation = useMutation({
+    mutationFn: (tripId: string) => fieldTripService.adminDelete(tripId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['field-trips'] });
+      navigate('/field-trips');
+    },
+    onError: (err: unknown) => {
+      const msg = err instanceof Error ? err.message : 'Failed to delete field trip request';
+      setActionError(msg);
+    },
+  });
+
 
 
   // ---------------------------------------------------------------------------
@@ -161,6 +174,7 @@ export function FieldTripDetailPage() {
   const isOwner          = trip.submittedById === user?.id;
   const isNeedsRevision  = trip.status === 'NEEDS_REVISION';
   const isTerminal       = TERMINAL_STATUSES.has(trip.status);
+  const isAdmin          = user?.roles?.includes('ADMIN') ?? false;
 
   // Check if the current user already approved at a prior stage
   const hasAlreadyApproved = trip.approvals?.some(
@@ -296,6 +310,20 @@ export function FieldTripDetailPage() {
             </Button>
           </Box>
         </Paper>
+      )}
+
+      {/* Admin hard-delete button */}
+      {isAdmin && (
+        <Box sx={{ mb: 3 }}>
+          <Button
+            variant="outlined"
+            color="error"
+            onClick={() => setAdminDeleteDialogOpen(true)}
+            disabled={adminDeleteMutation.isPending}
+          >
+            Delete (Admin)
+          </Button>
+        </Box>
       )}
 
 
@@ -576,6 +604,30 @@ export function FieldTripDetailPage() {
             disabled={sendBackMutation.isPending || sendBackReason.trim().length < 10}
           >
             {sendBackMutation.isPending ? <CircularProgress size={20} /> : 'Send Back'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Admin Delete Dialog */}
+      <Dialog open={adminDeleteDialogOpen} onClose={() => setAdminDeleteDialogOpen(false)} maxWidth="xs" fullWidth fullScreen={isMobile}>
+        <DialogTitle>Delete Field Trip Request (Admin)</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Are you sure you want to permanently delete this field trip request? This action cannot be undone.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setAdminDeleteDialogOpen(false)} disabled={adminDeleteMutation.isPending}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={() => adminDeleteMutation.mutate(trip.id)}
+            disabled={adminDeleteMutation.isPending}
+            startIcon={adminDeleteMutation.isPending ? <CircularProgress size={18} /> : undefined}
+          >
+            Delete Permanently
           </Button>
         </DialogActions>
       </Dialog>

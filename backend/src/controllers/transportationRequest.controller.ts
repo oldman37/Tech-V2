@@ -216,6 +216,18 @@ export const remove = async (req: AuthRequest, res: Response): Promise<void> => 
   }
 };
 
+// DELETE /api/transportation-requests/:id/admin-delete
+export const adminDeleteTransportationRequest = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const id = req.params['id'] as string;
+    const adminUserId = req.user!.id;
+    await transportationRequestService.adminDeleteTransportationRequest(id, adminUserId);
+    res.json({ message: 'Transportation request deleted successfully', id });
+  } catch (error) {
+    handleControllerError(error, res);
+  }
+};
+
 // GET /api/transportation-requests/:id/pdf
 export const getPdf = async (req: AuthRequest, res: Response): Promise<void> => {
   try {

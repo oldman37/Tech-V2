@@ -13,7 +13,7 @@
  * NOTE: ADMIN role bypasses all requireModule checks.
  */
 import { Router }            from 'express';
-import { authenticate }      from '../middleware/auth';
+import { authenticate, requireAdmin } from '../middleware/auth';
 import { validateRequest }   from '../middleware/validation';
 import { validateCsrfToken } from '../middleware/csrf';
 import { requireModule }     from '../utils/groupAuth';
@@ -108,6 +108,14 @@ router.delete(
   validateRequest(TransportationRequestIdParamSchema, 'params'),
   requireModule('TRANSPORTATION_REQUESTS', 1),
   ctrl.remove,
+);
+
+// DELETE /api/transportation-requests/:id/admin-delete — admin only
+router.delete(
+  '/:id/admin-delete',
+  validateRequest(TransportationRequestIdParamSchema, 'params'),
+  requireAdmin,
+  ctrl.adminDeleteTransportationRequest,
 );
 
 export default router;

@@ -75,6 +75,7 @@ export function TransportationRequestDetailPage() {
   const [approveOpen,   setApproveOpen]   = useState(false);
   const [denyOpen,      setDenyOpen]      = useState(false);
   const [deleteOpen,    setDeleteOpen]    = useState(false);
+  const [adminDeleteDialogOpen, setAdminDeleteDialogOpen] = useState(false);
   const [comments,      setComments]      = useState('');
   const [driverNames,   setDriverNames]   = useState<string[]>([]);
   const [denialReason,  setDenialReason]  = useState('');
@@ -84,6 +85,7 @@ export function TransportationRequestDetailPage() {
   const [supervisorDenyError, setSupervisorDenyError] = useState('');
   const [pdfLoading, setPdfLoading] = useState(false);
   const [pdfError,   setPdfError]   = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const { data: request, isLoading, error } = useQuery<TransportationRequest>({
     queryKey: ['transportation-requests', id],
@@ -120,6 +122,14 @@ export function TransportationRequestDetailPage() {
 
   const deleteMutation = useMutation({
     mutationFn: () => transportationRequestService.delete(id!),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['transportation-requests'] });
+      navigate('/transportation-requests');
+    },
+  });
+
+  const adminDeleteMutation = useMutation({
+    mutationFn: () => transportationRequestService.adminDelete(id!),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transportation-requests'] });
       navigate('/transportation-requests');
@@ -187,6 +197,7 @@ export function TransportationRequestDetailPage() {
   const isSecretary = user?.roles?.includes('ADMIN') || user?.permLevels?.isTransportationSecretary === true;
   const isOwner = request.submittedById === user?.id;  // Supervisor can act if status is PENDING_SUPERVISOR_APPROVAL (actual auth is checked server-side)
   const isSupervisor = status === 'PENDING_SUPERVISOR_APPROVAL' && user?.id !== request.submittedById;
+  const isAdmin = user?.roles?.includes('ADMIN') === true;
   const submitterName = request.submittedBy
     ? (request.submittedBy.displayName ?? `${request.submittedBy.firstName} ${request.submittedBy.lastName}`)
     : 'â€”';
@@ -221,6 +232,12 @@ export function TransportationRequestDetailPage() {
       {pdfError && (
         <Alert severity="error" onClose={() => setPdfError(null)} sx={{ mb: 2 }}>
           {pdfError}
+        </Alert>
+      )}
+
+      {actionError && (
+        <Alert severity="error" onClose={() => setActionError(null)} sx={{ mb: 2 }}>
+          {actionError}
         </Alert>
       )}
 
@@ -359,6 +376,21 @@ export function TransportationRequestDetailPage() {
         </Box>
       )}
 
+      {/* Admin Delete button */}
+      {isAdmin && (
+        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mt: 2 }}>
+          <Button
+            variant="outlined"
+            color="error"
+            startIcon={<DeleteIcon />}
+            onClick={() => setAdminDeleteDialogOpen(true)}
+            disabled={adminDeleteMutation.isPending}
+          >
+            Delete (Admin)
+          </Button>
+        </Box>
+      )}
+
       {/* Approve Dialog */}
       <Dialog open={approveOpen} onClose={() => { setApproveOpen(false); setDriverNames([]); }} maxWidth="sm" fullWidth fullScreen={isMobile}>
         <DialogTitle>Approve Transportation Request</DialogTitle>
@@ -488,6 +520,38 @@ export function TransportationRequestDetailPage() {
             startIcon={deleteMutation.isPending ? <CircularProgress size={18} /> : undefined}
           >
             Withdraw
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Admin Delete Dialog */}
+      <Dialog open={adminDeleteDialogOpen} onClose={() => setAdminDeleteDialogOpen(false)} maxWidth="xs" fullWidth fullScreen={isMobile}>
+        <DialogTitle>Delete Transportation Request</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Permanently delete this transportation request? This action cannot be undone.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setAdminDeleteDialogOpen(false)} disabled={adminDeleteMutation.isPending}>Cancel</Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={() => adminDeleteMutation.mutate(undefined, {
+              onSuccess: () => {
+                setAdminDeleteDialogOpen(false);
+                navigate('/transportation-requests');
+              },
+              onError: (err: unknown) => {
+                const e = err as { response?: { data?: { message?: string } } };
+                setActionError(e?.response?.data?.message ?? 'Failed to delete transportation request');
+                setAdminDeleteDialogOpen(false);
+              },
+            })}
+            disabled={adminDeleteMutation.isPending}
+            startIcon={adminDeleteMutation.isPending ? <CircularProgress size={18} /> : undefined}
+          >
+            Confirm Delete
           </Button>
         </DialogActions>
       </Dialog>

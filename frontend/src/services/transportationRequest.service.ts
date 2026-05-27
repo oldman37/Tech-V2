@@ -59,6 +59,10 @@ export const transportationRequestService = {
     await api.delete(`${BASE}/${id}`);
   },
 
+  adminDelete: async (id: string): Promise<void> => {
+    await api.delete(`${BASE}/${id}/admin-delete`);
+  },
+
   downloadPdf: async (id: string): Promise<void> => {
     const res = await api.get(`${BASE}/${id}/pdf`, { responseType: 'blob' });
     const url = window.URL.createObjectURL(

@@ -741,6 +741,26 @@ export class FieldTripService {
     await prisma.fieldTripRequest.delete({ where: { id } });
   }
 
+  /**
+   * Admin hard-delete: bypasses status and ownership checks.
+   * Cascade deletes approvals, status history, and linked transportation sub-request via DB constraints.
+   */
+  async adminDeleteFieldTrip(id: string, adminUserId: string): Promise<void> {
+    const trip = await prisma.fieldTripRequest.findUnique({ where: { id } });
+    if (!trip) throw new NotFoundError('FieldTripRequest', id);
+
+    await prisma.fieldTripRequest.delete({ where: { id } });
+    logger.warn('Admin hard-deleted field trip request', {
+      id: trip.id,
+      status: trip.status,
+      tripDate: trip.tripDate,
+      destination: trip.destination,
+      submittedById: trip.submittedById,
+      deletedBy: adminUserId,
+      deletedAt: new Date().toISOString(),
+    });
+  }
+
   // -------------------------------------------------------------------------
   // Private helpers
   // -------------------------------------------------------------------------

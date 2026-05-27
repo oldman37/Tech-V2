@@ -108,6 +108,10 @@ export const fieldTripService = {
     await api.delete(`${BASE}/${id}`);
   },
 
+  adminDelete: async (id: string): Promise<void> => {
+    await api.delete(`${BASE}/${id}/admin-delete`);
+  },
+
   // ---------------------------------------------------------------------------
   // PDF export
   // ---------------------------------------------------------------------------

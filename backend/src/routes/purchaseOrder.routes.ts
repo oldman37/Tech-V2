@@ -15,7 +15,7 @@
  */
 
 import { Router } from 'express';
-import { authenticate } from '../middleware/auth';
+import { authenticate, requireAdmin } from '../middleware/auth';
 import { validateRequest } from '../middleware/validation';
 import { validateCsrfToken } from '../middleware/csrf';
 import { requireModule } from '../utils/groupAuth';
@@ -196,6 +196,17 @@ router.get(
   validateRequest(PurchaseOrderIdParamSchema, 'params'),
   requireModule('REQUISITIONS', 1),
   purchaseOrderController.getPurchaseOrderHistory,
+);
+
+/**
+ * DELETE /api/purchase-orders/:id/admin-delete
+ * Admin-only hard delete (bypasses status and ownership restrictions).
+ */
+router.delete(
+  '/:id/admin-delete',
+  validateRequest(PurchaseOrderIdParamSchema, 'params'),
+  requireAdmin,
+  purchaseOrderController.adminDeletePurchaseOrder,
 );
 
 export default router;

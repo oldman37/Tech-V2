@@ -387,6 +387,21 @@ export const deleteTrip = async (req: AuthRequest, res: Response): Promise<void>
 };
 
 // ---------------------------------------------------------------------------
+// DELETE /api/field-trips/:id/admin-delete
+// ---------------------------------------------------------------------------
+
+export const adminDeleteFieldTrip = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const id = req.params.id as string;
+    const adminUserId = req.user!.id;
+    await fieldTripService.adminDeleteFieldTrip(id, adminUserId);
+    res.json({ message: 'Field trip request deleted successfully', id });
+  } catch (error) {
+    handleControllerError(error, res);
+  }
+};
+
+// ---------------------------------------------------------------------------
 // GET /api/field-trips/:id/pdf
 // ---------------------------------------------------------------------------
 

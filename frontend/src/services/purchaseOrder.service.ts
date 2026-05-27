@@ -108,6 +108,10 @@ const purchaseOrderService = {
     return res.data;
   },
 
+  adminDelete: async (id: string): Promise<void> => {
+    await api.delete(`${BASE}/${id}/admin-delete`);
+  },
+
   // -------------------------------------------------------------------------
   // Workflow actions
   // -------------------------------------------------------------------------

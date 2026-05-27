@@ -306,6 +306,23 @@ export class TransportationRequestService {
     await prisma.transportationRequest.delete({ where: { id } });
   }
 
+  /**
+   * Admin hard-delete: bypasses status and ownership checks.
+   */
+  async adminDeleteTransportationRequest(id: string, adminUserId: string): Promise<void> {
+    const record = await prisma.transportationRequest.findUnique({ where: { id } });
+    if (!record) throw new NotFoundError('TransportationRequest', id);
+
+    await prisma.transportationRequest.delete({ where: { id } });
+    logger.warn('Admin hard-deleted transportation request', {
+      id: record.id,
+      status: record.status,
+      submittedById: record.submittedById,
+      deletedBy: adminUserId,
+      deletedAt: new Date().toISOString(),
+    });
+  }
+
   async getPdf(id: string, userId: string, permLevel: number): Promise<Buffer> {
     // Enforce access control — throws NotFoundError / AuthorizationError if not authorized
     await this.getById(id, userId, permLevel);

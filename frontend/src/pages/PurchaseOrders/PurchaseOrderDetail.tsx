@@ -56,6 +56,7 @@ import {
   useRejectPurchaseOrder,
   useIssuePurchaseOrder,
   useDownloadPOPdf,
+  useAdminDeletePurchaseOrder,
 } from '@/hooks/mutations/usePurchaseOrderMutations';
 import {
   PO_STATUS_LABELS,
@@ -122,6 +123,7 @@ export default function PurchaseOrderDetail() {
   const rejectMutation  = useRejectPurchaseOrder();
   const issueMutation   = useIssuePurchaseOrder();
   const pdfMutation     = useDownloadPOPdf();
+  const adminDeleteMutation = useAdminDeletePurchaseOrder();
 
   // Dialog states
   const [approveDialogOpen, setApproveDialogOpen]   = useState(false);
@@ -132,6 +134,7 @@ export default function PurchaseOrderDetail() {
   const [issueDialogOpen, setIssueDialogOpen]       = useState(false);
   const [issuePoNumber, setIssuePoNumber]           = useState('');
   const [actionError, setActionError]               = useState<string | null>(null);
+  const [adminDeleteDialogOpen, setAdminDeleteDialogOpen] = useState(false);
 
   if (isLoading) {
     return (
@@ -751,6 +754,22 @@ export default function PurchaseOrderDetail() {
                   {pdfMutation.isPending ? <CircularProgress size={20} /> : 'Download PDF'}
                 </Button>
               )}
+
+              {/* Admin hard-delete */}
+              {isAdmin && (
+                <>
+                  <Divider />
+                  <Button
+                    variant="outlined"
+                    color="error"
+                    fullWidth
+                    onClick={() => setAdminDeleteDialogOpen(true)}
+                    disabled={adminDeleteMutation.isPending}
+                  >
+                    Delete (Admin)
+                  </Button>
+                </>
+              )}
             </Box>
 
             {/* PO Info summary */}
@@ -906,6 +925,44 @@ export default function PurchaseOrderDetail() {
             disabled={issueMutation.isPending}
           >
             {issueMutation.isPending ? <CircularProgress size={20} /> : 'Issue PO'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ── Admin Delete Dialog ── */}
+      <Dialog open={adminDeleteDialogOpen} onClose={() => setAdminDeleteDialogOpen(false)} maxWidth="xs" fullWidth fullScreen={isMobile}>
+        <DialogTitle>Delete Purchase Order (Admin)</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Are you sure you want to permanently delete PO{' '}
+            <strong>{po.reqNumber ?? po.poNumber ?? po.id.slice(0, 8).toUpperCase()}</strong>?
+            This action cannot be undone.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setAdminDeleteDialogOpen(false)} disabled={adminDeleteMutation.isPending}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={() =>
+              adminDeleteMutation.mutate(po.id, {
+                onSuccess: () => {
+                  setAdminDeleteDialogOpen(false);
+                  navigate('/purchase-orders');
+                },
+                onError: (err: unknown) => {
+                  const e = err as { response?: { data?: { message?: string } } };
+                  setActionError(e?.response?.data?.message ?? 'Failed to delete purchase order');
+                  setAdminDeleteDialogOpen(false);
+                },
+              })
+            }
+            disabled={adminDeleteMutation.isPending}
+            startIcon={adminDeleteMutation.isPending ? <CircularProgress size={18} /> : undefined}
+          >
+            Delete Permanently
           </Button>
         </DialogActions>
       </Dialog>

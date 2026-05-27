@@ -678,6 +678,26 @@ export class PurchaseOrderService {
     logger.info('Purchase order deleted', { id, deletedBy: userId });
   }
 
+  /**
+   * Admin hard-delete: bypasses status and ownership checks.
+   * Cascade deletes po_items and requisition_status_history via DB constraints.
+   */
+  async adminDeletePurchaseOrder(id: string, adminUserId: string): Promise<void> {
+    const po = await this.prisma.purchase_orders.findUnique({ where: { id } });
+    if (!po) throw new NotFoundError('PurchaseOrder', id);
+
+    await this.prisma.purchase_orders.delete({ where: { id } });
+    logger.warn('Admin hard-deleted purchase order', {
+      id: po.id,
+      reqNumber: po.reqNumber,
+      poNumber: po.poNumber,
+      status: po.status,
+      submittedById: po.requestorId,
+      deletedBy: adminUserId,
+      deletedAt: new Date().toISOString(),
+    });
+  }
+
   // -------------------------------------------------------------------------
   // Submit
   // -------------------------------------------------------------------------

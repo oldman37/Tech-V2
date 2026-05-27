@@ -134,6 +134,20 @@ export const deletePurchaseOrder = async (req: AuthRequest, res: Response): Prom
 };
 
 /**
+ * DELETE /api/purchase-orders/:id/admin-delete
+ */
+export const adminDeletePurchaseOrder = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const id = req.params.id as string;
+    const adminUserId = req.user!.id;
+    await service.adminDeletePurchaseOrder(id, adminUserId);
+    res.json({ message: 'Purchase order deleted successfully', id });
+  } catch (error) {
+    handleControllerError(error, res);
+  }
+};
+
+/**
  * POST /api/purchase-orders/:id/submit
  */
 export const submitPurchaseOrder = async (req: AuthRequest, res: Response): Promise<void> => {

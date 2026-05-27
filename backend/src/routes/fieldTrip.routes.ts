@@ -14,7 +14,7 @@
  */
 
 import { Router } from 'express';
-import { authenticate } from '../middleware/auth';
+import { authenticate, requireAdmin } from '../middleware/auth';
 import { validateRequest } from '../middleware/validation';
 import { validateCsrfToken } from '../middleware/csrf';
 import { requireModule } from '../utils/groupAuth';
@@ -289,6 +289,17 @@ router.post(
   validateRequest(DenyTransportationSchema, 'body'),
   requireModule('FIELD_TRIPS', 3),
   fieldTripTransportationController.deny,
+);
+
+/**
+ * DELETE /api/field-trips/:id/admin-delete
+ * Admin-only hard delete (bypasses status and ownership restrictions).
+ */
+router.delete(
+  '/:id/admin-delete',
+  validateRequest(FieldTripIdParamSchema, 'params'),
+  requireAdmin,
+  fieldTripController.adminDeleteFieldTrip,
 );
 
 export default router;

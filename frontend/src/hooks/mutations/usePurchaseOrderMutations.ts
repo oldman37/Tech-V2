@@ -72,6 +72,22 @@ export function useDeletePurchaseOrder() {
 }
 
 // ---------------------------------------------------------------------------
+// useAdminDeletePurchaseOrder
+// ---------------------------------------------------------------------------
+
+export function useAdminDeletePurchaseOrder() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => purchaseOrderService.adminDelete(id),
+
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.all });
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
 // useSubmitPurchaseOrder
 // ---------------------------------------------------------------------------
 
