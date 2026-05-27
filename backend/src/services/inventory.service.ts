@@ -70,6 +70,7 @@ export class InventoryService {
       brandId,
       vendorId,
       modelId,
+      fundingSourceId,
       sortBy = 'createdAt',
       sortOrder = 'desc',
       minPrice,
@@ -138,6 +139,11 @@ export class InventoryService {
     // Filter by model
     if (modelId) {
       where.modelId = modelId;
+    }
+
+    // Filter by funding source
+    if (fundingSourceId) {
+      where.fundingSourceId = fundingSourceId;
     }
 
     // Filter by price range
@@ -250,6 +256,12 @@ export class InventoryService {
               firstName: true,
               lastName: true,
               displayName: true,
+            },
+          },
+          fundingSourceRef: {
+            select: {
+              id: true,
+              name: true,
             },
           },
         },

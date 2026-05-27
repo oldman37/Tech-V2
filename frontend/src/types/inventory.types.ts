@@ -92,6 +92,10 @@ export interface InventoryItem {
     locationId: string;
     type?: string | null;
   } | null;
+  fundingSourceRef?: {
+    id: string;
+    name: string;
+  } | null;
   assignedToUser?: {
     id: string;
     email: string;
@@ -156,6 +160,7 @@ export interface InventoryFilters {
   brandId?: string;
   vendorId?: string;
   modelId?: string;
+  fundingSourceId?: string;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
   minPrice?: number;

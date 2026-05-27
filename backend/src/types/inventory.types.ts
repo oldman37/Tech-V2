@@ -49,6 +49,10 @@ export interface InventoryItemWithRelations extends equipment {
     locationId: string;
     type?: string | null;
   } | null;
+  fundingSourceRef?: {
+    id: string;
+    name: string;
+  } | null;
 }
 
 /**
@@ -67,6 +71,7 @@ export interface InventoryQuery {
   brandId?: string;
   vendorId?: string;
   modelId?: string;
+  fundingSourceId?: string;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
   minPrice?: number;

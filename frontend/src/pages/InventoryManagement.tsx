@@ -4,7 +4,7 @@
  */
 
 import { useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { InventoryItem, InventoryFilters } from '../types/inventory.types';
 import { useInventoryList, useInventoryStats } from '../hooks/queries/useInventory';
 import { useDeleteInventoryItem, useUpdateInventoryItem, useExportInventory } from '../hooks/mutations/useInventoryMutations';
@@ -16,6 +16,7 @@ import { AssignmentDialog } from '../components/inventory/AssignmentDialog';
 import { Box, Paper } from '@mui/material';
 import { ResponsiveTable, MobileFilterBar, Column } from '../components/responsive';
 import { useIsMobile } from '../hooks/useResponsive';
+import fundingSourceService from '../services/fundingSourceService';
 
 interface PaginationModel {
   page: number;
@@ -45,6 +46,13 @@ export const InventoryManagement = () => {
 
   const isMobile = useIsMobile();
   const queryClient = useQueryClient();
+
+  const { data: fundingSourcesData } = useQuery({
+    queryKey: queryKeys.fundingSources.list({ isActive: true, limit: 200 }),
+    queryFn: () => fundingSourceService.getAll({ isActive: true, limit: 200 }),
+    staleTime: 5 * 60 * 1000,
+  });
+  const fundingSources = fundingSourcesData?.items ?? [];
 
   const {
     data: listData,
@@ -151,7 +159,7 @@ export const InventoryManagement = () => {
   };
 
   const activeFilterCount =
-    (filters.status ? 1 : 0) + (filters.isDisposed ? 1 : 0);
+    (filters.status ? 1 : 0) + (filters.isDisposed ? 1 : 0) + (filters.fundingSourceId ? 1 : 0);
 
   const columns: Column<InventoryItem>[] = [
     {
@@ -254,7 +262,8 @@ export const InventoryManagement = () => {
       key: 'fundingSource',
       label: 'Funding',
       hideOnMobile: true,
-      render: (item) => item.fundingSource || <span style={{ color: 'var(--slate-400)' }}>—</span>,
+      render: (item) =>
+        item.fundingSourceRef?.name ?? item.fundingSource ?? <span style={{ color: 'var(--slate-400)' }}>—</span>,
     },
     {
       key: 'purchaseDate',
@@ -436,9 +445,22 @@ export const InventoryManagement = () => {
                         <option value="true">Disposed Only</option>
                       </select>
                     </div>
+                    <div>
+                      <label className="form-label">Funding Source</label>
+                      <select
+                        value={filters.fundingSourceId || ''}
+                        onChange={(e) => setFilters({ ...filters, fundingSourceId: e.target.value || undefined })}
+                        className="form-select"
+                      >
+                        <option value="">All</option>
+                        {fundingSources.map((fs) => (
+                          <option key={fs.id} value={fs.id}>{fs.name}</option>
+                        ))}
+                      </select>
+                    </div>
                     <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                       <button
-                        onClick={() => { setFilters({ search: '', status: undefined, isDisposed: false }); setFilterDrawerOpen(false); }}
+                        onClick={() => { setFilters({ search: '', status: undefined, isDisposed: false, fundingSourceId: undefined }); setFilterDrawerOpen(false); }}
                         className="btn btn-secondary btn-sm"
                       >
                         Clear Filters
@@ -488,9 +510,24 @@ export const InventoryManagement = () => {
                   </select>
                 </div>
               </Box>
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: 'repeat(4, 1fr)' }, gap: 2, mt: 2 }}>
+                <div>
+                  <label className="form-label">Funding Source</label>
+                  <select
+                    value={filters.fundingSourceId || ''}
+                    onChange={(e) => setFilters({ ...filters, fundingSourceId: e.target.value || undefined })}
+                    className="form-select"
+                  >
+                    <option value="">All</option>
+                    {fundingSources.map((fs) => (
+                      <option key={fs.id} value={fs.id}>{fs.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </Box>
               <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'flex-end' }}>
                 <button
-                  onClick={() => setFilters({ search: '', status: undefined, isDisposed: false })}
+                  onClick={() => setFilters({ search: '', status: undefined, isDisposed: false, fundingSourceId: undefined })}
                   className="btn btn-secondary btn-sm"
                 >
                   Clear Filters
