@@ -354,12 +354,14 @@ export default function NewWorkOrderPage() {
             )}
 
             {/* Actions */}
-            <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end', pt: 1, flexWrap: 'wrap' }}>
+            <Box
+              sx={{ display: 'flex', flexDirection: { xs: 'column-reverse', sm: 'row' }, gap: 2, justifyContent: { xs: 'stretch', sm: 'flex-end' }, pt: 1 }}
+            >
               <Button
                 variant="outlined"
                 onClick={() => navigate('/work-orders')}
                 disabled={createWorkOrder.isPending}
-                sx={{ flex: { xs: '1 1 auto', sm: '0 0 auto' }, minWidth: 0 }}
+                sx={{ width: { xs: '100%', sm: 'auto' } }}
               >
                 Cancel
               </Button>
@@ -368,7 +370,7 @@ export default function NewWorkOrderPage() {
                 onClick={handleSubmit}
                 disabled={createWorkOrder.isPending}
                 startIcon={createWorkOrder.isPending ? <CircularProgress size={16} /> : undefined}
-                sx={{ flex: { xs: '1 1 auto', sm: '0 0 auto' }, minWidth: 0 }}
+                sx={{ width: { xs: '100%', sm: 'auto' } }}
               >
                 {createWorkOrder.isPending ? 'Submitting…' : 'Submit Work Order'}
               </Button>
