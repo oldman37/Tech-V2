@@ -290,11 +290,15 @@ export class FieldTripService {
     // ── Duplicate-approver guard ──────────────────────────────────────────
     // Prevent the same user from approving at multiple stages of the same
     // request. This enforces separation of duties in the approval chain.
+    // The actedAt boundary scopes the check to the current submission cycle
+    // only: resubmit() resets submittedAt to new Date(), so old approval
+    // records from a prior cycle are excluded and do not trigger false positives.
     const priorApproval = await prisma.fieldTripApproval.findFirst({
       where: {
         fieldTripRequestId: id,
         actedById:          userId,
         action:             'APPROVED',
+        ...(trip.submittedAt ? { actedAt: { gte: trip.submittedAt } } : {}),
       },
       select: { stage: true },
     });
