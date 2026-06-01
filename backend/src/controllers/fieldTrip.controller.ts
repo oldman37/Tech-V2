@@ -81,7 +81,8 @@ export const getPendingApprovals = async (req: AuthRequest, res: Response): Prom
   try {
     const userId    = req.user!.id;
     const permLevel = req.user!.permLevel ?? 1;
-    const result    = await fieldTripService.getPendingApprovals(userId, permLevel);
+    const isAdmin   = req.user!.roles?.includes('ADMIN') ?? false;
+    const result    = await fieldTripService.getPendingApprovals(userId, permLevel, isAdmin);
     res.json(result);
   } catch (error) {
     handleControllerError(error, res);

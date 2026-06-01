@@ -9,7 +9,7 @@
  * Step 3: Additional Info — chaperones, emergency contact, notes
  *
  * Supports "Save as Draft" (any step) and "Submit for Approval" (final step).
- * Pre-populates if an existing DRAFT id is provided in the URL.
+ * Pre-populates if an existing DRAFT or NEEDS_REVISION id is provided in the URL.
  */
 
 import { useState, useEffect } from 'react';
@@ -295,7 +295,7 @@ function formToDto(form: FormState): CreateFieldTripDto {
 
 type FieldErrors = Partial<Record<keyof FormState, string>>;
 
-function validateStep(step: number, form: FormState): FieldErrors {
+function validateStep(step: number, form: FormState, isRevision = false): FieldErrors {
   const errors: FieldErrors = {};
 
   if (step === 0) {
@@ -309,7 +309,7 @@ function validateStep(step: number, form: FormState): FieldErrors {
       errors.studentCount = 'Enter a number between 1 and 500';
     if (!form.tripDate) {
       errors.tripDate = 'Trip date is required';
-    } else {
+    } else if (!isRevision) {
       const d        = new Date(form.tripDate + 'T00:00:00');
       const tomorrow = new Date();
       tomorrow.setDate(tomorrow.getDate() + 1);
@@ -417,6 +417,7 @@ export function FieldTripRequestPage() {
     queryKey: ['field-trips', id],
     queryFn:  () => fieldTripService.getById(id!),
     enabled:  !!id,
+    staleTime: 5 * 60_000,
   });
 
   useEffect(() => {
@@ -523,7 +524,8 @@ export function FieldTripRequestPage() {
   };
 
   const handleNext = () => {
-    const stepErrors = validateStep(activeStep, form);
+    const isRevision = existingTrip?.status === 'NEEDS_REVISION';
+    const stepErrors = validateStep(activeStep, form, isRevision);
     if (Object.keys(stepErrors).length > 0) { setErrors(stepErrors); return; }
     setErrors({});
     // Skip the Transportation step when transportation is not needed
@@ -545,8 +547,9 @@ export function FieldTripRequestPage() {
   };
 
   const handleSubmit = async () => {
+    const isRevision = existingTrip?.status === 'NEEDS_REVISION';
     const allErrors: FieldErrors = {};
-    for (let s = 0; s < STEPS.length; s++) Object.assign(allErrors, validateStep(s, form));
+    for (let s = 0; s < STEPS.length; s++) Object.assign(allErrors, validateStep(s, form, isRevision));
     if (Object.keys(allErrors).length > 0) {
       setErrors(allErrors);
       setSaveError('Please fix the errors above before submitting.');
@@ -1486,7 +1489,7 @@ export function FieldTripRequestPage() {
               onClick={handleSaveDraft}
               disabled={isSaving || isSubmitting}
             >
-              Save as Draft
+              {isNeedsRevision ? 'Save Changes' : 'Save as Draft'}
             </Button>
           )}
           {activeStep < STEPS.length - 1 ? (
@@ -1502,7 +1505,7 @@ export function FieldTripRequestPage() {
                   startIcon={isSubmitting ? <CircularProgress size={16} /> : <SendIcon />}
                   onClick={async () => {
                     const allErrors: FieldErrors = {};
-                    for (let s = 0; s < STEPS.length; s++) Object.assign(allErrors, validateStep(s, form));
+                    for (let s = 0; s < STEPS.length; s++) Object.assign(allErrors, validateStep(s, form, true));
                     if (Object.keys(allErrors).length > 0) { setErrors(allErrors); setSaveError('Please fix the errors above before submitting.'); return; }
                     setSaveError(null);
                     try {

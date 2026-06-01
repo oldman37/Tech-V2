@@ -54,8 +54,24 @@ const PENDING_STATUSES = new Set([
   'PENDING_FINANCE_DIRECTOR',
 ]);
 
-// Statuses where the approval workflow is complete â€” no further approver actions are possible.
+// Statuses where the approval workflow is complete — no further approver actions are possible.
 const TERMINAL_STATUSES = new Set(['APPROVED', 'DENIED']);
+
+// Maps trip status to the permission level required to act at that stage.
+const STAGE_MIN_LEVEL: Record<string, number> = {
+  PENDING_SUPERVISOR:       3,
+  PENDING_ASST_DIRECTOR:    4,
+  PENDING_DIRECTOR:         5,
+  PENDING_FINANCE_DIRECTOR: 6,
+};
+
+// Human-readable labels for each pending stage (used in informational banner).
+const STAGE_LABELS: Record<string, string> = {
+  PENDING_SUPERVISOR:       'Supervisor',
+  PENDING_ASST_DIRECTOR:    'Assistant Director of Schools',
+  PENDING_DIRECTOR:         'Director of Schools',
+  PENDING_FINANCE_DIRECTOR: 'Finance Director',
+};
 
 // ---------------------------------------------------------------------------
 // Component
@@ -176,12 +192,17 @@ export function FieldTripDetailPage() {
   const isTerminal       = TERMINAL_STATUSES.has(trip.status);
   const isAdmin          = user?.roles?.includes('ADMIN') ?? false;
 
+  // Check if this user is the correct approver for the current stage (strict equality)
+  const userFieldTripsLevel    = user?.permLevels?.FIELD_TRIPS ?? 0;
+  const stageMinLevel          = STAGE_MIN_LEVEL[trip.status] ?? 99;
+  const isCorrectStageApprover = isAdmin || userFieldTripsLevel === stageMinLevel;
+
   // Check if the current user already approved at a prior stage
   const hasAlreadyApproved = trip.approvals?.some(
     (a) => a.actedById === user?.id && a.action === 'APPROVED',
   ) ?? false;
 
-  const showActionButtons = isPending && !isOwner && !isTerminal && !hasAlreadyApproved;
+  const showActionButtons = isPending && !isOwner && !isTerminal && !hasAlreadyApproved && isCorrectStageApprover;
 
   // ---------------------------------------------------------------------------
   // Render helpers
@@ -276,6 +297,15 @@ export function FieldTripDetailPage() {
         <Alert severity="info" sx={{ mb: 3 }}>
           You have already approved this request at a prior stage.
           A different approver is required for the current stage.
+        </Alert>
+      )}
+
+      {/* Inform user it is not yet their stage to approve */}
+      {isPending && !isOwner && !isTerminal && !hasAlreadyApproved && !isCorrectStageApprover && (
+        <Alert severity="info" sx={{ mb: 3 }}>
+          This trip is currently awaiting{' '}
+          <strong>{STAGE_LABELS[trip.status] ?? trip.status}</strong> approval
+          before reaching your review step. No action is required from you at this time.
         </Alert>
       )}
 

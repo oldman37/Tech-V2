@@ -279,7 +279,8 @@ export class FieldTripService {
     }
     if (!isAdmin && permLevel !== minLevel) {
       throw new AuthorizationError(
-        `Insufficient permission to approve at the ${trip.status} stage`,
+        `This trip is currently awaiting ${getStageName(trip.status)} approval. ` +
+        `You are not the designated approver for this stage.`,
       );
     }
 
@@ -386,7 +387,8 @@ export class FieldTripService {
     }
     if (!isAdmin && permLevel !== minLevel) {
       throw new AuthorizationError(
-        `Insufficient permission to deny at the ${trip.status} stage`,
+        `This trip is currently awaiting ${getStageName(trip.status)} approval. ` +
+        `You are not the designated approver for this stage.`,
       );
     }
 
@@ -461,7 +463,8 @@ export class FieldTripService {
     }
     if (!isAdmin && permLevel !== minLevel) {
       throw new AuthorizationError(
-        `Insufficient permission to send back at the ${trip.status} stage`,
+        `This trip is currently awaiting ${getStageName(trip.status)} approval. ` +
+        `You are not the designated approver for this stage.`,
       );
     }
 
@@ -611,13 +614,14 @@ export class FieldTripService {
   // List pending approvals for the current user's permission level
   // -------------------------------------------------------------------------
 
-  async getPendingApprovals(userId: string, permLevel: number) {
-    // Calculate which statuses this permission level is responsible for.
-    // A user with a higher level also covers lower-level pending stages
-    // so they can act as a backup (e.g. admin sees all pending).
-    const eligibleStatuses = PENDING_STATUSES.filter(
-      (s) => permLevel >= (STAGE_MIN_LEVEL[s] ?? 99),
-    );
+  async getPendingApprovals(userId: string, permLevel: number, isAdmin: boolean) {
+    // Under strictly sequential approval, each approver only sees trips
+    // at their own stage. Admins see all pending stages.
+    const eligibleStatuses = isAdmin
+      ? [...PENDING_STATUSES]
+      : PENDING_STATUSES.filter(
+          (s) => permLevel === (STAGE_MIN_LEVEL[s] ?? 99),
+        );
 
     if (eligibleStatuses.length === 0) return [];
 
@@ -633,7 +637,7 @@ export class FieldTripService {
     const orConditions: Array<{ status: string; submittedById?: { in: string[] } } | { status: { in: string[] } }> = [];
 
     if (includesSupervisor) {
-      if (permLevel === STAGE_MIN_LEVEL['PENDING_SUPERVISOR']) {
+      if (!isAdmin && permLevel === STAGE_MIN_LEVEL['PENDING_SUPERVISOR']) {
         // Pure supervisor level — scope PENDING_SUPERVISOR to direct reports only
         const directReports = await prisma.userSupervisor.findMany({
           where:  { supervisorId: userId },
