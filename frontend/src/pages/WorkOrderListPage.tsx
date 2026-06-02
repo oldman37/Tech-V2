@@ -149,6 +149,11 @@ export default function WorkOrderListPage() {
       render: (wo) => <WorkOrderPriorityChip priority={wo.priority} />,
     },
     {
+      key: 'workOrderCategory',
+      label: 'Category',
+      render: (wo) => (wo.workOrderCategory?.name ?? wo.category ?? '—').replace(/_/g, ' '),
+    },
+    {
       key: 'officeLocation',
       label: 'Location',
       render: (wo) => (
