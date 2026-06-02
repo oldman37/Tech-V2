@@ -84,7 +84,8 @@ export default function CheckoutPage() {
       deviceAssignmentService.getActive({
         page:         page + 1,
         limit:        pageSize,
-        assigneeType: assigneeFilter  || undefined,
+        assigneeType: (assigneeFilter && assigneeFilter !== 'cart') ? assigneeFilter : undefined,
+        sourceType:   assigneeFilter === 'cart' ? 'cart' : undefined,
         campusId:     locationFilter  || undefined,
         gradeLevel:   gradeLevelFilter ? toDbGradeLevel(gradeLevelFilter) : undefined,
       }),
@@ -257,6 +258,7 @@ export default function CheckoutPage() {
                   <MenuItem value="">All Types</MenuItem>
                   <MenuItem value="student">Students</MenuItem>
                   <MenuItem value="staff">Staff</MenuItem>
+                  <MenuItem value="cart">Cart Checkouts</MenuItem>
                 </Select>
                 <Select size="small" displayEmpty value={locationFilter}
                   onChange={(e) => { setLocationFilter(e.target.value); setPage(0); }} fullWidth>
@@ -293,6 +295,7 @@ export default function CheckoutPage() {
               <MenuItem value="">All</MenuItem>
               <MenuItem value="student">Students</MenuItem>
               <MenuItem value="staff">Staff</MenuItem>
+              <MenuItem value="cart">Cart Checkouts</MenuItem>
             </Select>
           </FormControl>
           <FormControl size="small" sx={{ minWidth: 200 }}>

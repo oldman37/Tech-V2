@@ -41,6 +41,7 @@ export const ListAssignmentsQuerySchema = z.object({
   userId:       z.string().uuid().optional(),
   equipmentId:  z.string().uuid().optional(),
   assigneeType: assigneeTypeEnum.optional(),
+  sourceType:   z.enum(['single', 'cart']).optional(),
   campusId:     z.string().uuid().optional(),
   gradeLevel:   z.string().max(3).optional(),
   sortBy:       z.string().max(50).optional(),

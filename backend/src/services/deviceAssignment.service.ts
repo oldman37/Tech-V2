@@ -264,9 +264,11 @@ export async function getActiveAssignments(query: ListAssignmentsQuery) {
   const where: Prisma.DeviceAssignmentWhereInput = { returnedAt: null };
   if (query.userId)       where.userId       = query.userId;
   if (query.equipmentId)  where.equipmentId  = query.equipmentId;
-  if (query.assigneeType) where.assigneeType = query.assigneeType;
-  if (query.campusId)     where.locationId   = query.campusId;
-  if (query.gradeLevel)   where.user         = { gradeLevel: query.gradeLevel };
+  if (query.assigneeType)              where.assigneeType = query.assigneeType;
+  if (query.sourceType === 'cart')    where.cartId       = { not: null };
+  if (query.sourceType === 'single')  where.cartId       = null;
+  if (query.campusId)                 where.locationId   = query.campusId;
+  if (query.gradeLevel)               where.user         = { gradeLevel: query.gradeLevel };
 
   const [items, total] = await prisma.$transaction([
     prisma.deviceAssignment.findMany({
