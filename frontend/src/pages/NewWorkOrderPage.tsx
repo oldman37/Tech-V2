@@ -10,7 +10,7 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   Alert,
@@ -58,7 +58,6 @@ interface FormState {
   roomId: string;
   // TECHNOLOGY
   inventoryId: string;       // equipment.id (resolved UUID) — used in DTO
-  inventoryTagInput: string; // raw text the user typed — for display
 }
 
 const INITIAL: FormState = {
@@ -70,7 +69,6 @@ const INITIAL: FormState = {
   officeLocationId: '',
   roomId: '',
   inventoryId: '',
-  inventoryTagInput: '',
 };
 
 // ─── Validation ───────────────────────────────────────────────────────────────
@@ -98,6 +96,7 @@ function validate(form: FormState): FormErrors {
 
 export default function NewWorkOrderPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user } = useAuthStore();
   const [form, setForm] = useState<FormState>(INITIAL);
   const [touched, setTouched] = useState<Partial<Record<keyof FormState, boolean>>>({});
@@ -106,6 +105,7 @@ export default function NewWorkOrderPage() {
   const [inventorySearch, setInventorySearch] = useState('');
   const [selectedEquipment, setSelectedEquipment] = useState<InventorySearchResult | null>(null);
   const defaultsApplied = useRef(false);
+  const prefilledAssetTag = useRef<string | null>(null);
 
   // Staff have REQUISITIONS >= 2; students do not — use that to gate MAINTENANCE
   const isStaff = (user?.permLevels?.REQUISITIONS ?? 0) >= 2 || user?.roles?.includes('ADMIN');
@@ -130,6 +130,25 @@ export default function NewWorkOrderPage() {
     }
   }, [userDefaults]);
 
+  // Pre-populate from query params on mount (e.g. navigated from My Equipment)
+  useEffect(() => {
+    const assetTagParam = searchParams.get('assetTag');
+    const deptParam = searchParams.get('department') as WorkOrderDepartment | null;
+
+    if (assetTagParam) {
+      // Sanitize: allow only word chars and hyphens (asset tags are alphanumeric + hyphens)
+      const sanitized = assetTagParam.replace(/[^\w\-./]/g, '').slice(0, 50);
+      if (sanitized) {
+        setInventorySearch(sanitized);
+        prefilledAssetTag.current = sanitized;
+      }
+    }
+    if (deptParam === 'TECHNOLOGY' || deptParam === 'MAINTENANCE') {
+      setForm((prev) => ({ ...prev, department: deptParam }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // run once on mount
+
   const errors = validate(form);
 
   const { data: inventoryOptions = [], isFetching: inventoryFetching } = useQuery({
@@ -141,6 +160,19 @@ export default function NewWorkOrderPage() {
     enabled:   inventorySearch.length >= 2,
     staleTime: 30_000,
   });
+
+  // Auto-select the equipment item once search results arrive for a pre-filled asset tag
+  useEffect(() => {
+    if (!prefilledAssetTag.current || inventoryOptions.length === 0) return;
+    const match = inventoryOptions.find(
+      (opt) => opt.assetTag.toLowerCase() === prefilledAssetTag.current!.toLowerCase()
+    );
+    if (match) {
+      setSelectedEquipment(match);
+      setForm((prev) => ({ ...prev, inventoryId: match.id }));
+      prefilledAssetTag.current = null; // clear so it only fires once
+    }
+  }, [inventoryOptions]);
 
   // Fetch categories from the database; fall back to hardcoded arrays if not yet loaded
   const { data: categoriesData, isLoading: categoriesLoading } = useQuery({
@@ -355,7 +387,11 @@ export default function NewWorkOrderPage() {
                   loading={inventoryFetching}
                   value={selectedEquipment}
                   inputValue={inventorySearch}
-                  onInputChange={(_, value) => {
+                  clearOnBlur={false}
+                  onInputChange={(_, value, reason) => {
+                    if (prefilledAssetTag.current && reason === 'reset') {
+                      return;
+                    }
                     setInventorySearch(value);
                     if (!value) {
                       setSelectedEquipment(null);
