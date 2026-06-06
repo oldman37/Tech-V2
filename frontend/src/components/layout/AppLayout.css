@@ -95,12 +95,37 @@
 }
 
 .nav-section-title {
-  padding: 0.5rem 1rem 0.25rem;
   font-size: 0.65rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--slate-400, #94a3b8);
+}
+
+.nav-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0.5rem 1rem 0.25rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+}
+
+.nav-section-header:hover {
+  background: var(--slate-50, #f8fafc);
+}
+
+.nav-section-expand-icon {
+  color: var(--slate-400, #94a3b8);
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+.nav-section-expand-icon--open {
+  transform: rotate(180deg);
 }
 
 .nav-item {

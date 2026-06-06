@@ -2,8 +2,9 @@
 
 import { ReactNode, useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Drawer, IconButton } from '@mui/material';
+import { Drawer, IconButton, Collapse } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { useAuthStore, selectCanAccessDeviceManagement } from '../../store/authStore';
 import { authApi } from '../../services/authService';
 import { useRoomAssignmentAccess } from '../../hooks/useRoomAssignmentAccess';
@@ -47,7 +48,7 @@ const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
-    title: 'Operations',
+    title: 'Requests',
     items: [
       { label: 'Purchase Orders', icon: '📋', path: '/purchase-orders', staffOnly: true },
       { label: 'Work Orders', icon: '🔧', path: '/work-orders' },
@@ -114,6 +115,15 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
     return () => mq.removeEventListener('change', handler);
   }, []);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [openGroup, setOpenGroup] = useState<string | null>(() => {
+    for (const section of NAV_SECTIONS) {
+      if (!section.title) continue;
+      if (section.items.some(item => item.path && location.pathname.startsWith(item.path))) {
+        return section.title;
+      }
+    }
+    return null;
+  });
 
   const handleLogout = async () => {
     sessionStorage.setItem('explicit_logout', 'true');
@@ -148,8 +158,19 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
         return (
           <div key={si} className="nav-section">
             {section.title && (
-              <div className="nav-section-title">{section.title}</div>
+              <button
+                className="nav-section-header"
+                aria-expanded={openGroup === section.title}
+                onClick={() => setOpenGroup(prev => prev === section.title ? null : section.title!)}
+              >
+                <span className="nav-section-title">{section.title}</span>
+                <ExpandMoreIcon
+                  className={`nav-section-expand-icon${openGroup === section.title ? ' nav-section-expand-icon--open' : ''}`}
+                  fontSize="small"
+                />
+              </button>
             )}
+            <Collapse in={!section.title || openGroup === section.title} timeout="auto" unmountOnExit={false}>
             {visibleItems.map((item) => {
               const isActive = item.path
                 ? (() => {
@@ -190,6 +211,7 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
                 </button>
               );
             })}
+            </Collapse>
           </div>
         );
       })}
