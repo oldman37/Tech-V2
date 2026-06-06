@@ -104,10 +104,10 @@ export default function DotPhysicalsPage() {
     queryKey: ['user-search', userSearch],
     queryFn: async () => {
       if (!userSearch.trim() || userSearch.length < 2) return [];
-      const res = await api.get<{ users: UserOption[] }>('/transportation-units/user-search', {
-        params: { search: userSearch, limit: 20 },
+      const res = await api.get<UserOption[]>('/transportation-units/user-search', {
+        params: { q: userSearch, limit: 20 },
       });
-      return res.data.users ?? [];
+      return res.data ?? [];
     },
     enabled: userSearch.length >= 2 && dialogOpen && !editRecord,
   });
