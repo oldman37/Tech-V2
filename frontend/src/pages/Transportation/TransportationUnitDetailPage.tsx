@@ -33,13 +33,14 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
+import { PageBackButton } from '@/components/layout/PageBackButton';
 import PersonRemoveIcon from '@mui/icons-material/PersonRemove';
 import { useAuthStore } from '@/store/authStore';
 import { transportationUnitApi } from '@/services/transportation.service';
 import { api } from '@/services/api';
 import { UNIT_TYPE_LABELS, FUEL_TYPE_LABELS } from '@/types/transportation.types';
+import { useIsMobile } from '@/hooks/useResponsive';
 
 interface UserOption {
   id: string;
@@ -58,6 +59,7 @@ export default function TransportationUnitDetailPage() {
   const { user } = useAuthStore();
   const isAdmin = user?.roles?.includes('ADMIN');
   const permLevel = isAdmin ? 6 : (user?.permLevels?.TRANSPORTATION ?? 2);
+  const isMobile = useIsMobile();
 
   // Assign driver dialog
   const [assignOpen, setAssignOpen]     = useState(false);
@@ -129,7 +131,7 @@ export default function TransportationUnitDetailPage() {
   }
   if (error || !unit) {
     return (
-      <Box p={3}>
+      <Box sx={{ p: { xs: 2, sm: 3 } }}>
         <Alert severity="error">Failed to load unit details.</Alert>
       </Box>
     );
@@ -139,11 +141,9 @@ export default function TransportationUnitDetailPage() {
   const historyAssignments = (assignments ?? []).filter((a) => !!a.unassignedAt);
 
   return (
-    <Box p={3}>
-      <Box display="flex" alignItems="center" gap={1} mb={3}>
-        <IconButton onClick={() => navigate('/transportation/units')}>
-          <ArrowBackIcon />
-        </IconButton>
+    <Box sx={{ p: { xs: 2, sm: 3 } }}>
+      <Box display="flex" alignItems="center" gap={1} mb={3} flexWrap="wrap">
+        <PageBackButton to="/transportation/units" />
         <Typography variant="h5" fontWeight="bold">
           Unit: {unit.unitNumber}
         </Typography>
@@ -173,7 +173,7 @@ export default function TransportationUnitDetailPage() {
                   { label: 'Capacity', value: unit.capacity?.toString() ?? '—' },
                   { label: 'Current Mileage', value: `${unit.currentMileage.toLocaleString()} mi` },
                 ].map(({ label, value }) => (
-                  <Grid size={{ xs: 6 }} key={label}>
+                  <Grid size={{ xs: 12, sm: 6 }} key={label}>
                     <Typography variant="caption" color="text.secondary">{label}</Typography>
                     <Typography variant="body2">{value}</Typography>
                   </Grid>
@@ -219,6 +219,7 @@ export default function TransportationUnitDetailPage() {
                 {permLevel >= 2 && (
                   <Button
                     variant="outlined"
+                    fullWidth={isMobile}
                     startIcon={<PersonAddIcon />}
                     onClick={() => { setAssignOpen(true); setAssignError(''); }}
                   >
@@ -227,6 +228,7 @@ export default function TransportationUnitDetailPage() {
                 )}
               </Box>
             ) : (
+              <TableContainer sx={{ overflowX: 'auto' }}>
               <Table size="small">
                 <TableHead>
                   <TableRow>
@@ -277,6 +279,7 @@ export default function TransportationUnitDetailPage() {
                   ))}
                 </TableBody>
               </Table>
+              </TableContainer>
             )}
           </Paper>
         </Grid>
@@ -288,7 +291,7 @@ export default function TransportationUnitDetailPage() {
               <Box p={2} borderBottom="1px solid" borderColor="divider">
                 <Typography variant="h6" fontWeight="bold">Assignment History</Typography>
               </Box>
-              <TableContainer>
+              <TableContainer sx={{ overflowX: 'auto' }}>
                 <Table size="small">
                   <TableHead>
                     <TableRow>

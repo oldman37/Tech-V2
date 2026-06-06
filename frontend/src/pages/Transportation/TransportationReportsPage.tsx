@@ -28,6 +28,7 @@ import {
 import BarChartIcon from '@mui/icons-material/BarChart';
 import EmailIcon from '@mui/icons-material/Email';
 import WarningIcon from '@mui/icons-material/Warning';
+import { PageBackButton } from '@/components/layout/PageBackButton';
 import { useAuthStore } from '@/store/authStore';
 import { reportApi } from '@/services/transportation.service';
 import type { MonthlyFuelReport } from '@/types/transportation.types';
@@ -85,10 +86,11 @@ export default function TransportationReportsPage() {
   }
 
   return (
-    <Box p={3}>
-      <Typography variant="h5" fontWeight="bold" mb={3}>
-        Transportation Reports
-      </Typography>
+    <Box sx={{ p: { xs: 2, sm: 3 } }}>
+      <Box display="flex" alignItems="center" gap={1} mb={3} flexWrap="wrap">
+        <PageBackButton to="/transportation" />
+        <Typography variant="h5" fontWeight="bold">Transportation Reports</Typography>
+      </Box>
 
       {/* Month picker */}
       <Paper sx={{ p: 2, mb: 3 }}>
@@ -187,7 +189,7 @@ export default function TransportationReportsPage() {
             <Box p={2} borderBottom="1px solid" borderColor="divider">
               <Typography variant="h6" fontWeight="bold">Fuel by Unit</Typography>
             </Box>
-            <TableContainer>
+            <TableContainer sx={{ overflowX: 'auto' }}>
               <Table size="small">
                 <TableHead>
                   <TableRow>
@@ -227,7 +229,7 @@ export default function TransportationReportsPage() {
             <Box p={2} borderBottom="1px solid" borderColor="divider">
               <Typography variant="h6" fontWeight="bold">Fuel by Driver</Typography>
             </Box>
-            <TableContainer>
+            <TableContainer sx={{ overflowX: 'auto' }}>
               <Table size="small">
                 <TableHead>
                   <TableRow>

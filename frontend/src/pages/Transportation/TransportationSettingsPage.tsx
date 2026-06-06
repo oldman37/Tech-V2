@@ -23,10 +23,13 @@ import {
 } from '@mui/material';
 import SaveIcon from '@mui/icons-material/Save';
 import GroupIcon from '@mui/icons-material/Group';
+import { PageBackButton } from '@/components/layout/PageBackButton';
+import { useIsMobile } from '@/hooks/useResponsive';
 import { transportationSettingsApi } from '@/services/transportation.service';
 
 export default function TransportationSettingsPage() {
   const queryClient = useQueryClient();
+  const isMobile = useIsMobile();
 
   const { data: settings, isLoading, error } = useQuery({
     queryKey: ['transportation-settings'],
@@ -139,17 +142,18 @@ export default function TransportationSettingsPage() {
   }
   if (error) {
     return (
-      <Box p={3}>
+      <Box sx={{ p: { xs: 2, sm: 3 } }}>
         <Alert severity="error">Failed to load settings.</Alert>
       </Box>
     );
   }
 
   return (
-    <Box p={3} maxWidth={700}>
-      <Typography variant="h5" fontWeight="bold" mb={3}>
-        Transportation Settings
-      </Typography>
+    <Box sx={{ p: { xs: 2, sm: 3 }, maxWidth: 700 }}>
+      <Box display="flex" alignItems="center" gap={1} mb={3} flexWrap="wrap">
+        <PageBackButton to="/transportation" />
+        <Typography variant="h5" fontWeight="bold">Transportation Settings</Typography>
+      </Box>
 
       {saveSuccess && (
         <Alert severity="success" sx={{ mb: 2 }}>Settings saved successfully.</Alert>
@@ -172,6 +176,7 @@ export default function TransportationSettingsPage() {
                       startIcon={loadingSuggestions ? <CircularProgress size={14} /> : <GroupIcon />}
                       onClick={() => { void fetchSuggestions(); }}
                       disabled={loadingSuggestions}
+                      sx={{ ...(isMobile ? { width: '100%' } : {}) }}
                     >
                       Suggest from Groups
                     </Button>
@@ -317,6 +322,7 @@ export default function TransportationSettingsPage() {
             startIcon={<SaveIcon />}
             onClick={handleSave}
             disabled={saveMutation.isPending}
+            sx={{ ...(isMobile ? { width: '100%' } : {}) }}
           >
             {saveMutation.isPending ? 'Saving…' : 'Save Settings'}
           </Button>

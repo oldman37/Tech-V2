@@ -19,13 +19,7 @@ import {
   MenuItem,
   Paper,
   Select,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
   TablePagination,
-  TableRow,
   TextField,
   Tooltip,
   Typography,
@@ -36,6 +30,10 @@ import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { fuelEntryApi, fuelStationApi, transportationUnitApi } from '@/services/transportation.service';
 import type { FuelConsumptionEntry } from '@/types/transportation.types';
+import { PageBackButton } from '@/components/layout/PageBackButton';
+import { ResponsiveTable } from '@/components/responsive/ResponsiveTable';
+import type { Column } from '@/components/responsive/ResponsiveTable';
+import { useIsMobile } from '@/hooks/useResponsive';
 
 export default function MyFuelHistoryPage() {
   const navigate = useNavigate();
@@ -43,6 +41,7 @@ export default function MyFuelHistoryPage() {
   const { user } = useAuthStore();
   const isAdmin = user?.roles?.includes('ADMIN');
   const permLevel = isAdmin ? 6 : (user?.permLevels?.TRANSPORTATION ?? 1);
+  const isMobile = useIsMobile();
 
   const [page, setPage]         = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(25);
@@ -98,9 +97,65 @@ export default function MyFuelHistoryPage() {
   const entries: FuelConsumptionEntry[] = data?.items ?? [];
   const total = data?.total ?? 0;
 
+  const historyColumns: Column<FuelConsumptionEntry>[] = [
+    {
+      key: 'entryDate',
+      label: 'Date',
+      isPrimary: true,
+      render: (e) => new Date(e.entryDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+    },
+    {
+      key: 'unit',
+      label: 'Unit',
+      isSecondary: true,
+      render: (e) => e.unit?.unitNumber ?? '—',
+    },
+    {
+      key: 'fuelStation',
+      label: 'Fuel Station',
+      hideOnMobile: true,
+      render: (e) => e.fuelStation?.officeLocation?.name ?? '—',
+    },
+    {
+      key: 'fuelAmount',
+      label: 'Amount',
+      render: (e) => `${Number(e.fuelAmount).toFixed(3)} ${e.fuelUnit}`,
+    },
+    {
+      key: 'mileageAtFueling',
+      label: 'Mileage',
+      hideOnMobile: true,
+      render: (e) => `${e.mileageAtFueling.toLocaleString()} mi`,
+    },
+    {
+      key: 'totalCost',
+      label: 'Cost',
+      hideOnMobile: true,
+      render: (e) =>
+        e.totalCost != null
+          ? `$${Number(e.totalCost).toFixed(2)}`
+          : e.costPerUnit != null
+          ? `$${(Number(e.fuelAmount) * Number(e.costPerUnit)).toFixed(2)}`
+          : '—',
+    },
+    ...(permLevel >= 2
+      ? [{
+          key: 'enteredBy',
+          label: 'Entered By',
+          hideOnMobile: true as const,
+          render: (e: FuelConsumptionEntry) => {
+            const name = e.enteredBy?.displayName
+              ?? (`${e.enteredBy?.firstName ?? ''} ${e.enteredBy?.lastName ?? ''}`.trim() || '—');
+            return name;
+          },
+        }]
+      : []),
+  ];
+
   return (
-    <Box p={3}>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+    <Box sx={{ p: { xs: 2, sm: 3 } }}>
+      <Box display="flex" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={1} mb={3}>
+        <PageBackButton to="/transportation" />
         <Typography variant="h5" fontWeight="bold">
           {permLevel >= 2 ? 'Fuel Entry History' : 'My Fuel History'}
         </Typography>
@@ -108,6 +163,7 @@ export default function MyFuelHistoryPage() {
           variant="contained"
           startIcon={<AddIcon />}
           onClick={() => navigate('/transportation/fuel-entry')}
+          sx={{ ...(isMobile ? { width: '100%' } : {}) }}
         >
           Log Fuel
         </Button>
@@ -192,80 +248,29 @@ export default function MyFuelHistoryPage() {
 
       {!isLoading && (
         <Paper>
-          <TableContainer>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Date</TableCell>
-                  <TableCell>Unit</TableCell>
-                  <TableCell>Fuel Station</TableCell>
-                  <TableCell align="right">Amount</TableCell>
-                  <TableCell align="right">Mileage</TableCell>
-                  <TableCell align="right">Cost</TableCell>
-                  {permLevel >= 2 && <TableCell>Entered By</TableCell>}
-                  {permLevel >= 3 && <TableCell align="right">Actions</TableCell>}
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {entries.map((entry) => (
-                  <TableRow key={entry.id} hover>
-                    <TableCell>
-                      {new Date(entry.entryDate).toLocaleDateString('en-US', {
-                        month: 'short', day: 'numeric', year: 'numeric',
-                      })}
-                    </TableCell>
-                    <TableCell>{entry.unit?.unitNumber ?? '—'}</TableCell>
-                    <TableCell>
-                      {entry.fuelStation?.officeLocation?.name ?? '—'}
-                    </TableCell>
-                    <TableCell align="right">
-                      {Number(entry.fuelAmount).toFixed(3)} {entry.fuelUnit}
-                    </TableCell>
-                    <TableCell align="right">
-                      {entry.mileageAtFueling.toLocaleString()} mi
-                    </TableCell>
-                    <TableCell align="right">
-                      {entry.totalCost != null
-                        ? `$${Number(entry.totalCost).toFixed(2)}`
-                        : entry.costPerUnit != null
-                        ? `$${(Number(entry.fuelAmount) * Number(entry.costPerUnit)).toFixed(2)}`
-                        : '—'}
-                    </TableCell>
-                    {permLevel >= 2 && (
-                      <TableCell>
-                        {entry.enteredBy?.displayName ??
-                          `${entry.enteredBy?.firstName ?? ''} ${entry.enteredBy?.lastName ?? ''}`}
-                      </TableCell>
-                    )}
-                    {permLevel >= 3 && (
-                      <TableCell align="right">
-                        <Tooltip title="Delete">
-                          <IconButton
-                            size="small"
-                            color="error"
-                            onClick={() => {
-                              if (window.confirm('Delete this fuel entry?')) {
-                                deleteMutation.mutate(entry.id);
-                              }
-                            }}
-                          >
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      </TableCell>
-                    )}
-                  </TableRow>
-                ))}
-                {entries.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={permLevel >= 3 ? 8 : 7} align="center" sx={{ py: 4 }}>
-                      <Typography color="text.secondary">No fuel entries found.</Typography>
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
+          <ResponsiveTable
+            columns={historyColumns}
+            rows={entries}
+            getRowKey={(e) => e.id}
+            loading={isLoading}
+            emptyMessage="No fuel entries found."
+            rowActions={permLevel >= 3 ? (entry) => (
+              <Tooltip title="Delete">
+                <IconButton
+                  size="small"
+                  color="error"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (window.confirm('Delete this fuel entry?')) {
+                      deleteMutation.mutate(entry.id);
+                    }
+                  }}
+                >
+                  <DeleteIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            ) : undefined}
+          />
           <TablePagination
             component="div"
             count={total}

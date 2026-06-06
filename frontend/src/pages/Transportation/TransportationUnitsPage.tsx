@@ -25,13 +25,7 @@ import {
   MenuItem,
   Paper,
   Select,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
   TablePagination,
-  TableRow,
   TextField,
   Tooltip,
   Typography,
@@ -42,6 +36,10 @@ import SearchIcon from '@mui/icons-material/Search';
 import BlockIcon from '@mui/icons-material/Block';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
+import { PageBackButton } from '@/components/layout/PageBackButton';
+import { ResponsiveTable } from '@/components/responsive/ResponsiveTable';
+import type { Column } from '@/components/responsive/ResponsiveTable';
+import { useIsMobile } from '@/hooks/useResponsive';
 import { useAuthStore } from '@/store/authStore';
 import { transportationUnitApi } from '@/services/transportation.service';
 import {
@@ -84,6 +82,7 @@ export default function TransportationUnitsPage() {
   const { user } = useAuthStore();
   const isAdmin = user?.roles?.includes('ADMIN');
   const permLevel = isAdmin ? 6 : (user?.permLevels?.TRANSPORTATION ?? 2);
+  const isMobile = useIsMobile();
 
   // Filters
   const [search, setSearch]         = useState('');
@@ -204,12 +203,100 @@ export default function TransportationUnitsPage() {
   const units = data?.items ?? [];
   const total = data?.total ?? 0;
 
+  const unitColumns: Column<TransportationUnit>[] = [
+    {
+      key: 'unitNumber',
+      label: 'Unit #',
+      isPrimary: true,
+      render: (unit) => <Typography variant="body2" fontWeight="bold">{unit.unitNumber}</Typography>,
+    },
+    {
+      key: 'type',
+      label: 'Type',
+      isSecondary: true,
+      render: (unit) => <Chip label={UNIT_TYPE_LABELS[unit.type] ?? unit.type} size="small" variant="outlined" />,
+    },
+    {
+      key: 'fuelType',
+      label: 'Fuel',
+      render: (unit) => FUEL_TYPE_LABELS[unit.fuelType] ?? unit.fuelType,
+    },
+    {
+      key: 'make',
+      label: 'Make / Model',
+      hideOnMobile: true,
+      render: (unit) => unit.make && unit.model ? `${unit.make} ${unit.model}` : unit.make ?? unit.model ?? '—',
+    },
+    {
+      key: 'year',
+      label: 'Year',
+      hideOnMobile: true,
+      render: (unit) => unit.year ?? '—',
+    },
+    {
+      key: 'licensePlate',
+      label: 'License Plate',
+      hideOnMobile: true,
+      render: (unit) => unit.licensePlate ?? '—',
+    },
+    {
+      key: 'assigned',
+      label: 'Assigned',
+      render: (unit) => {
+        const active = (unit.assignments ?? []).filter((a) => !a.unassignedAt);
+        return active.length > 0
+          ? <Chip label="Assigned" size="small" color="primary" variant="outlined" />
+          : <Chip label="Unassigned" size="small" variant="outlined" />;
+      },
+    },
+    {
+      key: 'driver',
+      label: 'Driver',
+      hideOnMobile: false,
+      render: (unit) => {
+        const active = (unit.assignments ?? []).filter((a) => !a.unassignedAt);
+        if (active.length === 0) return <Typography variant="body2" color="text.secondary">—</Typography>;
+        const primary = active.find((a) => a.isPrimary) ?? active[0];
+        const name = primary.user
+          ? (primary.user.displayName ?? `${primary.user.firstName} ${primary.user.lastName}`)
+          : '—';
+        return (
+          <Box>
+            <Typography variant="body2">{name}</Typography>
+            {active.length > 1 && (
+              <Typography variant="caption" color="text.secondary">+{active.length - 1} more</Typography>
+            )}
+          </Box>
+        );
+      },
+    },
+    {
+      key: 'currentMileage',
+      label: 'Mileage',
+      align: 'right',
+      hideOnMobile: true,
+      render: (unit) => unit.currentMileage.toLocaleString(),
+    },
+    {
+      key: 'isActive',
+      label: 'Status',
+      render: (unit) => (
+        <Chip
+          label={unit.isActive ? 'Active' : 'Inactive'}
+          color={unit.isActive ? 'success' : 'default'}
+          size="small"
+        />
+      ),
+    },
+  ];
+
   return (
-    <Box p={3}>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+    <Box sx={{ p: { xs: 2, sm: 3 } }}>
+      <Box display="flex" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={1} mb={3}>
+        <PageBackButton to="/transportation" />
         <Typography variant="h5" fontWeight="bold">Fleet Management</Typography>
         {permLevel >= 2 && (
-          <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>
+          <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate} sx={{ ...(isMobile ? { width: '100%' } : {}) }}>
             Add Unit
           </Button>
         )}
@@ -289,133 +376,49 @@ export default function TransportationUnitsPage() {
 
       {!isLoading && (
         <Paper>
-          <TableContainer>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Unit #</TableCell>
-                  <TableCell>Type</TableCell>
-                  <TableCell>Fuel</TableCell>
-                  <TableCell>Make / Model</TableCell>
-                  <TableCell>Year</TableCell>
-                  <TableCell>License Plate</TableCell>
-                  <TableCell>Assigned</TableCell>
-                  <TableCell>Driver</TableCell>
-                  <TableCell align="right">Mileage</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell align="right">Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {units.map((unit) => (
-                  <TableRow key={unit.id} hover>
-                    <TableCell>
-                      <Typography variant="body2" fontWeight="bold">
-                        {unit.unitNumber}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={UNIT_TYPE_LABELS[unit.type] ?? unit.type}
-                        size="small"
-                        variant="outlined"
-                      />
-                    </TableCell>
-                    <TableCell>{FUEL_TYPE_LABELS[unit.fuelType] ?? unit.fuelType}</TableCell>
-                    <TableCell>
-                      {unit.make && unit.model ? `${unit.make} ${unit.model}` : unit.make ?? unit.model ?? '—'}
-                    </TableCell>
-                    <TableCell>{unit.year ?? '—'}</TableCell>
-                    <TableCell>{unit.licensePlate ?? '—'}</TableCell>
-                    <TableCell>
-                      {(() => {
-                        const active = (unit.assignments ?? []).filter((a) => !a.unassignedAt);
-                        return active.length > 0
-                          ? <Chip label="Assigned" size="small" color="primary" variant="outlined" />
-                          : <Chip label="Unassigned" size="small" variant="outlined" />;
-                      })()}
-                    </TableCell>
-                    <TableCell>
-                      {(() => {
-                        const active = (unit.assignments ?? []).filter((a) => !a.unassignedAt);
-                        if (active.length === 0) return <Typography variant="body2" color="text.secondary">—</Typography>;
-                        const primary = active.find((a) => a.isPrimary) ?? active[0];
-                        const name = primary.user
-                          ? (primary.user.displayName ?? `${primary.user.firstName} ${primary.user.lastName}`)
-                          : '—';
-                        return (
-                          <Box>
-                            <Typography variant="body2">{name}</Typography>
-                            {active.length > 1 && (
-                              <Typography variant="caption" color="text.secondary">+{active.length - 1} more</Typography>
-                            )}
-                          </Box>
-                        );
-                      })()}
-                    </TableCell>
-                    <TableCell align="right">{unit.currentMileage.toLocaleString()}</TableCell>
-                    <TableCell>
-                      <Chip
-                        label={unit.isActive ? 'Active' : 'Inactive'}
-                        color={unit.isActive ? 'success' : 'default'}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell align="right">
-                      <Tooltip title="View Details">
-                        <IconButton
-                          size="small"
-                          onClick={() => navigate(`/transportation/units/${unit.id}`)}
-                        >
-                          <OpenInNewIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      {permLevel >= 2 && (
-                        <Tooltip title="Assign Driver">
-                          <IconButton
-                            size="small"
-                            color="primary"
-                            onClick={() => navigate(`/transportation/units/${unit.id}#assign`)}
-                          >
-                            <PersonAddIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                      {permLevel >= 2 && (
-                        <Tooltip title="Edit">
-                          <IconButton size="small" onClick={() => openEdit(unit)}>
-                            <EditIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                      {permLevel >= 3 && unit.isActive && (
-                        <Tooltip title="Deactivate">
-                          <IconButton
-                            size="small"
-                            color="error"
-                            onClick={() => {
-                              if (window.confirm(`Deactivate unit ${unit.unitNumber}?`)) {
-                                deactivateMutation.mutate(unit.id);
-                              }
-                            }}
-                          >
-                            <BlockIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {units.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={11} align="center" sx={{ py: 4 }}>
-                      <Typography color="text.secondary">No units found.</Typography>
-                    </TableCell>
-                  </TableRow>
+          <ResponsiveTable
+            columns={unitColumns}
+            rows={units}
+            getRowKey={(unit) => unit.id}
+            onRowClick={(unit) => navigate(`/transportation/units/${unit.id}`)}
+            loading={isLoading}
+            emptyMessage="No units found."
+            rowActions={(unit) => (
+              <>
+                <Tooltip title="View Details">
+                  <IconButton size="small" onClick={(e) => { e.stopPropagation(); navigate(`/transportation/units/${unit.id}`); }}>
+                    <OpenInNewIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+                {permLevel >= 2 && (
+                  <Tooltip title="Assign Driver">
+                    <IconButton size="small" color="primary" onClick={(e) => { e.stopPropagation(); navigate(`/transportation/units/${unit.id}#assign`); }}>
+                      <PersonAddIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
                 )}
-              </TableBody>
-            </Table>
-          </TableContainer>
+                {permLevel >= 2 && (
+                  <Tooltip title="Edit">
+                    <IconButton size="small" onClick={(e) => { e.stopPropagation(); openEdit(unit); }}>
+                      <EditIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                )}
+                {permLevel >= 3 && unit.isActive && (
+                  <Tooltip title="Deactivate">
+                    <IconButton size="small" color="error" onClick={(e) => {
+                      e.stopPropagation();
+                      if (window.confirm(`Deactivate unit ${unit.unitNumber}?`)) {
+                        deactivateMutation.mutate(unit.id);
+                      }
+                    }}>
+                      <BlockIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                )}
+              </>
+            )}
+          />
           <TablePagination
             component="div"
             count={total}

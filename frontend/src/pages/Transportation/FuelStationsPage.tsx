@@ -21,12 +21,6 @@ import {
   IconButton,
   Paper,
   Switch,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   TextField,
   Tooltip,
   Typography,
@@ -34,6 +28,10 @@ import {
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
+import { PageBackButton } from '@/components/layout/PageBackButton';
+import { ResponsiveTable } from '@/components/responsive/ResponsiveTable';
+import type { Column } from '@/components/responsive/ResponsiveTable';
+import { useIsMobile } from '@/hooks/useResponsive';
 import { useAuthStore } from '@/store/authStore';
 import { fuelStationApi } from '@/services/transportation.service';
 import type { TransportationFuelStation, OfficeLocationSlim } from '@/types/transportation.types';
@@ -43,6 +41,7 @@ export default function FuelStationsPage() {
   const { user } = useAuthStore();
   const isAdmin = user?.roles?.includes('ADMIN');
   const permLevel = isAdmin ? 6 : (user?.permLevels?.TRANSPORTATION ?? 2);
+  const isMobile = useIsMobile();
 
   // Dialog state
   const [dialogOpen, setDialogOpen]     = useState(false);
@@ -136,12 +135,55 @@ export default function FuelStationsPage() {
     }
   }
 
+  const stationColumns: Column<TransportationFuelStation>[] = [
+    {
+      key: 'name',
+      label: 'Location',
+      isPrimary: true,
+      render: (s) => s.officeLocation.name,
+    },
+    {
+      key: 'address',
+      label: 'Address',
+      hideOnMobile: true,
+      render: (s) => [s.officeLocation.address, s.officeLocation.city].filter(Boolean).join(', ') || '—',
+    },
+    {
+      key: 'notes',
+      label: 'Notes',
+      hideOnMobile: true,
+      render: (s) => s.notes ?? '—',
+    },
+    {
+      key: 'isActive',
+      label: 'Status',
+      isSecondary: true,
+      render: (s) =>
+        permLevel >= 2 ? (
+          <Switch
+            checked={s.isActive}
+            size="small"
+            onChange={(e) => updateMutation.mutate({ id: s.id, data: { isActive: e.target.checked } })}
+          />
+        ) : (
+          <Chip label={s.isActive ? 'Active' : 'Inactive'} size="small" color={s.isActive ? 'success' : 'default'} />
+        ),
+    },
+    {
+      key: 'addedBy',
+      label: 'Added By',
+      hideOnMobile: true,
+      render: (s) => s.addedBy ? (s.addedBy.displayName ?? '—') : '—',
+    },
+  ];
+
   return (
-    <Box p={3}>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+    <Box sx={{ p: { xs: 2, sm: 3 } }}>
+      <Box display="flex" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={1} mb={3}>
+        <PageBackButton to="/transportation" />
         <Typography variant="h5" fontWeight="bold">Fuel Stations</Typography>
         {permLevel >= 2 && (
-          <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>
+          <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate} sx={{ ...(isMobile ? { width: '100%' } : {}) }}>
             Add Fuel Station
           </Button>
         )}
@@ -156,92 +198,40 @@ export default function FuelStationsPage() {
 
       {!isLoading && (
         <Paper>
-          <TableContainer>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Location Name</TableCell>
-                  <TableCell>Code</TableCell>
-                  <TableCell>Address</TableCell>
-                  <TableCell>Notes</TableCell>
-                  <TableCell>Active</TableCell>
-                  <TableCell>Added By</TableCell>
-                  <TableCell align="right">Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {stations.map((station) => (
-                  <TableRow key={station.id} hover>
-                    <TableCell>
-                      <Typography variant="body2" fontWeight="bold">
-                        {station.officeLocation.name}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>{station.officeLocation.code ?? '—'}</TableCell>
-                    <TableCell>
-                      {station.officeLocation.address
-                        ? `${station.officeLocation.address}${station.officeLocation.city ? `, ${station.officeLocation.city}` : ''}`
-                        : '—'}
-                    </TableCell>
-                    <TableCell>{station.notes ?? '—'}</TableCell>
-                    <TableCell>
-                      {permLevel >= 2 ? (
-                        <Switch
-                          checked={station.isActive}
-                          size="small"
-                          onChange={(e) =>
-                            updateMutation.mutate({ id: station.id, data: { isActive: e.target.checked } })
-                          }
-                        />
-                      ) : (
-                        <Chip
-                          label={station.isActive ? 'Active' : 'Inactive'}
-                          color={station.isActive ? 'success' : 'default'}
-                          size="small"
-                        />
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {station.addedBy?.displayName ?? '—'}
-                    </TableCell>
-                    <TableCell align="right">
-                      {permLevel >= 2 && (
-                        <Tooltip title="Edit Notes">
-                          <IconButton size="small" onClick={() => openEdit(station)}>
-                            <EditIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                      {permLevel >= 3 && (
-                        <Tooltip title="Remove">
-                          <IconButton
-                            size="small"
-                            color="error"
-                            onClick={() => {
-                              if (window.confirm(`Remove ${station.officeLocation.name} from fuel stations?`)) {
-                                removeMutation.mutate(station.id);
-                              }
-                            }}
-                          >
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {stations.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
-                      <Typography color="text.secondary">
-                        No fuel stations configured. Add a location to begin.
-                      </Typography>
-                    </TableCell>
-                  </TableRow>
+          <ResponsiveTable
+            columns={stationColumns}
+            rows={stations}
+            getRowKey={(s) => s.id}
+            loading={isLoading}
+            emptyMessage="No fuel stations configured. Add a location to begin."
+            rowActions={(station) => (
+              <>
+                {permLevel >= 2 && (
+                  <Tooltip title="Edit Notes">
+                    <IconButton size="small" onClick={(e) => { e.stopPropagation(); openEdit(station); }}>
+                      <EditIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
                 )}
-              </TableBody>
-            </Table>
-          </TableContainer>
+                {permLevel >= 3 && (
+                  <Tooltip title="Remove">
+                    <IconButton
+                      size="small"
+                      color="error"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (window.confirm(`Remove ${station.officeLocation.name} from fuel stations?`)) {
+                          removeMutation.mutate(station.id);
+                        }
+                      }}
+                    >
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                )}
+              </>
+            )}
+          />
         </Paper>
       )}
 

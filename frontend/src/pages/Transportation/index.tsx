@@ -75,7 +75,7 @@ export default function TransportationDashboardPage() {
 
   if (error) {
     return (
-      <Box p={3}>
+      <Box sx={{ p: { xs: 2, sm: 3 } }}>
         <Alert severity="error">Failed to load transportation dashboard.</Alert>
       </Box>
     );
@@ -87,7 +87,7 @@ export default function TransportationDashboardPage() {
   if (permLevel < 2) {
     const assignment = dashboard?.myUnit;
     return (
-      <Box p={3}>
+      <Box sx={{ p: { xs: 2, sm: 3 } }}>
         <Typography variant="h5" fontWeight="bold" mb={3}>
           Transportation
         </Typography>
@@ -194,7 +194,7 @@ export default function TransportationDashboardPage() {
                     Recent Fuel Entries
                   </Typography>
                 </Box>
-                <TableContainer>
+                <TableContainer sx={{ overflowX: 'auto' }}>
                   <Table size="small">
                     <TableHead>
                       <TableRow>
@@ -243,7 +243,7 @@ export default function TransportationDashboardPage() {
   const expiringDot: DotPhysical[] = dashboard?.expiringDotPhysicals ?? [];
 
   return (
-    <Box p={3}>
+    <Box sx={{ p: { xs: 2, sm: 3 } }}>
       <Typography variant="h5" fontWeight="bold" mb={3}>
         Transportation Dashboard
       </Typography>
@@ -336,7 +336,7 @@ export default function TransportationDashboardPage() {
               DOT Physical Alerts
             </Typography>
           </Box>
-          <TableContainer>
+          <TableContainer sx={{ overflowX: 'auto' }}>
             <Table size="small">
               <TableHead>
                 <TableRow>

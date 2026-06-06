@@ -22,13 +22,7 @@ import {
   IconButton,
   Paper,
   Tab,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
   TablePagination,
-  TableRow,
   Tabs,
   TextField,
   Tooltip,
@@ -37,6 +31,10 @@ import {
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
+import { PageBackButton } from '@/components/layout/PageBackButton';
+import { ResponsiveTable } from '@/components/responsive/ResponsiveTable';
+import type { Column } from '@/components/responsive/ResponsiveTable';
+import { useIsMobile } from '@/hooks/useResponsive';
 import { useAuthStore } from '@/store/authStore';
 import { dotPhysicalApi } from '@/services/transportation.service';
 import { api } from '@/services/api';
@@ -78,6 +76,7 @@ export default function DotPhysicalsPage() {
   const { user } = useAuthStore();
   const isAdmin = user?.roles?.includes('ADMIN');
   const permLevel = isAdmin ? 6 : (user?.permLevels?.TRANSPORTATION ?? 2);
+  const isMobile = useIsMobile();
 
   const [tab, setTab]           = useState<TabValue>('all');
   const [page, setPage]         = useState(0);
@@ -210,12 +209,64 @@ export default function DotPhysicalsPage() {
   const records: DotPhysical[] = data?.items ?? [];
   const total = data?.total ?? 0;
 
+  const dotColumns: Column<DotPhysical>[] = [
+    {
+      key: 'driver',
+      label: 'Driver',
+      isPrimary: true,
+      render: (p) => p.driver
+        ? (p.driver.displayName ?? `${p.driver.firstName} ${p.driver.lastName}`)
+        : '—',
+    },
+    {
+      key: 'jobTitle',
+      label: 'Job Title',
+      hideOnMobile: true,
+      render: (p) => p.driver?.jobTitle ?? '—',
+    },
+    {
+      key: 'expirationDate',
+      label: 'Expires',
+      isSecondary: true,
+      render: (p) => new Date(p.expirationDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+    },
+    {
+      key: 'examDate',
+      label: 'Exam Date',
+      hideOnMobile: true,
+      render: (p) => new Date(p.examDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+    },
+    {
+      key: 'daysRemaining',
+      label: 'Days Left',
+      render: (p) => {
+        const days = Math.ceil((new Date(p.expirationDate).getTime() - Date.now()) / 86400000);
+        return days > 0 ? `${days}d` : 'Expired';
+      },
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      render: (p) => {
+        if (!p.status) return null;
+        return <Chip label={DOT_STATUS_LABELS[p.status]} size="small" color={DOT_STATUS_COLORS[p.status]} />;
+      },
+    },
+    {
+      key: 'certificateNumber',
+      label: 'Certificate #',
+      hideOnMobile: true,
+      render: (p) => p.certificateNumber ?? '—',
+    },
+  ];
+
   return (
-    <Box p={3}>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+    <Box sx={{ p: { xs: 2, sm: 3 } }}>
+      <Box display="flex" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={1} mb={2}>
+        <PageBackButton to="/transportation" />
         <Typography variant="h5" fontWeight="bold">DOT Physicals</Typography>
         {permLevel >= 2 && (
-          <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>
+          <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate} sx={{ ...(isMobile ? { width: '100%' } : {}) }}>
             Add DOT Physical
           </Button>
         )}
@@ -226,6 +277,8 @@ export default function DotPhysicalsPage() {
           value={tab}
           onChange={(_, v) => { setTab(v); setPage(0); }}
           sx={{ borderBottom: '1px solid', borderColor: 'divider' }}
+          variant="scrollable"
+          scrollButtons="auto"
         >
           <Tab label="All" value="all" />
           <Tab label="Valid" value="valid" />
@@ -245,105 +298,40 @@ export default function DotPhysicalsPage() {
         {error && <Alert severity="error" sx={{ m: 2 }}>Failed to load DOT physical records.</Alert>}
 
         {!isLoading && (
-          <TableContainer>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Driver</TableCell>
-                  <TableCell>Job Title</TableCell>
-                  <TableCell>Exam Date</TableCell>
-                  <TableCell>Expiration Date</TableCell>
-                  <TableCell align="right">Days Remaining</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Certificate #</TableCell>
-                  <TableCell align="right">Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {records.map((r) => {
-                  const expDate = new Date(r.expirationDate);
-                  const daysRemaining = Math.ceil(
-                    (expDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24),
-                  );
-                  return (
-                    <TableRow key={r.id} hover>
-                      <TableCell>
-                        <Typography variant="body2" fontWeight="bold">
-                          {r.driver?.displayName ??
-                            `${r.driver?.firstName ?? ''} ${r.driver?.lastName ?? ''}`}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2" color="text.secondary">
-                          {r.driver?.jobTitle ?? '—'}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        {new Date(r.examDate).toLocaleDateString('en-US', {
-                          month: 'short', day: 'numeric', year: 'numeric',
-                        })}
-                      </TableCell>
-                      <TableCell>
-                        {expDate.toLocaleDateString('en-US', {
-                          month: 'short', day: 'numeric', year: 'numeric',
-                        })}
-                      </TableCell>
-                      <TableCell align="right">
-                        <Typography
-                          variant="body2"
-                          color={daysRemaining < 0 ? 'error.main' : daysRemaining <= 30 ? 'warning.main' : 'text.primary'}
-                          fontWeight={daysRemaining <= 30 ? 'bold' : 'normal'}
-                        >
-                          {daysRemaining < 0 ? `${Math.abs(daysRemaining)} days ago` : `${daysRemaining} days`}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        {r.status && (
-                          <Chip
-                            label={DOT_STATUS_LABELS[r.status]}
-                            color={DOT_STATUS_COLORS[r.status]}
-                            size="small"
-                          />
-                        )}
-                      </TableCell>
-                      <TableCell>{r.certificateNumber ?? '—'}</TableCell>
-                      <TableCell align="right">
-                        {permLevel >= 2 && (
-                          <Tooltip title="Edit">
-                            <IconButton size="small" onClick={() => openEdit(r)}>
-                              <EditIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        )}
-                        {permLevel >= 3 && (
-                          <Tooltip title="Delete">
-                            <IconButton
-                              size="small"
-                              color="error"
-                              onClick={() => {
-                                if (window.confirm('Delete this DOT physical record?')) {
-                                  deleteMutation.mutate(r.id);
-                                }
-                              }}
-                            >
-                              <DeleteIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-                {records.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
-                      <Typography color="text.secondary">No records found.</Typography>
-                    </TableCell>
-                  </TableRow>
+          <ResponsiveTable
+            columns={dotColumns}
+            rows={records}
+            getRowKey={(r) => r.id}
+            loading={isLoading}
+            emptyMessage="No records found."
+            rowActions={(r) => (
+              <>
+                {permLevel >= 2 && (
+                  <Tooltip title="Edit">
+                    <IconButton size="small" onClick={(e) => { e.stopPropagation(); openEdit(r); }}>
+                      <EditIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
                 )}
-              </TableBody>
-            </Table>
-          </TableContainer>
+                {permLevel >= 3 && (
+                  <Tooltip title="Delete">
+                    <IconButton
+                      size="small"
+                      color="error"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (window.confirm('Delete this DOT physical record?')) {
+                          deleteMutation.mutate(r.id);
+                        }
+                      }}
+                    >
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                )}
+              </>
+            )}
+          />
         )}
         <TablePagination
           component="div"

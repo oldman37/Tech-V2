@@ -24,8 +24,8 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import LocalGasStationIcon from '@mui/icons-material/LocalGasStation';
+import { PageBackButton } from '@/components/layout/PageBackButton';
 import {
   transportationUnitApi,
   fuelStationApi,
@@ -124,15 +124,9 @@ export default function FuelEntryPage() {
   // Level-1 users with no assignment cannot submit fuel entries
   if (transportationLevel < 2 && !loadingMyUnit && myAssignment === null) {
     return (
-      <Box p={3} maxWidth={600}>
-        <Box display="flex" alignItems="center" gap={1} mb={3}>
-          <Button
-            startIcon={<ArrowBackIcon />}
-            onClick={() => navigate('/transportation/my-fuel-history')}
-            size="small"
-          >
-            Back
-          </Button>
+      <Box sx={{ p: { xs: 2, sm: 3 }, maxWidth: 600 }}>
+        <Box display="flex" alignItems="center" gap={1} mb={3} flexWrap="wrap">
+          <PageBackButton to="/transportation/my-fuel-history" />
           <Typography variant="h5" fontWeight="bold">Log Fuel Entry</Typography>
         </Box>
         <Alert severity="warning">
@@ -146,15 +140,9 @@ export default function FuelEntryPage() {
   const allUnits: TransportationUnit[] = allUnitsData?.items ?? [];
 
   return (
-    <Box p={3} maxWidth={600}>
-      <Box display="flex" alignItems="center" gap={1} mb={3}>
-        <Button
-          startIcon={<ArrowBackIcon />}
-          onClick={() => navigate('/transportation/my-fuel-history')}
-          size="small"
-        >
-          Back
-        </Button>
+    <Box sx={{ p: { xs: 2, sm: 3 }, maxWidth: 600 }}>
+      <Box display="flex" alignItems="center" gap={1} mb={3} flexWrap="wrap">
+        <PageBackButton to="/transportation/my-fuel-history" />
         <Typography variant="h5" fontWeight="bold">Log Fuel Entry</Typography>
       </Box>
 
