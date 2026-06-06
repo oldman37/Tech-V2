@@ -12,7 +12,7 @@
 import { Response, NextFunction } from 'express';
 import { AuthRequest } from '../middleware/auth';
 
-type PermissionModuleType = 'TECHNOLOGY' | 'MAINTENANCE' | 'REQUISITIONS' | 'WORK_ORDERS' | 'FIELD_TRIPS' | 'TRANSPORTATION_REQUESTS' | 'CHECKOUT' | 'INVOICING';
+type PermissionModuleType = 'TECHNOLOGY' | 'MAINTENANCE' | 'REQUISITIONS' | 'WORK_ORDERS' | 'FIELD_TRIPS' | 'TRANSPORTATION_REQUESTS' | 'CHECKOUT' | 'INVOICING' | 'TRANSPORTATION';
 
 const DEVICE_MANAGEMENT_ALLOWLIST_ENV_VARS = [
   'ENTRA_ADMIN_GROUP_ID',
@@ -128,6 +128,12 @@ const GROUP_MODULE_MAP: Record<PermissionModuleType, Array<[string, number]>> = 
     ['ENTRA_ASST_DIRECTOR_OF_SCHOOLS_GROUP_ID', 2],
     ['ENTRA_PRINCIPALS_GROUP_ID',               1],
     ['ENTRA_ALL_STAFF_GROUP_ID',                1],
+  ],
+  TRANSPORTATION: [
+    ['ENTRA_ADMIN_GROUP_ID',                         3],
+    ['ENTRA_TRANSPORTATION_DIRECTOR_GROUP_ID',        3],
+    ['ENTRA_TRANSPORTATION_SECRETARY_GROUP_ID',       2],
+    ['ENTRA_BUS_DRIVERS_GROUP_ID',                   1],
   ],
 };
 

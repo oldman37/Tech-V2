@@ -9,6 +9,7 @@ interface ProtectedRouteProps {
   requireTech?: boolean;
   requireDeviceManagement?: boolean;
   requireRoomAssignment?: boolean;
+  requireTransportationLevel?: number;
 }
 
 export const ProtectedRoute = ({
@@ -17,6 +18,7 @@ export const ProtectedRoute = ({
   requireTech = false,
   requireDeviceManagement = false,
   requireRoomAssignment = false,
+  requireTransportationLevel,
 }: ProtectedRouteProps) => {
   const { isAuthenticated, user } = useAuthStore();
   const canAccessDeviceManagement = useAuthStore(selectCanAccessDeviceManagement);
@@ -49,6 +51,14 @@ export const ProtectedRoute = ({
 
   if (requireDeviceManagement && !canAccessDeviceManagement) {
     return <AccessDenied />;
+  }
+
+  if (requireTransportationLevel !== undefined) {
+    const isAdmin = user?.roles?.includes('ADMIN');
+    const transportationLevel = isAdmin ? 6 : (user?.permLevels?.TRANSPORTATION ?? 0);
+    if (transportationLevel < requireTransportationLevel) {
+      return <AccessDenied />;
+    }
   }
 
   if (requireRoomAssignment) {

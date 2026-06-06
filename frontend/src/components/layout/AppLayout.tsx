@@ -22,6 +22,7 @@ interface NavItem {
   requireRoomAssignment?: boolean;
   requireFieldTripApprover?: boolean;
   staffOnly?: boolean;  // Hidden from students (ALL_STUDENTS group)
+  requireTransportationLevel?: number;
 }
 
 interface NavSection {
@@ -76,6 +77,19 @@ const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
+    title: 'Fleet Management',
+    items: [
+      { label: 'Dashboard', icon: '🚌', path: '/transportation', requireTransportationLevel: 1 },
+      { label: 'Log Fuel', icon: '⛽', path: '/transportation/fuel-entry', requireTransportationLevel: 1 },
+      { label: 'My Fuel History', icon: '📋', path: '/transportation/my-fuel-history', requireTransportationLevel: 1 },
+      { label: 'Fleet Management', icon: '🚐', path: '/transportation/units', requireTransportationLevel: 2 },
+      { label: 'Fuel Stations', icon: '🏪', path: '/transportation/fuel-stations', requireTransportationLevel: 2 },
+      { label: 'DOT Physicals', icon: '📄', path: '/transportation/dot-physicals', requireTransportationLevel: 2 },
+      { label: 'Reports', icon: '📊', path: '/transportation/reports', requireTransportationLevel: 2 },
+      { label: 'Settings', icon: '⚙️', path: '/transportation/settings', requireTransportationLevel: 3 },
+    ],
+  },
+  {
     title: 'Admin',
     items: [
       { label: 'Users', icon: '👥', path: '/users', adminOnly: true },
@@ -100,6 +114,7 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
   const hasTechAccess = isAdmin || (user?.permLevels?.TECHNOLOGY ?? 0) >= 2;
   const hasFieldTripApproverAccess = isAdmin || (user?.permLevels?.FIELD_TRIPS ?? 0) >= 3;
   const isStaff = isAdmin || (user?.permLevels?.REQUISITIONS ?? 0) >= 2;
+  const transportationLevel = isAdmin ? 6 : (user?.permLevels?.TRANSPORTATION ?? 0);
   const { canAccess: canAccessRoomAssignments } = useRoomAssignmentAccess();
 
   // Synchronous initial read prevents flash-to-desktop on PWA refresh.
@@ -152,7 +167,8 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
           (!item.requireDeviceManagement || canAccessDeviceManagement) &&
           (!item.requireFieldTripApprover || hasFieldTripApproverAccess) &&
           (!item.staffOnly || isStaff) &&
-          (!item.requireRoomAssignment || canAccessRoomAssignments)
+          (!item.requireRoomAssignment || canAccessRoomAssignments) &&
+          (item.requireTransportationLevel === undefined || transportationLevel >= item.requireTransportationLevel)
         );
         if (visibleItems.length === 0) return null;
         return (

@@ -59,6 +59,15 @@ import IncidentWizardPage from './pages/incidents/IncidentWizardPage'
 import InventoryAuditPage from './pages/InventoryAuditPage'
 import InventoryAuditHistoryPage from './pages/InventoryAuditHistoryPage'
 import UnresolvedInventoryPage from './pages/UnresolvedInventoryPage'
+import TransportationDashboardPage from './pages/Transportation/index'
+import TransportationUnitsPage from './pages/Transportation/TransportationUnitsPage'
+import TransportationUnitDetailPage from './pages/Transportation/TransportationUnitDetailPage'
+import FuelStationsPage from './pages/Transportation/FuelStationsPage'
+import FuelEntryPage from './pages/Transportation/FuelEntryPage'
+import MyFuelHistoryPage from './pages/Transportation/MyFuelHistoryPage'
+import DotPhysicalsPage from './pages/Transportation/DotPhysicalsPage'
+import TransportationReportsPage from './pages/Transportation/TransportationReportsPage'
+import TransportationSettingsPage from './pages/Transportation/TransportationSettingsPage'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { PwaUpdatePrompt } from './components/layout/PwaUpdatePrompt'
 import { PwaInstallPrompt } from './components/layout/PwaInstallPrompt'
@@ -616,6 +625,97 @@ function App() {
           }
         />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        {/* Transportation Module */}
+        <Route
+          path="/transportation"
+          element={
+            <ProtectedRoute requireTransportationLevel={1}>
+              <AppLayout>
+                <TransportationDashboardPage />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/transportation/fuel-entry"
+          element={
+            <ProtectedRoute requireTransportationLevel={1}>
+              <AppLayout>
+                <FuelEntryPage />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/transportation/my-fuel-history"
+          element={
+            <ProtectedRoute requireTransportationLevel={1}>
+              <AppLayout>
+                <MyFuelHistoryPage />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/transportation/units"
+          element={
+            <ProtectedRoute requireTransportationLevel={2}>
+              <AppLayout>
+                <TransportationUnitsPage />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/transportation/units/:id"
+          element={
+            <ProtectedRoute requireTransportationLevel={2}>
+              <AppLayout>
+                <TransportationUnitDetailPage />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/transportation/fuel-stations"
+          element={
+            <ProtectedRoute requireTransportationLevel={2}>
+              <AppLayout>
+                <FuelStationsPage />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/transportation/dot-physicals"
+          element={
+            <ProtectedRoute requireTransportationLevel={2}>
+              <AppLayout>
+                <DotPhysicalsPage />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/transportation/reports"
+          element={
+            <ProtectedRoute requireTransportationLevel={2}>
+              <AppLayout>
+                <TransportationReportsPage />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/transportation/settings"
+          element={
+            <ProtectedRoute requireTransportationLevel={3}>
+              <AppLayout>
+                <TransportationSettingsPage />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
       </Routes>
     </BrowserRouter>
   )

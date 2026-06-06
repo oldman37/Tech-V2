@@ -1206,3 +1206,201 @@ export async function sendBuildingAdminIncidentAlert(opts: {
 
   await sendMail({ to: opts.adminEmail, subject, html, context: 'incident-admin-alert' });
 }
+
+// ---------------------------------------------------------------------------
+// Transportation Module email functions
+// ---------------------------------------------------------------------------
+
+/**
+ * Send a DOT physical expiration reminder to the driver (and CC secretary).
+ */
+export async function sendDotPhysicalReminderEmail(params: {
+  driver: { email: string; displayName: string };
+  daysRemaining: number;
+  expirationDate: Date;
+  physical: { id: string; certificateNumber?: string | null };
+  secretaryEmails: string[];
+}): Promise<void> {
+  const { driver, daysRemaining, expirationDate, physical, secretaryEmails } = params;
+  const expStr = expirationDate.toLocaleDateString('en-US', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+  });
+  const urgencyColor = daysRemaining <= 7 ? '#C62828' : daysRemaining <= 14 ? '#E65100' : '#F57F17';
+
+  const html = `
+    <h2 style="color:${urgencyColor};">DOT Physical Expiration Reminder</h2>
+    <p>Hello <strong>${escapeHtml(driver.displayName)}</strong>,</p>
+    <p>Your DOT physical examination certificate is expiring soon and requires renewal.</p>
+    <table style="border-collapse:collapse;width:100%;margin-top:16px;">
+      <tr><td style="padding:4px 8px;font-weight:bold;">Expiration Date:</td>
+          <td style="padding:4px 8px;color:${urgencyColor};font-weight:bold;">${expStr}</td></tr>
+      <tr><td style="padding:4px 8px;font-weight:bold;">Days Remaining:</td>
+          <td style="padding:4px 8px;color:${urgencyColor};font-weight:bold;">${daysRemaining} day${daysRemaining !== 1 ? 's' : ''}</td></tr>
+      ${physical.certificateNumber ? `<tr><td style="padding:4px 8px;font-weight:bold;">Certificate #:</td>
+          <td style="padding:4px 8px;">${escapeHtml(physical.certificateNumber)}</td></tr>` : ''}
+    </table>
+    <p style="margin-top:16px;">Please schedule your DOT physical examination as soon as possible to avoid any disruption to your driving duties.</p>
+    <p style="color:#666;font-size:12px;margin-top:24px;">This is an automated reminder from the Transportation Management System.</p>
+  `;
+
+  const recipients = [driver.email, ...secretaryEmails].filter(Boolean);
+  await sendMail({
+    to: recipients,
+    subject: `DOT Physical Expiring in ${daysRemaining} Day${daysRemaining !== 1 ? 's' : ''} — ${driver.displayName}`,
+    html,
+    context: 'dot_physical_reminder',
+    relatedEntityId: physical.id,
+  });
+}
+
+/**
+ * Send a DOT physical expiration notice to the driver (and CC secretary).
+ */
+export async function sendDotPhysicalExpiredEmail(params: {
+  driver: { email: string; displayName: string };
+  physical: { id: string; expirationDate?: Date; certificateNumber?: string | null };
+  secretaryEmails: string[];
+}): Promise<void> {
+  const { driver, physical, secretaryEmails } = params;
+
+  const html = `
+    <h2 style="color:#C62828;">DOT Physical Certificate Expired</h2>
+    <p>Hello <strong>${escapeHtml(driver.displayName)}</strong>,</p>
+    <p>Your DOT physical examination certificate has <strong>expired</strong>. You may not operate a commercial vehicle until a new certificate is obtained.</p>
+    ${physical.certificateNumber ? `<table style="border-collapse:collapse;width:100%;margin-top:16px;">
+      <tr><td style="padding:4px 8px;font-weight:bold;">Certificate #:</td>
+          <td style="padding:4px 8px;">${escapeHtml(physical.certificateNumber)}</td></tr>
+    </table>` : ''}
+    <p style="margin-top:16px;color:#C62828;font-weight:bold;">Please schedule your DOT physical examination immediately and provide the updated certificate to Transportation.</p>
+    <p style="color:#666;font-size:12px;margin-top:24px;">This is an automated notice from the Transportation Management System.</p>
+  `;
+
+  const recipients = [driver.email, ...secretaryEmails].filter(Boolean);
+  await sendMail({
+    to: recipients,
+    subject: `URGENT: DOT Physical Certificate Expired — ${driver.displayName}`,
+    html,
+    context: 'dot_physical_expired',
+    relatedEntityId: physical.id,
+  });
+}
+
+/**
+ * Send the monthly fuel consumption report to Finance Director.
+ */
+export async function sendMonthlyFuelReportEmail(params: {
+  recipientEmail: string;
+  month: string;
+  reportData: {
+    totalEntries: number;
+    totalGallons: number;
+    totalGasGallons: number;
+    totalCost: number;
+    byUnit: Array<{ unitNumber: string; fuelType: string; totalGallons: number; totalCost: number; entryCount: number }>;
+    byUser: Array<{ displayName: string; totalGallons: number; totalCost: number; entryCount: number }>;
+    topGasUser: { displayName: string; gallons: number } | null;
+  };
+}): Promise<void> {
+  const { recipientEmail, month, reportData } = params;
+
+  const unitRows = reportData.byUnit
+    .map((u) => `<tr>
+      <td style="padding:4px 8px;border:1px solid #ddd;">${escapeHtml(u.unitNumber)}</td>
+      <td style="padding:4px 8px;border:1px solid #ddd;">${escapeHtml(u.fuelType)}</td>
+      <td style="padding:4px 8px;border:1px solid #ddd;text-align:right;">${u.totalGallons.toFixed(3)}</td>
+      <td style="padding:4px 8px;border:1px solid #ddd;text-align:right;">$${u.totalCost.toFixed(2)}</td>
+      <td style="padding:4px 8px;border:1px solid #ddd;text-align:center;">${u.entryCount}</td>
+    </tr>`)
+    .join('');
+
+  const userRows = reportData.byUser
+    .map((u) => `<tr>
+      <td style="padding:4px 8px;border:1px solid #ddd;">${escapeHtml(u.displayName)}</td>
+      <td style="padding:4px 8px;border:1px solid #ddd;text-align:right;">${u.totalGallons.toFixed(3)}</td>
+      <td style="padding:4px 8px;border:1px solid #ddd;text-align:right;">$${u.totalCost.toFixed(2)}</td>
+      <td style="padding:4px 8px;border:1px solid #ddd;text-align:center;">${u.entryCount}</td>
+    </tr>`)
+    .join('');
+
+  const html = `
+    <h2 style="color:#1565C0;">Monthly Fuel Consumption Report — ${escapeHtml(month)}</h2>
+    <table style="border-collapse:collapse;width:100%;margin-top:16px;">
+      <tr><td style="padding:4px 8px;font-weight:bold;">Reporting Month:</td>  <td style="padding:4px 8px;">${escapeHtml(month)}</td></tr>
+      <tr><td style="padding:4px 8px;font-weight:bold;">Total Entries:</td>    <td style="padding:4px 8px;">${reportData.totalEntries}</td></tr>
+      <tr><td style="padding:4px 8px;font-weight:bold;">Total Gallons:</td>    <td style="padding:4px 8px;">${reportData.totalGallons.toFixed(3)}</td></tr>
+      <tr><td style="padding:4px 8px;font-weight:bold;">Gas Gallons:</td>      <td style="padding:4px 8px;">${reportData.totalGasGallons.toFixed(3)}</td></tr>
+      <tr><td style="padding:4px 8px;font-weight:bold;">Total Cost:</td>       <td style="padding:4px 8px;">$${reportData.totalCost.toFixed(2)}</td></tr>
+      ${reportData.topGasUser ? `<tr><td style="padding:4px 8px;font-weight:bold;">Top Gas User:</td>
+        <td style="padding:4px 8px;">${escapeHtml(reportData.topGasUser.displayName)} (${reportData.topGasUser.gallons.toFixed(3)} gal)</td></tr>` : ''}
+    </table>
+
+    <h3 style="margin-top:24px;color:#1565C0;">By Unit</h3>
+    <table style="border-collapse:collapse;width:100%;">
+      <thead><tr style="background:#E3F2FD;">
+        <th style="padding:4px 8px;border:1px solid #ddd;text-align:left;">Unit #</th>
+        <th style="padding:4px 8px;border:1px solid #ddd;text-align:left;">Fuel Type</th>
+        <th style="padding:4px 8px;border:1px solid #ddd;text-align:right;">Gallons</th>
+        <th style="padding:4px 8px;border:1px solid #ddd;text-align:right;">Cost</th>
+        <th style="padding:4px 8px;border:1px solid #ddd;text-align:center;">Entries</th>
+      </tr></thead>
+      <tbody>${unitRows}</tbody>
+    </table>
+
+    <h3 style="margin-top:24px;color:#1565C0;">By Driver</h3>
+    <table style="border-collapse:collapse;width:100%;">
+      <thead><tr style="background:#E3F2FD;">
+        <th style="padding:4px 8px;border:1px solid #ddd;text-align:left;">Driver</th>
+        <th style="padding:4px 8px;border:1px solid #ddd;text-align:right;">Gallons</th>
+        <th style="padding:4px 8px;border:1px solid #ddd;text-align:right;">Cost</th>
+        <th style="padding:4px 8px;border:1px solid #ddd;text-align:center;">Entries</th>
+      </tr></thead>
+      <tbody>${userRows}</tbody>
+    </table>
+
+    <p style="color:#666;font-size:12px;margin-top:24px;">Generated by the Transportation Management System.</p>
+  `;
+
+  await sendMail({
+    to:      recipientEmail,
+    subject: `Monthly Fuel Consumption Report — ${month}`,
+    html,
+    context: 'monthly_fuel_report',
+  });
+}
+
+/**
+ * Send a gas usage threshold alert to the Director of Schools.
+ */
+export async function sendGasThresholdAlertEmail(params: {
+  recipientEmail: string;
+  month: string;
+  totalGasGallons: number;
+  threshold: number;
+  topUser: { displayName: string; gallons: number } | null;
+}): Promise<void> {
+  const { recipientEmail, month, totalGasGallons, threshold, topUser } = params;
+
+  const html = `
+    <h2 style="color:#E65100;">Gas Usage Threshold Exceeded — ${escapeHtml(month)}</h2>
+    <p>The gasoline consumption threshold has been exceeded for the reporting month of <strong>${escapeHtml(month)}</strong>.</p>
+    <table style="border-collapse:collapse;width:100%;margin-top:16px;">
+      <tr><td style="padding:4px 8px;font-weight:bold;">Total Gas Gallons Used:</td>
+          <td style="padding:4px 8px;color:#E65100;font-weight:bold;">${totalGasGallons.toFixed(3)}</td></tr>
+      <tr><td style="padding:4px 8px;font-weight:bold;">Configured Threshold:</td>
+          <td style="padding:4px 8px;">${threshold.toFixed(3)}</td></tr>
+      <tr><td style="padding:4px 8px;font-weight:bold;">Over Threshold By:</td>
+          <td style="padding:4px 8px;color:#C62828;font-weight:bold;">${(totalGasGallons - threshold).toFixed(3)} gal</td></tr>
+      ${topUser ? `<tr><td style="padding:4px 8px;font-weight:bold;">Top Gas User:</td>
+          <td style="padding:4px 8px;">${escapeHtml(topUser.displayName)} (${topUser.gallons.toFixed(3)} gal)</td></tr>` : ''}
+    </table>
+    <p style="margin-top:16px;">Please review the monthly fuel report for more details.</p>
+    <p style="color:#666;font-size:12px;margin-top:24px;">Generated by the Transportation Management System.</p>
+  `;
+
+  await sendMail({
+    to:      recipientEmail,
+    subject: `Gas Usage Alert: Threshold Exceeded for ${month}`,
+    html,
+    context: 'gas_threshold_alert',
+  });
+}

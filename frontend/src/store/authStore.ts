@@ -21,6 +21,7 @@ interface User {
     REQUISITIONS: number;
     FIELD_TRIPS: number;
     CHECKOUT: number;
+    TRANSPORTATION: number;
     isFinanceDirectorApprover: boolean;
     isStrictFinanceDirector: boolean;
     isDosApprover: boolean;

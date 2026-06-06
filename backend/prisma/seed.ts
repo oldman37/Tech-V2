@@ -36,10 +36,12 @@ async function main() {
   }
 
   const defaultSchedules = [
-    { jobKey: 'sync-staff',       cronExpr: '0 3 * * *', enabled: false },
-    { jobKey: 'sync-students',    cronExpr: '0 3 * * *', enabled: false },
-    { jobKey: 'sync-locations',   cronExpr: '0 4 * * 1', enabled: false },
-    { jobKey: 'sync-supervisors', cronExpr: '0 4 * * 1', enabled: false },
+    { jobKey: 'sync-staff',                      cronExpr: '0 3 * * *',   enabled: false },
+    { jobKey: 'sync-students',                   cronExpr: '0 3 * * *',   enabled: false },
+    { jobKey: 'sync-locations',                  cronExpr: '0 4 * * 1',   enabled: false },
+    { jobKey: 'sync-supervisors',                cronExpr: '0 4 * * 1',   enabled: false },
+    { jobKey: 'transportation-dot-reminders',    cronExpr: '0 7 * * *',   enabled: false },
+    { jobKey: 'transportation-monthly-report',   cronExpr: '0 6 1 * *',   enabled: false },
   ];
 
   for (const schedule of defaultSchedules) {

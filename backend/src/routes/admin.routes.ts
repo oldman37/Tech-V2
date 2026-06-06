@@ -7,8 +7,7 @@ import { LocationSyncService } from '../services/locationSync.service';
 import { cronJobsService } from '../services/cronJobs.service';
 import { schedulerService, VALID_JOB_KEYS, computeNextRun } from '../services/scheduler.service';
 import { prisma } from '../lib/prisma';
-import { msalClient } from '../config/entraId';
-import { Client } from '@microsoft/microsoft-graph-client';
+import { createGraphClient } from '../utils/graphClient';
 import { loggers } from '../lib/logger';
 import { CronExpressionParser } from 'cron-parser';
 import cron from 'node-cron';
@@ -22,25 +21,6 @@ router.use(requireAdmin);
 
 // Mount email queue admin sub-router
 router.use('/email-queue', emailQueueAdminRoutes);
-
-// Helper to create Graph client from user's token
-async function createGraphClient() {
-  try {
-    // Get app-only token for Graph API
-    const authResult = await msalClient.acquireTokenByClientCredential({
-      scopes: ['https://graph.microsoft.com/.default'],
-    });
-
-    return Client.init({
-      authProvider: (done) => {
-        done(null, authResult?.accessToken || '');
-      },
-    });
-  } catch (error) {
-    loggers.admin.error('Failed to get Graph token', { error });
-    throw new Error('Failed to authenticate with Microsoft Graph');
-  }
-}
 
 // Get sync status
 router.get('/sync-status', async (req: Request, res: Response) => {

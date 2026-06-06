@@ -1,4 +1,4 @@
 -- Fix checksum mismatch for previously modified migration
 UPDATE "_prisma_migrations"
-SET checksum = '66178fe8862b29e6f3eae7038d0ffa1ccddb4fb71f0836090c88b09cc82f1bc8'
+SET checksum = '97470011460e3c42407d98b521907b94915d2a83a5aba04176a865e2ed634f57'
 WHERE migration_name = '20260601172219_add_cart_tag_and_multi_user';

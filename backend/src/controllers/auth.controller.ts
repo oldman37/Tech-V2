@@ -249,15 +249,16 @@ export const callback = async (
     res.cookie('refresh_token', refreshToken, getCookieConfig('refresh'));
 
     // Build permLevels map from roleMapping for the response
-    const permLevels = { TECHNOLOGY: 0, MAINTENANCE: 0, REQUISITIONS: 0, FIELD_TRIPS: 0, CHECKOUT: 0 };
+    const permLevels = { TECHNOLOGY: 0, MAINTENANCE: 0, REQUISITIONS: 0, FIELD_TRIPS: 0, CHECKOUT: 0, TRANSPORTATION: 0 };
     for (const p of roleMapping.permissions) {
       if (p.module in permLevels) {
         permLevels[p.module as keyof typeof permLevels] = p.level;
       }
     }
-    // FIELD_TRIPS and CHECKOUT levels are derived directly from groups (not via roleMapping)
+    // FIELD_TRIPS, CHECKOUT and TRANSPORTATION levels are derived directly from groups (not via roleMapping)
     permLevels.FIELD_TRIPS = derivePermLevelFromGroups(groupIds, 'FIELD_TRIPS');
     permLevels.CHECKOUT = derivePermLevelFromGroups(groupIds, 'CHECKOUT');
+    permLevels.TRANSPORTATION = derivePermLevelFromGroups(groupIds, 'TRANSPORTATION');
 
     // Compute explicit group-based approval flags (mirrors backend service checks)
     const fdGroupId     = process.env.ENTRA_FINANCE_DIRECTOR_GROUP_ID;

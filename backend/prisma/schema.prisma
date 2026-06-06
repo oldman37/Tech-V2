@@ -296,6 +296,8 @@ model OfficeLocation {
   auditSessions           InventoryAuditSession[]
   fiscalYearLocationStatuses FiscalYearLocationStatus[]
 
+  transportationFuelStations TransportationFuelStation[]
+
   @@index([isActive])
   @@index([type])
   @@map("office_locations")
@@ -549,6 +551,15 @@ model User {
   cartsCreatedBy               DeviceCart[]   @relation("CartCreatedBy")
   cartsCommittedBy             DeviceCart[]   @relation("CartCommittedBy")
   deviceCartUsers              DeviceCartUser[] @relation("DeviceCartUsers")
+
+  // Transportation Module relations
+  transportationAssignments    TransportationUnitAssignment[] @relation("TransportationAssignmentUser")
+  transportationAssignmentsMade TransportationUnitAssignment[] @relation("TransportationAssignmentMadeBy")
+  transportationAssignmentsRemoved TransportationUnitAssignment[] @relation("TransportationAssignmentRemovedBy")
+  fuelEntries                  FuelConsumptionEntry[]
+  dotPhysicals                 DotPhysical[] @relation("DotPhysicalDriver")
+  dotPhysicalsCreated          DotPhysical[] @relation("DotPhysicalCreator")
+  transportationFuelStationsAdded TransportationFuelStation[]
 
   @@index([employeeId])
   @@map("users")
@@ -1704,4 +1715,152 @@ model DeviceCartUser {
   @@index([cartId])
   @@index([userId])
   @@map("device_cart_users")
+}
+
+// ============================================
+// TRANSPORTATION MODULE
+// ============================================
+
+model TransportationUnit {
+  id             String   @id @default(uuid())
+  unitNumber     String   @unique @db.VarChar(50)
+  vin            String?  @unique @db.VarChar(17)
+  year           Int?
+  make           String?
+  model          String?
+  type           String   // REGULAR_BUS | SPECIAL_EDUCATION_BUS | MINIBUS | CAR | TRUCK | VAN | OTHER
+  fuelType       String   // GASOLINE | DIESEL | ELECTRIC | PROPANE | CNG | OTHER
+  currentMileage Int      @default(0)
+  capacity       Int?
+  licensePlate   String?
+  isActive       Boolean  @default(true)
+  notes          String?  @db.Text
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  assignments TransportationUnitAssignment[]
+  fuelEntries FuelConsumptionEntry[]
+
+  @@index([unitNumber])
+  @@index([type])
+  @@index([fuelType])
+  @@index([isActive])
+  @@map("transportation_units")
+}
+
+model TransportationFuelStation {
+  id               String   @id @default(uuid())
+  officeLocationId String   @unique
+  notes            String?
+  isActive         Boolean  @default(true)
+  addedById        String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  officeLocation OfficeLocation       @relation(fields: [officeLocationId], references: [id])
+  addedBy        User                 @relation(fields: [addedById], references: [id])
+  fuelEntries    FuelConsumptionEntry[]
+
+  @@index([officeLocationId])
+  @@index([isActive])
+  @@map("transportation_fuel_stations")
+}
+
+model FuelConsumptionEntry {
+  id                   String   @id @default(uuid())
+  transportationUnitId String
+  enteredById          String
+  fuelStationId        String
+  entryDate            DateTime @default(now())
+  fuelAmount           Decimal  @db.Decimal(10, 3)
+  fuelUnit             String   @default("gallons")
+  mileageAtFueling     Int
+  costPerUnit          Decimal? @db.Decimal(10, 4)
+  totalCost            Decimal? @db.Decimal(10, 2)
+  reportingMonth       String   // YYYY-MM
+  notes                String?  @db.Text
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  unit        TransportationUnit        @relation(fields: [transportationUnitId], references: [id])
+  enteredBy   User                      @relation(fields: [enteredById], references: [id])
+  fuelStation TransportationFuelStation @relation(fields: [fuelStationId], references: [id])
+
+  @@index([transportationUnitId])
+  @@index([enteredById])
+  @@index([fuelStationId])
+  @@index([reportingMonth])
+  @@index([entryDate])
+  @@index([transportationUnitId, reportingMonth])
+  @@index([enteredById, reportingMonth])
+  @@map("fuel_consumption_entries")
+}
+
+model TransportationUnitAssignment {
+  id                   String    @id @default(uuid())
+  transportationUnitId String
+  userId               String
+  isPrimary            Boolean   @default(true)
+  assignedAt           DateTime  @default(now())
+  assignedById         String
+  unassignedAt         DateTime?
+  unassignedById       String?
+  notes                String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  unit         TransportationUnit @relation(fields: [transportationUnitId], references: [id])
+  user         User               @relation("TransportationAssignmentUser", fields: [userId], references: [id])
+  assignedBy   User               @relation("TransportationAssignmentMadeBy", fields: [assignedById], references: [id])
+  unassignedBy User?              @relation("TransportationAssignmentRemovedBy", fields: [unassignedById], references: [id])
+
+  @@index([transportationUnitId])
+  @@index([userId])
+  @@index([userId, unassignedAt])
+  @@index([assignedAt])
+  @@map("transportation_unit_assignments")
+}
+
+model DotPhysical {
+  id                String   @id @default(uuid())
+  userId            String
+  examDate          DateTime
+  expirationDate    DateTime
+  examinerId        String?
+  examinerCertNumber String?
+  certificateNumber String?
+  documentUrl       String?
+  isActive          Boolean  @default(true)
+  remindersSent     Json     @default("[]")
+  notes             String?  @db.Text
+  createdById       String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  driver    User @relation("DotPhysicalDriver", fields: [userId], references: [id])
+  createdBy User @relation("DotPhysicalCreator", fields: [createdById], references: [id])
+
+  @@index([userId])
+  @@index([expirationDate])
+  @@index([isActive])
+  @@index([userId, isActive])
+  @@index([expirationDate, isActive])
+  @@map("dot_physicals")
+}
+
+model TransportationSettings {
+  id                           String   @id @default("singleton")
+  financeDirectorEmail         String?
+  directorOfSchoolsEmail       String?
+  transportationSecretaryEmails String[] @default([])
+  dotPhysicalReminderDays      Json     @default("[60,30,14,7]")
+  dotNotificationsEnabled      Boolean  @default(true)
+  monthlyFuelReportEnabled     Boolean  @default(true)
+  monthlyFuelReportDay         Int      @default(1)
+  gasFuelThresholdEnabled      Boolean  @default(false)
+  gasFuelThresholdGallons      Decimal? @db.Decimal(10, 2)
+  createdAt                    DateTime @default(now())
+  updatedAt                    DateTime @updatedAt
+
+  @@map("transportation_settings")
 }

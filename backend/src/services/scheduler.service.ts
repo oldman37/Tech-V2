@@ -7,14 +7,18 @@ import { Client } from '@microsoft/microsoft-graph-client';
 import { loggers } from '../lib/logger';
 import { LocationSyncService } from './locationSync.service';
 import { UserSyncService } from './userSync.service';
+import { TransportationReportService } from './transportationReport.service';
+import { DotPhysicalService } from './dotPhysical.service';
 
-type JobKey = 'sync-staff' | 'sync-students' | 'sync-locations' | 'sync-supervisors';
+type JobKey = 'sync-staff' | 'sync-students' | 'sync-locations' | 'sync-supervisors' | 'transportation-dot-reminders' | 'transportation-monthly-report';
 
 const VALID_JOB_KEYS: JobKey[] = [
   'sync-staff',
   'sync-students',
   'sync-locations',
   'sync-supervisors',
+  'transportation-dot-reminders',
+  'transportation-monthly-report',
 ];
 
 const TIMEZONE = process.env.TZ || 'America/Chicago';
@@ -227,6 +231,14 @@ class SchedulerService {
       case 'sync-supervisors': {
         const svc = new LocationSyncService(prisma, graphClient);
         return (await svc.syncSupervisorAssignments()) as unknown as Record<string, unknown>;
+      }
+      case 'transportation-dot-reminders': {
+        const svc = new DotPhysicalService(prisma);
+        return (await svc.runDotReminderJob()) as unknown as Record<string, unknown>;
+      }
+      case 'transportation-monthly-report': {
+        const svc = new TransportationReportService(prisma);
+        return (await svc.runMonthlyReportJob()) as unknown as Record<string, unknown>;
       }
     }
   }
