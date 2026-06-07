@@ -6,6 +6,7 @@
  * Mirrors the DotPhysical service pattern exactly.
  */
 import path from 'path';
+import fs from 'fs';
 import { PrismaClient } from '@prisma/client';
 import { createLogger } from '../lib/logger';
 import { sanitizeText } from '../utils/redact';
@@ -157,6 +158,19 @@ export class DriverLicenseService {
     const existing = await this.prisma.driverLicense.findUnique({ where: { id } });
     if (!existing) throw new NotFoundError('DriverLicense', id);
     await this.prisma.driverLicense.update({ where: { id }, data: { isActive: false } });
+  }
+
+  async hardDelete(id: string) {
+    const existing = await this.prisma.driverLicense.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundError('DriverLicense', id);
+
+    // Delete the file from disk first (best-effort)
+    if (existing.documentUrl) {
+      const filePath = path.join(__dirname, '..', '..', 'public', 'uploads', existing.documentUrl as string);
+      try { fs.unlinkSync(filePath); } catch { /* file may already be gone */ }
+    }
+
+    await this.prisma.driverLicense.delete({ where: { id } });
   }
 
   /**

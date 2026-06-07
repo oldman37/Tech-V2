@@ -70,6 +70,7 @@ services:
       TZ: ${TZ:-America/Chicago}
     volumes:
       - backend_logs:/workspace/backend/logs
+      - backend_uploads:/workspace/backend/public/uploads
     expose:
       - "3000"
     command: sh -c "npx prisma migrate deploy && node dist/server.js"
@@ -117,5 +118,6 @@ services:
 volumes:
   pgdata:
   backend_logs:
+  backend_uploads:
   certbot_conf:
   certbot_www:

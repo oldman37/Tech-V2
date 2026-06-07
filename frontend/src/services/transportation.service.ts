@@ -419,6 +419,10 @@ export const driverLicenseApi = {
     await api.delete(`/driver-licenses/${id}`);
   },
 
+  hardDelete: async (id: string): Promise<void> => {
+    await api.delete(`/driver-licenses/${id}/hard`);
+  },
+
   getImageUrl: (id: string): string => `/api/driver-licenses/${id}/image`,
 
   fetchImageBlob: async (id: string): Promise<{ url: string; contentType: string }> => {

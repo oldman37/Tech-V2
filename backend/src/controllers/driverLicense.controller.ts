@@ -92,6 +92,15 @@ export const deactivateLicense = async (req: AuthRequest, res: Response): Promis
   }
 };
 
+export const deleteLicense = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    await service.hardDelete(req.params['id'] as string);
+    res.status(204).send();
+  } catch (error) {
+    handleControllerError(error, res);
+  }
+};
+
 /**
  * Serve the license document image/PDF behind authentication.
  * Files are NOT served as static assets — they require a valid JWT.

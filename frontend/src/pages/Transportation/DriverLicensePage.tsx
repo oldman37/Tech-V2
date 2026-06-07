@@ -31,6 +31,7 @@ import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import BlockIcon from '@mui/icons-material/Block';
+import DeleteIcon from '@mui/icons-material/Delete';
 import { PageBackButton } from '@/components/layout/PageBackButton';
 import { ResponsiveTable } from '@/components/responsive/ResponsiveTable';
 import type { Column } from '@/components/responsive/ResponsiveTable';
@@ -118,6 +119,11 @@ export default function DriverLicensePage() {
 
   const deactivateMutation = useMutation({
     mutationFn: driverLicenseApi.deactivate,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['driver-licenses'] }),
+  });
+
+  const hardDeleteMutation = useMutation({
+    mutationFn: driverLicenseApi.hardDelete,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['driver-licenses'] }),
   });
 
@@ -324,15 +330,35 @@ export default function DriverLicensePage() {
                   <Tooltip title="Deactivate">
                     <IconButton
                       size="small"
-                      color="error"
+                      color="warning"
                       onClick={(e) => {
                         e.stopPropagation();
-                        if (window.confirm('Deactivate this driver\'s license record? This cannot be undone.')) {
+                        if (window.confirm('Deactivate this driver\'s license record?')) {
                           deactivateMutation.mutate(r.id);
                         }
                       }}
                     >
                       <BlockIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                )}
+
+                {/* Hard delete — admin / level 3+ only */}
+                {permLevel >= 3 && (
+                  <Tooltip title="Delete Permanently">
+                    <IconButton
+                      size="small"
+                      color="error"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (window.confirm(
+                          'Permanently delete this license record and its image? This cannot be undone.'
+                        )) {
+                          hardDeleteMutation.mutate(r.id);
+                        }
+                      }}
+                    >
+                      <DeleteIcon fontSize="small" />
                     </IconButton>
                   </Tooltip>
                 )}
