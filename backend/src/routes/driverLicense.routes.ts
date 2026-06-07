@@ -17,8 +17,16 @@ import * as controller from '../controllers/driverLicense.controller';
 
 const UPLOAD_DIR = path.join(__dirname, '..', '..', 'public', 'uploads', 'driver-licenses');
 
-// Ensure upload directory exists at startup
-mkdirSync(UPLOAD_DIR, { recursive: true });
+// Ensure upload directory exists at startup (best-effort — directory is pre-created in Dockerfile)
+try {
+  mkdirSync(UPLOAD_DIR, { recursive: true });
+} catch (err: unknown) {
+  // Log but do not crash — the directory should already exist from the Docker image build
+  const code = (err as NodeJS.ErrnoException).code;
+  if (code !== 'EEXIST') {
+    console.error(`[driverLicense.routes] Could not create upload dir: ${(err as Error).message}`);
+  }
+}
 
 const licenseUpload = multer({
   storage: multer.diskStorage({

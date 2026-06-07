@@ -64,8 +64,10 @@ RUN npx prisma generate
 # Copy built output from builder
 COPY --from=builder /workspace/backend/dist ./dist/
 
-# Create logs directory
-RUN mkdir -p logs
+# Create logs and upload directories with correct ownership before switching to non-root user
+RUN mkdir -p logs \
+    public/uploads/damage-incidents \
+    public/uploads/driver-licenses
 
 # Run as non-root
 RUN addgroup -g 1001 -S appgroup && \
