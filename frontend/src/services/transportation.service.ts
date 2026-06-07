@@ -18,6 +18,8 @@ import type {
   MonthlyFuelReport,
   PaginatedResponse,
   OfficeLocationSlim,
+  TransportationUnitType,
+  FuelType,
 } from '../types/transportation.types';
 
 // ---------------------------------------------------------------------------
@@ -101,6 +103,13 @@ export const transportationUnitApi = {
 
   unassignUser: async (id: string, assignmentId: string): Promise<void> => {
     await api.delete(`/transportation-units/${id}/assignments/${assignmentId}`);
+  },
+
+  getActiveForFuel: async (): Promise<{ id: string; unitNumber: string; type: TransportationUnitType; fuelType: FuelType }[]> => {
+    const res = await api.get<{ id: string; unitNumber: string; type: TransportationUnitType; fuelType: FuelType }[]>(
+      '/transportation-units/active-for-fuel',
+    );
+    return res.data;
   },
 };
 

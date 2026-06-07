@@ -55,6 +55,15 @@ router.get(
   controller.getMyUnit,
 );
 
+// GET /api/transportation-units/active-for-fuel
+// Slim endpoint — id, unitNumber, type, fuelType only — accessible to all TRANSPORTATION users
+router.get(
+  '/active-for-fuel',
+  authenticate,
+  requireModule('TRANSPORTATION', 1),
+  controller.getActiveForFuel,
+);
+
 // GET /api/transportation-units/:id
 router.get(
   '/:id',

@@ -151,6 +151,14 @@ export class TransportationUnitService {
     return this.prisma.transportationUnit.update({ where: { id }, data: { isActive: false } });
   }
 
+  async getActiveForFuel(): Promise<{ id: string; unitNumber: string; type: string; fuelType: string }[]> {
+    return this.prisma.transportationUnit.findMany({
+      where: { isActive: true },
+      orderBy: { unitNumber: 'asc' },
+      select: { id: true, unitNumber: true, type: true, fuelType: true },
+    });
+  }
+
   async getMyUnit(userId: string) {
     return this.prisma.transportationUnitAssignment.findFirst({
       where: { userId, unassignedAt: null },

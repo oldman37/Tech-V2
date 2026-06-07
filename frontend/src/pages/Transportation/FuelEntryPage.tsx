@@ -31,16 +31,13 @@ import {
   fuelStationApi,
   fuelEntryApi,
 } from '@/services/transportation.service';
-import { useAuthStore } from '@/store/authStore';
 import { UNIT_TYPE_LABELS, FUEL_TYPE_LABELS } from '@/types/transportation.types';
-import type { TransportationUnit, FuelUnit } from '@/types/transportation.types';
+import type { TransportationUnit, FuelUnit, TransportationUnitType, FuelType } from '@/types/transportation.types';
 
 const FUEL_UNITS: FuelUnit[] = ['gallons', 'liters', 'kWh'];
 
 export default function FuelEntryPage() {
   const navigate = useNavigate();
-  const { user } = useAuthStore();
-  const transportationLevel = user?.permLevels?.TRANSPORTATION ?? 0;
 
   // Load my assigned unit
   const { data: myAssignment, isLoading: loadingMyUnit } = useQuery({
@@ -48,11 +45,11 @@ export default function FuelEntryPage() {
     queryFn: transportationUnitApi.getMyUnit,
   });
 
-  // Load all active units only for level-2+ users when they have no assignment
-  const { data: allUnitsData, isLoading: loadingUnits } = useQuery({
-    queryKey: ['transportation-units-active'],
-    queryFn: () => transportationUnitApi.getAll({ isActive: true, limit: 100 }),
-    enabled: transportationLevel >= 2 && myAssignment === null,
+  // Load all active units for fuel selection (any level, only when user has no assignment)
+  const { data: allUnitsData = [], isLoading: loadingUnits } = useQuery({
+    queryKey: ['transportation-units-active-for-fuel'],
+    queryFn: transportationUnitApi.getActiveForFuel,
+    enabled: !loadingMyUnit && myAssignment === null,
   });
 
   // Load active fuel stations
@@ -112,7 +109,7 @@ export default function FuelEntryPage() {
     submitMutation.mutate(payload);
   }
 
-  const isLoading = loadingMyUnit || loadingStations || (transportationLevel >= 2 && loadingUnits && myAssignment === null);
+  const isLoading = loadingMyUnit || loadingStations || (loadingUnits && myAssignment === null);
   if (isLoading) {
     return (
       <Box display="flex" justifyContent="center" p={4}>
@@ -121,23 +118,8 @@ export default function FuelEntryPage() {
     );
   }
 
-  // Level-1 users with no assignment cannot submit fuel entries
-  if (transportationLevel < 2 && !loadingMyUnit && myAssignment === null) {
-    return (
-      <Box sx={{ p: { xs: 2, sm: 3 }, maxWidth: 600 }}>
-        <Box display="flex" alignItems="center" gap={1} mb={3} flexWrap="wrap">
-          <PageBackButton to="/transportation/my-fuel-history" />
-          <Typography variant="h5" fontWeight="bold">Log Fuel Entry</Typography>
-        </Box>
-        <Alert severity="warning">
-          You have no assigned unit. Contact your supervisor.
-        </Alert>
-      </Box>
-    );
-  }
-
   const assignedUnit: TransportationUnit | null = myAssignment?.unit ?? null;
-  const allUnits: TransportationUnit[] = allUnitsData?.items ?? [];
+  const allUnits = allUnitsData;
 
   return (
     <Box sx={{ p: { xs: 2, sm: 3 }, maxWidth: 600 }}>
@@ -181,7 +163,7 @@ export default function FuelEntryPage() {
                     >
                       {allUnits.map((u) => (
                         <MenuItem key={u.id} value={u.id}>
-                          {u.unitNumber} — {UNIT_TYPE_LABELS[u.type]} ({FUEL_TYPE_LABELS[u.fuelType]})
+                          {u.unitNumber} — {UNIT_TYPE_LABELS[u.type as TransportationUnitType]} ({FUEL_TYPE_LABELS[u.fuelType as FuelType]})
                         </MenuItem>
                       ))}
                     </Select>

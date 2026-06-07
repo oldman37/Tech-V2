@@ -99,3 +99,12 @@ export const unassignUser = async (req: AuthRequest, res: Response): Promise<voi
     handleControllerError(error, res);
   }
 };
+
+export const getActiveForFuel = async (_req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const units = await service.getActiveForFuel();
+    res.json(units);
+  } catch (error) {
+    handleControllerError(error, res);
+  }
+};
