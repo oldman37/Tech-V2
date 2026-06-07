@@ -177,9 +177,11 @@ export interface TransportationSettings {
   financeDirectorEmail?:         string | null;
   directorOfSchoolsEmail?:       string | null;
   transportationSecretaryEmails: string[];
-  dotPhysicalReminderDays:       number[];
-  dotNotificationsEnabled:       boolean;
-  monthlyFuelReportEnabled:      boolean;
+  dotPhysicalReminderDays:            number[];
+  dotNotificationsEnabled:            boolean;
+  driverLicenseReminderDays:          number[];
+  driverLicenseNotificationsEnabled:  boolean;
+  monthlyFuelReportEnabled:           boolean;
   monthlyFuelReportDay:          number;
   gasFuelThresholdEnabled:       boolean;
   gasFuelThresholdGallons?:      number | null;

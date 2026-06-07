@@ -354,6 +354,8 @@ export const transportationSettingsApi = {
     transportationSecretaryEmails: string[];
     dotPhysicalReminderDays: number[];
     dotNotificationsEnabled: boolean;
+    driverLicenseReminderDays: number[];
+    driverLicenseNotificationsEnabled: boolean;
     monthlyFuelReportEnabled: boolean;
     monthlyFuelReportDay: number;
     gasFuelThresholdEnabled: boolean;
