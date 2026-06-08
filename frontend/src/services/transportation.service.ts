@@ -22,6 +22,10 @@ import type {
   FuelType,
   DriverLicense,
   UpdateDriverLicensePayload,
+  FuelTank,
+  FuelTankDelivery,
+  TankFuelType,
+  FuelTankLevelInfo,
 } from '../types/transportation.types';
 
 // ---------------------------------------------------------------------------
@@ -186,6 +190,7 @@ export const fuelEntryApi = {
   create: async (data: {
     transportationUnitId: string;
     fuelStationId: string;
+    tankId?: string | null;
     entryDate?: string;
     fuelAmount: number;
     fuelUnit?: string;
@@ -430,5 +435,79 @@ export const driverLicenseApi = {
     const contentType = (res.headers['content-type'] as string | undefined) ?? 'image/jpeg';
     const url = URL.createObjectURL(res.data);
     return { url, contentType };
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Fuel Tanks & Deliveries
+// ---------------------------------------------------------------------------
+
+export const fuelTankApi = {
+  getByStation: async (stationId: string): Promise<FuelTank[]> => {
+    const res = await api.get<FuelTank[]>(`/transportation/stations/${stationId}/tanks`);
+    return res.data;
+  },
+
+  create: async (
+    stationId: string,
+    data: {
+      fuelType:              TankFuelType;
+      capacityGallons:       number;
+      label?:                string | null;
+      alertThresholdPercent?: number;
+      alertEnabled?:         boolean;
+      sortOrder?:            number;
+      notes?:                string | null;
+    },
+  ): Promise<FuelTank> => {
+    const res = await api.post<FuelTank>(`/transportation/stations/${stationId}/tanks`, data);
+    return res.data;
+  },
+
+  update: async (
+    tankId: string,
+    data: Partial<{
+      fuelType:              TankFuelType;
+      capacityGallons:       number;
+      label:                 string | null;
+      alertThresholdPercent: number;
+      alertEnabled:          boolean;
+      isActive:              boolean;
+      sortOrder:             number;
+      notes:                 string | null;
+    }>,
+  ): Promise<FuelTank> => {
+    const res = await api.put<FuelTank>(`/transportation/tanks/${tankId}`, data);
+    return res.data;
+  },
+
+  delete: async (tankId: string): Promise<void> => {
+    await api.delete(`/transportation/tanks/${tankId}`);
+  },
+
+  getLevel: async (tankId: string): Promise<FuelTankLevelInfo> => {
+    const res = await api.get<FuelTankLevelInfo>(`/transportation/tanks/${tankId}/level`);
+    return res.data;
+  },
+
+  recordDelivery: async (
+    tankId: string,
+    data: {
+      gallonsDelivered: number;
+      deliveryDate?:    string;
+      vendorName?:      string | null;
+      invoiceNumber?:   string | null;
+      costPerGallon?:   number | null;
+      totalCost?:       number | null;
+      notes?:           string | null;
+    },
+  ): Promise<FuelTankDelivery> => {
+    const res = await api.post<FuelTankDelivery>(`/transportation/tanks/${tankId}/deliveries`, data);
+    return res.data;
+  },
+
+  getDeliveries: async (tankId: string): Promise<FuelTankDelivery[]> => {
+    const res = await api.get<FuelTankDelivery[]>(`/transportation/tanks/${tankId}/deliveries`);
+    return res.data;
   },
 };

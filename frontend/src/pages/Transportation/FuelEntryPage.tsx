@@ -30,8 +30,9 @@ import {
   transportationUnitApi,
   fuelStationApi,
   fuelEntryApi,
+  fuelTankApi,
 } from '@/services/transportation.service';
-import { UNIT_TYPE_LABELS, FUEL_TYPE_LABELS } from '@/types/transportation.types';
+import { UNIT_TYPE_LABELS, FUEL_TYPE_LABELS, TANK_FUEL_TYPE_LABELS } from '@/types/transportation.types';
 import type { TransportationUnit, FuelUnit, TransportationUnitType, FuelType } from '@/types/transportation.types';
 
 const FUEL_UNITS: FuelUnit[] = ['gallons', 'liters', 'kWh'];
@@ -59,15 +60,25 @@ export default function FuelEntryPage() {
   });
 
   const today = new Date().toISOString().slice(0, 10);
-  const [unitId, setUnitId]             = useState('');
+  const [unitId, setUnitId]               = useState('');
   const [fuelStationId, setFuelStationId] = useState('');
-  const [fuelAmount, setFuelAmount]     = useState('');
-  const [fuelUnit, setFuelUnit]         = useState<FuelUnit>('gallons');
-  const [mileage, setMileage]           = useState('');
-  const [costPerUnit, setCostPerUnit]   = useState('');
-  const [entryDate, setEntryDate]       = useState(today);
-  const [notes, setNotes]               = useState('');
-  const [formError, setFormError]       = useState('');
+  const [tankId, setTankId]               = useState('');
+  const [fuelAmount, setFuelAmount]       = useState('');
+  const [fuelUnit, setFuelUnit]           = useState<FuelUnit>('gallons');
+  const [mileage, setMileage]             = useState('');
+  const [costPerUnit, setCostPerUnit]     = useState('');
+  const [entryDate, setEntryDate]         = useState(today);
+  const [notes, setNotes]                 = useState('');
+  const [formError, setFormError]         = useState('');
+
+  // Load tanks for the selected station (shown only when a station is selected)
+  const { data: stationTanks = [] } = useQuery({
+    queryKey: ['fuel-tanks', fuelStationId],
+    queryFn: () => fuelTankApi.getByStation(fuelStationId),
+    enabled: !!fuelStationId,
+  });
+
+  const activeTanks = stationTanks.filter((t) => t.isActive);
 
   // Pre-select unit from assignment
   useEffect(() => {
@@ -75,6 +86,11 @@ export default function FuelEntryPage() {
       setUnitId(myAssignment.transportationUnitId);
     }
   }, [myAssignment]);
+
+  // Reset tank selection when station changes
+  useEffect(() => {
+    setTankId('');
+  }, [fuelStationId]);
 
   const submitMutation = useMutation({
     mutationFn: fuelEntryApi.create,
@@ -95,16 +111,17 @@ export default function FuelEntryPage() {
     if (!fuelAmount || isNaN(parseFloat(fuelAmount))) { setFormError('Please enter a valid fuel amount.'); return; }
     if (!mileage || isNaN(parseInt(mileage, 10))) { setFormError('Please enter the mileage at fueling.'); return; }
 
-    const payload: Parameters<typeof fuelEntryApi.create>[0] = {
+    const payload = {
       transportationUnitId: unitId,
       fuelStationId,
+      tankId: tankId || undefined,
       fuelAmount: parseFloat(fuelAmount),
       fuelUnit,
       mileageAtFueling: parseInt(mileage, 10),
       entryDate: entryDate || undefined,
+      costPerUnit: costPerUnit ? parseFloat(costPerUnit) : undefined,
+      notes: notes.trim() || undefined,
     };
-    if (costPerUnit) payload.costPerUnit = parseFloat(costPerUnit);
-    if (notes.trim()) payload.notes = notes.trim();
 
     submitMutation.mutate(payload);
   }
@@ -189,6 +206,29 @@ export default function FuelEntryPage() {
                   </Select>
                 </FormControl>
               </Grid>
+
+              {/* Tank selector — only shown when selected station has active tanks */}
+              {fuelStationId && activeTanks.length > 0 && (
+                <Grid size={{ xs: 12 }}>
+                  <FormControl size="small" fullWidth>
+                    <InputLabel>Tank (optional)</InputLabel>
+                    <Select
+                      label="Tank (optional)"
+                      value={tankId}
+                      onChange={(e) => setTankId(e.target.value)}
+                      displayEmpty
+                    >
+                      <MenuItem value="">— No specific tank —</MenuItem>
+                      {activeTanks.map((t) => (
+                        <MenuItem key={t.id} value={t.id}>
+                          {TANK_FUEL_TYPE_LABELS[t.fuelType] ?? t.fuelType}
+                          {t.label ? ` — ${t.label}` : ''}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+              )}
 
               {/* Fuel Amount + Unit */}
               <Grid size={{ xs: 8 }}>

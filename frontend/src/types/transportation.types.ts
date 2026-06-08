@@ -13,6 +13,9 @@ export type TransportationUnitType =
 
 export type FuelType = 'GASOLINE' | 'DIESEL' | 'ELECTRIC' | 'PROPANE' | 'CNG' | 'OTHER';
 
+/** Fuel types used for tank configuration (superset of unit fuel types) */
+export type TankFuelType = 'DIESEL' | 'GASOLINE' | 'PROPANE' | 'BIODIESEL' | 'E85' | 'CNG' | 'OTHER';
+
 export type FuelUnit = 'gallons' | 'liters' | 'kWh';
 
 export type DotPhysicalStatus = 'valid' | 'expiring_soon' | 'expired';
@@ -131,6 +134,7 @@ export interface FuelConsumptionEntry {
   transportationUnitId: string;
   enteredById:          string;
   fuelStationId:        string;
+  tankId?:              string | null;
   entryDate:            string;
   fuelAmount:           number;
   fuelUnit:             FuelUnit;
@@ -144,6 +148,11 @@ export interface FuelConsumptionEntry {
   unit?:                Pick<TransportationUnit, 'id' | 'unitNumber' | 'type' | 'fuelType'>;
   enteredBy?:           UserSlim;
   fuelStation?:         TransportationFuelStation;
+  tank?: {
+    id:       string;
+    fuelType: TankFuelType;
+    label?:   string | null;
+  } | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -308,4 +317,68 @@ export interface UpdateDriverLicensePayload {
   licenseNumber?:  string | null;
   licenseState?:   string | null;
   notes?:          string | null;
+}
+
+// ---------------------------------------------------------------------------
+// Fuel Tanks
+// ---------------------------------------------------------------------------
+
+export const TANK_FUEL_TYPE_LABELS: Record<TankFuelType, string> = {
+  DIESEL:   'Diesel',
+  GASOLINE: 'Gasoline',
+  PROPANE:  'Propane',
+  BIODIESEL: 'Biodiesel',
+  E85:      'E85',
+  CNG:      'CNG',
+  OTHER:    'Other',
+};
+
+export interface FuelTankLevelInfo {
+  gallonsCurrent:  number;
+  gallonsCapacity: number;
+  percentFull:     number;
+}
+
+export interface FuelTank {
+  id:                    string;
+  stationId:             string;
+  label?:                string | null;
+  fuelType:              TankFuelType;
+  capacityGallons:       number;
+  currentFillGallons:    number;
+  initialFillGallons:    number;
+  alertThresholdPercent: number;
+  alertEnabled:          boolean;
+  isActive:              boolean;
+  sortOrder:             number;
+  notes?:                string | null;
+  createdById:           string;
+  createdAt:             string;
+  updatedAt:             string;
+  deliveries?: Array<{
+    id:               string;
+    deliveryDate:     string;
+    gallonsDelivered: number;
+    vendorName?:      string | null;
+  }>;
+}
+
+export interface FuelTankDelivery {
+  id:               string;
+  tankId:           string;
+  enteredById:      string;
+  deliveryDate:     string;
+  gallonsDelivered: number;
+  vendorName?:      string | null;
+  invoiceNumber?:   string | null;
+  costPerGallon?:   number | null;
+  totalCost?:       number | null;
+  notes?:           string | null;
+  createdAt:        string;
+  enteredBy?: {
+    id:          string;
+    firstName:   string;
+    lastName:    string;
+    displayName: string | null;
+  };
 }

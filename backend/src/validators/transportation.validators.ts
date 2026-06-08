@@ -114,6 +114,7 @@ const SIXTY_DAYS_MS = 60 * 24 * 60 * 60 * 1000;
 export const CreateFuelEntrySchema = z.object({
   transportationUnitId: z.string().uuid('Invalid transportation unit ID'),
   fuelStationId:        z.string().uuid('Invalid fuel station ID'),
+  tankId:               z.string().uuid('Invalid tank ID').optional().nullable(),
   entryDate:            z.string()
     .datetime({ offset: true })
     .or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/))
@@ -147,6 +148,66 @@ export const ListFuelEntriesQuerySchema = z.object({
   page:           z.string().optional().transform(v => (v ? parseInt(v, 10) : 1)),
   limit:          z.string().optional().transform(v => (v ? Math.min(parseInt(v, 10), 100) : 25)),
 });
+
+// ---------------------------------------------------------------------------
+// Fuel Tanks
+// ---------------------------------------------------------------------------
+
+const TANK_FUEL_TYPES = ['DIESEL', 'GASOLINE', 'PROPANE', 'BIODIESEL', 'E85', 'CNG', 'OTHER'] as const;
+
+export const CreateFuelTankSchema = z.object({
+  fuelType:              z.enum(TANK_FUEL_TYPES),
+  capacityGallons:       z.number().positive().max(999999),
+  initialFillGallons:    z.number().min(0).optional(),
+  label:                 z.string().max(100).trim().optional().nullable(),
+  alertThresholdPercent: z.number().int().min(1).max(100).optional(),
+  alertEnabled:          z.boolean().optional(),
+  sortOrder:             z.number().int().min(0).optional(),
+  notes:                 z.string().max(2000).optional().nullable(),
+});
+
+export type CreateFuelTankDto = z.infer<typeof CreateFuelTankSchema>;
+
+export const UpdateFuelTankSchema = z.object({
+  fuelType:              z.enum(TANK_FUEL_TYPES).optional(),
+  capacityGallons:       z.number().positive().max(999999).optional(),
+  initialFillGallons:    z.number().min(0).optional(),
+  label:                 z.string().max(100).trim().optional().nullable(),
+  alertThresholdPercent: z.number().int().min(1).max(100).optional(),
+  alertEnabled:          z.boolean().optional(),
+  isActive:              z.boolean().optional(),
+  sortOrder:             z.number().int().min(0).optional(),
+  notes:                 z.string().max(2000).optional().nullable(),
+});
+
+export type UpdateFuelTankDto = z.infer<typeof UpdateFuelTankSchema>;
+
+export const TankIdParamSchema = z.object({
+  tankId: z.string().uuid('Invalid tank ID'),
+});
+
+export const StationIdParamSchema = z.object({
+  stationId: z.string().uuid('Invalid station ID'),
+});
+
+// ---------------------------------------------------------------------------
+// Fuel Tank Deliveries
+// ---------------------------------------------------------------------------
+
+export const RecordDeliverySchema = z.object({
+  gallonsDelivered: z.number().positive().max(999999),
+  deliveryDate:     z.string()
+    .datetime({ offset: true })
+    .or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/))
+    .optional(),
+  vendorName:       z.string().max(200).trim().optional().nullable(),
+  invoiceNumber:    z.string().max(100).trim().optional().nullable(),
+  costPerGallon:    z.number().positive().max(999.9999).optional().nullable(),
+  totalCost:        z.number().positive().max(9999999.99).optional().nullable(),
+  notes:            z.string().max(2000).optional().nullable(),
+});
+
+export type RecordDeliveryDto = z.infer<typeof RecordDeliverySchema>;
 
 // ---------------------------------------------------------------------------
 // DOT Physicals

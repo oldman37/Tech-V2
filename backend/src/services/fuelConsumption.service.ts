@@ -9,6 +9,8 @@ import { PrismaClient, Prisma } from '@prisma/client';
 import { createLogger } from '../lib/logger';
 import { sanitizeText } from '../utils/redact';
 import { NotFoundError, ConflictError, ValidationError } from '../utils/errors';
+import { FuelTankService } from './fuelTank.service';
+import { FuelLowAlertService } from './fuelLowAlert.service';
 import type {
   CreateFuelEntryDto,
   UpdateFuelEntryDto,
@@ -182,6 +184,7 @@ export class FuelConsumptionService {
         transportationUnitId: data.transportationUnitId,
         enteredById:          requestingUserId,
         fuelStationId:        data.fuelStationId,
+        tankId:               data.tankId ?? null,
         entryDate,
         fuelAmount:      data.fuelAmount,
         fuelUnit:        data.fuelUnit ?? 'gallons',
@@ -192,6 +195,31 @@ export class FuelConsumptionService {
         notes: data.notes ? sanitizeText(data.notes) : null,
       },
     });
+
+    // Decrement tank fill level if a tank is linked
+    if (data.tankId) {
+      const tankService = new FuelTankService(this.prisma);
+      try {
+        const fuelGallons = data.fuelUnit === 'liters'
+          ? data.fuelAmount * 0.264172  // convert to gallons
+          : data.fuelAmount;            // gallons or kWh (kWh tanks unlikely but safe)
+        await tankService.adjustFill(data.tankId, -fuelGallons);
+      } catch (err) {
+        log.error('Failed to adjust tank fill on consumption entry', {
+          entryId: data.tankId,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+
+      // Fire-and-forget low-fuel alert check
+      const alertService = new FuelLowAlertService(this.prisma);
+      alertService.checkAndSendAlerts(data.tankId).catch((err: unknown) => {
+        log.error('Failed to check/send fuel low alert', {
+          tankId: data.tankId,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      });
+    }
 
     // Update unit currentMileage if higher
     const unit = await this.prisma.transportationUnit.findUnique({

@@ -560,6 +560,8 @@ model User {
   dotPhysicals                 DotPhysical[] @relation("DotPhysicalDriver")
   dotPhysicalsCreated          DotPhysical[] @relation("DotPhysicalCreator")
   transportationFuelStationsAdded TransportationFuelStation[]
+  fuelTanksCreated             FuelTank[]         @relation("FuelTankCreator")
+  fuelTankDeliveries           FuelTankDelivery[] @relation("FuelTankDeliveryEnteredBy")
   // Driver License relations
   driverLicenses               DriverLicense[] @relation("DriverLicenseHolder")
   driverLicensesUploaded       DriverLicense[] @relation("DriverLicenseUploader")
@@ -1763,6 +1765,7 @@ model TransportationFuelStation {
   officeLocation OfficeLocation       @relation(fields: [officeLocationId], references: [id])
   addedBy        User                 @relation(fields: [addedById], references: [id])
   fuelEntries    FuelConsumptionEntry[]
+  tanks          FuelTank[]
 
   @@index([officeLocationId])
   @@index([isActive])
@@ -1774,6 +1777,7 @@ model FuelConsumptionEntry {
   transportationUnitId String
   enteredById          String
   fuelStationId        String
+  tankId               String?
   entryDate            DateTime @default(now())
   fuelAmount           Decimal  @db.Decimal(10, 3)
   fuelUnit             String   @default("gallons")
@@ -1788,10 +1792,12 @@ model FuelConsumptionEntry {
   unit        TransportationUnit        @relation(fields: [transportationUnitId], references: [id])
   enteredBy   User                      @relation(fields: [enteredById], references: [id])
   fuelStation TransportationFuelStation @relation(fields: [fuelStationId], references: [id])
+  tank        FuelTank?                 @relation(fields: [tankId], references: [id])
 
   @@index([transportationUnitId])
   @@index([enteredById])
   @@index([fuelStationId])
+  @@index([tankId])
   @@index([reportingMonth])
   @@index([entryDate])
   @@index([transportationUnitId, reportingMonth])
@@ -1893,4 +1899,60 @@ model DriverLicense {
   @@index([userId, isActive])
   @@index([expirationDate, isActive])
   @@map("driver_licenses")
+}
+
+// ============================================
+// FUEL TANKS & DELIVERIES
+// ============================================
+
+model FuelTank {
+  id                    String   @id @default(uuid())
+  stationId             String
+  label                 String?  @db.VarChar(100)
+  fuelType              String   // DIESEL | GASOLINE | PROPANE | BIODIESEL | E85 | CNG | OTHER
+  capacityGallons       Decimal  @db.Decimal(10, 2)
+  currentFillGallons    Decimal  @db.Decimal(10, 2) @default(0)
+  initialFillGallons    Decimal  @db.Decimal(10, 2) @default(0)
+  alertThresholdPercent Int      @default(30)
+  alertEnabled          Boolean  @default(true)
+  isActive              Boolean  @default(true)
+  sortOrder             Int      @default(0)
+  notes                 String?  @db.Text
+  createdById           String
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  station     TransportationFuelStation @relation(fields: [stationId],   references: [id], onDelete: Cascade)
+  createdBy   User                      @relation("FuelTankCreator",     fields: [createdById], references: [id])
+  fuelEntries FuelConsumptionEntry[]
+  deliveries  FuelTankDelivery[]
+
+  @@index([stationId])
+  @@index([fuelType])
+  @@index([isActive])
+  @@index([stationId, isActive])
+  @@map("fuel_tanks")
+}
+
+model FuelTankDelivery {
+  id               String   @id @default(uuid())
+  tankId           String
+  enteredById      String
+  deliveryDate     DateTime @default(now())
+  gallonsDelivered Decimal  @db.Decimal(10, 2)
+  vendorName       String?  @db.VarChar(200)
+  invoiceNumber    String?  @db.VarChar(100)
+  costPerGallon    Decimal? @db.Decimal(10, 4)
+  totalCost        Decimal? @db.Decimal(10, 2)
+  notes            String?  @db.Text
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  tank      FuelTank @relation(fields: [tankId],      references: [id], onDelete: Cascade)
+  enteredBy User     @relation("FuelTankDeliveryEnteredBy", fields: [enteredById], references: [id])
+
+  @@index([tankId])
+  @@index([enteredById])
+  @@index([deliveryDate])
+  @@map("fuel_tank_deliveries")
 }
