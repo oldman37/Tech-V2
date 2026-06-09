@@ -219,12 +219,6 @@ export default function DotPhysicalsPage() {
         : '—',
     },
     {
-      key: 'jobTitle',
-      label: 'Job Title',
-      hideOnMobile: true,
-      render: (p) => p.driver?.jobTitle ?? '—',
-    },
-    {
       key: 'expirationDate',
       label: 'Expires',
       isSecondary: true,
@@ -254,7 +248,7 @@ export default function DotPhysicalsPage() {
     },
     {
       key: 'certificateNumber',
-      label: 'Certificate #',
+      label: 'National Registry #',
       hideOnMobile: true,
       render: (p) => p.certificateNumber ?? '—',
     },
@@ -399,7 +393,7 @@ export default function DotPhysicalsPage() {
             </Grid>
             <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
-                label="Examiner ID"
+                label="Examiner Name"
                 fullWidth
                 size="small"
                 value={form.examinerId}
@@ -417,7 +411,7 @@ export default function DotPhysicalsPage() {
             </Grid>
             <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
-                label="Certificate #"
+                label="National Registry Number"
                 fullWidth
                 size="small"
                 value={form.certificateNumber}
@@ -426,7 +420,7 @@ export default function DotPhysicalsPage() {
             </Grid>
             <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
-                label="Document URL"
+                label="State"
                 fullWidth
                 size="small"
                 value={form.documentUrl}

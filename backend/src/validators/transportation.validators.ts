@@ -220,7 +220,7 @@ export const CreateDotPhysicalSchema = z.object({
   examinerId:         z.string().max(200).optional().nullable(),
   examinerCertNumber: z.string().max(100).optional().nullable(),
   certificateNumber:  z.string().max(100).optional().nullable(),
-  documentUrl:        z.string().url().max(500).optional().nullable(),
+  documentUrl:        z.string().max(100).optional().nullable(),
   notes:              z.string().max(5000).optional().nullable(),
 }).refine(
   (data) => new Date(data.expirationDate) > new Date(data.examDate),
@@ -235,7 +235,7 @@ export const UpdateDotPhysicalSchema = z.object({
   examinerId:         z.string().max(200).optional().nullable(),
   examinerCertNumber: z.string().max(100).optional().nullable(),
   certificateNumber:  z.string().max(100).optional().nullable(),
-  documentUrl:        z.string().url().max(500).optional().nullable(),
+  documentUrl:        z.string().max(100).optional().nullable(),
   isActive:           z.boolean().optional(),
   notes:              z.string().max(5000).optional().nullable(),
 }).refine(
