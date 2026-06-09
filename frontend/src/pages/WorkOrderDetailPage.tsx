@@ -45,6 +45,7 @@ import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
 import ReplayIcon from '@mui/icons-material/Replay';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import { useWorkOrder } from '@/hooks/queries/useWorkOrders';
+import { useAuthStore } from '@/store/authStore';
 import {
   useUpdateWorkOrderStatus,
   useAssignWorkOrder,
@@ -137,6 +138,8 @@ export default function WorkOrderDetailPage() {
   const isMobile = useIsMobile();
 
   const { data: workOrder, isLoading, error } = useWorkOrder(id);
+  const { user } = useAuthStore();
+  const canAssign = (user?.permLevels?.WORK_ORDERS ?? 0) >= 4;
 
   // Mutations
   const updateStatus  = useUpdateWorkOrderStatus();
@@ -303,6 +306,7 @@ export default function WorkOrderDetailPage() {
           >
             Update Status
           </Button>
+          {canAssign && (
           <Button
             variant="outlined"
             startIcon={<AssignmentIndIcon />}
@@ -311,6 +315,7 @@ export default function WorkOrderDetailPage() {
           >
             Assign To
           </Button>
+          )}
         </Box>
       </Box>
 

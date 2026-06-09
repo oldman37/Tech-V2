@@ -22,6 +22,7 @@ interface User {
     FIELD_TRIPS: number;
     CHECKOUT: number;
     TRANSPORTATION: number;
+    WORK_ORDERS: number;
     isFinanceDirectorApprover: boolean;
     isStrictFinanceDirector: boolean;
     isDosApprover: boolean;
