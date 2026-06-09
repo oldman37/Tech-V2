@@ -158,11 +158,11 @@ export async function generateInvoicePdf(data: InvoicePdfData): Promise<Buffer> 
     // -----------------------------------------------------------------------
     // Footer
     // -----------------------------------------------------------------------
-    const bottomY = doc.page.height - 50;
+    y += 20;
     doc.fontSize(8).font('Helvetica')
       .text(
         `Generated on ${new Date().toLocaleString()}  |  Page 1`,
-        50, bottomY,
+        50, y,
         { width: pageWidth, align: 'center' }
       );
 

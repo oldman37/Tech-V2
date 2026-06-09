@@ -131,7 +131,7 @@ export class DotPhysicalService {
 
     log.info('Creating DOT physical record', { userId: data.userId });
 
-    return this.prisma.dotPhysical.create({
+    const created = await this.prisma.dotPhysical.create({
       data: {
         userId:             data.userId,
         examDate:           new Date(data.examDate),
@@ -149,6 +149,11 @@ export class DotPhysicalService {
         createdBy: { select: { id: true, firstName: true, lastName: true, displayName: true } },
       },
     });
+
+    // Send immediate notification if the expiration is already within a reminder threshold
+    await this._sendImmediateNotificationIfNeeded(created.id);
+
+    return created;
   }
 
   async update(id: string, data: UpdateDotPhysicalDto) {
@@ -169,7 +174,74 @@ export class DotPhysicalService {
     if (data.isActive !== undefined)           updateData['isActive'] = data.isActive;
     if (data.notes !== undefined)              updateData['notes'] = data.notes ? sanitizeText(data.notes) : null;
 
-    return this.prisma.dotPhysical.update({ where: { id }, data: updateData });
+    const updated = await this.prisma.dotPhysical.update({ where: { id }, data: updateData });
+
+    // If expiration date changed, send immediate notification if now within a reminder threshold
+    if (data.expirationDate !== undefined) {
+      await this._sendImmediateNotificationIfNeeded(id);
+    }
+
+    return updated;
+  }
+
+  /**
+   * Check a single physical record and immediately send a notification email if its
+   * expiration date already falls within a configured reminder threshold (or is expired).
+   * This runs on create/update so users don't have to wait for the next scheduled cron run.
+   */
+  private async _sendImmediateNotificationIfNeeded(physicalId: string): Promise<void> {
+    try {
+      const settings = await this.prisma.transportationSettings.findUnique({ where: { id: 'singleton' } });
+      if (settings && !settings.dotNotificationsEnabled) return;
+
+      const reminderDays: number[] = Array.isArray(settings?.dotPhysicalReminderDays)
+        ? (settings.dotPhysicalReminderDays as number[])
+        : [60, 30, 14, 7];
+      const secretaryEmails: string[] = settings?.transportationSecretaryEmails ?? [];
+
+      const physical = await this.prisma.dotPhysical.findUnique({
+        where: { id: physicalId },
+        include: { driver: { select: { id: true, email: true, displayName: true } } },
+      });
+      if (!physical || !physical.isActive) return;
+
+      const now     = new Date();
+      const sentSet: number[] = Array.isArray(physical.remindersSent) ? (physical.remindersSent as number[]) : [];
+
+      if (physical.expirationDate < now) {
+        // Already expired — send the expired notification if not already sent
+        if (!sentSet.includes(0)) {
+          await sendDotPhysicalExpiredEmail({
+            driver: { email: physical.driver.email, displayName: physical.driver.displayName ?? physical.driver.email },
+            physical,
+            secretaryEmails,
+          });
+          await this.prisma.dotPhysical.update({ where: { id: physical.id }, data: { remindersSent: [...sentSet, 0] } });
+          log.info('Sent immediate DOT expired notification', { physicalId });
+        }
+      } else {
+        const msRemaining   = physical.expirationDate.getTime() - now.getTime();
+        const daysRemaining = Math.ceil(msRemaining / (24 * 60 * 60 * 1000));
+        // Sort descending — send the largest applicable threshold first
+        const sorted = [...reminderDays].sort((a, b) => b - a);
+        for (const threshold of sorted) {
+          if (daysRemaining <= threshold && !sentSet.includes(threshold)) {
+            await sendDotPhysicalReminderEmail({
+              driver: { email: physical.driver.email, displayName: physical.driver.displayName ?? physical.driver.email },
+              daysRemaining,
+              expirationDate: physical.expirationDate,
+              physical,
+              secretaryEmails,
+            });
+            await this.prisma.dotPhysical.update({ where: { id: physical.id }, data: { remindersSent: [...sentSet, threshold] } });
+            log.info('Sent immediate DOT reminder', { physicalId, daysRemaining, threshold });
+            break;
+          }
+        }
+      }
+    } catch (err) {
+      log.error('Failed to send immediate DOT notification', { physicalId, error: err });
+    }
   }
 
   async delete(id: string) {
