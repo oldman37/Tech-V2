@@ -133,7 +133,6 @@ export class UserSyncService {
     addMapping('ENTRA_PRINCIPALS_GROUP_ID', process.env.ENTRA_PRINCIPALS_GROUP_ID, {
       role: 'USER',
       permissions: [
-        { module: 'TECHNOLOGY', level: 2 },
         { module: 'MAINTENANCE', level: 2 },
         { module: 'REQUISITIONS', level: 3 },
       ],
@@ -143,7 +142,6 @@ export class UserSyncService {
     addMapping('ENTRA_VICE_PRINCIPALS_GROUP_ID', process.env.ENTRA_VICE_PRINCIPALS_GROUP_ID, {
       role: 'USER',
       permissions: [
-        { module: 'TECHNOLOGY', level: 2 },
         { module: 'MAINTENANCE', level: 2 },
         { module: 'REQUISITIONS', level: 3 },
       ],
@@ -253,7 +251,6 @@ export class UserSyncService {
     addMapping('ENTRA_ALL_STAFF_GROUP_ID', process.env.ENTRA_ALL_STAFF_GROUP_ID, {
       role: 'USER',
       permissions: [
-        { module: 'TECHNOLOGY', level: 1 },
         { module: 'MAINTENANCE', level: 1 },
         { module: 'REQUISITIONS', level: 2 },
       ],

@@ -54,7 +54,8 @@ import {
 import { WorkOrderStatusChip } from '@/components/work-orders/WorkOrderStatusChip';
 import { WorkOrderPriorityChip } from '@/components/work-orders/WorkOrderPriorityChip';
 import { UserSearchAutocomplete } from '@/components/UserSearchAutocomplete';
-import type { WorkOrderStatus, WorkOrderComment } from '@/types/work-order.types';
+import type { WorkOrderStatus, WorkOrderComment, WorkOrderStatusHistoryEntry } from '@/types/work-order.types';
+import { WORK_ORDER_STATUS_LABELS } from '@/types/work-order.types';
 import { useIsMobile } from '@/hooks/useResponsive';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -125,6 +126,42 @@ function CommentCard({ comment }: { comment: WorkOrderComment }) {
         <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
           {comment.body}
         </Typography>
+      </Box>
+    </Box>
+  );
+}
+
+function StatusHistoryCard({ entry }: { entry: WorkOrderStatusHistoryEntry }) {
+  const initials = (entry.changedBy.displayName ?? entry.changedBy.email)
+    .split(' ')
+    .map((p) => p[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+
+  const fromLabel = entry.fromStatus ? WORK_ORDER_STATUS_LABELS[entry.fromStatus] : null;
+  const toLabel   = WORK_ORDER_STATUS_LABELS[entry.toStatus];
+
+  return (
+    <Box sx={{ display: 'flex', gap: 1.5, py: 1.5 }}>
+      <Avatar sx={{ width: 32, height: 32, fontSize: 13, bgcolor: 'grey.400' }}>{initials}</Avatar>
+      <Box sx={{ flex: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5, flexWrap: 'wrap' }}>
+          <Typography variant="body2" fontWeight={600}>
+            {entry.changedBy.displayName ?? entry.changedBy.email}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {fromLabel ? `changed status from ${fromLabel} → ${toLabel}` : `set status to ${toLabel}`}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            {formatDate(entry.changedAt)}
+          </Typography>
+        </Box>
+        {entry.notes && (
+          <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', color: 'text.secondary', fontStyle: 'italic' }}>
+            {entry.notes}
+          </Typography>
+        )}
       </Box>
     </Box>
   );
@@ -346,21 +383,36 @@ export default function WorkOrderDetailPage() {
               <Typography variant="subtitle1" fontWeight={600}>
                 Comments & Activity
               </Typography>
-              <Chip label={workOrder.comments.length} size="small" />
+              <Chip label={workOrder.comments.length + (workOrder.statusHistory?.length ?? 0)} size="small" />
             </Box>
 
-            {workOrder.comments.length === 0 && (
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                No comments yet.
-              </Typography>
-            )}
+            {(() => {
+              type ActivityItem =
+                | { kind: 'comment'; ts: string; item: WorkOrderComment }
+                | { kind: 'status';  ts: string; item: WorkOrderStatusHistoryEntry };
 
-            {workOrder.comments.map((c, idx) => (
-              <Box key={c.id}>
-                <CommentCard comment={c} />
-                {idx < workOrder.comments.length - 1 && <Divider sx={{ my: 1 }} />}
-              </Box>
-            ))}
+              const items: ActivityItem[] = [
+                ...workOrder.comments.map((c) => ({ kind: 'comment' as const, ts: c.createdAt, item: c })),
+                ...(workOrder.statusHistory ?? []).map((s) => ({ kind: 'status' as const, ts: s.changedAt, item: s })),
+              ].sort((a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime());
+
+              if (items.length === 0) {
+                return (
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    No comments yet.
+                  </Typography>
+                );
+              }
+
+              return items.map((entry, idx) => (
+                <Box key={entry.kind === 'comment' ? entry.item.id : `sh-${entry.item.id}`}>
+                  {entry.kind === 'comment'
+                    ? <CommentCard comment={entry.item} />
+                    : <StatusHistoryCard entry={entry.item} />}
+                  {idx < items.length - 1 && <Divider sx={{ my: 1 }} />}
+                </Box>
+              ));
+            })()}
 
             <Divider sx={{ my: 2 }} />
 
