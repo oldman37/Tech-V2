@@ -20,7 +20,11 @@ import {
   DialogTitle,
   Grid,
   IconButton,
+  InputLabel,
+  FormControl,
+  MenuItem,
   Paper,
+  Select,
   Tab,
   TablePagination,
   Tabs,
@@ -247,6 +251,24 @@ export default function DotPhysicalsPage() {
       },
     },
     {
+      key: 'documentUrl',
+      label: 'State',
+      hideOnMobile: true,
+      render: (p) => p.documentUrl ?? '—',
+    },
+    {
+      key: 'examinerId',
+      label: 'Examiner Name',
+      hideOnMobile: true,
+      render: (p) => p.examinerId ?? '—',
+    },
+    {
+      key: 'examinerCertNumber',
+      label: 'Examiner Cert #',
+      hideOnMobile: true,
+      render: (p) => p.examinerCertNumber ?? '—',
+    },
+    {
       key: 'certificateNumber',
       label: 'National Registry #',
       hideOnMobile: true,
@@ -419,13 +441,19 @@ export default function DotPhysicalsPage() {
               />
             </Grid>
             <Grid size={{ xs: 12, sm: 6 }}>
-              <TextField
-                label="State"
-                fullWidth
-                size="small"
-                value={form.documentUrl}
-                onChange={(e) => setForm({ ...form, documentUrl: e.target.value })}
-              />
+              <FormControl fullWidth size="small">
+                <InputLabel>State</InputLabel>
+                <Select
+                  label="State"
+                  value={form.documentUrl}
+                  onChange={(e) => setForm({ ...form, documentUrl: e.target.value })}
+                >
+                  <MenuItem value="">—</MenuItem>
+                  {['AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA','KS','KY','LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ','NM','NY','NC','ND','OH','OK','OR','PA','RI','SC','SD','TN','TX','UT','VT','VA','WA','WV','WI','WY'].map((s) => (
+                    <MenuItem key={s} value={s}>{s}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
             </Grid>
             <Grid size={{ xs: 12 }}>
               <TextField
