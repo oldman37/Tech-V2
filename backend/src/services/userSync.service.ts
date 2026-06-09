@@ -157,6 +157,14 @@ export class UserSyncService {
       ],
     });
 
+    // School Maintenance - View, edit, and close work orders
+    addMapping('ENTRA_SCHOOL_MAINTENANCE_GROUP_ID', process.env.ENTRA_SCHOOL_MAINTENANCE_GROUP_ID, {
+      role: 'USER',
+      permissions: [
+        { module: 'MAINTENANCE', level: 2 },
+      ],
+    });
+
     // Maintenance Director - Facilities oversight
     addMapping('ENTRA_MAINTENANCE_DIRECTOR_GROUP_ID', process.env.ENTRA_MAINTENANCE_DIRECTOR_GROUP_ID, {
       role: 'USER',
