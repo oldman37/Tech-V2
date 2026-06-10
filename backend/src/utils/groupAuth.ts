@@ -172,6 +172,23 @@ export function hasDeviceManagementAccess(groupIds: string[]): boolean {
   return allowedGroupIds.some((groupId) => normalizedUserGroups.includes(groupId.toLowerCase()));
 }
 
+export function canSeeAllLocations(groupIds: string[]): boolean {
+  const allowlist = [
+    process.env.ENTRA_ADMIN_GROUP_ID,
+    process.env.ENTRA_OCBOE_LIBRARIANS_GROUP_ID,
+  ].filter(Boolean) as string[];
+  const normalized = groupIds.map((g) => g.toLowerCase());
+  return allowlist.some((id) => normalized.includes(id.toLowerCase()));
+}
+
+export function isPrincipalOrVP(groupIds: string[]): boolean {
+  const allowlist = [
+    process.env.ENTRA_PRINCIPALS_GROUP_ID,
+    process.env.ENTRA_VICE_PRINCIPALS_GROUP_ID,
+  ].filter(Boolean) as string[];
+  return allowlist.some((id) => groupIds.includes(id));
+}
+
 /**
  * requireModule — replacement middleware for checkPermission.
  *

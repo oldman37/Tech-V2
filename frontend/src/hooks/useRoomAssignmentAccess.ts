@@ -15,13 +15,8 @@ export function useRoomAssignmentAccess() {
   const { user } = useAuthStore();
   const isAdmin = user?.roles?.includes('ADMIN') ?? false;
 
-  // Principals and Vice Principals get access to room assignments for their locations
-  const principalsGroupId = import.meta.env.VITE_ENTRA_PRINCIPALS_GROUP_ID;
-  const vicePrincipalsGroupId = import.meta.env.VITE_ENTRA_VICE_PRINCIPALS_GROUP_ID;
-  const isPrincipalOrVP = !!(
-    (principalsGroupId && user?.groups?.includes(principalsGroupId)) ||
-    (vicePrincipalsGroupId && user?.groups?.includes(vicePrincipalsGroupId))
-  );
+  // Backend-computed flag — no group IDs needed on the frontend
+  const isPrincipalOrVP = user?.isPrincipalOrVP ?? false;
 
   // Principals/VPs still query their supervised locations to auto-select
   const skipQuery = isAdmin;

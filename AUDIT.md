@@ -366,7 +366,7 @@ Cleanup runs every 100 poll cycles. With a very short `POLL_INTERVAL_MS`, this c
 
 ---
 
-### ARCH-2 ⚪ — Entra Group IDs Embedded in Frontend Bundle
+### ARCH-2 ✅ — Entra Group IDs Embedded in Frontend Bundle
 **File:** `frontend/src/store/authStore.ts` (lines 88–101)
 
 Entra group IDs are baked into the React bundle via `import.meta.env.VITE_ENTRA_*`. The frontend derives access flags (e.g., `selectCanAccessDeviceManagement`) from these group IDs client-side — a check that any user can bypass by modifying the stored auth state. Group IDs are also visible to anyone who inspects the compiled bundle.

@@ -93,21 +93,19 @@ export interface AuthUserInfo {
   hasBaseAccess: boolean;
   /** True if user belongs to the dedicated Device Management allowlist */
   canAccessDeviceManagement: boolean;
+  /** True if user can view all locations in reports (admin or librarians group) */
+  canSeeAllLocations: boolean;
+  /** True if user is in the Principals or Vice Principals group */
+  isPrincipalOrVP: boolean;
 }
 
 /**
- * Get current user response
+ * Get current user response — returns the same rich structure as the callback response
+ * so that page reloads (initializeAuth) restore full permission state.
  */
 export interface GetMeResponse {
   success: boolean;
-  user: {
-    id: string;
-    entraId: string;
-    email: string;
-    name: string;
-    roles: string[];
-    groups: string[];
-  };
+  user: AuthUserInfo;
 }
 
 /**

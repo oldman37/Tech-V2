@@ -15,6 +15,9 @@ interface User {
   groups: string[];
   roles?: string[];
   hasBaseAccess?: boolean;
+  canAccessDeviceManagement?: boolean;
+  canSeeAllLocations?: boolean;
+  isPrincipalOrVP?: boolean;
   permLevels?: {
     TECHNOLOGY: number;
     MAINTENANCE: number;
@@ -75,42 +78,21 @@ export const useAuthStore = create<AuthState>()((set) => ({
 }));
 
 // ---------------------------------------------------------------------------
-// Derived selectors — computed from user.groups at call time.
-// Never stored in localStorage, so they cannot be tampered with by editing
-// local storage. Use these in place of stored permission flags.
+// Derived selectors — read backend-computed flags from the user object.
+// Group IDs never leave the backend; no VITE_ENTRA_* group env vars needed.
 // ---------------------------------------------------------------------------
 
-/** True when the signed-in user belongs to the ADMIN Entra group. */
-export const selectIsAdmin = (state: AuthState): boolean => {
-  const groups = state.user?.groups;
-  if (!groups) return false;
-  const adminGroupId = import.meta.env.VITE_ENTRA_ADMIN_GROUP_ID;
-  if (!adminGroupId) return false;
-  return groups.some((g) => g.toLowerCase() === adminGroupId.toLowerCase());
-};
+/** True when the signed-in user has the ADMIN role. */
+export const selectIsAdmin = (state: AuthState): boolean =>
+  state.user?.roles?.includes('ADMIN') ?? false;
 
-export const selectCanAccessDeviceManagement = (state: AuthState): boolean => {
-  const groups = state.user?.groups;
-  if (!groups) return false;
-  const allowlist = [
-    import.meta.env.VITE_ENTRA_ADMIN_GROUP_ID,
-    import.meta.env.VITE_ENTRA_TECH_ASSISTANTS_GROUP_ID,
-    import.meta.env.VITE_ENTRA_OCBOE_LIBRARIANS_GROUP_ID,
-  ].filter(Boolean) as string[];
-  return groups.some((g) => allowlist.some((id) => g.toLowerCase() === id.toLowerCase()));
-};
+/** True when the signed-in user belongs to the Device Management allowlist. */
+export const selectCanAccessDeviceManagement = (state: AuthState): boolean =>
+  state.user?.canAccessDeviceManagement ?? false;
 
 /**
- * True when the signed-in user may select "All Locations" in reports —
- * i.e. they are in the ADMIN or LIBRARIANS Entra group.
- * TECH_ASSISTANTS are intentionally excluded and must be locked to their campus.
+ * True when the signed-in user may select "All Locations" in reports
+ * (admin or librarians group — TECH_ASSISTANTS are excluded).
  */
-export const selectCanSeeAllLocations = (state: AuthState): boolean => {
-  const groups = state.user?.groups;
-  if (!groups) return false;
-  const allowlist = [
-    import.meta.env.VITE_ENTRA_ADMIN_GROUP_ID,
-    import.meta.env.VITE_ENTRA_OCBOE_LIBRARIANS_GROUP_ID,
-  ].filter(Boolean) as string[];
-  return groups.some((g) => allowlist.some((id) => g.toLowerCase() === id.toLowerCase()));
-};
+export const selectCanSeeAllLocations = (state: AuthState): boolean =>
+  state.user?.canSeeAllLocations ?? false;

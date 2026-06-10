@@ -8,7 +8,7 @@ import { UserSyncService } from '../services/userSync.service';
 import { getCookieConfig } from '../config/cookies';
 import { loggers } from '../lib/logger';
 import { redactEmail, redactEntraId } from '../utils/redact';
-import { derivePermLevelFromGroups, hasDeviceManagementAccess } from '../utils/groupAuth';
+import { derivePermLevelFromGroups, hasDeviceManagementAccess, canSeeAllLocations, isPrincipalOrVP } from '../utils/groupAuth';
 import { 
   GraphUser, 
   isGraphUser,
@@ -364,6 +364,8 @@ export const callback = async (
         permLevels: { ...permLevels, isFinanceDirectorApprover, isStrictFinanceDirector, isDosApprover, isPoEntryUser, isFoodServiceSupervisor, isFoodServicePoEntry, isTransportationSecretary },
         hasBaseAccess,
         canAccessDeviceManagement,
+        canSeeAllLocations: canSeeAllLocations(groupIds),
+        isPrincipalOrVP: isPrincipalOrVP(groupIds),
       },
     };
 
@@ -605,7 +607,8 @@ export const logout = async (
   });
 };
 
-// Get current user info
+// Get current user info — recomputes all permission flags from groups in the JWT
+// so that page reloads restore the same rich state as the initial callback response.
 export const getMe = async (
   req: AuthRequest,
   res: Response<GetMeResponse | ErrorResponse>
@@ -617,9 +620,50 @@ export const getMe = async (
     });
   }
 
+  const groupIds = req.user.groups;
+
+  const permLevels = {
+    TECHNOLOGY:   derivePermLevelFromGroups(groupIds, 'TECHNOLOGY'),
+    MAINTENANCE:  derivePermLevelFromGroups(groupIds, 'MAINTENANCE'),
+    REQUISITIONS: derivePermLevelFromGroups(groupIds, 'REQUISITIONS'),
+    FIELD_TRIPS:  derivePermLevelFromGroups(groupIds, 'FIELD_TRIPS'),
+    CHECKOUT:     derivePermLevelFromGroups(groupIds, 'CHECKOUT'),
+    TRANSPORTATION: derivePermLevelFromGroups(groupIds, 'TRANSPORTATION'),
+    WORK_ORDERS:  derivePermLevelFromGroups(groupIds, 'WORK_ORDERS'),
+    isFinanceDirectorApprover: !!(process.env.ENTRA_FINANCE_DIRECTOR_GROUP_ID && groupIds.includes(process.env.ENTRA_FINANCE_DIRECTOR_GROUP_ID)),
+    isStrictFinanceDirector:   !!(process.env.ENTRA_FINANCE_DIRECTOR_GROUP_ID && groupIds.includes(process.env.ENTRA_FINANCE_DIRECTOR_GROUP_ID)),
+    isDosApprover:      !!(process.env.ENTRA_DIRECTOR_OF_SCHOOLS_GROUP_ID && groupIds.includes(process.env.ENTRA_DIRECTOR_OF_SCHOOLS_GROUP_ID)),
+    isPoEntryUser:      !!(process.env.ENTRA_FINANCE_PO_ENTRY_GROUP_ID && groupIds.includes(process.env.ENTRA_FINANCE_PO_ENTRY_GROUP_ID)),
+    isFoodServiceSupervisor: !!(process.env.ENTRA_FOOD_SERVICES_SUPERVISOR_GROUP_ID && groupIds.includes(process.env.ENTRA_FOOD_SERVICES_SUPERVISOR_GROUP_ID)),
+    isFoodServicePoEntry:    !!(process.env.ENTRA_FOOD_SERVICES_PO_ENTRY_GROUP_ID && groupIds.includes(process.env.ENTRA_FOOD_SERVICES_PO_ENTRY_GROUP_ID)),
+    isTransportationSecretary: !!(process.env.ENTRA_TRANSPORTATION_SECRETARY_GROUP_ID && groupIds.includes(process.env.ENTRA_TRANSPORTATION_SECRETARY_GROUP_ID)),
+  };
+
+  const configuredGroupIds = Object.entries(process.env)
+    .filter(([key, val]) => key.startsWith('ENTRA_') && key.endsWith('_GROUP_ID') && val)
+    .map(([, val]) => val!);
+  const hasBaseAccess = configuredGroupIds.some((gid) => groupIds.includes(gid));
+
   res.json({
     success: true,
-    user: req.user,
+    user: {
+      id: req.user.id,
+      entraId: req.user.entraId,
+      email: req.user.email,
+      name: req.user.name,
+      firstName: null,
+      lastName: null,
+      jobTitle: null,
+      department: null,
+      officeLocation: null,
+      roles: req.user.roles,
+      groups: groupIds,
+      permLevels,
+      hasBaseAccess,
+      canAccessDeviceManagement: hasDeviceManagementAccess(groupIds),
+      canSeeAllLocations: canSeeAllLocations(groupIds),
+      isPrincipalOrVP: isPrincipalOrVP(groupIds),
+    },
   });
 };
 
