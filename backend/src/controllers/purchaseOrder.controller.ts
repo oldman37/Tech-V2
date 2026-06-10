@@ -15,6 +15,7 @@ import { PurchaseOrderService } from '../services/purchaseOrder.service';
 import { handleControllerError, sanitizeFilename } from '../utils/errorHandler';
 import { prisma } from '../lib/prisma';
 import { loggers } from '../lib/logger';
+import { writeAuditLog } from '../lib/auditLog';
 import {
   PurchaseOrderQuerySchema,
   CreatePurchaseOrderSchema,
@@ -276,6 +277,10 @@ export const approvePurchaseOrder = async (req: AuthRequest, res: Response): Pro
       }
     }
 
+    await writeAuditLog(userId, 'PO_APPROVED', 'purchase_order', req.params.id as string, {
+      newStatus: po.status,
+    });
+
     res.json(po);
   } catch (error) {
     handleControllerError(error, res);
@@ -293,6 +298,10 @@ export const rejectPurchaseOrder = async (req: AuthRequest, res: Response): Prom
     if (po.User?.email) {
       sendRequisitionRejected(po as any, po.User.email, data.reason).catch(() => {});
     }
+
+    await writeAuditLog(req.user!.id, 'PO_REJECTED', 'purchase_order', req.params.id as string, {
+      reason: data.reason,
+    });
 
     res.json(po);
   } catch (error) {

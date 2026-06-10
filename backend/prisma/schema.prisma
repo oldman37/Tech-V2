@@ -1959,3 +1959,18 @@ model FuelTankDelivery {
   @@index([deliveryDate])
   @@map("fuel_tank_deliveries")
 }
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  actorId    String
+  action     String   @db.VarChar(100)
+  entityType String   @db.VarChar(100)
+  entityId   String
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  @@index([actorId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("audit_log")
+}

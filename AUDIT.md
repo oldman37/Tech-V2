@@ -486,7 +486,7 @@ pool.on('error', (err) => logger.error('pg pool error', { error: err }));
 
 ---
 
-### HARD-6 ⚪ — No Immutable Audit Log for Financially Significant Operations
+### HARD-6 ✅ — No Immutable Audit Log for Financially Significant Operations
 **Files:** `backend/src/controllers/invoice.controller.ts`, `backend/src/controllers/purchaseOrder.controller.ts`, `backend/src/controllers/inventory.controller.ts`
 
 Operations like waiving an invoice, permanently deleting inventory, or approving purchase orders are logged to rotating application log files (14-day retention by default) but not to an immutable database audit table. Log files can be overwritten or lost during a deployment.

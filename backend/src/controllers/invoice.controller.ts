@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth';
 import { handleControllerError, sanitizeFilename } from '../utils/errorHandler';
+import { writeAuditLog } from '../lib/auditLog';
 import * as service from '../services/invoice.service';
 import type { z } from 'zod';
 import type {
@@ -150,6 +151,7 @@ export const waive = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const id = req.params['id'] as string;
     await service.waive(id, req.user!.id);
+    await writeAuditLog(req.user!.id, 'INVOICE_WAIVED', 'invoice', id);
     res.status(204).send();
   } catch (error) {
     handleControllerError(error, res);

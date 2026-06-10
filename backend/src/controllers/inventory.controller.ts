@@ -14,6 +14,7 @@ import { GetInventoryQuerySchema, InventorySearchQuerySchema, ExportInventory, I
 import { InventoryItemWithRelations, InventoryItemWithRelationsExtended, UpdateInventoryDto } from '../types/inventory.types';
 import { prisma } from '../lib/prisma';
 import { loggers } from '../lib/logger';
+import { writeAuditLog } from '../lib/auditLog';
 import ExcelJS from 'exceljs';
 
 // Instantiate services
@@ -226,6 +227,10 @@ export const deleteInventoryItem = async (req: AuthRequest, res: Response) => {
       permanent,
     });
 
+    if (permanent) {
+      await writeAuditLog(req.user.id, 'INVENTORY_PERMANENT_DELETE', 'inventory', id as string);
+    }
+
     res.json({
       message: permanent ? 'Item permanently deleted' : 'Item marked as disposed',
     });
@@ -259,6 +264,11 @@ export const bulkDeleteInventory = async (req: AuthRequest, res: Response) => {
 
     loggers.inventory.warn('Bulk inventory delete completed', {
       userId: req.user.id,
+      deletedCount: result.deletedCount,
+    });
+
+    await writeAuditLog(req.user.id, 'INVENTORY_BULK_DELETE', 'inventory', 'bulk', {
+      ids,
       deletedCount: result.deletedCount,
     });
 
