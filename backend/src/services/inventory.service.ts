@@ -427,7 +427,7 @@ export class InventoryService {
   /**
    * Find inventory items by office location
    */
-  async findByLocation(locationId: string): Promise<InventoryItemWithRelations[]> {
+  async findByLocation(locationId: string, page = 1, limit = 50): Promise<InventoryListResponse> {
     // Verify location exists
     const location = await this.prisma.officeLocation.findUnique({
       where: { id: locationId },
@@ -437,27 +437,41 @@ export class InventoryService {
       throw new NotFoundError('Office location', locationId);
     }
 
-    const items = await this.prisma.equipment.findMany({
-      where: { officeLocationId: locationId },
-      include: {
-        brands: { select: { id: true, name: true, description: true } },
-        models: { select: { id: true, name: true, modelNumber: true, brandId: true } },
-        categories: { select: { id: true, name: true, description: true, parentId: true } },
-        locations: { select: { id: true, buildingName: true, roomNumber: true } },
-        officeLocation: { select: { id: true, name: true, type: true, code: true } },
-        vendor: { select: { id: true, name: true, contactName: true } },
-        room: { select: { id: true, name: true, locationId: true, type: true } },
-      },
-      orderBy: { name: 'asc' },
-    });
+    const skip = (page - 1) * limit;
+    const include = {
+      brands: { select: { id: true, name: true, description: true } },
+      models: { select: { id: true, name: true, modelNumber: true, brandId: true } },
+      categories: { select: { id: true, name: true, description: true, parentId: true } },
+      locations: { select: { id: true, buildingName: true, roomNumber: true } },
+      officeLocation: { select: { id: true, name: true, type: true, code: true } },
+      vendor: { select: { id: true, name: true, contactName: true } },
+      room: { select: { id: true, name: true, locationId: true, type: true } },
+    };
 
-    return items as InventoryItemWithRelations[];
+    const [items, total] = await Promise.all([
+      this.prisma.equipment.findMany({
+        where: { officeLocationId: locationId },
+        include,
+        orderBy: { name: 'asc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.equipment.count({ where: { officeLocationId: locationId } }),
+    ]);
+
+    return {
+      items: items as InventoryItemWithRelations[],
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 
   /**
    * Find inventory items by room
    */
-  async findByRoom(roomId: string): Promise<InventoryItemWithRelations[]> {
+  async findByRoom(roomId: string, page = 1, limit = 50): Promise<InventoryListResponse> {
     // Verify room exists
     const room = await this.prisma.room.findUnique({
       where: { id: roomId },
@@ -467,21 +481,35 @@ export class InventoryService {
       throw new NotFoundError('Room', roomId);
     }
 
-    const items = await this.prisma.equipment.findMany({
-      where: { roomId },
-      include: {
-        brands: { select: { id: true, name: true, description: true } },
-        models: { select: { id: true, name: true, modelNumber: true, brandId: true } },
-        categories: { select: { id: true, name: true, description: true, parentId: true } },
-        locations: { select: { id: true, buildingName: true, roomNumber: true } },
-        officeLocation: { select: { id: true, name: true, type: true, code: true } },
-        vendor: { select: { id: true, name: true, contactName: true } },
-        room: { select: { id: true, name: true, locationId: true, type: true } },
-      },
-      orderBy: { name: 'asc' },
-    });
+    const skip = (page - 1) * limit;
+    const include = {
+      brands: { select: { id: true, name: true, description: true } },
+      models: { select: { id: true, name: true, modelNumber: true, brandId: true } },
+      categories: { select: { id: true, name: true, description: true, parentId: true } },
+      locations: { select: { id: true, buildingName: true, roomNumber: true } },
+      officeLocation: { select: { id: true, name: true, type: true, code: true } },
+      vendor: { select: { id: true, name: true, contactName: true } },
+      room: { select: { id: true, name: true, locationId: true, type: true } },
+    };
 
-    return items as InventoryItemWithRelations[];
+    const [items, total] = await Promise.all([
+      this.prisma.equipment.findMany({
+        where: { roomId },
+        include,
+        orderBy: { name: 'asc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.equipment.count({ where: { roomId } }),
+    ]);
+
+    return {
+      items: items as InventoryItemWithRelations[],
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 
   /**

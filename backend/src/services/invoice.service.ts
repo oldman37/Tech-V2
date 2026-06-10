@@ -344,10 +344,11 @@ export async function resend(id: string, sentByUserId: string) {
   return send(id, sentByUserId);
 }
 
-export async function getPdf(id: string): Promise<Buffer> {
+export async function getPdf(id: string): Promise<{ buffer: Buffer; invoiceNumber: string }> {
   const invoice = await getById(id);
   const pdfData = buildPdfData(invoice);
-  return generateInvoicePdf(pdfData);
+  const buffer = await generateInvoicePdf(pdfData);
+  return { buffer, invoiceNumber: invoice.invoiceNumber };
 }
 
 export async function recordPayment(invoiceId: string, data: RecordPaymentData, recordedByUserId: string) {

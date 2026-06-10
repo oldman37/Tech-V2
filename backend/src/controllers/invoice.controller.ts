@@ -117,12 +117,10 @@ export const resend = async (req: AuthRequest, res: Response): Promise<void> => 
 
 export const getPdf = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const id     = req.params['id'] as string;
-    const buffer = await service.getPdf(id);
-    // Fetch the invoice number for the filename
-    const invoice = await service.getById(id);
+    const id = req.params['id'] as string;
+    const { buffer, invoiceNumber } = await service.getPdf(id);
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="${sanitizeFilename(invoice.invoiceNumber)}.pdf"`);
+    res.setHeader('Content-Disposition', `attachment; filename="${sanitizeFilename(invoiceNumber)}.pdf"`);
     res.send(buffer);
   } catch (error) {
     handleControllerError(error, res);

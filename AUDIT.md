@@ -404,7 +404,7 @@ The `/api/auth/sync-users` endpoint returns `users: users.value` — the raw Mic
 
 ## 7. Performance Improvements
 
-### PERF-1 ⚪ — PDF Download Makes Two Separate Database Queries
+### PERF-1 ✅ — PDF Download Makes Two Separate Database Queries
 **File:** `backend/src/controllers/invoice.controller.ts` (lines 118–130)
 
 `getPdf` first generates the PDF (requiring a DB fetch), then calls `getById` a second time to get the invoice number for the filename. Two queries where one would suffice.
@@ -413,7 +413,7 @@ The `/api/auth/sync-users` endpoint returns `users: users.value` — the raw Mic
 
 ---
 
-### PERF-2 ⚪ — `getInventoryByLocation` and `getInventoryByRoom` Return Unbounded Sets
+### PERF-2 ✅ — `getInventoryByLocation` and `getInventoryByRoom` Return Unbounded Sets
 **File:** `backend/src/controllers/inventory.controller.ts` (lines 351–395)
 
 Both endpoints return all inventory items for a location or room with no pagination. Locations with large deployments (hundreds of devices) return everything in a single response.
@@ -422,7 +422,7 @@ Both endpoints return all inventory items for a location or room with no paginat
 
 ---
 
-### PERF-3 ⚪ — Email Queue Cleanup Is Tied to Poll Cycle Count
+### PERF-3 ✅ — Email Queue Cleanup Is Tied to Poll Cycle Count
 **File:** `backend/src/services/emailQueue.service.ts` (lines 187–200)
 *(See also QA-6 above.)*
 

@@ -310,19 +310,18 @@ export const bulkUpdateInventory = async (req: AuthRequest, res: Response) => {
 export const getInventoryByLocation = async (req: AuthRequest, res: Response) => {
   try {
     const { locationId } = req.params;
-    const items = await inventoryService.findByLocation(locationId as string);
+    const page  = Math.max(1, parseInt(req.query['page']  as string ?? '1',  10) || 1);
+    const limit = Math.min(200, Math.max(1, parseInt(req.query['limit'] as string ?? '50', 10) || 50));
+    const result = await inventoryService.findByLocation(locationId as string, page, limit);
 
     loggers.inventory.info('Location inventory retrieved', {
       userId: req.user?.id,
       locationId,
-      count: items.length,
+      count: result.items.length,
+      total: result.total,
     });
 
-    res.json({
-      items,
-      total: items.length,
-      locationId,
-    });
+    res.json({ ...result, locationId });
   } catch (error) {
     handleControllerError(error, res);
   }
@@ -335,19 +334,18 @@ export const getInventoryByLocation = async (req: AuthRequest, res: Response) =>
 export const getInventoryByRoom = async (req: AuthRequest, res: Response) => {
   try {
     const { roomId } = req.params;
-    const items = await inventoryService.findByRoom(roomId as string);
+    const page  = Math.max(1, parseInt(req.query['page']  as string ?? '1',  10) || 1);
+    const limit = Math.min(200, Math.max(1, parseInt(req.query['limit'] as string ?? '50', 10) || 50));
+    const result = await inventoryService.findByRoom(roomId as string, page, limit);
 
     loggers.inventory.info('Room inventory retrieved', {
       userId: req.user?.id,
       roomId,
-      count: items.length,
+      count: result.items.length,
+      total: result.total,
     });
 
-    res.json({
-      items,
-      total: items.length,
-      roomId,
-    });
+    res.json({ ...result, roomId });
   } catch (error) {
     handleControllerError(error, res);
   }
