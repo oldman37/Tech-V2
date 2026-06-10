@@ -346,7 +346,7 @@ Cleanup runs every 100 poll cycles. With a very short `POLL_INTERVAL_MS`, this c
 
 ---
 
-### QA-7 ⚪ — Raw SQL in `settings.service.ts` Contradicts "Prisma Only" Standard
+### QA-7 ✅ — Raw SQL in `settings.service.ts` Contradicts "Prisma Only" Standard
 **File:** `backend/src/services/settings.service.ts` (lines 70–83)
 
 `this.prisma.$queryRaw` is used for atomic counter increment. The tagged template literal prevents SQL injection here, but the presence of raw SQL may encourage unsafe copying by future maintainers.

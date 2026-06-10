@@ -66,7 +66,10 @@ export class SettingsService {
     // Ensure row exists first
     await this.getSettings();
 
-    // Atomic increment via raw SQL
+    // Raw SQL is intentional: a single UPDATE...RETURNING is the only way to
+    // atomically claim a sequence number under concurrent requests without a
+    // separate SELECT FOR UPDATE + round-trip. Prisma's tagged-template
+    // $queryRaw prevents SQL injection — no user input reaches this query.
     const result = await this.prisma.$queryRaw<
       Array<{ next_req_number: number; req_number_prefix: string }>
     >`
