@@ -2,6 +2,7 @@ import express, { Request, Response } from 'express';
 import rateLimit from 'express-rate-limit';
 import { z } from 'zod';
 import { authenticate, requireAdmin, AuthRequest } from '../middleware/auth';
+import { validateCsrfToken } from '../middleware/csrf';
 import { UserSyncService } from '../services/userSync.service';
 import { LocationSyncService } from '../services/locationSync.service';
 import { cronJobsService } from '../services/cronJobs.service';
@@ -9,15 +10,23 @@ import { schedulerService, VALID_JOB_KEYS, computeNextRun } from '../services/sc
 import { prisma } from '../lib/prisma';
 import { createGraphClient } from '../utils/graphClient';
 import { loggers } from '../lib/logger';
+import { handleControllerError } from '../utils/errorHandler';
 import { CronExpressionParser } from 'cron-parser';
 import cron from 'node-cron';
 import emailQueueAdminRoutes from './emailQueueAdmin.routes';
 
 const router = express.Router();
 
-// All routes require authentication and admin role
+// In-memory concurrency guard for Entra user sync operations.
+// All four user-sync routes upsert the same User rows — running any two in
+// parallel causes duplicate-work and potential race conditions on those rows.
+// A single lock key covers all variants (syncAll, syncStaff, syncStudents, syncGroup).
+let userSyncInFlight = false;
+
+// All routes require authentication, admin role, and a valid CSRF token on mutations
 router.use(authenticate);
 router.use(requireAdmin);
+router.use(validateCsrfToken);
 
 // Mount email queue admin sub-router
 router.use('/email-queue', emailQueueAdminRoutes);
@@ -76,18 +85,22 @@ router.get('/sync-status', async (req: Request, res: Response) => {
         allStudents: !!process.env.ENTRA_ALL_STUDENTS_GROUP_ID,
       },
     });
-  } catch (error: any) {
+  } catch (error) {
     loggers.admin.error('Failed to get sync status', { error });
-    res.status(500).json({ error: 'Failed to get sync status', message: error.message });
+    handleControllerError(error, res);
   }
 });
 
 // Sync all users from Entra ID
 router.post('/sync-users/all', async (req: Request, res: Response) => {
+  if (userSyncInFlight) {
+    return res.status(409).json({ error: 'A user sync operation is already in progress. Please try again shortly.' });
+  }
+  userSyncInFlight = true;
   try {
     const graphClient = await createGraphClient();
     const syncService = new UserSyncService(prisma, graphClient);
-    
+
     const result = await syncService.syncAllUsers();
 
     res.json({
@@ -96,17 +109,20 @@ router.post('/sync-users/all', async (req: Request, res: Response) => {
       count: result.added + result.updated,
       detail: result,
     });
-  } catch (error: any) {
+  } catch (error) {
     loggers.admin.error('Sync all users failed', { error });
-    res.status(500).json({ 
-      error: 'Sync failed', 
-      message: error.message 
-    });
+    handleControllerError(error, res);
+  } finally {
+    userSyncInFlight = false;
   }
 });
 
 // Sync users from All Staff group
 router.post('/sync-users/staff', async (req: Request, res: Response) => {
+  if (userSyncInFlight) {
+    return res.status(409).json({ error: 'A user sync operation is already in progress. Please try again shortly.' });
+  }
+  userSyncInFlight = true;
   try {
     const groupId = process.env.ENTRA_ALL_STAFF_GROUP_ID;
     if (!groupId) {
@@ -115,7 +131,7 @@ router.post('/sync-users/staff', async (req: Request, res: Response) => {
 
     const graphClient = await createGraphClient();
     const syncService = new UserSyncService(prisma, graphClient);
-    
+
     const result = await syncService.syncGroupUsers(groupId);
 
     res.json({
@@ -124,17 +140,20 @@ router.post('/sync-users/staff', async (req: Request, res: Response) => {
       count: result.added + result.updated,
       detail: result,
     });
-  } catch (error: any) {
+  } catch (error) {
     loggers.admin.error('Sync staff failed', { error });
-    res.status(500).json({ 
-      error: 'Sync failed', 
-      message: error.message 
-    });
+    handleControllerError(error, res);
+  } finally {
+    userSyncInFlight = false;
   }
 });
 
 // Sync users from All Students group
 router.post('/sync-users/students', async (req: Request, res: Response) => {
+  if (userSyncInFlight) {
+    return res.status(409).json({ error: 'A user sync operation is already in progress. Please try again shortly.' });
+  }
+  userSyncInFlight = true;
   try {
     const groupId = process.env.ENTRA_ALL_STUDENTS_GROUP_ID;
     if (!groupId) {
@@ -143,7 +162,7 @@ router.post('/sync-users/students', async (req: Request, res: Response) => {
 
     const graphClient = await createGraphClient();
     const syncService = new UserSyncService(prisma, graphClient);
-    
+
     const result = await syncService.syncGroupUsers(groupId);
 
     res.json({
@@ -152,23 +171,26 @@ router.post('/sync-users/students', async (req: Request, res: Response) => {
       count: result.added + result.updated,
       detail: result,
     });
-  } catch (error: any) {
+  } catch (error) {
     loggers.admin.error('Sync students failed', { error });
-    res.status(500).json({ 
-      error: 'Sync failed', 
-      message: error.message 
-    });
+    handleControllerError(error, res);
+  } finally {
+    userSyncInFlight = false;
   }
 });
 
 // Sync users from a custom group by ID
 router.post('/sync-users/group/:groupId', async (req: Request, res: Response) => {
+  if (userSyncInFlight) {
+    return res.status(409).json({ error: 'A user sync operation is already in progress. Please try again shortly.' });
+  }
+  userSyncInFlight = true;
   try {
     const groupId = req.params.groupId as string;
 
     const graphClient = await createGraphClient();
     const syncService = new UserSyncService(prisma, graphClient);
-    
+
     const result = await syncService.syncGroupUsers(groupId);
 
     res.json({
@@ -177,12 +199,11 @@ router.post('/sync-users/group/:groupId', async (req: Request, res: Response) =>
       count: result.added + result.updated,
       detail: result,
     });
-  } catch (error: any) {
+  } catch (error) {
     loggers.admin.error('Sync group failed', { error, groupId: req.params.groupId });
-    res.status(500).json({ 
-      error: 'Sync failed', 
-      message: error.message 
-    });
+    handleControllerError(error, res);
+  } finally {
+    userSyncInFlight = false;
   }
 });
 
@@ -223,12 +244,9 @@ router.post('/sync-supervisors/trigger', async (req: AuthRequest, res: Response)
       triggeredBy: req.user?.email,
       triggeredAt: new Date().toISOString()
     });
-  } catch (error: any) {
+  } catch (error) {
     loggers.admin.error('Failed to trigger sync', { error });
-    res.status(500).json({ 
-      error: 'Failed to trigger supervisor sync',
-      message: error.message 
-    });
+    handleControllerError(error, res);
   }
 });
 
@@ -279,7 +297,7 @@ router.post('/jobs/sync-locations', jobLimiter, async (req: AuthRequest, res: Re
       error,
       triggeredBy: (req as AuthRequest).user?.email,
     });
-    res.status(500).json({ error: 'Location sync failed', message: error.message });
+    handleControllerError(error, res);
   }
 });
 
@@ -319,7 +337,7 @@ router.post('/jobs/sync-supervisors', jobLimiter, async (req: AuthRequest, res: 
       error,
       triggeredBy: (req as AuthRequest).user?.email,
     });
-    res.status(500).json({ error: 'Supervisor sync failed', message: error.message });
+    handleControllerError(error, res);
   }
 });
 
@@ -352,9 +370,9 @@ router.get('/jobs/status', async (req: Request, res: Response) => {
         lastRunAt: lastUserSync?.lastSync ?? null,
       },
     });
-  } catch (error: any) {
+  } catch (error) {
     loggers.admin.error('Failed to get job status', { error });
-    res.status(500).json({ error: 'Failed to get job status', message: error.message });
+    handleControllerError(error, res);
   }
 });
 
@@ -403,10 +421,9 @@ router.get('/jobs/schedules', async (_req: Request, res: Response) => {
   try {
     const schedules = await schedulerService.getSchedules();
     res.json({ schedules });
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
+  } catch (error) {
     loggers.admin.error('Failed to get job schedules', { error });
-    res.status(500).json({ error: 'Failed to get job schedules', message });
+    handleControllerError(error, res);
   }
 });
 
@@ -444,10 +461,9 @@ router.put('/jobs/schedules/:jobKey', jobLimiter, async (req: AuthRequest, res: 
     const schedules = await schedulerService.getSchedules();
     const updated = schedules.find((s) => s.jobKey === jobKey);
     res.json({ success: true, schedule: updated });
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
+  } catch (error) {
     loggers.admin.error('Failed to update job schedule', { error, jobKey });
-    res.status(500).json({ error: 'Failed to update schedule', message });
+    handleControllerError(error, res);
   }
 });
 
@@ -468,13 +484,13 @@ router.post('/jobs/:jobKey/run', jobLimiter, async (req: AuthRequest, res: Respo
   try {
     const result = await schedulerService.runJobNow(jobKey as typeof VALID_JOB_KEYS[number]);
     res.json({ success: true, message: `Job "${jobKey}" completed`, detail: result });
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '';
     if (message.includes('already running')) {
-      return res.status(409).json({ error: message });
+      return res.status(409).json({ error: 'Job is already running' });
     }
     loggers.admin.error('Manual job run failed', { error, jobKey });
-    res.status(500).json({ error: `Job "${jobKey}" failed`, message });
+    handleControllerError(error, res);
   }
 });
 

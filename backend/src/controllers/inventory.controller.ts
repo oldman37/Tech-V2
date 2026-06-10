@@ -10,6 +10,7 @@ import { AuthRequest } from '../middleware/auth';
 import { InventoryService } from '../services/inventory.service';
 import { InventoryImportService } from '../services/inventoryImport.service';
 import { handleControllerError } from '../utils/errorHandler';
+import { GetInventoryQuerySchema, InventorySearchQuerySchema, ExportInventory, ImportOptionsSchema } from '../validators/inventory.validators';
 import { prisma } from '../lib/prisma';
 import { logger } from '../lib/logger';
 import ExcelJS from 'exceljs';
@@ -24,53 +25,7 @@ const importService = new InventoryImportService(prisma);
  */
 export const getInventory = async (req: AuthRequest, res: Response) => {
   try {
-    const {
-      page = '1',
-      limit = '50',
-      search,
-      locationId,
-      officeLocationId,
-      roomId,
-      categoryId,
-      status,
-      isDisposed,
-      brandId,
-      vendorId,
-      modelId,
-      fundingSourceId,
-      sortBy = 'createdAt',
-      sortOrder = 'desc',
-      minPrice,
-      maxPrice,
-      purchaseDateFrom,
-      purchaseDateTo,
-      disposedDateFrom,
-      disposedDateTo,
-    } = req.query;
-
-    const query = {
-      page: parseInt(page as string),
-      limit: parseInt(limit as string),
-      search: search as string | undefined,
-      locationId: locationId as string | undefined,
-      officeLocationId: officeLocationId as string | undefined,
-      roomId: roomId as string | undefined,
-      categoryId: categoryId as string | undefined,
-      status: status as string | undefined,
-      isDisposed: isDisposed === 'true' ? true : isDisposed === 'false' ? false : undefined,
-      brandId: brandId as string | undefined,
-      vendorId: vendorId as string | undefined,
-      modelId: modelId as string | undefined,
-      fundingSourceId: fundingSourceId as string | undefined,
-      sortBy: sortBy as string,
-      sortOrder: sortOrder as 'asc' | 'desc',
-      minPrice: minPrice ? parseFloat(minPrice as string) : undefined,
-      maxPrice: maxPrice ? parseFloat(maxPrice as string) : undefined,
-      purchaseDateFrom: purchaseDateFrom ? new Date(purchaseDateFrom as string) : undefined,
-      purchaseDateTo: purchaseDateTo ? new Date(purchaseDateTo as string) : undefined,
-      disposedDateFrom: disposedDateFrom ? new Date(disposedDateFrom as string) : undefined,
-      disposedDateTo: disposedDateTo ? new Date(disposedDateTo as string) : undefined,
-    };
+    const query = GetInventoryQuerySchema.parse(req.query);
 
     const result = await inventoryService.findAll(query);
 
@@ -93,18 +48,13 @@ export const getInventory = async (req: AuthRequest, res: Response) => {
  */
 export const searchInventory = async (req: AuthRequest, res: Response) => {
   try {
-    const { q, limit, excludeDisposed, status } = req.query as {
-      q: string;
-      limit?: string;
-      excludeDisposed?: string;
-      status?: string;
-    };
+    const { q, limit, excludeDisposed, status } = InventorySearchQuerySchema.parse(req.query);
 
     const results = await inventoryService.search({
       q,
-      limit: limit ? parseInt(limit, 10) : 10,
-      excludeDisposed: excludeDisposed !== 'false',
-      status: status as string | undefined,
+      limit,
+      excludeDisposed,
+      status,
     });
 
     logger.info('Inventory search completed', {
@@ -426,8 +376,21 @@ export const importInventory = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // Extract options from body
-    const options = req.body.options ? JSON.parse(req.body.options) : {};
+    // Extract options from body — multipart sends options as a JSON string
+    let options: { updateExisting?: boolean; skipDuplicates?: boolean; validateOnly?: boolean; batchSize?: number } = {};
+    if (req.body.options) {
+      let rawOptions: unknown;
+      try {
+        rawOptions = JSON.parse(req.body.options);
+      } catch {
+        return res.status(400).json({ error: 'Invalid options: must be valid JSON' });
+      }
+      const parsed = ImportOptionsSchema.safeParse(rawOptions);
+      if (!parsed.success) {
+        return res.status(400).json({ error: 'Invalid options', details: parsed.error.issues });
+      }
+      options = parsed.data;
+    }
 
     const user = {
       id: req.user.id,
@@ -513,12 +476,12 @@ export const getImportJobs = async (req: AuthRequest, res: Response) => {
  */
 export const exportInventory = async (req: AuthRequest, res: Response) => {
   try {
-    const { filters } = req.body as { format?: string; filters?: any };
+    const { filters } = req.body as ExportInventory;
 
-    // Fetch all matching items (high limit)
+    // Fetch all matching items — capped at 5000 to bound memory usage
     const query = {
       page: 1,
-      limit: 10000,
+      limit: 5000,
       ...(filters || {}),
     };
     const result = await inventoryService.findAll(query);

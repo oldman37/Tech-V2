@@ -46,9 +46,12 @@ import { provideCsrfToken, getCsrfToken } from './middleware/csrf';
 import { logger, loggers } from './lib/logger';
 import { requestId, httpLogger } from './middleware/requestLogger';
 import path from 'path';
+import { validateEnv } from './config/validateEnv';
 
-// Load environment variables
+// Load environment variables then validate immediately — fail fast before any
+// service or middleware tries to use a missing secret.
 dotenv.config();
+validateEnv();
 
 const app: Express = express();
 const PORT = process.env.PORT || 3000;
@@ -98,6 +101,7 @@ const authLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many authentication attempts, please try again later.' },
+  skip: () => process.env.NODE_ENV === 'development',
 });
 
 // Body parsing middleware

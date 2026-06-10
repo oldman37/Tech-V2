@@ -20,9 +20,14 @@ export const ProtectedRoute = ({
   requireRoomAssignment = false,
   requireTransportationLevel,
 }: ProtectedRouteProps) => {
-  const { isAuthenticated, user } = useAuthStore();
+  const { isAuthenticated, isLoading, user } = useAuthStore();
   const canAccessDeviceManagement = useAuthStore(selectCanAccessDeviceManagement);
   const roomAssignmentAccess = useRoomAssignmentAccess();
+
+  // Wait for the initial /api/auth/me check before making auth decisions
+  if (isLoading) {
+    return null;
+  }
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;

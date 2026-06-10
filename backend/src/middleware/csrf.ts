@@ -1,19 +1,17 @@
 /**
  * CSRF Protection Middleware
- * 
- * Implements Cross-Site Request Forgery protection using Double Submit Cookie pattern.
- * 
+ *
+ * Implements the Double Submit Cookie pattern.
+ *
  * How it works:
- * 1. Server generates a random CSRF token on initial request
- * 2. Token is sent to client both as:
- *    - A cookie (HttpOnly, SameSite)
- *    - A response header for the client to read
- * 3. Client includes token in custom header for subsequent requests
- * 4. Server validates that cookie token matches header token
- * 
- * This prevents CSRF attacks because an attacker's site cannot:
- * - Read the token from the cookie (HttpOnly)
- * - Set custom headers on cross-origin requests
+ * 1. Server sets XSRF-TOKEN as a JS-readable cookie (NOT httpOnly).
+ * 2. Client reads the cookie value and sends it back as the x-xsrf-token header.
+ * 3. Server verifies cookie value === header value.
+ *
+ * This prevents CSRF because a cross-origin attacker cannot read the cookie
+ * (SameSite + same-origin policy) and therefore cannot reproduce the header.
+ * Custom headers cannot be set on cross-origin requests without a CORS preflight,
+ * which the server rejects for untrusted origins.
  */
 
 import { Request, Response, NextFunction } from 'express';
@@ -45,10 +43,10 @@ export const provideCsrfToken = (req: Request, res: Response, next: NextFunction
     // Generate new token
     token = generateCsrfToken();
     
-    // Set token as HttpOnly cookie
+    // NOT httpOnly — JS must be able to read this cookie to implement double-submit.
     res.cookie(CSRF_COOKIE_NAME, token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production', // HTTPS only in production
+      httpOnly: false,
+      secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
     });
@@ -94,16 +92,16 @@ export const validateCsrfToken = (req: Request, res: Response, next: NextFunctio
     });
   }
   
-  // Validate that tokens match (timing-safe comparison)
-  const tokensMatch = crypto.timingSafeEqual(
-    Buffer.from(cookieToken),
-    Buffer.from(headerToken as string)
-  );
-  
+  // Validate that tokens match (timing-safe comparison).
+  // timingSafeEqual throws if buffers differ in length, so check first.
+  const a = Buffer.from(cookieToken);
+  const b = Buffer.from(headerToken as string);
+  const tokensMatch = a.length === b.length && crypto.timingSafeEqual(a, b);
+
   if (!tokensMatch) {
-    return res.status(403).json({ 
+    return res.status(403).json({
       error: 'CSRF token invalid',
-      message: 'CSRF token mismatch. Possible CSRF attack detected.' 
+      message: 'CSRF token mismatch. Possible CSRF attack detected.',
     });
   }
   

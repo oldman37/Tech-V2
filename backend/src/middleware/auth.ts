@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { ParamsDictionary } from 'express-serve-static-core';
+import { loggers } from '../lib/logger';
 
 export interface AuthRequest extends Request {
   user?: {
@@ -80,7 +81,7 @@ export const authenticate = (
   try {
     const decoded = jwt.verify(
       token,
-      process.env.JWT_SECRET!
+      process.env.JWT_ACCESS_SECRET!
     ) as JWTPayload;
 
     req.user = {
@@ -100,7 +101,15 @@ export const authenticate = (
         message: 'Token expired',
       });
     }
-    
+
+    // Token was present but failed verification — log at warn so forged/tampered
+    // tokens are visible in monitoring rather than silently discarded.
+    loggers.auth.warn('Invalid access token rejected', {
+      ip: req.ip,
+      url: req.originalUrl,
+      error: error instanceof Error ? error.message : String(error),
+    });
+
     return res.status(401).json({
       error: 'Unauthorized',
       message: 'Invalid token',
@@ -150,37 +159,3 @@ export const requireGroup = (groupId: string) => {
   };
 };
 
-// Optional authentication - doesn't fail if no token provided
-export const optionalAuth = (
-  req: AuthRequest,
-  res: Response,
-  next: NextFunction
-) => {
-  const authHeader = req.headers.authorization;
-  
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return next();
-  }
-
-  const token = authHeader.substring(7);
-
-  try {
-    const decoded = jwt.verify(
-      token,
-      process.env.JWT_SECRET!
-    ) as JWTPayload;
-
-    req.user = {
-      id: decoded.id,
-      entraId: decoded.entraId,
-      email: decoded.email,
-      name: decoded.name,
-      roles: decoded.roles || [],
-      groups: decoded.groups || [],
-    };
-  } catch (error) {
-    // Silently fail for optional auth
-  }
-
-  next();
-};

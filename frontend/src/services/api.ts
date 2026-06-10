@@ -3,9 +3,16 @@ import { useAuthStore } from '../store/authStore';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
-// In-memory CSRF token cache — populated from the X-CSRF-Token response header
-// The cookie itself is HttpOnly so JS cannot read it; the backend mirrors it in a header.
+// In-memory CSRF token cache.
+// The XSRF-TOKEN cookie is JS-readable (not httpOnly), so we can seed this directly
+// from the cookie on the very first request rather than waiting for a GET response.
 let csrfToken: string | null = null;
+
+function readCsrfCookie(): string | null {
+  if (typeof document === 'undefined') return null;
+  const match = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
 
 // Methods that require a CSRF token
 const CSRF_PROTECTED_METHODS = new Set(['post', 'put', 'patch', 'delete']);
@@ -98,8 +105,12 @@ api.interceptors.request.use(
     // Tokens automatically sent via cookies — no Authorization header needed.
     // Inject the cached CSRF token for POST / PUT / PATCH / DELETE.
     if (config.method && CSRF_PROTECTED_METHODS.has(config.method.toLowerCase())) {
-      if (csrfToken) {
-        config.headers['x-xsrf-token'] = csrfToken;
+      // Fall back to reading the cookie directly when the in-memory cache is empty
+      // (e.g. first mutation after a hard refresh before any GET response arrives).
+      const token = csrfToken ?? readCsrfCookie();
+      if (token) {
+        if (!csrfToken) csrfToken = token; // prime the cache
+        config.headers['x-xsrf-token'] = token;
       }
     }
     return config;
@@ -123,8 +134,13 @@ api.interceptors.response.use(
   async (error: AxiosError) => {
     const originalRequest = error.config as any;
 
-    // If error is 401 and we haven't retried yet
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // If error is 401, we haven't retried yet, and the user was already authenticated
+    // (skip refresh on the initial auth probe — if there's no session, just reject)
+    if (
+      error.response?.status === 401 &&
+      !originalRequest._retry &&
+      useAuthStore.getState().isAuthenticated
+    ) {
       originalRequest._retry = true;
 
       try {

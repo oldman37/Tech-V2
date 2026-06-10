@@ -1,4 +1,5 @@
 import { Response } from 'express';
+import { ZodError } from 'zod';
 import { isAppError, ConflictError } from './errors';
 import { loggers } from '../lib/logger';
 
@@ -10,6 +11,16 @@ import { loggers } from '../lib/logger';
  * @param res - Express response object
  */
 export const handleControllerError = (error: unknown, res: Response): void => {
+  // Zod validation errors — return 400 with field-level details
+  if (error instanceof ZodError) {
+    res.status(400).json({
+      error: 'VALIDATION_ERROR',
+      message: 'Invalid request parameters',
+      details: error.issues,
+    });
+    return;
+  }
+
   // Custom application errors
   if (error instanceof ConflictError) {
     const response: any = {

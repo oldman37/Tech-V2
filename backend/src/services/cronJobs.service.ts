@@ -5,8 +5,18 @@ import { msalClient } from '../config/entraId';
 import { Client } from '@microsoft/microsoft-graph-client';
 import { LocationSyncService } from './locationSync.service';
 
+interface JobState {
+  executing: boolean;
+  lastRunAt: Date | null;
+  lastRunDurationMs: number | null;
+  lastError: string | null;
+}
+
 class CronJobsService {
   private jobs: Map<string, ReturnType<typeof cron.schedule>> = new Map();
+  private jobState: Map<string, JobState> = new Map([
+    ['supervisorSync', { executing: false, lastRunAt: null, lastRunDurationMs: null, lastError: null }],
+  ]);
 
   /**
    * Initialize all cron jobs
@@ -63,25 +73,39 @@ class CronJobsService {
    * Run the supervisor sync via the LocationSyncService (direct service call)
    */
   private async runSupervisorSync(): Promise<void> {
-    const authResult = await msalClient.acquireTokenByClientCredential({
-      scopes: ['https://graph.microsoft.com/.default'],
-    });
+    const state = this.jobState.get('supervisorSync')!;
+    state.executing = true;
+    state.lastError = null;
+    const startedAt = Date.now();
 
-    const graphClient = Client.init({
-      authProvider: (done) => {
-        done(null, authResult?.accessToken ?? '');
-      },
-    });
+    try {
+      const authResult = await msalClient.acquireTokenByClientCredential({
+        scopes: ['https://graph.microsoft.com/.default'],
+      });
 
-    const syncService = new LocationSyncService(prisma, graphClient);
-    const result = await syncService.syncSupervisorAssignments();
+      const graphClient = Client.init({
+        authProvider: (done) => {
+          done(null, authResult?.accessToken ?? '');
+        },
+      });
 
-    loggers.cron.info('Supervisor assignment sync complete', {
-      assignmentsCreated: result.assignmentsCreated,
-      assignmentsSkipped: result.assignmentsSkipped,
-      errors: result.errors,
-      durationMs: result.durationMs,
-    });
+      const syncService = new LocationSyncService(prisma, graphClient);
+      const result = await syncService.syncSupervisorAssignments();
+
+      loggers.cron.info('Supervisor assignment sync complete', {
+        assignmentsCreated: result.assignmentsCreated,
+        assignmentsSkipped: result.assignmentsSkipped,
+        errors: result.errors,
+        durationMs: result.durationMs,
+      });
+    } catch (error) {
+      state.lastError = error instanceof Error ? error.message : String(error);
+      throw error;
+    } finally {
+      state.lastRunAt = new Date();
+      state.lastRunDurationMs = Date.now() - startedAt;
+      state.executing = false;
+    }
   }
 
   /**
@@ -109,28 +133,40 @@ class CronJobsService {
    * Get status of all jobs
    */
   getStatus() {
-    const status: any[] = [];
-    
-    this.jobs.forEach((job, name) => {
+    const status: Array<{
+      name: string;
+      scheduled: boolean;
+      executing: boolean;
+      lastRunAt: Date | null;
+      lastRunDurationMs: number | null;
+      lastError: string | null;
+      schedule: string | null;
+    }> = [];
+
+    this.jobs.forEach((_job, name) => {
+      const state = this.jobState.get(name) ?? {
+        executing: false,
+        lastRunAt: null,
+        lastRunDurationMs: null,
+        lastError: null,
+      };
       status.push({
         name,
-        running: true,
-        nextRun: this.getNextRunTime(name)
+        scheduled: true,
+        executing: state.executing,
+        lastRunAt: state.lastRunAt,
+        lastRunDurationMs: state.lastRunDurationMs,
+        lastError: state.lastError,
+        schedule: this.getScheduleExpression(name),
       });
     });
 
     return status;
   }
 
-  /**
-   * Get next scheduled run time for a job
-   */
-  private getNextRunTime(jobName: string): string | null {
-    // This is a simplified version - node-cron doesn't expose next run time directly
-    // You could implement a more sophisticated tracker if needed
+  private getScheduleExpression(jobName: string): string | null {
     if (jobName === 'supervisorSync') {
-      const schedule = process.env.SUPERVISOR_SYNC_SCHEDULE || '0 2 * * *';
-      return `Next run: ${schedule} (check cron schedule)`;
+      return process.env.SUPERVISOR_SYNC_SCHEDULE || '0 2 * * *';
     }
     return null;
   }

@@ -1,5 +1,4 @@
 services:
-  # PostgreSQL Database
   db:
     image: postgres:16-alpine
     restart: unless-stopped
@@ -8,18 +7,17 @@ services:
       POSTGRES_USER: ${DB_USER:-techv2}
       POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - pgdata_dev:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-techv2} -d tech_v2"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  # Backend API
   backend:
     build:
-      # Context must be the monorepo root so @mgspe/shared-types (file:../shared)
-      # resolves during both TypeScript compilation and production npm install.
       context: .
       dockerfile: backend/Dockerfile
     restart: unless-stopped
@@ -27,7 +25,7 @@ services:
       db:
         condition: service_healthy
     environment:
-      NODE_ENV: production
+      NODE_ENV: development
       PORT: 3000
       DATABASE_URL: postgresql://${DB_USER:-techv2}:${DB_PASSWORD}@db:5432/tech_v2
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET is required}
@@ -37,7 +35,7 @@ services:
       ENTRA_TENANT_ID: ${ENTRA_TENANT_ID}
       ENTRA_CLIENT_ID: ${ENTRA_CLIENT_ID}
       ENTRA_CLIENT_SECRET: ${ENTRA_CLIENT_SECRET}
-      REDIRECT_URI: ${REDIRECT_URI:-https://schoolworks.ocboe.com/api/auth/callback}
+      REDIRECT_URI: ${REDIRECT_URI}
       ENTRA_ADMIN_GROUP_ID: ${ENTRA_ADMIN_GROUP_ID}
       ENTRA_FINANCE_DIRECTOR_GROUP_ID: ${ENTRA_FINANCE_DIRECTOR_GROUP_ID}
       ENTRA_DIRECTOR_OF_SCHOOLS_GROUP_ID: ${ENTRA_DIRECTOR_OF_SCHOOLS_GROUP_ID}
@@ -61,27 +59,24 @@ services:
       ENTRA_ALL_STAFF_GROUP_ID: ${ENTRA_ALL_STAFF_GROUP_ID}
       ENTRA_ALL_STUDENTS_GROUP_ID: ${ENTRA_ALL_STUDENTS_GROUP_ID}
       ENTRA_SCHOOL_MAINTENANCE_GROUP_ID: ${ENTRA_SCHOOL_MAINTENANCE_GROUP_ID}
-      CORS_ORIGIN: ${CORS_ORIGIN:-https://schoolworks.ocboe.com}
+      CORS_ORIGIN: "http://localhost"
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_SECURE: ${SMTP_SECURE:-false}
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASS: ${SMTP_PASS:-}
       SMTP_FROM: ${SMTP_FROM:-}
-      APP_URL: ${APP_URL:-https://schoolworks.ocboe.com}
+      APP_URL: ${APP_URL:-http://localhost}
       TZ: ${TZ:-America/Chicago}
     volumes:
-      - backend_logs:/workspace/backend/logs
-      - backend_uploads:/workspace/backend/public/uploads
-    expose:
-      - "3000"
+      - backend_logs_dev:/workspace/backend/logs
+      - backend_uploads_dev:/workspace/backend/public/uploads
+    ports:
+      - "3000:3000"
     command: sh -c "npx prisma migrate deploy && node dist/server.js"
 
-  # Frontend (Nginx serving React SPA + reverse proxy to backend)
   frontend:
     build:
-      # Context must be the monorepo root so the Vite alias
-      # (@mgspe/shared-types → ../shared/src/index.ts) resolves in the container.
       context: .
       dockerfile: frontend/Dockerfile
       args:
@@ -99,27 +94,10 @@ services:
       - backend
     ports:
       - "80:80"
-      - "443:443"
     volumes:
-      - certbot_conf:/etc/letsencrypt
-      - certbot_www:/var/www/certbot
-
-  # Certbot for Let's Encrypt SSL certificates
-  certbot:
-    image: certbot/certbot
-    restart: unless-stopped
-    depends_on:
-      frontend:
-        condition: service_healthy
-    volumes:
-      - certbot_conf:/etc/letsencrypt
-      - certbot_www:/var/www/certbot
-    # Auto-renew: check every 12 hours
-    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+      - ./frontend/nginx.dev.conf:/etc/nginx/conf.d/default.conf:ro
 
 volumes:
-  pgdata:
-  backend_logs:
-  backend_uploads:
-  certbot_conf:
-  certbot_www:
+  pgdata_dev:
+  backend_logs_dev:
+  backend_uploads_dev:

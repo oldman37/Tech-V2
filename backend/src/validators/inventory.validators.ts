@@ -69,7 +69,7 @@ export const GetInventoryQuerySchema = z.object({
     z.string()
       .regex(/^\d+$/, 'Limit must be a number')
       .transform(Number)
-      .refine((val) => val > 0 && val <= 1000, 'Limit must be between 1 and 1000')
+      .refine((val) => val > 0 && val <= 200, 'Limit must be between 1 and 200')
   ).optional(),
   search: z.string().max(200).optional(),
   locationId: z.string().uuid('Invalid location ID').optional(),
@@ -83,6 +83,7 @@ export const GetInventoryQuerySchema = z.object({
   brandId: z.string().uuid('Invalid brand ID').optional(),
   vendorId: z.string().uuid('Invalid vendor ID').optional(),
   modelId: z.string().uuid('Invalid model ID').optional(),
+  fundingSourceId: z.string().uuid('Invalid funding source ID').optional(),
   sortBy: z.string().max(50).optional(),
   sortOrder: z.enum(['asc', 'desc']).optional(),
   minPrice: z.string()
@@ -93,10 +94,10 @@ export const GetInventoryQuerySchema = z.object({
     .regex(/^\d+(\.\d{1,2})?$/, 'Invalid price format')
     .transform(Number)
     .optional(),
-  purchaseDateFrom: z.string().datetime().optional(),
-  purchaseDateTo: z.string().datetime().optional(),
-  disposedDateFrom: z.string().datetime().optional(),
-  disposedDateTo: z.string().datetime().optional(),
+  purchaseDateFrom: z.string().datetime().transform((s) => new Date(s)).optional(),
+  purchaseDateTo: z.string().datetime().transform((s) => new Date(s)).optional(),
+  disposedDateFrom: z.string().datetime().transform((s) => new Date(s)).optional(),
+  disposedDateTo: z.string().datetime().transform((s) => new Date(s)).optional(),
 });
 
 /**

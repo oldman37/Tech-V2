@@ -261,11 +261,15 @@ router.get(
   inventoryController.getImportJobStatus
 );
 
-// POST /api/inventory/export
+/**
+ * POST /api/inventory/export
+ * Export full inventory to Excel
+ * Permission: TECHNOLOGY level 3 (admin access) — export contains purchase prices, serial numbers, asset tags
+ */
 router.post(
   '/inventory/export',
   validateRequest(ExportInventorySchema, 'body'),
-  requireModule('TECHNOLOGY', 1),
+  requireModule('TECHNOLOGY', 3),
   inventoryController.exportInventory
 );
 

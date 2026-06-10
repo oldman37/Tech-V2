@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import crypto from 'crypto';
 import { AuthRequest, TypedAuthRequest } from '../middleware/auth';
 import { msalClient, graphClient, loginScopes } from '../config/entraId';
 import jwt, { SignOptions } from 'jsonwebtoken';
@@ -40,9 +41,24 @@ export const login = async (
     // device's Primary Refresh Token (Entra-joined/hybrid-joined devices).
     // On failure Entra redirects to REDIRECT_URI with ?error=login_required.
     // When silent=false/unset: no prompt override — Entra uses session cookie naturally.
+    // Generate a random state value to prevent CSRF on the OAuth callback.
+    // Stored in a short-lived HttpOnly cookie; validated in /callback before
+    // exchanging the code. SameSite=Lax is required (not Strict) because the
+    // Entra redirect is a cross-site navigation that must carry this cookie.
+    const oauthState = crypto.randomBytes(32).toString('hex');
+    const isDevelopment = process.env.NODE_ENV === 'development';
+    res.cookie('oauth_state', oauthState, {
+      httpOnly: true,
+      secure: !isDevelopment,
+      sameSite: 'lax',
+      maxAge: 10 * 60 * 1000, // 10 minutes — enough to complete the login flow
+      path: '/api/auth/callback',
+    });
+
     const authCodeUrlParameters = {
       scopes: loginScopes.scopes,
       redirectUri: process.env.REDIRECT_URI!,
+      state: oauthState,
       ...(isSilent ? { prompt: 'none' } : {}),
     };
 
@@ -64,12 +80,43 @@ export const callback = async (
   res: Response
 ) => {
   // After validation middleware, query is guaranteed to have the correct structure
-  const { code } = req.query as unknown as OAuthCallbackQuery;
+  const { code, state } = req.query as unknown as OAuthCallbackQuery;
 
   if (!code || typeof code !== 'string') {
     return res.status(400).json({
       error: 'Bad Request',
       message: 'Authorization code is required',
+    } as any);
+  }
+
+  // Validate OAuth state parameter to prevent CSRF.
+  // The expected value was stored as an HttpOnly cookie in /login.
+  // Always clear the cookie regardless of outcome to prevent replay.
+  const expectedState = req.cookies?.oauth_state as string | undefined;
+  res.clearCookie('oauth_state', { path: '/api/auth/callback' });
+
+  if (!state || !expectedState) {
+    loggers.auth.warn('OAuth callback missing state or state cookie', {
+      hasQueryState: !!state,
+      hasCookieState: !!expectedState,
+    });
+    return res.status(400).json({
+      error: 'Bad Request',
+      message: 'Invalid OAuth state',
+    } as any);
+  }
+
+  const stateA = Buffer.from(state as string);
+  const stateB = Buffer.from(expectedState);
+  const stateValid = stateA.length === stateB.length && crypto.timingSafeEqual(stateA, stateB);
+
+  if (!stateValid) {
+    loggers.auth.warn('OAuth state mismatch — possible CSRF attempt', {
+      ip: req.ip,
+    });
+    return res.status(400).json({
+      error: 'Bad Request',
+      message: 'Invalid OAuth state',
     } as any);
   }
 
@@ -219,7 +266,7 @@ export const callback = async (
     
     const appToken = jwt.sign(
       tokenPayload,
-      process.env.JWT_SECRET!,
+      process.env.JWT_ACCESS_SECRET!,
       appTokenOptions
     );
 
@@ -238,7 +285,7 @@ export const callback = async (
     
     const refreshToken = jwt.sign(
       refreshTokenPayload,
-      process.env.JWT_SECRET!,
+      process.env.JWT_REFRESH_SECRET!,
       refreshTokenOptions
     );
 
@@ -361,7 +408,7 @@ export const refreshToken = async (
 
   try {
     // Verify and decode the refresh token
-    const decoded = jwt.verify(refreshToken, process.env.JWT_SECRET!);
+    const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET!);
 
     // Type guard: Ensure the decoded token has the expected refresh token structure
     if (!isRefreshTokenPayload(decoded)) {
@@ -441,7 +488,7 @@ export const refreshToken = async (
     
     const newToken = jwt.sign(
       tokenPayload,
-      process.env.JWT_SECRET!,
+      process.env.JWT_ACCESS_SECRET!,
       newTokenOptions
     );
 
@@ -461,7 +508,7 @@ export const refreshToken = async (
 
     const newRefreshToken = jwt.sign(
       newRefreshTokenPayload,
-      process.env.JWT_SECRET!,
+      process.env.JWT_REFRESH_SECRET!,
       newRefreshTokenOptions
     );
 

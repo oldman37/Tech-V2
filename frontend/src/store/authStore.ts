@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { authApi } from '../services/authService';
 
 interface User {
   id: string;
@@ -36,51 +36,50 @@ interface User {
 interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
+  // true while the initial /api/auth/me check is in flight — ProtectedRoute waits
   isLoading: boolean;
-  
-  // Actions
+
   setUser: (user: User) => void;
   clearAuth: () => void;
   setLoading: (loading: boolean) => void;
+  /** Called once on app mount. Validates the JWT cookie via /api/auth/me. */
+  initializeAuth: () => Promise<void>;
 }
 
-export const useAuthStore = create<AuthState>()(
-  persist(
-    (set) => ({
-      user: null,
-      isAuthenticated: false,
-      isLoading: false,
+export const useAuthStore = create<AuthState>()((set) => ({
+  user: null,
+  isAuthenticated: false,
+  isLoading: true,
 
-      setUser: (user) =>
-        set({ user, isAuthenticated: true }),
+  setUser: (user) => set({ user, isAuthenticated: true }),
 
-      clearAuth: () =>
-        set({
-          user: null,
-          isAuthenticated: false,
-        }),
+  clearAuth: () => set({ user: null, isAuthenticated: false }),
 
-      setLoading: (loading) =>
-        set({ isLoading: loading }),
-    }),
-    {
-      name: 'auth-storage',
-      partialize: (state) => ({
-        user: state.user,
-        isAuthenticated: state.isAuthenticated,
-        // Tokens are in HttpOnly cookies, not stored in state
-      }),
+  setLoading: (loading) => set({ isLoading: loading }),
+
+  initializeAuth: async () => {
+    try {
+      const response = await authApi.getMe();
+      if (response.data.success) {
+        set({ user: response.data.user as User, isAuthenticated: true });
+      } else {
+        set({ user: null, isAuthenticated: false });
+      }
+    } catch {
+      // 401 or network error — not authenticated
+      set({ user: null, isAuthenticated: false });
+    } finally {
+      set({ isLoading: false });
     }
-  )
-);
-
-// No localStorage token sync needed - tokens are in HttpOnly cookies
+  },
+}));
 
 // ---------------------------------------------------------------------------
-// Derived selector — computed from user.groups at call time.
-// Never persisted to localStorage, so it cannot be tampered with by editing
-// the auth-storage entry. Use this in place of user?.canAccessDeviceManagement.
+// Derived selectors — computed from user.groups at call time.
+// Never stored in localStorage, so they cannot be tampered with by editing
+// local storage. Use these in place of stored permission flags.
 // ---------------------------------------------------------------------------
+
 /** True when the signed-in user belongs to the ADMIN Entra group. */
 export const selectIsAdmin = (state: AuthState): boolean => {
   const groups = state.user?.groups;

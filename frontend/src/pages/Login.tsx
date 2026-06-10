@@ -22,14 +22,14 @@ export const Login = () => {
     return !params.get('code') && !params.get('error') && params.get('fallback') !== 'true';
   });
   const callbackProcessed = useRef(false);
-  const { setUser, isAuthenticated } = useAuthStore();
+  const { setUser, isAuthenticated, isLoading } = useAuthStore();
 
-  // Check if already authenticated
+  // Redirect to dashboard once auth state is resolved
   useEffect(() => {
-    if (isAuthenticated) {
+    if (!isLoading && isAuthenticated) {
       navigate('/dashboard');
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, isLoading, navigate]);
 
   // Handle OAuth callback
   useEffect(() => {
@@ -120,7 +120,7 @@ export const Login = () => {
     }
   };
 
-  if (loading || silentPending) {
+  if (loading || silentPending || isLoading) {
     return (
       <div className="login-container">
         <div className="login-card">

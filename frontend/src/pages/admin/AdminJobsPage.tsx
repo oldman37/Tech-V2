@@ -229,7 +229,7 @@ function ScheduledJobCard({
             ) : (
               !localEnabled && (
                 <Typography variant="caption" color="text.secondary">
-                  Schedule disabled â€” not scheduled to run automatically
+                  Schedule disabled — not scheduled to run automatically
                 </Typography>
               )
             )}

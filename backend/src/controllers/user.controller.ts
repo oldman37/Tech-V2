@@ -140,12 +140,15 @@ export const getUserSupervisors = async (req: Request, res: Response) => {
 /**
  * Add a supervisor to a user
  */
-export const addUserSupervisor = async (req: Request, res: Response) => {
+export const addUserSupervisor = async (req: AuthRequest, res: Response) => {
   try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
     const userId = req.params.userId as string;
     const { supervisorId, locationId, isPrimary = false, notes } = req.body;
-    // @ts-ignore
-    const assignedBy = req.user?.id || 'system';
+    const assignedBy = req.user.id;
 
     // Validate required fields
     if (!supervisorId) {

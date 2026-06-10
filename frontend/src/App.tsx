@@ -1,4 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { useEffect } from 'react'
+import { useAuthStore } from './store/authStore'
 import { Login } from './pages/Login'
 import { Dashboard } from './pages/Dashboard'
 import Users from './pages/Users'
@@ -75,11 +77,21 @@ import { PwaInstallPrompt } from './components/layout/PwaInstallPrompt'
 import AppLayout from './components/layout/AppLayout'
 import './App.css'
 
+function AuthInitializer({ children }: { children: React.ReactNode }) {
+  const initializeAuth = useAuthStore((s) => s.initializeAuth);
+  useEffect(() => {
+    initializeAuth();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return <>{children}</>;
+}
+
 function App() {
   return (
     <BrowserRouter>
       <PwaUpdatePrompt />
       <PwaInstallPrompt />
+      <AuthInitializer>
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route
@@ -728,6 +740,7 @@ function App() {
           }
         />
       </Routes>
+      </AuthInitializer>
     </BrowserRouter>
   )
 }
