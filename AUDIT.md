@@ -228,7 +228,7 @@ The `getStatus()` method iterates the `jobs` Map and hardcodes `running: true` f
 
 ## 4. Low / Informational Issues
 
-### LOW-1 🔵 — `/health` Endpoint Exposes Server Uptime Publicly
+### ~~LOW-1~~ ✅ — ~~`/health` Endpoint Exposes Server Uptime Publicly~~
 **File:** `backend/src/server.ts` (lines 130–136)
 
 The unauthenticated `/health` endpoint returns `uptime`, which allows external actors to estimate the last restart time and infer deployment cycles.
@@ -246,7 +246,7 @@ The unauthenticated `/health` endpoint returns `uptime`, which allows external a
 
 ---
 
-### LOW-3 🔵 — OAuth Error Messages From Server Shown Directly to Users (Account Enumeration)
+### ~~LOW-3~~ ✅ — ~~OAuth Error Messages From Server Shown Directly to Users (Account Enumeration)~~
 **File:** `frontend/src/pages/Login.tsx` (line 97)
 
 Server-supplied error messages are shown directly in the UI. The backend may return messages like "User account has been disabled" which enables account enumeration — an attacker can determine whether specific accounts exist or are disabled.
@@ -255,7 +255,7 @@ Server-supplied error messages are shown directly in the UI. The backend may ret
 
 ---
 
-### LOW-4 🔵 — `console.error` in driverLicense.routes.ts Bypasses Structured Logger
+### ~~LOW-4~~ ✅ — ~~`console.error` in driverLicense.routes.ts Bypasses Structured Logger~~
 **File:** `backend/src/routes/driverLicense.routes.ts` (line 27)
 
 One `console.error` call bypasses Winston and will not be captured by the structured log pipeline or filtered by log level.
@@ -264,7 +264,7 @@ One `console.error` call bypasses Winston and will not be captured by the struct
 
 ---
 
-### LOW-5 🔵 — Frontend `console.log` on Every Query/Mutation (Production Noise)
+### ~~LOW-5~~ ✅ — ~~Frontend `console.log` on Every Query/Mutation (Production Noise)~~
 **File:** `frontend/src/lib/queryClient.ts` (lines 64, 75)
 
 `console.log('Query Success [...])` and `console.log('Mutation Success')` fire on every successful TanStack Query operation. In production, this floods the browser console and exposes internal query key structures and data shapes to anyone with DevTools open.
@@ -273,7 +273,7 @@ One `console.error` call bypasses Winston and will not be captured by the struct
 
 ---
 
-### LOW-6 🔵 — Several Required Env Vars Missing From `.env.example`
+### ~~LOW-6~~ ✅ — ~~Several Required Env Vars Missing From `.env.example`~~
 **File:** `backend/.env.example`
 
 The following variables are used in code but undocumented in `.env.example`:

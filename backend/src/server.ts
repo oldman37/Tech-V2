@@ -43,6 +43,7 @@ import { cronJobsService } from './services/cronJobs.service';
 import { schedulerService } from './services/scheduler.service';
 import { startEmailQueueWorker, stopEmailQueueWorker } from './services/emailQueue.service';
 import { provideCsrfToken, getCsrfToken } from './middleware/csrf';
+import { authenticate, requireAdmin } from './middleware/auth';
 import { logger, loggers } from './lib/logger';
 import { requestId, httpLogger } from './middleware/requestLogger';
 import path from 'path';
@@ -130,8 +131,13 @@ app.use(provideCsrfToken);
 // CSRF token endpoint - allows frontend to explicitly request a token
 app.get('/api/csrf-token', getCsrfToken);
 
-// Health check endpoint
-app.get('/health', (req: Request, res: Response) => {
+// Public health check — minimal response only
+app.get('/health', (_req: Request, res: Response) => {
+  res.json({ status: 'ok' });
+});
+
+// Admin-only diagnostics — uptime, timestamp, etc.
+app.get('/health/details', authenticate, requireAdmin, (_req: Request, res: Response) => {
   res.json({
     status: 'ok',
     timestamp: new Date().toISOString(),

@@ -93,8 +93,8 @@ export const Login = () => {
         // Redirect to dashboard
         navigate('/dashboard');
       }
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Authentication failed. Please try again.');
+    } catch {
+      setError('Authentication failed. Please try again.');
 
       // Clear code from URL
       navigate('/login', { replace: true });
@@ -114,8 +114,8 @@ export const Login = () => {
         // Redirect to Entra ID login
         window.location.href = response.data.authUrl;
       }
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to initiate login. Please try again.');
+    } catch {
+      setError('Failed to initiate login. Please try again.');
       setLoading(false);
     }
   };

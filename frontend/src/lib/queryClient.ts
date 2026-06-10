@@ -54,26 +54,21 @@ export const queryClient = new QueryClient({
 
   // Global Query Cache for centralized handling
   queryCache: new QueryCache({
-    onError: (error, query) => {
-      console.error(`Query Error [${query.queryKey.join(', ')}]:`, error);
-      
-      // Could add global toast notification here
-      // toast.error(`Failed to load data: ${error.message}`);
-    },
-    onSuccess: (_, query) => {
-      console.log(`Query Success [${query.queryKey.join(', ')}]`);
-    },
+    onError: import.meta.env.DEV
+      ? (error, query) => {
+          console.error(`Query Error [${query.queryKey.join(', ')}]:`, error);
+        }
+      : undefined,
+    onSuccess: undefined,
   }),
 
   // Global Mutation Cache
   mutationCache: new MutationCache({
-    onError: (error) => {
-      console.error('Mutation Error:', error);
-      // toast.error(`Action failed: ${error.message}`);
-    },
-    onSuccess: () => {
-      console.log('Mutation Success');
-      // toast.success('Action completed successfully');
-    },
+    onError: import.meta.env.DEV
+      ? (error) => {
+          console.error('Mutation Error:', error);
+        }
+      : undefined,
+    onSuccess: undefined,
   }),
 });
