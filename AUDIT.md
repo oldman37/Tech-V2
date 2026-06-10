@@ -430,7 +430,7 @@ Both endpoints return all inventory items for a location or room with no paginat
 
 ## 8. Missing Production Hardening
 
-### HARD-1 ⚪ — No Content Security Policy (CSP) Configured
+### HARD-1 ✅ — No Content Security Policy (CSP) Configured
 **File:** `backend/src/server.ts` (line 60)
 
 `app.use(helmet())` is called with no configuration. Helmet's default does **not** set a `Content-Security-Policy` header. Without CSP, XSS attacks have no secondary browser-level containment.
@@ -447,7 +447,7 @@ frame-ancestors 'none';
 
 ---
 
-### HARD-2 ⚪ — No Request Body Size Limit on JSON Parser
+### HARD-2 ✅ — No Request Body Size Limit on JSON Parser
 **File:** `backend/src/server.ts` (line 104)
 
 `express.json()` is called without a `limit` option. The Express default is 100kb. For bulk JSON endpoints (bulk update, bulk delete), there is no upper bound on payload size.
@@ -456,7 +456,7 @@ frame-ancestors 'none';
 
 ---
 
-### HARD-3 ⚪ — No Rate Limiting on the Token Refresh Endpoint
+### HARD-3 ✅ — No Rate Limiting on the Token Refresh Endpoint
 **File:** `backend/src/server.ts` (lines 94–101)
 
 `/api/auth/refresh-token` is explicitly excluded from the auth limiter ("legitimate users can refresh many times per session"). Only the general 500 req/15 min limit applies. An attacker with a stolen refresh token cookie faces minimal friction.
@@ -465,7 +465,7 @@ frame-ancestors 'none';
 
 ---
 
-### HARD-4 ⚪ — HTTP Server Not Closed Before Process Exit on SIGTERM/SIGINT
+### HARD-4 ✅ — HTTP Server Not Closed Before Process Exit on SIGTERM/SIGINT
 **File:** `backend/src/server.ts` (lines 243–257)
 
 SIGTERM/SIGINT handlers stop cron jobs, the scheduler, and the email queue worker, then call `process.exit(0)`. The HTTP server itself is never closed. In-flight requests are abruptly terminated, which can leave partial database writes in an inconsistent state.
@@ -474,7 +474,7 @@ SIGTERM/SIGINT handlers stop cron jobs, the scheduler, and the email queue worke
 
 ---
 
-### HARD-5 ⚪ — Database Connection Pool Has No Configuration or Error Handler
+### HARD-5 ✅ — Database Connection Pool Has No Configuration or Error Handler
 **File:** `backend/src/lib/prisma.ts`
 
 `pg.Pool` is created with only `connectionString`. No `max`, `idleTimeoutMillis`, or `connectionTimeoutMillis` options are set. The default `max` of 10 connections may be insufficient under concurrent load. There is no `pool.on('error', ...)` listener to surface pool-level errors to the structured logger.
@@ -495,7 +495,7 @@ Operations like waiving an invoice, permanently deleting inventory, or approving
 
 ---
 
-### HARD-7 ⚪ — No `dangerouslySetInnerHTML` Audit for Free-Text Fields
+### HARD-7 ✅ — No `dangerouslySetInnerHTML` Audit for Free-Text Fields
 **Files:** Multiple frontend components that render `notes`, `description`, `reason`, `techNote` fields
 
 React's JSX interpolation escapes HTML automatically. However, if any component uses `dangerouslySetInnerHTML` with an unsanitized database value, it is an XSS vector. The email service has `escapeHtml()` for email output, but there is no systematic audit of the rendering layer.

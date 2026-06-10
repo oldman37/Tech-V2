@@ -61,7 +61,18 @@ const PORT = process.env.PORT || 3000;
 app.set('trust proxy', 1);
 
 // Security middleware
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc:      ["'self'"],
+      scriptSrc:       ["'self'"],
+      styleSrc:        ["'self'", "'unsafe-inline'"],
+      imgSrc:          ["'self'", 'data:', 'blob:'],
+      connectSrc:      ["'self'", 'https://login.microsoftonline.com'],
+      frameAncestors:  ["'none'"],
+    },
+  },
+}));
 
 // CORS configuration
 // CORS_ORIGIN supports comma-separated origins, e.g.: http://localhost:5173,https://your-tunnel.devtunnels.ms
@@ -95,7 +106,6 @@ const limiter = rateLimit({
 app.use('/api/', limiter);
 
 // Strict auth limit: 20 requests per 15 minutes per IP on login initiation only
-// (refresh-token is excluded — legitimate users can refresh many times per session)
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 20,
@@ -105,9 +115,19 @@ const authLimiter = rateLimit({
   skip: () => process.env.NODE_ENV === 'development',
 });
 
+// Dedicated refresh limiter: 30 refreshes per hour per IP
+const refreshLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many token refresh attempts, please try again later.' },
+  skip: () => process.env.NODE_ENV === 'development',
+});
+
 // Body parsing middleware
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
 // Cookie parsing middleware (required for CSRF protection)
 app.use(cookieParser());
@@ -146,9 +166,9 @@ app.get('/health/details', authenticate, requireAdmin, (_req: Request, res: Resp
 });
 
 // API routes
-// authLimiter applied only to login + callback — NOT refresh-token (users refresh many times per session)
 app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/callback', authLimiter);
+app.use('/api/auth/refresh-token', refreshLimiter);
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/admin', adminRoutes);
@@ -231,13 +251,13 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
 });
 
 // Start server
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   loggers.server.info('Server started successfully', {
     port: PORT,
     environment: process.env.NODE_ENV || 'development',
     healthCheck: `http://localhost:${PORT}/health`,
   });
-  
+
   // Start background schedulers
   schedulerService.start().catch((err) => {
     loggers.server.error('SchedulerService startup failed', { error: err });
@@ -249,21 +269,23 @@ app.listen(PORT, () => {
   });
 });
 
-// Graceful shutdown
-process.on('SIGTERM', () => {
-  loggers.server.info('SIGTERM signal received: closing HTTP server');
+function gracefulShutdown(signal: string) {
+  loggers.server.info(`${signal} received: shutting down gracefully`);
   cronJobsService.stop();
   schedulerService.stop();
   stopEmailQueueWorker();
-  process.exit(0);
-});
+  server.close(() => {
+    loggers.server.info('HTTP server closed');
+    process.exit(0);
+  });
+  // Force exit if graceful close stalls
+  setTimeout(() => {
+    loggers.server.warn('Forced shutdown after 10s timeout');
+    process.exit(1);
+  }, 10_000).unref();
+}
 
-process.on('SIGINT', () => {
-  loggers.server.info('SIGINT signal received: closing HTTP server');
-  cronJobsService.stop();
-  schedulerService.stop();
-  stopEmailQueueWorker();
-  process.exit(0);
-});
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT',  () => gracefulShutdown('SIGINT'));
 
 export default app;
