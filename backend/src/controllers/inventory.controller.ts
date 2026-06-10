@@ -11,7 +11,7 @@ import { InventoryService } from '../services/inventory.service';
 import { InventoryImportService } from '../services/inventoryImport.service';
 import { handleControllerError } from '../utils/errorHandler';
 import { GetInventoryQuerySchema, InventorySearchQuerySchema, ExportInventory, ImportOptionsSchema, BulkDeleteInventorySchema, BulkUpdateInventorySchema } from '../validators/inventory.validators';
-import { InventoryItemWithRelations } from '../types/inventory.types';
+import { InventoryItemWithRelations, InventoryItemWithRelationsExtended, UpdateInventoryDto } from '../types/inventory.types';
 import { prisma } from '../lib/prisma';
 import { loggers } from '../lib/logger';
 import ExcelJS from 'exceljs';
@@ -289,7 +289,7 @@ export const bulkUpdateInventory = async (req: AuthRequest, res: Response) => {
       name: req.user.name,
     };
 
-    const result = await inventoryService.bulkUpdate(itemIds, updates, user);
+    const result = await inventoryService.bulkUpdate(itemIds, updates as UpdateInventoryDto, user);
 
     loggers.inventory.info('Bulk inventory update completed', {
       userId: req.user.id,
@@ -505,13 +505,13 @@ export const exportInventory = async (req: AuthRequest, res: Response) => {
       'Serial Number': item.serialNumber ?? '',
       'Status': item.status ?? '',
       'Condition': item.condition ?? '',
-      'Location': item.officeLocation?.name ?? item.location?.name ?? '',
+      'Location': item.officeLocation?.name ?? (item.location ? `${item.location.buildingName} ${item.location.roomNumber}`.trim() : '') ?? '',
       'Room': item.room?.name ?? '',
-      'Assigned To': item.assignedToUser
-        ? (item.assignedToUser.displayName || `${item.assignedToUser.firstName || ''} ${item.assignedToUser.lastName || ''}`.trim())
+      'Assigned To': (item as InventoryItemWithRelationsExtended).assignedToUser
+        ? ((item as InventoryItemWithRelationsExtended).assignedToUser!.displayName || '')
         : '',
       'Purchase Date': item.purchaseDate ? new Date(item.purchaseDate).toLocaleDateString() : '',
-      'Purchase Price': item.purchasePrice ? parseFloat(item.purchasePrice).toFixed(2) : '',
+      'Purchase Price': item.purchasePrice != null ? parseFloat(item.purchasePrice.toString()).toFixed(2) : '',
       'Vendor': item.vendor?.name ?? '',
       'Funding Source': item.fundingSourceRef?.name ?? item.fundingSource ?? '',
       'PO Number': item.poNumber ?? '',

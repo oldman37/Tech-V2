@@ -32,11 +32,10 @@ const service = new WorkOrderService(prisma);
 // Response mapper — renames DB field `ticketNumber` → `workOrderNumber`
 // ---------------------------------------------------------------------------
 
-type WorkOrderSummary = WorkOrderListResponse['items'][number];
-type MappedWorkOrder = Omit<WorkOrderSummary, 'ticketNumber'> & { workOrderNumber: WorkOrderSummary['ticketNumber'] };
-
-function mapTicket(ticket: WorkOrderSummary): MappedWorkOrder {
-  if (!ticket) return ticket;
+function mapTicket<T extends { ticketNumber: string }>(ticket: T): Omit<T, 'ticketNumber'> & { workOrderNumber: string };
+function mapTicket<T extends { ticketNumber: string }>(ticket: T | null): (Omit<T, 'ticketNumber'> & { workOrderNumber: string }) | null;
+function mapTicket<T extends { ticketNumber: string }>(ticket: T | null): (Omit<T, 'ticketNumber'> & { workOrderNumber: string }) | null {
+  if (!ticket) return null;
   const { ticketNumber, ...rest } = ticket;
   return { ...rest, workOrderNumber: ticketNumber };
 }

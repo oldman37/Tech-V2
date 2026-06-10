@@ -56,6 +56,17 @@ export interface InventoryItemWithRelations extends equipment {
 }
 
 /**
+ * InventoryItemWithRelations plus the assignedToUser join that findAll/findById include
+ */
+export interface InventoryItemWithRelationsExtended extends InventoryItemWithRelations {
+  assignedToUser?: {
+    id: string;
+    displayName: string | null;
+    email: string;
+  } | null;
+}
+
+/**
  * Query parameters for inventory filtering, searching, and pagination
  */
 export interface InventoryQuery {
