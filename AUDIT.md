@@ -643,7 +643,7 @@ sortable columns.
 
 ---
 
-### SP-7 🔵 — Inventory Import Accepts the File Upload Before the Permission Check
+### ~~SP-7~~ ✅ — ~~Inventory Import Accepts the File Upload Before the Permission Check~~
 **File:** `backend/src/routes/inventory.routes.ts` (lines 234–239)
 
 On `POST /inventory/import`, `upload.single('file')` (multer, 10 MB in-memory)
@@ -695,7 +695,7 @@ and makes the mutation surface uniform.
 | 🔴 Critical | 0 | — |
 | 🟠 High | 1 | ~~SP-1~~ ✅ |
 | 🟡 Medium | 3 | ~~SP-2~~ ✅, ~~SP-3~~ ✅, ~~SP-4~~ ✅ |
-| 🔵 Low / Info | 5 | ~~SP-6~~ ✅, SP-7, SP-8, SP-9, SP-10 |
+| 🔵 Low / Info | 5 | ~~SP-6~~ ✅, ~~SP-7~~ ✅, SP-8, SP-9, SP-10 |
 | ⚪ Quality | 1 | ~~SP-5~~ ✅ |
 | **Total** | **10** | |
 

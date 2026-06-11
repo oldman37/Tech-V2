@@ -245,8 +245,8 @@ router.get(
  */
 router.post(
   '/inventory/import',
-  upload.single('file'), // Accept single file with field name 'file'
-  requireModule('TECHNOLOGY', 3),
+  requireModule('TECHNOLOGY', 3), // NOTE: permission check before multer to prevent unprivileged uploads consuming memory
+  upload.single('file'),
   inventoryController.importInventory
 );
 
