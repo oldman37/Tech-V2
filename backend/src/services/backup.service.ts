@@ -57,7 +57,7 @@ export function listBackups(): BackupFile[] {
 /** Runs an on-demand pg_dump and returns the filename written. */
 export function triggerBackup(): string {
   const dbUser = process.env.DB_USER ?? 'techv2';
-  const timestamp = new Date().toISOString().replace(/[:.]/g, '').replace('T', '_').slice(0, 15);
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '').replace('T', '_').slice(0, 17);
   const filename = `tech_v2_${timestamp}.sql.gz`;
   const filePath = path.join(BACKUP_DIR, filename);
 
