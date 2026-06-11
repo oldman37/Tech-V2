@@ -568,9 +568,23 @@ model User {
   // Driver License relations
   driverLicenses               DriverLicense[] @relation("DriverLicenseHolder")
   driverLicensesUploaded       DriverLicense[] @relation("DriverLicenseUploader")
+  refreshTokens                RefreshToken[]
 
   @@index([employeeId])
   @@map("users")
+}
+
+model RefreshToken {
+  jti       String    @id
+  userId    String
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("refresh_tokens")
 }
 
 // ============================================

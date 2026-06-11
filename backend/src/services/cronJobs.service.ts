@@ -27,6 +27,9 @@ class CronJobsService {
     // Supervisor sync job - runs daily at 2 AM
     this.scheduleSupervisorSync();
 
+    // Refresh token cleanup - runs daily at 3 AM (SP-4)
+    this.scheduleRefreshTokenCleanup();
+
     loggers.cron.info('Cron jobs initialized successfully');
   }
 
@@ -113,6 +116,32 @@ class CronJobsService {
       state.lastRunDurationMs = Date.now() - startedAt;
       state.executing = false;
     }
+  }
+
+  private scheduleRefreshTokenCleanup() {
+    const job = cron.schedule(
+      '0 3 * * *', // 3 AM daily
+      async () => {
+        try {
+          const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+          const { count } = await prisma.refreshToken.deleteMany({
+            where: {
+              OR: [
+                { revokedAt: { not: null, lte: cutoff } },
+                { expiresAt: { lte: cutoff } },
+              ],
+            },
+          });
+          if (count > 0) {
+            loggers.cron.info('Expired/revoked refresh tokens cleaned up', { count });
+          }
+        } catch (error) {
+          loggers.cron.error('Refresh token cleanup failed', { error });
+        }
+      },
+      { timezone: process.env.TZ || 'America/Chicago' }
+    );
+    this.jobs.set('refreshTokenCleanup', job);
   }
 
   /**

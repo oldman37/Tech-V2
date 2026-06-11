@@ -599,7 +599,7 @@ planned exceljs `.xlsx` export, which stores strings as inert text.
 
 ---
 
-### SP-4 🟡 — No Server-Side Refresh-Token Revocation or Reuse Detection
+### ~~SP-4~~ ✅ — ~~No Server-Side Refresh-Token Revocation or Reuse Detection~~
 **File:** `backend/src/controllers/auth.controller.ts` (refresh: lines 536–554, logout: lines 607–643)
 
 Refresh tokens are stateless JWTs. Rotation issues a new token on every refresh,
@@ -616,7 +616,7 @@ log a security event). The existing `users` table makes this a small migration.
 
 ---
 
-### SP-5 ⚪ — `GET /api/inventory/import` Is Shadowed by `GET /api/inventory/:id` (Dead Endpoint)
+### ~~SP-5~~ ✅ — ~~`GET /api/inventory/import` Is Shadowed by `GET /api/inventory/:id` (Dead Endpoint)~~
 **File:** `backend/src/routes/inventory.routes.ts` (lines 116–121 vs 246–250)
 
 `GET /inventory/:id` is registered before `GET /inventory/import`, so requests
@@ -694,9 +694,9 @@ and makes the mutation surface uniform.
 |---|---|---|
 | 🔴 Critical | 0 | — |
 | 🟠 High | 1 | ~~SP-1~~ ✅ |
-| 🟡 Medium | 3 | ~~SP-2~~ ✅, ~~SP-3~~ ✅, SP-4 |
+| 🟡 Medium | 3 | ~~SP-2~~ ✅, ~~SP-3~~ ✅, ~~SP-4~~ ✅ |
 | 🔵 Low / Info | 5 | SP-6, SP-7, SP-8, SP-9, SP-10 |
-| ⚪ Quality | 1 | SP-5 |
+| ⚪ Quality | 1 | ~~SP-5~~ ✅ |
 | **Total** | **10** | |
 
 ---

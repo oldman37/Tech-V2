@@ -151,6 +151,8 @@ export interface JWTRefreshTokenPayload {
   id: string;
   entraId: string;
   type: 'refresh';
+  /** JWT ID — matched against the refresh_tokens table to support revocation (SP-4) */
+  jti: string;
 }
 
 /**
@@ -164,8 +166,10 @@ export function isRefreshTokenPayload(payload: unknown): payload is JWTRefreshTo
     'id' in payload &&
     'entraId' in payload &&
     'type' in payload &&
+    'jti' in payload &&
     typeof (payload as Record<string, unknown>).id === 'string' &&
     typeof (payload as Record<string, unknown>).entraId === 'string' &&
+    typeof (payload as Record<string, unknown>).jti === 'string' &&
     (payload as Record<string, unknown>).type === 'refresh'
   );
 }

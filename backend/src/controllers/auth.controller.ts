@@ -30,6 +30,15 @@ import {
 } from '../types/auth.types';
 import { AuthenticationError, ExternalAPIError } from '../utils/errors';
 
+// Parses a jsonwebtoken expiry string (e.g. '7d', '1h') to milliseconds (SP-4).
+function parseExpiryMs(expiry: string): number {
+  const m = /^(\d+)([smhdw])$/.exec(expiry);
+  if (!m) return 7 * 24 * 60 * 60 * 1000;
+  const n = parseInt(m[1], 10);
+  const mul: Record<string, number> = { s: 1e3, m: 6e4, h: 36e5, d: 864e5, w: 6048e5 };
+  return n * (mul[m[2]] ?? 864e5);
+}
+
 // Initiate login - redirect to Entra ID
 export const login = async (
   req: Request<{}, LoginResponse | ErrorResponse>,
@@ -276,18 +285,21 @@ export const callback = async (
     );
 
     // Create refresh token payload
+    const refreshJti = crypto.randomUUID();
     const refreshTokenPayload: JWTRefreshTokenPayload = {
       id: user.id,
       entraId: user.entraId,
       type: 'refresh',
+      jti: refreshJti,
     };
 
     // Create refresh token
     // Explicitly type options to help TypeScript select correct jwt.sign overload
+    const refreshExpiryStr = process.env.REFRESH_TOKEN_EXPIRES_IN || '7d';
     const refreshTokenOptions: SignOptions = {
-      expiresIn: (process.env.REFRESH_TOKEN_EXPIRES_IN || '7d') as SignOptions['expiresIn']
+      expiresIn: refreshExpiryStr as SignOptions['expiresIn']
     };
-    
+
     const refreshToken = jwt.sign(
       refreshTokenPayload,
       process.env.JWT_REFRESH_SECRET!,
@@ -299,6 +311,15 @@ export const callback = async (
 
     // Set refresh token cookie (HttpOnly, stricter security)
     res.cookie('refresh_token', refreshToken, getCookieConfig('refresh'));
+
+    // Persist refresh token jti so it can be revoked on logout or reuse detection (SP-4)
+    await prisma.refreshToken.create({
+      data: {
+        jti: refreshJti,
+        userId: user.id,
+        expiresAt: new Date(Date.now() + parseExpiryMs(refreshExpiryStr)),
+      },
+    });
 
     // Build permLevels map from roleMapping for the response
     const permLevels = { TECHNOLOGY: 0, MAINTENANCE: 0, REQUISITIONS: 0, FIELD_TRIPS: 0, CHECKOUT: 0, TRANSPORTATION: 0, WORK_ORDERS: 0 };
@@ -422,6 +443,27 @@ export const refreshToken = async (
       throw new AuthenticationError('Invalid refresh token payload structure');
     }
 
+    // Validate jti against the DB — detect reuse of rotated-out tokens (SP-4)
+    const storedToken = await prisma.refreshToken.findUnique({ where: { jti: decoded.jti } });
+    if (!storedToken) {
+      throw new AuthenticationError('Refresh token not recognized');
+    }
+    if (storedToken.revokedAt) {
+      // Revoked token presented — potential theft; invalidate all active tokens for this user
+      await prisma.refreshToken.updateMany({
+        where: { userId: decoded.id, revokedAt: null },
+        data:  { revokedAt: new Date() },
+      });
+      loggers.auth.warn('Refresh token reuse detected — all tokens revoked', { userId: decoded.id });
+      throw new AuthenticationError('Refresh token has been revoked');
+    }
+
+    // Revoke the consumed token before issuing a replacement
+    await prisma.refreshToken.update({
+      where: { jti: decoded.jti },
+      data:  { revokedAt: new Date() },
+    });
+
     // Fetch fresh user data from database
     const user = await prisma.user.findUnique({
       where: { id: decoded.id },
@@ -533,15 +575,18 @@ export const refreshToken = async (
     // Set new access token cookie
     res.cookie('access_token', newToken, getCookieConfig('access'));
 
-    // Optional: Rotate refresh token for enhanced security
+    // Rotate refresh token — new jti tracked in DB for future revocation (SP-4)
+    const newRefreshJti = crypto.randomUUID();
+    const newRefreshExpiryStr = process.env.REFRESH_TOKEN_EXPIRES_IN || '7d';
     const newRefreshTokenPayload: JWTRefreshTokenPayload = {
       id: user.id,
       entraId: user.entraId,
       type: 'refresh',
+      jti: newRefreshJti,
     };
 
     const newRefreshTokenOptions: SignOptions = {
-      expiresIn: (process.env.REFRESH_TOKEN_EXPIRES_IN || '7d') as SignOptions['expiresIn']
+      expiresIn: newRefreshExpiryStr as SignOptions['expiresIn']
     };
 
     const newRefreshToken = jwt.sign(
@@ -552,6 +597,14 @@ export const refreshToken = async (
 
     // Set new refresh token cookie (token rotation)
     res.cookie('refresh_token', newRefreshToken, getCookieConfig('refresh'));
+
+    await prisma.refreshToken.create({
+      data: {
+        jti:      newRefreshJti,
+        userId:   user.id,
+        expiresAt: new Date(Date.now() + parseExpiryMs(newRefreshExpiryStr)),
+      },
+    });
 
     res.json({
       success: true,
@@ -608,6 +661,20 @@ export const logout = async (
   req: Request<{}, LogoutResponse | ErrorResponse>,
   res: Response<LogoutResponse | ErrorResponse>
 ) => {
+  // Revoke all active refresh tokens for this user before clearing cookies (SP-4)
+  const rawRefreshToken = req.cookies?.refresh_token;
+  if (rawRefreshToken) {
+    try {
+      const decoded = jwt.verify(rawRefreshToken, process.env.JWT_REFRESH_SECRET!);
+      if (isRefreshTokenPayload(decoded)) {
+        await prisma.refreshToken.updateMany({
+          where: { userId: decoded.id, revokedAt: null },
+          data:  { revokedAt: new Date() },
+        });
+      }
+    } catch { /* expired or invalid token — nothing to revoke */ }
+  }
+
   // Clear access token cookie
   res.clearCookie('access_token', {
     httpOnly: true,
