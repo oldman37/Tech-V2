@@ -16,7 +16,11 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  FormControl,
+  InputLabel,
   LinearProgress,
+  MenuItem,
+  Select,
   TextField,
   Typography,
 } from '@mui/material';
@@ -38,6 +42,14 @@ interface Props {
   onClose: () => void;
   onSuccess: () => void;
 }
+
+const US_STATES = [
+  'AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA',
+  'HI','ID','IL','IN','IA','KS','KY','LA','ME','MD',
+  'MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ',
+  'NM','NY','NC','ND','OH','OK','OR','PA','RI','SC',
+  'SD','TN','TX','UT','VT','VA','WA','WV','WI','WY','DC',
+];
 
 export default function DriverLicenseUploadDialog({ open, onClose, onSuccess }: Props) {
   const queryClient = useQueryClient();
@@ -177,12 +189,21 @@ export default function DriverLicenseUploadDialog({ open, onClose, onSuccess }: 
           />
 
           {/* License state (optional) */}
-          <TextField
-            label="Issuing State (optional)"
-            value={licenseState}
-            onChange={(e) => setLicenseState(e.target.value)}
-            inputProps={{ maxLength: 50 }}
-          />
+          <FormControl>
+            <InputLabel id="license-state-label">Issuing State (optional)</InputLabel>
+            <Select
+              labelId="license-state-label"
+              label="Issuing State (optional)"
+              value={licenseState}
+              onChange={(e) => setLicenseState(e.target.value)}
+              displayEmpty
+            >
+              <MenuItem value=""></MenuItem>
+              {US_STATES.map((s) => (
+                <MenuItem key={s} value={s}>{s}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
 
           {/* Notes (optional) */}
           <TextField

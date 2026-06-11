@@ -25,6 +25,16 @@ const VALID_JOB_KEYS: JobKey[] = [
 
 const TIMEZONE = process.env.TZ || 'America/Chicago';
 
+const DEFAULT_CRON: Record<JobKey, string> = {
+  'sync-staff':                    '0 3 * * *',
+  'sync-students':                 '0 3 * * *',
+  'sync-locations':                '0 4 * * 1',
+  'sync-supervisors':              '0 4 * * 1',
+  'transportation-dot-reminders':  '0 7 * * *',
+  'transportation-monthly-report': '0 6 1 * *',
+  'transportation-license-reminders': '0 7 * * 1',
+};
+
 export interface JobScheduleRecord {
   id: string;
   jobKey: string;
@@ -188,13 +198,22 @@ class SchedulerService {
         const schedule = await prisma.jobSchedule.findUnique({ where: { jobKey } });
         const nextRunAt = schedule?.enabled ? computeNextRun(schedule.cronExpr) : null;
 
-        await prisma.jobSchedule.update({
+        await prisma.jobSchedule.upsert({
           where: { jobKey },
-          data: {
+          update: {
             lastRunAt: new Date(),
             lastRunStatus: status,
             lastRunResult: result as Prisma.InputJsonValue,
             nextRunAt,
+          },
+          create: {
+            jobKey,
+            cronExpr: DEFAULT_CRON[jobKey as JobKey] ?? '0 3 * * *',
+            enabled: false,
+            lastRunAt: new Date(),
+            lastRunStatus: status,
+            lastRunResult: result as Prisma.InputJsonValue,
+            nextRunAt: null,
           },
         });
       } catch (dbErr) {

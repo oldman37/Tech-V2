@@ -418,7 +418,7 @@ const EquipmentSearch = () => {
                 onSearchChange={(value) => setFilters({ ...filters, search: value })}
                 filterCount={activeFilterCount}
                 onOpenFilters={() => setFilterDrawerOpen(!filterDrawerOpen)}
-                searchPlaceholder="Asset tag, name, serial #, PO..."
+                searchPlaceholder="Asset tag, serial #, model, brand, PO#, user..."
               >
                 <button onClick={handleSearch} className="btn btn-primary btn-sm">
                   Search
@@ -558,10 +558,10 @@ const EquipmentSearch = () => {
               {/* Row 1: Keyword (span 2) + Category + Brand */}
               <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: 'repeat(4, 1fr)' }, gap: 2 }}>
                 <Box sx={{ gridColumn: { md: '1 / 3' } }}>
-                  <label className="form-label">Search by tag, name, or serial</label>
+                  <label className="form-label">Search by tag, name, serial, model, brand, vendor, or user</label>
                   <input
                     type="text"
-                    placeholder="Asset tag, name, serial number, PO number..."
+                    placeholder="Asset tag, name, serial #, model, brand, vendor, PO#, barcode, assigned user..."
                     value={filters.search}
                     onChange={(e) => setFilters({ ...filters, search: e.target.value })}
                     onKeyDown={handleKeyDown}

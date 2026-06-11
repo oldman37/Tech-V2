@@ -66,7 +66,7 @@ export default function FuelEntryPage() {
   const [fuelAmount, setFuelAmount]       = useState('');
   const [fuelUnit, setFuelUnit]           = useState<FuelUnit>('gallons');
   const [mileage, setMileage]             = useState('');
-  const [costPerUnit, setCostPerUnit]     = useState('');
+
   const [entryDate, setEntryDate]         = useState(today);
   const [notes, setNotes]                 = useState('');
   const [formError, setFormError]         = useState('');
@@ -119,7 +119,6 @@ export default function FuelEntryPage() {
       fuelUnit,
       mileageAtFueling: parseInt(mileage, 10),
       entryDate: entryDate || undefined,
-      costPerUnit: costPerUnit ? parseFloat(costPerUnit) : undefined,
       notes: notes.trim() || undefined,
     };
 
@@ -269,20 +268,6 @@ export default function FuelEntryPage() {
                   value={mileage}
                   onChange={(e) => setMileage(e.target.value)}
                   required
-                />
-              </Grid>
-
-              {/* Cost per unit */}
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <TextField
-                  label="Cost per Unit (optional)"
-                  fullWidth
-                  size="small"
-                  type="number"
-                  inputProps={{ min: 0, step: 0.0001 }}
-                  value={costPerUnit}
-                  onChange={(e) => setCostPerUnit(e.target.value)}
-                  helperText="Price per gallon/kWh"
                 />
               </Grid>
 

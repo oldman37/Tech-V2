@@ -134,8 +134,6 @@ export default function MyFuelHistoryPage() {
       render: (e) =>
         e.totalCost != null
           ? `$${Number(e.totalCost).toFixed(2)}`
-          : e.costPerUnit != null
-          ? `$${(Number(e.fuelAmount) * Number(e.costPerUnit)).toFixed(2)}`
           : '—',
     },
     ...(permLevel >= 2

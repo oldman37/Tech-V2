@@ -420,7 +420,7 @@ export const InventoryManagement = () => {
                 onSearchChange={(value) => updateFilters({ ...filters, search: value })}
                 filterCount={activeFilterCount}
                 onOpenFilters={() => setFilterDrawerOpen(!filterDrawerOpen)}
-                searchPlaceholder="Asset tag, name, serial number..."
+                searchPlaceholder="Asset tag, serial #, model, brand, PO#..."
               />
               {filterDrawerOpen && (
                 <div className="card" style={{ marginTop: '0.5rem' }}>
@@ -483,7 +483,7 @@ export const InventoryManagement = () => {
                   <label className="form-label">Search</label>
                   <input
                     type="text"
-                    placeholder="Asset tag, name, serial number..."
+                    placeholder="Asset tag, name, serial #, model, brand, vendor, PO#, barcode..."
                     value={filters.search}
                     onChange={(e) => updateFilters({ ...filters, search: e.target.value })}
                     className="form-input"

@@ -328,7 +328,7 @@ const DisposedEquipment = () => {
                 onSearchChange={(value) => setFilters({ ...filters, search: value })}
                 filterCount={activeFilterCount}
                 onOpenFilters={() => setFilterDrawerOpen(!filterDrawerOpen)}
-                searchPlaceholder="Asset tag, name, serial #..."
+                searchPlaceholder="Asset tag, serial #, model, brand, PO#..."
               />
               {filterDrawerOpen && (
                 <div className="card" style={{ marginTop: '0.5rem' }}>
@@ -406,7 +406,7 @@ const DisposedEquipment = () => {
                   <label className="form-label">Search</label>
                   <input
                     type="text"
-                    placeholder="Asset tag, name, serial number..."
+                    placeholder="Asset tag, name, serial #, model, brand, vendor, PO#, barcode..."
                     value={filters.search}
                     onChange={(e) => setFilters({ ...filters, search: e.target.value })}
                     className="form-input"

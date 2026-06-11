@@ -88,12 +88,19 @@ export class InventoryService {
     // Search across multiple fields
     if (search) {
       where.OR = [
-        { assetTag: { contains: search, mode: 'insensitive' } },
-        { name: { contains: search, mode: 'insensitive' } },
+        { assetTag:     { contains: search, mode: 'insensitive' } },
+        { name:         { contains: search, mode: 'insensitive' } },
         { serialNumber: { contains: search, mode: 'insensitive' } },
-        { description: { contains: search, mode: 'insensitive' } },
-        { notes: { contains: search, mode: 'insensitive' } },
-        { poNumber: { contains: search, mode: 'insensitive' } },
+        { description:  { contains: search, mode: 'insensitive' } },
+        { notes:        { contains: search, mode: 'insensitive' } },
+        { poNumber:     { contains: search, mode: 'insensitive' } },
+        { barcode:      { contains: search, mode: 'insensitive' } },
+        { brands:       { is: { name:        { contains: search, mode: 'insensitive' } } } },
+        { models:       { is: { name:        { contains: search, mode: 'insensitive' } } } },
+        { models:       { is: { modelNumber: { contains: search, mode: 'insensitive' } } } },
+        { vendor:       { is: { name:        { contains: search, mode: 'insensitive' } } } },
+        { assignedToUser: { is: { displayName: { contains: search, mode: 'insensitive' } } } },
+        { assignedToUser: { is: { email:       { contains: search, mode: 'insensitive' } } } },
       ];
     }
 
