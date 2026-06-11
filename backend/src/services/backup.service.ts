@@ -70,12 +70,31 @@ export function triggerBackup(): string {
     PGPASSWORD: process.env.DB_PASSWORD ?? '',
   };
 
-  execSync(
-    `pg_dump -h ${DB_HOST} -U ${dbUser} --clean --if-exists ${DB_NAME} | gzip > "${filePath}"`,
-    { env, shell: '/bin/sh', stdio: ['ignore', 'ignore', 'pipe'] }
-  );
+  try {
+    // set -o pipefail ensures the pipeline exit code reflects pg_dump failures,
+    // not just gzip's exit code.  Without it, a pg_dump auth/connection error
+    // produces an empty gzip file (~20 bytes) and no exception.
+    execSync(
+      `set -o pipefail; pg_dump -h ${DB_HOST} -U ${dbUser} --clean --if-exists ${DB_NAME} | gzip > "${filePath}"`,
+      { env, shell: '/bin/sh', stdio: ['ignore', 'ignore', 'pipe'] }
+    );
+  } catch (err: unknown) {
+    // Clean up the partial file so it doesn't appear in the backup list
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    const stderr = (err as { stderr?: Buffer }).stderr?.toString().trim();
+    loggers.admin.error('pg_dump failed during backup', { filename, stderr });
+    throw new Error(`Backup failed: ${stderr ?? String(err)}`);
+  }
 
-  loggers.admin.info('On-demand backup complete', { filename, sizeBytes: fs.statSync(filePath).size });
+  const sizeBytes = fs.statSync(filePath).size;
+  // A valid gzip of even a minimal PostgreSQL dump is several KB.
+  // If the file is under 1 KB the dump was almost certainly empty.
+  if (sizeBytes < 1024) {
+    fs.unlinkSync(filePath);
+    throw new Error(`Backup file is only ${sizeBytes} bytes — pg_dump produced no output. Check DB_USER, DB_PASSWORD, and DB connectivity.`);
+  }
+
+  loggers.admin.info('On-demand backup complete', { filename, sizeBytes });
   return filename;
 }
 
