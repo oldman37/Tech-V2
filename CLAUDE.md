@@ -159,7 +159,7 @@ Package Manager(s): **npm (workspaces: `backend`, `frontend`, `shared`) — but 
 - OS requirements: host is Windows (PowerShell 5.1); validation goes through `docker compose` commands, NOT host npm
 - Build layout constraints: backend and frontend depend on `@mgspe/shared-types` via `file:../shared`; the Dockerfiles build `shared` first — no manual ordering needed when using image builds
 - Database: PostgreSQL lives in the `db` container; backend container runs `npx prisma migrate deploy` on start — never trigger migrations yourself (see FORBIDDEN COMMANDS)
-- Prisma: after editing `backend/prisma/schema.prisma`, the image build re-runs `prisma generate`; schema migration creation/application is the user's responsibility
+- Prisma: after editing `backend/prisma/schema.prisma`, the image build re-runs `prisma generate`; you MUST also manually create the migration SQL file at `backend/prisma/migrations/<YYYYMMDDHHmmss>_<name>/migration.sql` and include it in the same commit — the container applies it automatically via `prisma migrate deploy` on startup; without the migration file the table is never created even after a redeploy
 
 ### Repository Notes
 
@@ -364,7 +364,7 @@ Spec must include:
 - Add appropriate comments and documentation where needed
 - **CRITICAL — Verify all external dependency APIs against official docs** (see Dependency Policy above) before implementing any integration
 - Update project documentation if new configuration or usage patterns are introduced
-- **CRITICAL: Do NOT run any FORBIDDEN COMMANDS** — if the change requires a Prisma migration, write the schema change and STOP; tell the user to run `npm run prisma:migrate` themselves
+- **CRITICAL: Do NOT run any FORBIDDEN COMMANDS** — if the change requires a Prisma migration, edit `schema.prisma` AND manually create `backend/prisma/migrations/<YYYYMMDDHHmmss>_<name>/migration.sql` with the appropriate DDL; include the migration file in the commit; do NOT run `prisma migrate dev` or any other forbidden migration command
 
 ### Returns
 - Summary
