@@ -192,6 +192,42 @@ export class WorkOrderService {
   }
 
   /**
+   * Enforce location-scoped access for level-3 and level-4 users (SP-2).
+   * Mirrors the scopeWhere logic in getWorkOrders so list and direct-object
+   * access apply identical rules.
+   */
+  private async assertTicketAccess(
+    ticket: { reportedById: string | null; assignedToId: string | null; officeLocationId: string | null },
+    userId: string,
+    permLevel: number,
+  ): Promise<void> {
+    if (permLevel >= 5) return;
+
+    if (permLevel <= 2) {
+      if (ticket.reportedById !== userId) {
+        throw new AuthorizationError('You do not have access to this work order');
+      }
+      return;
+    }
+
+    const locationIds = await this.getSupervisedLocationIds(userId);
+
+    if (permLevel === 3) {
+      const inScope =
+        ticket.reportedById === userId ||
+        ticket.assignedToId  === userId ||
+        (ticket.officeLocationId !== null && locationIds.includes(ticket.officeLocationId));
+      if (!inScope) throw new AuthorizationError('You do not have access to this work order');
+      return;
+    }
+
+    // permLevel === 4
+    if (locationIds.length === 0) return; // no location assignments → unrestricted (mirrors getWorkOrders)
+    if (ticket.officeLocationId && locationIds.includes(ticket.officeLocationId)) return;
+    throw new AuthorizationError('You do not have access to this work order');
+  }
+
+  /**
    * Validate that a status transition is legal and the user has the required level.
    */
   private assertValidTransition(
@@ -330,10 +366,7 @@ export class WorkOrderService {
       throw new NotFoundError('Work order', id);
     }
 
-    // Row-level access check
-    if (permLevel <= 2 && ticket.reportedById !== userId) {
-      throw new AuthorizationError('You do not have access to this work order');
-    }
+    await this.assertTicketAccess(ticket, userId, permLevel);
 
     return ticket;
   }
@@ -450,9 +483,7 @@ export class WorkOrderService {
     const ticket = await this.prisma.ticket.findUnique({ where: { id } });
     if (!ticket) throw new NotFoundError('Work order', id);
 
-    if (permLevel < 3 && ticket.reportedById !== userId) {
-      throw new AuthorizationError('You do not have permission to edit this work order');
-    }
+    await this.assertTicketAccess(ticket, userId, permLevel);
 
     const updated = await this.prisma.ticket.update({
       where: { id },
@@ -489,6 +520,7 @@ export class WorkOrderService {
     if (!ticket) throw new NotFoundError('Work order', id);
 
     this.assertValidTransition(ticket.status, data.status, permLevel);
+    await this.assertTicketAccess(ticket, userId, permLevel);
 
     const now = new Date();
     const timestamps: { resolvedAt?: Date | null; closedAt?: Date | null } = {};
