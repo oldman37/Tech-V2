@@ -57,7 +57,7 @@ export const ListInvoicesQuerySchema = z.object({
   damageIncidentId: z.string().uuid().optional(),
   equipmentId:      z.string().uuid().optional(),
   overdueOnly:      z.coerce.boolean().optional(),
-  sortBy:           z.string().default('createdAt'),
+  sortBy:           z.enum(['createdAt', 'updatedAt', 'dueDate', 'amount', 'status', 'sentAt', 'paidAt', 'invoiceNumber']).default('createdAt'),
   sortOrder:        z.enum(['asc', 'desc']).default('desc'),
 });
 

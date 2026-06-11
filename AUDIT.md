@@ -629,7 +629,7 @@ param validation, and return 400. The import-jobs list endpoint is unreachable.
 
 ---
 
-### SP-6 🔵 — Free-String `sortBy` Reaches Prisma `orderBy` (Unhandled 500s)
+### ~~SP-6~~ ✅ — ~~Free-String `sortBy` Reaches Prisma `orderBy` (Unhandled 500s)~~
 **Files:** `backend/src/services/deviceAssignment.service.ts` (line 309), `backend/src/services/damageIncident.service.ts` (line 233), `backend/src/services/inventory.service.ts` (line 203), `backend/src/validators/invoice.validators.ts` (line 60), `backend/src/validators/repairTicket.validators.ts` (line 38)
 
 Several validators declare `sortBy: z.string()` rather than an enum, and the
@@ -695,7 +695,7 @@ and makes the mutation surface uniform.
 | 🔴 Critical | 0 | — |
 | 🟠 High | 1 | ~~SP-1~~ ✅ |
 | 🟡 Medium | 3 | ~~SP-2~~ ✅, ~~SP-3~~ ✅, ~~SP-4~~ ✅ |
-| 🔵 Low / Info | 5 | SP-6, SP-7, SP-8, SP-9, SP-10 |
+| 🔵 Low / Info | 5 | ~~SP-6~~ ✅, SP-7, SP-8, SP-9, SP-10 |
 | ⚪ Quality | 1 | ~~SP-5~~ ✅ |
 | **Total** | **10** | |
 

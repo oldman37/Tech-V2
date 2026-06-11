@@ -35,7 +35,7 @@ export const ListRepairTicketsQuerySchema = z.object({
   vendorId:         z.string().uuid().optional(),
   equipmentId:      z.string().uuid().optional(),
   damageIncidentId: z.string().uuid().optional(),
-  sortBy:           z.string().default('createdAt'),
+  sortBy:           z.enum(['createdAt', 'updatedAt', 'status', 'sentForRepairAt', 'expectedReturnDate', 'returnedAt', 'repairCost', 'ticketNumber']).default('createdAt'),
   sortOrder:        z.enum(['asc', 'desc']).default('desc'),
 });
 

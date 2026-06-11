@@ -84,7 +84,7 @@ export const GetInventoryQuerySchema = z.object({
   vendorId: z.string().uuid('Invalid vendor ID').optional(),
   modelId: z.string().uuid('Invalid model ID').optional(),
   fundingSourceId: z.string().uuid('Invalid funding source ID').optional(),
-  sortBy: z.string().max(50).optional(),
+  sortBy: z.enum(['name', 'assetTag', 'createdAt', 'updatedAt', 'purchaseDate', 'purchasePrice', 'status', 'condition']).optional(),
   sortOrder: z.enum(['asc', 'desc']).optional(),
   minPrice: z.string()
     .regex(/^\d+(\.\d{1,2})?$/, 'Invalid price format')

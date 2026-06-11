@@ -44,7 +44,7 @@ export const ListAssignmentsQuerySchema = z.object({
   sourceType:   z.enum(['single', 'cart']).optional(),
   campusId:     z.string().uuid().optional(),
   gradeLevel:   z.string().max(3).optional(),
-  sortBy:       z.string().max(50).optional(),
+  sortBy:       z.enum(['checkoutAt', 'returnedAt', 'createdAt', 'updatedAt']).optional(),
   sortOrder:    z.enum(['asc', 'desc']).optional(),
 });
 
