@@ -114,6 +114,12 @@ export default function AdminBackupTab() {
     queryFn: () => adminService.listBackups(),
   });
 
+  const dbSizeQuery = useQuery({
+    queryKey: queryKeys.admin.dbSize(),
+    queryFn: () => adminService.getDbSize(),
+    refetchInterval: 60_000, // refresh every minute
+  });
+
   const maintenanceQuery = useQuery({
     queryKey: queryKeys.admin.maintenanceStatus(),
     queryFn: () => adminService.getMaintenanceStatus(),
@@ -190,7 +196,18 @@ export default function AdminBackupTab() {
       {/* ─── On-demand Backup ─────────────────────────────────────────────── */}
       <Box>
         <Stack direction="row" alignItems="center" justifyContent="space-between" mb={1}>
-          <Typography variant="h6">Database Backups</Typography>
+          <Stack direction="row" alignItems="center" gap={1.5}>
+            <Typography variant="h6">Database Backups</Typography>
+            {dbSizeQuery.data && (
+              <Chip
+                label={`DB size: ${dbSizeQuery.data.sizePretty}`}
+                size="small"
+                color="info"
+                variant="outlined"
+              />
+            )}
+            {dbSizeQuery.isLoading && <CircularProgress size={14} />}
+          </Stack>
           <Button
             variant="contained"
             startIcon={

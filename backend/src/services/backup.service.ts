@@ -2,6 +2,7 @@ import { execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import { loggers } from '../lib/logger';
+import { prisma } from '../lib/prisma';
 
 export interface BackupFile {
   filename: string;
@@ -13,6 +14,18 @@ const BACKUP_DIR = process.env.BACKUP_DIR ?? '/backups';
 const BACKUP_FILENAME_PATTERN = /^tech_v2_\d{4}-\d{2}-\d{2}_\d{6}\.sql\.gz$/;
 const DB_HOST = 'db';
 const DB_NAME = 'tech_v2';
+
+/** Returns the current database size in bytes and a human-readable string. */
+export async function getDbSize(): Promise<{ sizeBytes: number; sizePretty: string }> {
+  const result = await prisma.$queryRaw<[{ size_bytes: bigint; size_pretty: string }]>`
+    SELECT pg_database_size(current_database()) AS size_bytes,
+           pg_size_pretty(pg_database_size(current_database())) AS size_pretty
+  `;
+  return {
+    sizeBytes: Number(result[0].size_bytes),
+    sizePretty: result[0].size_pretty,
+  };
+}
 
 /** Validates that a filename is a known backup file and contains no path traversal. */
 export function isValidBackupFilename(filename: string): boolean {

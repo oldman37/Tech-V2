@@ -3,6 +3,7 @@ import {
   list,
   trigger,
   restore,
+  dbSize,
   getMaintenanceStatus,
   setMaintenanceEnabled,
   setMaintenanceDisabled,
@@ -14,6 +15,7 @@ const router = express.Router();
 // parent admin router (admin.routes.ts mounts this sub-router).
 
 router.get('/list', list);
+router.get('/size', dbSize);
 router.post('/trigger', trigger);
 router.post('/restore', restore);
 

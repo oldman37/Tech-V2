@@ -3,15 +3,15 @@ import jwt from 'jsonwebtoken';
 import { isMaintenanceEnabled } from '../services/backup.service';
 
 // Routes that always pass through regardless of maintenance mode.
-// Auth routes must be unblocked so the admin can log in to disable it.
+// These are matched against req.path AFTER Express strips the '/api' mount prefix.
+// Auth routes must ALL be allowed so the admin can complete the full OAuth flow.
 const ALWAYS_ALLOWED = new Set([
-  '/api/auth/login',
-  '/api/auth/callback',
-  '/api/auth/refresh-token',
-  '/api/auth/logout',
-  '/health',
-  '/health/details',
-  '/api/csrf-token',
+  '/auth/login',
+  '/auth/callback',
+  '/auth/refresh-token',
+  '/auth/logout',
+  '/auth/me',       // needed so the app can identify the user (and let admins through)
+  '/csrf-token',
 ]);
 
 /**

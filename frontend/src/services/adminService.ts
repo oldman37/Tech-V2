@@ -173,6 +173,11 @@ export const adminService = {
   // Backup & Maintenance Mode
   // -------------------------------------------------------------------------
 
+  getDbSize: async (): Promise<{ sizeBytes: number; sizePretty: string }> => {
+    const response = await api.get('/admin/backup/size');
+    return response.data;
+  },
+
   listBackups: async (): Promise<{ backups: BackupFile[] }> => {
     const response = await api.get('/admin/backup/list');
     return response.data;

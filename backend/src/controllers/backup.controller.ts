@@ -8,6 +8,7 @@ import {
   isMaintenanceEnabled,
   enableMaintenance,
   disableMaintenance,
+  getDbSize,
 } from '../services/backup.service';
 import { handleControllerError } from '../utils/errorHandler';
 import { loggers } from '../lib/logger';
@@ -47,6 +48,17 @@ export const restore = async (req: AuthRequest, res: Response): Promise<void> =>
     loggers.admin.warn('Database restore initiated', { filename, requestedBy: req.user?.email });
     restoreBackup(filename);
     res.json({ success: true, message: `Restore from ${filename} completed successfully.` });
+  } catch (error) {
+    handleControllerError(error, res);
+  }
+};
+
+// ── Database size ────────────────────────────────────────────────────────────
+
+export const dbSize = async (_req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const size = await getDbSize();
+    res.json({ success: true, ...size });
   } catch (error) {
     handleControllerError(error, res);
   }
