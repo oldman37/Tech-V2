@@ -207,6 +207,38 @@ router.post('/sync-users/group/:groupId', async (req: Request, res: Response) =>
   }
 });
 
+// Force-clear a user's group-membership cache (SP-9).
+// Setting groupsLastSyncedAt = null causes cacheAge = Infinity on the next
+// token refresh, which forces a fresh Graph fetch and shortens the revocation window.
+const forceGroupSyncParamSchema = z.object({ userId: z.string().uuid() });
+
+router.post('/users/:userId/force-group-sync', async (req: AuthRequest, res: Response) => {
+  const parsed = forceGroupSyncParamSchema.safeParse(req.params);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Invalid user ID' });
+  }
+  const { userId } = parsed.data;
+  try {
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, email: true } });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    await prisma.user.update({
+      where: { id: userId },
+      data: { groupsLastSyncedAt: null },
+    });
+    loggers.admin.info('Force group re-sync requested', {
+      targetUserId: userId,
+      targetEmail: user.email,
+      requestedBy: req.user?.email,
+    });
+    res.json({ success: true, message: `Group cache cleared for ${user.email}. Groups will re-sync on next token refresh.` });
+  } catch (error) {
+    loggers.admin.error('Force group re-sync failed', { error, userId });
+    handleControllerError(error, res);
+  }
+});
+
 // Cron Jobs Management
 // Get status of all scheduled jobs
 router.get('/cron-jobs/status', (req: Request, res: Response) => {

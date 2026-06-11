@@ -666,7 +666,7 @@ rotating it on login would close the residual cookie-forcing class of attacks.
 
 ---
 
-### SP-9 🔵 — Group-Membership Cache Extends the Permission-Revocation Window (Accepted Tradeoff)
+### ~~SP-9~~ ✅ — ~~Group-Membership Cache Extends the Permission-Revocation Window (Accepted Tradeoff)~~
 **File:** `backend/src/controllers/auth.controller.ts` (lines 450–492)
 
 With the ARCH-3 cache, a user removed from an Entra group retains the derived
@@ -678,7 +678,7 @@ screen as a manual "force re-sync" for urgent revocations.
 
 ---
 
-### SP-10 🔵 — `POST /api/auth/logout` Has No CSRF Protection
+### ~~SP-10~~ ✅ — ~~`POST /api/auth/logout` Has No CSRF Protection~~
 **Files:** `backend/src/routes/auth.routes.ts`, `backend/src/controllers/auth.controller.ts` (line 607)
 
 Logout is a state-changing POST with no `validateCsrfToken`. Impact is limited
@@ -695,7 +695,7 @@ and makes the mutation surface uniform.
 | 🔴 Critical | 0 | — |
 | 🟠 High | 1 | ~~SP-1~~ ✅ |
 | 🟡 Medium | 3 | ~~SP-2~~ ✅, ~~SP-3~~ ✅, ~~SP-4~~ ✅ |
-| 🔵 Low / Info | 5 | ~~SP-6~~ ✅, ~~SP-7~~ ✅, ~~SP-8~~ ✅, SP-9, SP-10 |
+| 🔵 Low / Info | 5 | ~~SP-6~~ ✅, ~~SP-7~~ ✅, ~~SP-8~~ ✅, ~~SP-9~~ ✅, ~~SP-10~~ ✅ |
 | ⚪ Quality | 1 | ~~SP-5~~ ✅ |
 | **Total** | **10** | |
 
