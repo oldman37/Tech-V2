@@ -1194,6 +1194,13 @@ export class InventoryService {
     return job;
   }
 
+  // Quotes a CSV cell per RFC 4180 and prefixes formula-injection triggers with '
+  // so Excel does not evaluate values starting with =, +, -, @, tab, or CR (SP-3).
+  private sanitizeCsvCell(value: string): string {
+    const prefixed = /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
+    return `"${prefixed.replace(/"/g, '""')}"`;
+  }
+
   /**
    * Export inventory to Excel file
    * Generates a file buffer that can be streamed to the client
@@ -1203,22 +1210,24 @@ export class InventoryService {
     // For now, return a simple CSV buffer
     const items = await this.findAll(filters || {});
 
+    const s = (v: string | null | undefined) => this.sanitizeCsvCell(String(v ?? ''));
+
     const csvRows = [
       // Header row
-      'Asset Tag,Name,Serial Number,Brand,Model,Category,Location,Status,Purchase Price,Purchase Date',
+      ['Asset Tag', 'Name', 'Serial Number', 'Brand', 'Model', 'Category', 'Location', 'Status', 'Purchase Price', 'Purchase Date'].map(h => this.sanitizeCsvCell(h)).join(','),
       // Data rows
       ...items.items.map((item) =>
         [
-          item.assetTag,
-          item.name,
-          item.serialNumber || '',
-          item.brand?.name || '',
-          item.model?.name || '',
-          item.category?.name || '',
-          item.officeLocation?.name || '',
-          item.status,
-          item.purchasePrice?.toString() || '',
-          item.purchaseDate?.toISOString().split('T')[0] || '',
+          s(item.assetTag),
+          s(item.name),
+          s(item.serialNumber),
+          s(item.brand?.name),
+          s(item.model?.name),
+          s(item.category?.name),
+          s(item.officeLocation?.name),
+          s(item.status),
+          s(item.purchasePrice?.toString()),
+          s(item.purchaseDate?.toISOString().split('T')[0]),
         ].join(',')
       ),
     ];

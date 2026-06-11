@@ -562,7 +562,7 @@ student devices, name labels, or room interiors.
 
 ---
 
-### SP-2 🟡 — Work Order Level-3 Location Scoping Enforced Only on List, Not on Direct Object Access
+### ~~SP-2~~ ✅ — ~~Work Order Level-3 Location Scoping Enforced Only on List, Not on Direct Object Access~~
 **File:** `backend/src/services/work-orders.service.ts` (lines 334, 453, 488)
 
 The documented permission model (header of `work-orders.routes.ts`) says level 3 =
@@ -582,7 +582,7 @@ location IDs (same logic as `getWorkOrders`) and reject if the ticket's
 
 ---
 
-### SP-3 🟡 — CSV Export Has No Quoting and No Formula-Injection Neutralization
+### ~~SP-3~~ ✅ — ~~CSV Export Has No Quoting and No Formula-Injection Neutralization~~
 **File:** `backend/src/services/inventory.service.ts` (lines 1201–1228)
 
 `exportToExcel` builds CSV by raw `join(',')`:
@@ -693,8 +693,8 @@ and makes the mutation surface uniform.
 | Severity | Count | IDs |
 |---|---|---|
 | 🔴 Critical | 0 | — |
-| 🟠 High | 1 | SP-1 |
-| 🟡 Medium | 3 | SP-2, SP-3, SP-4 |
+| 🟠 High | 1 | ~~SP-1~~ ✅ |
+| 🟡 Medium | 3 | ~~SP-2~~ ✅, ~~SP-3~~ ✅, SP-4 |
 | 🔵 Low / Info | 5 | SP-6, SP-7, SP-8, SP-9, SP-10 |
 | ⚪ Quality | 1 | SP-5 |
 | **Total** | **10** | |
