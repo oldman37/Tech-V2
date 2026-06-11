@@ -104,12 +104,6 @@ ENTRA_CLIENT_SECRET="your-client-secret"
 ENTRA_ADMIN_GROUP_ID="admin-group-object-id"
 ```
 
-**Update frontend/.env:**
-```env
-VITE_ENTRA_CLIENT_ID="your-client-id"
-VITE_ENTRA_TENANT_ID="your-tenant-id"
-```
-
 ### 3. Run Database Migrations
 
 Once PostgreSQL is configured:

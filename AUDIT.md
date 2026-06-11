@@ -785,7 +785,7 @@ Logs are written to rotating files inside Docker volumes (`backend_logs`). Nothi
 
 ---
 
-### PR-6 ? Entra Group IDs Baked Into Frontend Bundle (Informational)
+### ~~PR-6~~ ✅ — ~~Entra Group IDs Baked Into Frontend Bundle (Informational)~~
 
 **Severity:** ?? Low / Info
 
@@ -804,7 +804,7 @@ This was flagged as ARCH-2 in the first pass and partially addressed (authorizat
 | PR-3 ? No CI/CD pipeline | ?? Medium | No, but fix soon after launch |
 | PR-4 ? No `.env.example` | ?? Medium | No, but fix before next deployment |
 | PR-5 ? No external monitoring | ?? Medium | Recommended before go-live |
-| PR-6 ? Group IDs in bundle | ?? Info | No ? accepted tradeoff |
+| ~~PR-6~~ ✅ ~~Group IDs in bundle~~ | ~~🔵 Info~~ | ~~No — accepted tradeoff~~ |
 
 **Verdict:** The application is feature-complete and security-hardened for an internal tool with a known user base. It is **not safe to accept production traffic until PR-2 (database backup) is in place.** PR-1 and PR-5 are strongly recommended before wider rollout. PR-3 and PR-4 can follow immediately after launch.
 
