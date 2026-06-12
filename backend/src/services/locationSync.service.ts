@@ -47,7 +47,7 @@ const SUPERVISOR_GROUPS: SupervisorGroupConfig[] = [
     groupId: process.env.ENTRA_SPED_DIRECTOR_GROUP_ID,
     supervisorType: 'SPED_DIRECTOR',
     name: 'SPED Director',
-    isPrimary: false,
+    isPrimary: true,
     departmentCode: 'SPED',
   },
   {
@@ -87,14 +87,14 @@ const SUPERVISOR_GROUPS: SupervisorGroupConfig[] = [
     groupId: process.env.ENTRA_AFTERSCHOOL_DIRECTOR_GROUP_ID,
     supervisorType: 'AFTERSCHOOL_DIRECTOR',
     name: 'Afterschool Director',
-    isPrimary: false,
+    isPrimary: true,
     departmentCode: 'AS',
   },
   {
     groupId: process.env.ENTRA_NURSE_DIRECTOR_GROUP_ID,
     supervisorType: 'NURSE_DIRECTOR',
     name: 'Nurse Director',
-    isPrimary: false,
+    isPrimary: true,
     departmentCode: 'ND',
   },
   {
@@ -115,7 +115,7 @@ const SUPERVISOR_GROUPS: SupervisorGroupConfig[] = [
     groupId: process.env.ENTRA_FOOD_SERVICES_SUPERVISOR_GROUP_ID,
     supervisorType: 'FOOD_SERVICES_SUPERVISOR',
     name: 'Food Services Supervisor',
-    isPrimary: false,
+    isPrimary: true,
     departmentCode: 'FS',
   },
 ];
