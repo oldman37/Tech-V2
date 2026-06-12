@@ -55,6 +55,7 @@ import DeviceManagementDashboard from './pages/DeviceManagement/index'
 import ReportsPage from './pages/DeviceManagement/ReportsPage'
 import BarcodePdfPage from './pages/DeviceManagement/BarcodePdfPage'
 import DmRolloverPage from './pages/DeviceManagement/DmRolloverPage'
+import IntuneDeviceActionsPage from './pages/DeviceManagement/IntuneDeviceActionsPage'
 import IncidentsPage from './pages/incidents/IncidentsPage'
 import IncidentDetailPage from './pages/incidents/IncidentDetailPage'
 import IncidentWizardPage from './pages/incidents/IncidentWizardPage'
@@ -575,6 +576,16 @@ function App() {
             <ProtectedRoute requireAdmin>
               <AppLayout>
                 <DmRolloverPage />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/device-management/intune-actions"
+          element={
+            <ProtectedRoute requireDeviceManagement>
+              <AppLayout>
+                <IntuneDeviceActionsPage />
               </AppLayout>
             </ProtectedRoute>
           }

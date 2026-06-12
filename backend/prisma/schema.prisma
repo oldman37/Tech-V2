@@ -568,6 +568,7 @@ model User {
   // Driver License relations
   driverLicenses               DriverLicense[] @relation("DriverLicenseHolder")
   driverLicensesUploaded       DriverLicense[] @relation("DriverLicenseUploader")
+  intuneActionLogs             IntuneActionLog[] @relation("IntuneActionLogPerformedBy")
   refreshTokens                RefreshToken[]
 
   @@index([employeeId])
@@ -585,6 +586,30 @@ model RefreshToken {
   @@index([userId])
   @@index([expiresAt])
   @@map("refresh_tokens")
+}
+
+// ============================================
+// INTUNE DEVICE ACTION AUDIT LOG
+// ============================================
+
+model IntuneActionLog {
+  id               String   @id @default(uuid())
+  performedBy      String
+  performedByUser  User     @relation("IntuneActionLogPerformedBy", fields: [performedBy], references: [id])
+  action           String
+  modelId          String?
+  modelName        String?
+  totalDevices     Int
+  successCount     Int
+  failedCount      Int
+  notEnrolledCount Int
+  results          Json
+
+  createdAt        DateTime @default(now())
+
+  @@index([performedBy])
+  @@index([createdAt])
+  @@map("intune_action_logs")
 }
 
 // ============================================

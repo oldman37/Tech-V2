@@ -39,6 +39,7 @@ import damageComponentPriceRouter from './routes/damageComponentPrice.routes';
 import barcodePdfRoutes from './routes/barcodePdf.routes';
 import dmRolloverRoutes from './routes/dmRollover.routes';
 import inventoryAuditRoutes from './routes/inventoryAudit.routes';
+import intuneDeviceRoutes from './routes/intuneDevice.routes';
 import { provideCsrfToken, getCsrfToken } from './middleware/csrf';
 import { authenticate, requireAdmin } from './middleware/auth';
 import { maintenanceMode } from './middleware/maintenanceMode';
@@ -220,6 +221,7 @@ app.use('/api/damage-component-prices', damageComponentPriceRouter);
 app.use('/api/device-barcodes', barcodePdfRoutes);
 app.use('/api/device-management/rollover', dmRolloverRoutes);
 app.use('/api', inventoryAuditRoutes);
+app.use('/api/intune', intuneDeviceRoutes);
 
 // API info endpoint
 app.get('/api', (req: Request, res: Response) => {

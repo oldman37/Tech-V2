@@ -147,3 +147,60 @@ export function isGraphCollection<T>(
   // For production, might want to just check first item
   return collection.value.length === 0 || itemGuard(collection.value[0]);
 }
+
+/**
+ * Microsoft Graph Intune Managed Device
+ * @see https://learn.microsoft.com/en-us/graph/api/resources/intune-devices-manageddevice
+ */
+export interface IntuneDevice {
+  id: string;
+  deviceName: string | null;
+  serialNumber: string | null;
+  operatingSystem: string | null;
+  complianceState: string | null;
+  lastSyncDateTime: string | null;
+  enrolledDateTime: string | null;
+  managedDeviceOwnerType: string | null;
+  /** Azure AD device ID — used to look up the Entra device object for removeEntra */
+  azureADDeviceId: string | null;
+  model: string | null;
+  manufacturer: string | null;
+  userDisplayName: string | null;
+  userPrincipalName: string | null;
+}
+
+/**
+ * Microsoft Graph Windows Autopilot Device Identity
+ * @see https://learn.microsoft.com/en-us/graph/api/resources/intune-enrollment-windowsautopilotdeviceidentity
+ */
+export interface AutopilotDevice {
+  id: string;
+  serialNumber: string | null;
+  azureActiveDirectoryDeviceId: string | null;
+  managedDeviceId: string | null;
+  displayName: string | null;
+}
+
+/**
+ * Microsoft Graph $batch request item
+ */
+export interface BatchRequestItem {
+  id: string;
+  method: 'GET' | 'POST' | 'DELETE' | 'PATCH' | 'PUT';
+  url: string;
+  body?: Record<string, unknown>;
+  headers?: Record<string, string>;
+}
+
+/**
+ * Microsoft Graph $batch response item
+ */
+export interface BatchResponseItem {
+  id: string;
+  status: number;
+  body?: Record<string, unknown>;
+  headers?: Record<string, string>;
+}
+
+export type IntuneDeviceCollection = GraphCollectionResponse<IntuneDevice>;
+export type AutopilotDeviceCollection = GraphCollectionResponse<AutopilotDevice>;
