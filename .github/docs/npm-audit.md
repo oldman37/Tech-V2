@@ -105,6 +105,6 @@ Do **not** run `npm audit fix --force` blindly on these. Each has a note on the 
 | 7 | hono | ✅ Fixed 2026-06-11 | `npm audit fix` + `--no-cache` rebuild |
 | 8 | qs | ✅ Fixed 2026-06-11 | `npm audit fix` + `--no-cache` rebuild |
 | 9 | brace-expansion | ✅ Fixed 2026-06-11 | `npm audit fix` + `--no-cache` rebuild |
-| 2a | shell-quote / concurrently | ⬜ Open | Check concurrently v10 changelog before upgrading |
-| 2b | uuid / exceljs | ⬜ Open | No clean fix yet — monitor exceljs releases |
-| 2c | @hono/node-server / prisma | ⬜ Open | Bump prisma to latest 7.x stable |
+| 2a | shell-quote / concurrently | ✅ Fixed 2026-06-11 | Bumped concurrently 9→10; Node 22 req met |
+| 2b | uuid / exceljs | ⏳ Blocked | exceljs 4.4.0 is latest; no upstream fix yet — recheck on next exceljs release |
+| 2c | @hono/node-server / prisma | ⏳ Blocked | prisma 7.8.0 is latest; waiting on Prisma to update @prisma/dev >0.24.8 |
