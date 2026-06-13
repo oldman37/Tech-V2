@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import {
+  Alert,
   Button,
   Checkbox,
   Dialog,
@@ -33,6 +34,7 @@ interface DeviceActionConfirmDialogProps {
   onConfirm: (confirmText?: string) => void;
   onCancel: () => void;
   isLoading?: boolean;
+  isDryRun?: boolean;
 }
 
 const RISK_COLOURS: Record<string, string> = {
@@ -64,6 +66,7 @@ export default function DeviceActionConfirmDialog({
   onConfirm,
   onCancel,
   isLoading = false,
+  isDryRun = false,
 }: DeviceActionConfirmDialogProps) {
   const [typedText, setTypedText]   = useState('');
   const [checked,   setChecked]     = useState(false);
@@ -108,6 +111,12 @@ export default function DeviceActionConfirmDialog({
       </DialogTitle>
 
       <DialogContent dividers>
+        {isDryRun && (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            <strong>DRY RUN</strong> — No actions will be performed. This is a simulation only.
+            Toggle “Test Mode” OFF to execute for real.
+          </Alert>
+        )}
         <Typography variant="body1" gutterBottom>
           You are about to perform <strong>{label}</strong> on{' '}
           <strong>{enrolledCount}</strong> enrolled device

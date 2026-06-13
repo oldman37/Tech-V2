@@ -22,6 +22,7 @@ import {
   TableCell,
   TableContainer,
   TableHead,
+  TablePagination,
   TableRow,
   TextField,
   Tooltip,
@@ -37,6 +38,7 @@ import {
   INTUNE_ACTION_RISK,
   type IntuneAction,
   type BulkDeviceActionResponse,
+  type DeviceActionResult,
   type IntuneDevicePreview,
 } from '@mgspe/shared-types';
 import { intuneService } from '../../services/intuneService';
@@ -108,6 +110,54 @@ const STATUS_CHIP_COLOUR: Record<string, 'success' | 'error' | 'warning' | 'defa
 };
 
 const ACTIONS = Object.keys(INTUNE_ACTION_LABELS) as IntuneAction[];
+
+// ─── buildDryRunResult ───────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Builds a synthetic BulkDeviceActionResponse for dry-run / test mode.
+ * Every enrolled device → success; every not-enrolled device → not_enrolled.
+ * The logId 'DRY_RUN' signals downstream rendering to show the DRY RUN banner.
+ */
+export function buildDryRunResult(
+  devices: IntuneDevicePreview[],
+  action: IntuneAction,
+): BulkDeviceActionResponse {
+  const results: DeviceActionResult[] = devices.map((d) => {
+    const isEnrolled = d.enrollmentStatus === 'enrolled';
+    return {
+      serialNumber:      d.serialNumber,
+      assetTag:          d.assetTag,
+      intuneDeviceId:    d.intuneDeviceId,
+      autopilotDeviceId: null,
+      entraDeviceId:     null,
+      status:            isEnrolled ? 'success' : 'not_enrolled',
+      ...(action === 'fullDecommission' && isEnrolled
+        ? {
+            stepResults: {
+              deleteDevice:    'success' as const,
+              removeAutopilot: 'success' as const,
+              removeEntra:     'success' as const,
+            },
+          }
+        : {}),
+    };
+  });
+
+  const enrolled = results.filter((r) => r.status === 'success').length;
+
+  return {
+    action,
+    modelId:     null,
+    modelName:   null,
+    total:       devices.length,
+    succeeded:   enrolled,
+    notEnrolled: devices.length - enrolled,
+    failed:      0,
+    partial:     0,
+    results,
+    logId:       'DRY_RUN',
+  };
+}
 
 // ─── DeviceTable ──────────────────────────────────────────────────────────────
 
@@ -183,6 +233,9 @@ export default function IntuneScanWizardTab({ initialLookupResult, initialAction
   const [keepUserData,      setKeepUserData]      = useState(false);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [actionResults,     setActionResults]     = useState<BulkDeviceActionResponse | null>(null);
+  const [isDryRun,          setIsDryRun]          = useState(true); // default ON — safe
+  const [resultsPage,       setResultsPage]       = useState(0);
+  const [resultsRowsPerPage, setResultsRowsPerPage] = useState(25);
 
   // ─── Mutations ──────────────────────────────────────────────────────────────
 
@@ -194,18 +247,27 @@ export default function IntuneScanWizardTab({ initialLookupResult, initialAction
   });
 
   const deviceListMutation = useMutation({
-    mutationFn: (confirmText?: string) =>
-      intuneService.executeDeviceListAction({
+    mutationFn: (confirmText?: string) => {
+      // ── Dry run short-circuit ───────────────────────────────────────────────────────
+      if (isDryRun) {
+        return Promise.resolve(
+          buildDryRunResult(lookupResult!.devices, selectedAction as IntuneAction),
+        );
+      }
+      // ── Real execution ───────────────────────────────────────────────────────────────────
+      return intuneService.executeDeviceListAction({
         intuneDeviceIds: lookupResult!.devices.map((d) => d.intuneDeviceId!),
         action:          selectedAction as IntuneAction,
         confirm:         true,
         keepUserData:    selectedAction === 'cleanWindowsDevice' ? keepUserData : undefined,
         confirmText,
-      }),
+      });
+    },
     onSuccess: (data) => {
       // Save every action to history so there is a record of who performed it
       // (destructive actions are recorded too, but cannot be re-run from the History tab)
-      if (lookupResult) {
+      // Do NOT save dry-run results to history
+      if (lookupResult && data.logId !== 'DRY_RUN') {
         saveToHistory({
           id:          data.logId,
           timestamp:   new Date().toISOString(),
@@ -226,6 +288,7 @@ export default function IntuneScanWizardTab({ initialLookupResult, initialAction
         onActionComplete?.();
       }
       setActionResults(data);
+      setResultsPage(0);
       setConfirmDialogOpen(false);
       setActiveStep(3);
     },
@@ -243,6 +306,9 @@ export default function IntuneScanWizardTab({ initialLookupResult, initialAction
     setKeepUserData(false);
     setConfirmDialogOpen(false);
     setActionResults(null);
+    setIsDryRun(true);
+    setResultsPage(0);
+    setResultsRowsPerPage(25);
     searchMutation.reset();
     deviceListMutation.reset();
   };
@@ -472,6 +538,35 @@ export default function IntuneScanWizardTab({ initialLookupResult, initialAction
             <strong>{lookupResult?.devices.length ?? 0} device(s)</strong>.
           </Alert>
 
+          {/* Dry Run / Test Mode toggle */}
+          <Alert
+            severity={isDryRun ? 'info' : 'warning'}
+            sx={{ mb: 2 }}
+            action={
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={isDryRun}
+                    onChange={(e) => setIsDryRun(e.target.checked)}
+                    size="small"
+                    color={isDryRun ? 'primary' : 'warning'}
+                  />
+                }
+                label={
+                  <Typography variant="body2" fontWeight={600}>
+                    {isDryRun ? 'Test Mode ON' : 'Test Mode OFF'}
+                  </Typography>
+                }
+                labelPlacement="start"
+                sx={{ mr: 0, ml: 0 }}
+              />
+            }
+          >
+            {isDryRun
+              ? 'Test Mode is ON — No actions will be performed'
+              : 'Test Mode is OFF — Actions WILL be performed on real devices'}
+          </Alert>
+
           <Stack
             direction={{ xs: 'column', sm: 'row' }}
             spacing={2}
@@ -541,8 +636,11 @@ export default function IntuneScanWizardTab({ initialLookupResult, initialAction
 
       {/* ── Step 3: Results ─────────────────────────────────────────────────── */}
       {activeStep === 3 && actionResults && (
-        <Paper sx={{ p: 2 }}>
-          <Alert severity="success" sx={{ mb: 2 }}>
+        <Paper sx={{ p: 2 }}>          {actionResults.logId === 'DRY_RUN' && (
+            <Alert severity="warning" sx={{ mb: 2 }}>
+              <strong>DRY RUN — No actions were performed.</strong> Test Mode was ON when this ran.
+            </Alert>
+          )}          <Alert severity="success" sx={{ mb: 2 }}>
             Completed:{' '}
             <strong>{INTUNE_ACTION_LABELS[selectedAction as IntuneAction]}</strong>
           </Alert>
@@ -581,7 +679,9 @@ export default function IntuneScanWizardTab({ initialLookupResult, initialAction
                 </TableRow>
               </TableHead>
               <TableBody>
-                {actionResults.results.map((r, i) => (
+                {actionResults.results
+                  .slice(resultsPage * resultsRowsPerPage, resultsPage * resultsRowsPerPage + resultsRowsPerPage)
+                  .map((r, i) => (
                   <TableRow key={r.intuneDeviceId || r.serialNumber || i}>
                     <TableCell>{r.assetTag ?? r.serialNumber ?? '—'}</TableCell>
                     <TableCell>{r.serialNumber || '—'}</TableCell>
@@ -606,6 +706,15 @@ export default function IntuneScanWizardTab({ initialLookupResult, initialAction
                 ))}
               </TableBody>
             </Table>
+            <TablePagination
+              component="div"
+              count={actionResults.results.length}
+              page={resultsPage}
+              onPageChange={(_, p) => setResultsPage(p)}
+              rowsPerPage={resultsRowsPerPage}
+              onRowsPerPageChange={(e) => { setResultsRowsPerPage(parseInt(e.target.value, 10)); setResultsPage(0); }}
+              rowsPerPageOptions={[10, 25, 50, 100]}
+            />
           </TableContainer>
           <Box sx={{ mt: 2 }}>
             <Button variant="outlined" onClick={handleReset}>
@@ -626,6 +735,7 @@ export default function IntuneScanWizardTab({ initialLookupResult, initialAction
           onConfirm={(confirmText) => deviceListMutation.mutate(confirmText)}
           onCancel={() => setConfirmDialogOpen(false)}
           isLoading={deviceListMutation.isPending}
+          isDryRun={isDryRun}
         />
       )}
     </Box>
