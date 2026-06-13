@@ -18,6 +18,7 @@ import type {
   DeviceStatusResponse,
   IntuneDevicePreview,
   DeviceSearchResponse,
+  DeviceModelSearchResponse,
   IntuneActionLogsResponse,
 } from '@mgspe/shared-types';
 
@@ -67,13 +68,21 @@ async function withRetry<T>(fn: () => Promise<T>, maxAttempts = 3): Promise<T> {
 // Internal Graph helpers
 // ---------------------------------------------------------------------------
 
-async function queryIntuneByModel(modelName: string): Promise<IntuneDevice[]> {
+async function queryIntuneByModel(
+  modelName: string,
+  mode: 'eq' | 'contains' = 'eq',
+): Promise<IntuneDevice[]> {
   const client = await createGraphClient();
   const safeModel = escapeOdata(modelName);
   const select =
     'id,deviceName,serialNumber,operatingSystem,complianceState,lastSyncDateTime,enrolledDateTime,managedDeviceOwnerType,azureADDeviceId,model,manufacturer,userDisplayName,userPrincipalName';
 
-  let url = `/deviceManagement/managedDevices?$filter=model eq '${safeModel}'&$select=${select}&$top=999`;
+  const filter =
+    mode === 'contains'
+      ? `contains(model,'${safeModel}')`
+      : `model eq '${safeModel}'`;
+
+  let url = `/deviceManagement/managedDevices?$filter=${filter}&$select=${select}&$top=999`;
   const results: IntuneDevice[] = [];
 
   while (url) {
@@ -893,6 +902,65 @@ export async function searchDevicesByNames(
     total:    deviceNames.length,
     found:    found.length,
     notFound,
+    devices,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Search Intune devices by free-text model string (direct Intune lookup)
+// ---------------------------------------------------------------------------
+
+export async function searchDevicesByModelName(
+  model: string,
+): Promise<DeviceModelSearchResponse> {
+  let intuneDevices: IntuneDevice[] = [];
+  try {
+    // 1. Exact match first (the `model eq` filter the existing feature relies on)
+    intuneDevices = await queryIntuneByModel(model, 'eq');
+    // 2. Fallback to a substring match when the exact filter returns nothing
+    //    (handles marketing vs. SKU naming and partial model strings)
+    if (intuneDevices.length === 0) {
+      intuneDevices = await queryIntuneByModel(model, 'contains');
+    }
+  } catch (err) {
+    log.error('Failed to search Intune devices by model', { model, error: err });
+    throw new AppError('Failed to retrieve Intune device data', 502, 'GRAPH_ERROR');
+  }
+
+  // Best-effort asset tag enrichment from inventory (display-only)
+  const serialNumbers = intuneDevices
+    .map((d) => d.serialNumber)
+    .filter((s): s is string => !!s);
+  const equipmentMap = new Map<string, string>();
+  if (serialNumbers.length > 0) {
+    const rows = await prisma.equipment.findMany({
+      where:  { serialNumber: { in: serialNumbers } },
+      select: { serialNumber: true, assetTag: true },
+    });
+    for (const row of rows) {
+      if (row.serialNumber) equipmentMap.set(row.serialNumber, row.assetTag);
+    }
+  }
+
+  const devices: IntuneDevicePreview[] = intuneDevices.map((d) => ({
+    serialNumber:           d.serialNumber ?? '',
+    assetTag:               d.serialNumber ? (equipmentMap.get(d.serialNumber) ?? null) : null,
+    intuneDeviceId:         d.id,
+    displayName:            d.deviceName ?? null,
+    operatingSystem:        d.operatingSystem ?? null,
+    complianceState:        d.complianceState ?? null,
+    lastSyncDateTime:       d.lastSyncDateTime ?? null,
+    enrolledDateTime:       d.enrolledDateTime ?? null,
+    managedDeviceOwnerType: d.managedDeviceOwnerType ?? null,
+    azureADDeviceId:        d.azureADDeviceId ?? null,
+    enrollmentStatus:       'enrolled' as const,
+  }));
+
+  log.info('Intune model search complete', { model, total: devices.length });
+
+  return {
+    model,
+    total: devices.length,
     devices,
   };
 }

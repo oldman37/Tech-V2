@@ -17,6 +17,13 @@ export type IntuneAction =
 export type ActionRiskLevel = 'low' | 'medium' | 'high' | 'critical';
 
 /**
+ * Maximum number of Intune device IDs accepted by a single
+ * POST /api/intune/actions/by-device-ids call. The frontend chunks device
+ * lists by this size; the backend validator enforces the same cap.
+ */
+export const INTUNE_DEVICE_ACTION_BATCH_SIZE = 50;
+
+/**
  * Risk level for each action — used by frontend for colour coding and
  * confirmation requirement logic.
  */
@@ -247,4 +254,26 @@ export interface DeviceListActionRequest {
   keepUserData?: boolean;
   /** Must be 'DECOMMISSION' for fullDecommission */
   confirmText?: string;
+}
+
+/**
+ * Request body for POST /api/intune/devices/search-by-model
+ * Queries Intune (Graph managedDevices) directly for all devices matching a
+ * free-text model string — independent of local inventory.
+ */
+export interface DeviceModelSearchRequest {
+  /** Free-text model string typed by the user (matched against Intune managedDevice.model) */
+  model: string;
+}
+
+/**
+ * Response from POST /api/intune/devices/search-by-model
+ */
+export interface DeviceModelSearchResponse {
+  /** Echo of the searched model string */
+  model: string;
+  /** Number of Intune devices returned */
+  total: number;
+  /** Devices returned by Intune for this model (all enrolled by definition) */
+  devices: IntuneDevicePreview[];
 }

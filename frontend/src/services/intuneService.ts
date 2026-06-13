@@ -8,6 +8,7 @@ import type {
   DeviceActionResult,
   DeviceSearchRequest,
   DeviceSearchResponse,
+  DeviceModelSearchResponse,
   DeviceListActionRequest,
   IntuneActionLogsResponse,
 } from '@mgspe/shared-types';
@@ -38,6 +39,9 @@ export const intuneService = {
 
   searchDevices: (data: DeviceSearchRequest): Promise<DeviceSearchResponse> =>
     api.post(`${BASE}/devices/search`, data).then((r) => r.data),
+
+  searchByModel: (model: string): Promise<DeviceModelSearchResponse> =>
+    api.post(`${BASE}/devices/search-by-model`, { model }).then((r) => r.data),
 
   executeDeviceListAction: (data: DeviceListActionRequest): Promise<BulkDeviceActionResponse> =>
     api.post(`${BASE}/actions/by-device-ids`, data).then((r) => r.data),

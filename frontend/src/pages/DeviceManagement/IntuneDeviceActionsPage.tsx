@@ -1,7 +1,6 @@
 ﻿import { useState } from 'react';
 import {
   Alert,
-  Autocomplete,
   Box,
   Button,
   Chip,
@@ -25,24 +24,24 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import RefreshIcon    from '@mui/icons-material/Refresh';
+import SearchIcon     from '@mui/icons-material/Search';
 import PlayArrowIcon  from '@mui/icons-material/PlayArrow';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import {
   INTUNE_ACTION_LABELS,
   INTUNE_ACTION_RISK,
+  INTUNE_DEVICE_ACTION_BATCH_SIZE,
   type IntuneAction,
   type BulkDeviceActionResponse,
   type IntuneDevicePreview,
 } from '@mgspe/shared-types';
 import { intuneService } from '../../services/intuneService';
-import { modelsService, type EquipmentModel } from '../../services/referenceDataService';
 import DeviceActionConfirmDialog from '../../components/DeviceActionConfirmDialog';
 import IntuneScanWizardTab, { type IntuneHistoryEntry, loadHistory } from './IntuneScanWizardTab';
 
-// â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Helpers ───────────────────────────────────────────────────────────────
 
 const RISK_CHIP_COLOUR: Record<string, 'success' | 'warning' | 'error' | 'default'> = {
   low:      'success',
@@ -62,6 +61,39 @@ const STATUS_CHIP_COLOUR: Record<string, 'success' | 'error' | 'warning' | 'defa
 const DESTRUCTIVE_ACTIONS = new Set<IntuneAction>(['fullDecommission', 'deleteDevice', 'removeEntra']);
 const ACTIONS = Object.keys(INTUNE_ACTION_LABELS) as IntuneAction[];
 
+/** Split an array into chunks of at most `size`. */
+function chunk<T>(arr: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+}
+
+/** Merge sequential batch responses into one aggregated result for the Results table. */
+function mergeBatchResults(
+  batches: BulkDeviceActionResponse[],
+  action: IntuneAction,
+): BulkDeviceActionResponse {
+  return batches.reduce<BulkDeviceActionResponse>(
+    (acc, b) => ({
+      action,
+      modelId:     null,
+      modelName:   null,
+      total:       acc.total       + b.total,
+      succeeded:   acc.succeeded   + b.succeeded,
+      notEnrolled: acc.notEnrolled + b.notEnrolled,
+      failed:      acc.failed      + b.failed,
+      partial:     acc.partial     + b.partial,
+      results:     acc.results.concat(b.results),
+      logId:       b.logId,
+    }),
+    {
+      action, modelId: null, modelName: null,
+      total: 0, succeeded: 0, notEnrolled: 0, failed: 0, partial: 0,
+      results: [], logId: '',
+    },
+  );
+}
+
 function DeviceTable({ devices, maxHeight = 400 }: { devices: IntuneDevicePreview[]; maxHeight?: number }) {
   return (
     <TableContainer sx={{ maxHeight }}>
@@ -80,10 +112,10 @@ function DeviceTable({ devices, maxHeight = 400 }: { devices: IntuneDevicePrevie
         <TableBody>
           {devices.map((d, idx) => (
             <TableRow key={d.intuneDeviceId || d.serialNumber || idx}>
-              <TableCell>{d.displayName ?? 'â€”'}</TableCell>
-              <TableCell>{d.assetTag ?? 'â€”'}</TableCell>
-              <TableCell>{d.serialNumber || 'â€”'}</TableCell>
-              <TableCell>{d.operatingSystem ?? 'â€”'}</TableCell>
+              <TableCell>{d.displayName ?? '—'}</TableCell>
+              <TableCell>{d.assetTag ?? '—'}</TableCell>
+              <TableCell>{d.serialNumber || '—'}</TableCell>
+              <TableCell>{d.operatingSystem ?? '—'}</TableCell>
               <TableCell>
                 <Chip
                   label={d.enrollmentStatus === 'enrolled' ? 'Enrolled' : 'Not Enrolled'}
@@ -92,9 +124,9 @@ function DeviceTable({ devices, maxHeight = 400 }: { devices: IntuneDevicePrevie
                 />
               </TableCell>
               <TableCell>
-                {d.lastSyncDateTime ? new Date(d.lastSyncDateTime).toLocaleString() : 'â€”'}
+                {d.lastSyncDateTime ? new Date(d.lastSyncDateTime).toLocaleString() : '—'}
               </TableCell>
-              <TableCell>{d.complianceState ?? 'â€”'}</TableCell>
+              <TableCell>{d.complianceState ?? '—'}</TableCell>
             </TableRow>
           ))}
         </TableBody>
@@ -157,7 +189,7 @@ function ActionSelector({
         displayEmpty
         sx={{ minWidth: 260 }}
       >
-        <MenuItem value="" disabled>Choose an actionâ€¦</MenuItem>
+        <MenuItem value="" disabled>Choose an action…</MenuItem>
         {ACTIONS.map((a) => (
           <MenuItem key={a} value={a}>
             <Stack direction="row" spacing={1} alignItems="center">
@@ -199,7 +231,7 @@ function ActionSelector({
   );
 }
 
-// â”€â”€â”€ Main component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Main component ─────────────────────────────────────────────────────────
 
 export default function IntuneDeviceActionsPage() {
   const [tab, setTab] = useState<0 | 1 | 2>(0);
@@ -215,53 +247,63 @@ export default function IntuneDeviceActionsPage() {
   // Per-card "view devices" expand state for the History tab (keyed by log ID)
   const [expandedDevices,  setExpandedDevices]  = useState<Record<string, boolean>>({});
 
-  // â”€â”€ Shared action state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Shared action state ────────────────────────────────────────────────────
   const [selectedAction,    setSelectedAction]    = useState<IntuneAction | ''>('');
   const [keepUserData,      setKeepUserData]      = useState(false);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [results,           setResults]           = useState<BulkDeviceActionResponse | null>(null);
 
-  // â”€â”€ Tab 0: By Model â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  const [selectedModel, setSelectedModel] = useState<EquipmentModel | null>(null);
+  // ── Tab 0: By Model (direct Intune search) ─────────────────────────────────
+  const [modelSearchText, setModelSearchText] = useState('');
 
-  const { data: modelsData, isLoading: modelsLoading } = useQuery({
-    queryKey: ['equipment-models', 'intune-page'],
-    queryFn:  () => modelsService.getAll({ limit: 500, isActive: true }),
+  const modelSearchMutation = useMutation({
+    mutationFn: (model: string) => intuneService.searchByModel(model),
+    onSuccess: () => { setResults(null); setSelectedAction(''); },
   });
-  const models = modelsData?.items ?? [];
 
-  const {
-    data:      preview,
-    isLoading: previewLoading,
-    error:     previewError,
-    refetch:   refetchPreview,
-  } = useQuery({
-    queryKey: ['intune-devices', selectedModel?.id],
-    queryFn:  () => intuneService.getByModel(selectedModel!.id),
-    enabled:  !!selectedModel,
-  });
+  const modelSearchDevices = modelSearchMutation.data?.devices ?? [];
+  const modelEnrolledCount = modelSearchDevices.length;
+
+  // The action runs in sequential batches of INTUNE_DEVICE_ACTION_BATCH_SIZE
+  // (the backend per-call device cap); progress is surfaced to the user.
+  const [batchProgress, setBatchProgress] = useState<{ current: number; total: number } | null>(null);
 
   const modelActionMutation = useMutation({
-    mutationFn: (confirmText?: string) =>
-      intuneService.executeBulkAction({
-        modelId:      selectedModel!.id,
-        action:       selectedAction as IntuneAction,
-        confirm:      true,
-        keepUserData: selectedAction === 'cleanWindowsDevice' ? keepUserData : undefined,
-        confirmText,
-      }),
+    mutationFn: async (confirmText?: string) => {
+      const ids = modelSearchDevices.map((d) => d.intuneDeviceId!).filter(Boolean);
+      const groups = chunk(ids, INTUNE_DEVICE_ACTION_BATCH_SIZE);
+      const responses: BulkDeviceActionResponse[] = [];
+      for (let i = 0; i < groups.length; i++) {
+        setBatchProgress({ current: i + 1, total: groups.length });
+        // eslint-disable-next-line no-await-in-loop -- batches run sequentially to respect Graph throttling
+        const res = await intuneService.executeDeviceListAction({
+          intuneDeviceIds: groups[i],
+          action:          selectedAction as IntuneAction,
+          confirm:         true,
+          keepUserData:    selectedAction === 'cleanWindowsDevice' ? keepUserData : undefined,
+          confirmText,
+        });
+        responses.push(res);
+      }
+      return mergeBatchResults(responses, selectedAction as IntuneAction);
+    },
     onSuccess: (data) => {
       setResults(data);
       setConfirmDialogOpen(false);
+      setBatchProgress(null);
     },
+    onError: () => { setBatchProgress(null); },
   });
 
-  const modelEnrolledCount = preview?.enrolledCount ?? 0;
-  const canExecuteModel    =
-    !!selectedModel && !!selectedAction && modelEnrolledCount > 0 && !previewLoading;
-  const modelDisplayName   = selectedModel
-    ? (selectedModel.brands ? `${selectedModel.brands.name} ${selectedModel.name}` : selectedModel.name)
-    : '';
+  const canExecuteModel = !!selectedAction && modelEnrolledCount > 0;
+  const modelDisplayName = modelSearchMutation.data?.model ?? modelSearchText.trim();
+
+  const handleModelSearch = () => {
+    const term = modelSearchText.trim();
+    if (term.length < 2) return;
+    setResults(null);
+    modelSearchMutation.mutate(term);
+  };
 
   const handleLoadFromHistory = (entry: IntuneHistoryEntry, chosenAction?: IntuneAction) => {
     const preload = {
@@ -320,77 +362,83 @@ export default function IntuneDeviceActionsPage() {
         <Tab label="History" />
       </Tabs>
 
-      {/* â”€â”€ TAB 0: BY MODEL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ── TAB 0: BY MODEL ──────────────────────────────────────────────────── */}
       {tab === 0 && (
         <>
-          {/* Step 1 â€” Model selection */}
+          {/* Step 1 — Model search */}
           <Paper sx={{ p: 2, mb: 2 }}>
-            <Typography variant="h6" gutterBottom>1. Select Device Model</Typography>
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="flex-end">
-              <Autocomplete
+            <Typography variant="h6" gutterBottom>1. Search Intune by Device Model</Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Type a device model name and search Microsoft Intune directly for all
+              enrolled devices of that model.
+            </Typography>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="flex-start">
+              <TextField
                 sx={{ minWidth: 320 }}
-                options={models}
-                loading={modelsLoading}
-                getOptionLabel={(m) => m.brands ? `${m.brands.name} ${m.name}` : m.name}
-                value={selectedModel}
-                onChange={(_, value) => { setSelectedModel(value); setResults(null); }}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label="Device Model"
-                    size="small"
-                    InputProps={{
-                      ...params.InputProps,
-                      endAdornment: (
-                        <>
-                          {modelsLoading ? <CircularProgress size={16} /> : null}
-                          {params.InputProps.endAdornment}
-                        </>
-                      ),
-                    }}
-                  />
-                )}
+                label="Device Model"
+                size="small"
+                value={modelSearchText}
+                onChange={(e) => setModelSearchText(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleModelSearch(); }}
+                placeholder="e.g. Latitude 5440"
               />
-              {selectedModel && (
-                <Button size="small" startIcon={<RefreshIcon />} onClick={() => refetchPreview()} disabled={previewLoading}>
-                  Refresh
-                </Button>
-              )}
+              <Button
+                variant="contained"
+                startIcon={
+                  modelSearchMutation.isPending
+                    ? <CircularProgress size={16} color="inherit" />
+                    : <SearchIcon />
+                }
+                disabled={modelSearchText.trim().length < 2 || modelSearchMutation.isPending}
+                onClick={handleModelSearch}
+              >
+                Search
+              </Button>
             </Stack>
           </Paper>
 
-          {/* Step 2 â€” Device preview */}
-          {selectedModel && (
+          {/* Step 2 — Search results */}
+          {(modelSearchMutation.isPending || modelSearchMutation.isError || modelSearchMutation.data) && (
             <Paper sx={{ p: 2, mb: 2 }}>
-              <Typography variant="h6" gutterBottom>2. Device Preview</Typography>
-              {previewLoading && (
+              <Typography variant="h6" gutterBottom>2. Devices in Intune</Typography>
+              {modelSearchMutation.isPending && (
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <CircularProgress size={20} />
-                  <Typography variant="body2">Loading Intune statusâ€¦</Typography>
+                  <Typography variant="body2">Searching Intune…</Typography>
                 </Box>
               )}
-              {previewError && (
+              {modelSearchMutation.isError && (
                 <Alert severity="error">
-                  Failed to load device preview. Check that Graph permissions are configured and admin consent is granted.
+                  {(modelSearchMutation.error as Error)?.message ??
+                    'Failed to search Intune. Check that Graph permissions are configured and admin consent is granted.'}
                 </Alert>
               )}
-              {preview && !previewLoading && (
+              {modelSearchMutation.data && !modelSearchMutation.isPending && (
                 <>
                   <Stack direction="row" spacing={2} sx={{ mb: 1.5 }} flexWrap="wrap">
-                    <Chip label={`${preview.totalInInventory} in inventory`} size="small" variant="outlined" />
-                    <Chip label={`${preview.enrolledCount} enrolled`}       size="small" color="success" />
-                    <Chip label={`${preview.notEnrolledCount} not enrolled`} size="small" color="default" />
+                    <Chip label={`${modelEnrolledCount} found in Intune`} size="small" color="success" />
                   </Stack>
-                  <DeviceTable devices={preview.devices} />
+                  {modelEnrolledCount === 0 ? (
+                    <Alert severity="info">
+                      No Intune devices matched “{modelDisplayName}”. Try a different model string.
+                    </Alert>
+                  ) : (
+                    <DeviceTable devices={modelSearchDevices} />
+                  )}
                 </>
               )}
             </Paper>
           )}
 
-          {/* Step 3 â€” Action */}
-          {preview && preview.enrolledCount > 0 && (
+          {/* Step 3 — Action */}
+          {modelEnrolledCount > 0 && (
             <Paper sx={{ p: 2, mb: 2 }}>
               <Typography variant="h6" gutterBottom>3. Select Action</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                The action will be applied to all {modelEnrolledCount} device
+                {modelEnrolledCount !== 1 ? 's' : ''}, processed in batches of{' '}
+                {INTUNE_DEVICE_ACTION_BATCH_SIZE}.
+              </Typography>
               <ActionSelector
                 selectedAction={selectedAction}
                 setSelectedAction={setSelectedAction}
@@ -400,6 +448,11 @@ export default function IntuneDeviceActionsPage() {
                 isPending={modelActionMutation.isPending}
                 onExecute={() => setConfirmDialogOpen(true)}
               />
+              {batchProgress && (
+                <Typography variant="body2" sx={{ mt: 2 }}>
+                  Processing batch {batchProgress.current} of {batchProgress.total}…
+                </Typography>
+              )}
               {modelActionMutation.isError && (
                 <Alert severity="error" sx={{ mt: 2 }}>
                   {(modelActionMutation.error as Error)?.message ?? 'Action failed.'}
@@ -410,7 +463,7 @@ export default function IntuneDeviceActionsPage() {
         </>
       )}
 
-      {/* â”€â”€ TAB 1: SCAN WIZARD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ── TAB 1: SCAN WIZARD ───────────────────────────────────────────────── */}
       {tab === 1 && (
         <>
           <IntuneScanWizardTab
@@ -593,7 +646,7 @@ export default function IntuneDeviceActionsPage() {
         </Box>
       )}
 
-      {/* â”€â”€ RESULTS (shared) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ── RESULTS (shared) ─────────────────────────────────────────────────── */}
       {results && (
         <Paper sx={{ p: 2 }}>
           <Typography variant="h6" gutterBottom>Results</Typography>
@@ -625,16 +678,16 @@ export default function IntuneDeviceActionsPage() {
               <TableBody>
                 {results.results.map((r, i) => (
                   <TableRow key={r.intuneDeviceId || r.serialNumber || i}>
-                    <TableCell>{r.assetTag ?? r.serialNumber ?? 'â€”'}</TableCell>
-                    <TableCell>{r.serialNumber || 'â€”'}</TableCell>
+                    <TableCell>{r.assetTag ?? r.serialNumber ?? '—'}</TableCell>
+                    <TableCell>{r.serialNumber || '—'}</TableCell>
                     <TableCell>
                       <Chip label={r.status} size="small" color={STATUS_CHIP_COLOUR[r.status] ?? 'default'} />
                     </TableCell>
                     {results.action === 'fullDecommission' && (
                       <>
-                        <TableCell>{r.stepResults?.deleteDevice   ?? 'â€”'}</TableCell>
-                        <TableCell>{r.stepResults?.removeAutopilot ?? 'â€”'}</TableCell>
-                        <TableCell>{r.stepResults?.removeEntra     ?? 'â€”'}</TableCell>
+                        <TableCell>{r.stepResults?.deleteDevice   ?? '—'}</TableCell>
+                        <TableCell>{r.stepResults?.removeAutopilot ?? '—'}</TableCell>
+                        <TableCell>{r.stepResults?.removeEntra     ?? '—'}</TableCell>
                       </>
                     )}
                     <TableCell sx={{ color: 'error.main', fontSize: 12 }}>{r.error ?? ''}</TableCell>

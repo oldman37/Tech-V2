@@ -9,6 +9,7 @@ import type {
   BulkActionSchema,
   SingleActionSchema,
   DeviceSearchSchema,
+  SearchByModelSchema,
   DeviceListActionSchema,
   ActionLogsQuerySchema,
 } from '../validators/intuneDevice.validators';
@@ -114,6 +115,23 @@ export const searchDevices = async (
   try {
     const body = req.body as z.infer<typeof DeviceSearchSchema>;
     const result = await service.searchDevicesByNames(body.deviceNames);
+    res.json(result);
+  } catch (error) {
+    handleControllerError(error, res);
+  }
+};
+
+// ---------------------------------------------------------------------------
+// Search Intune directly by model string (direct Intune lookup)
+// ---------------------------------------------------------------------------
+
+export const searchDevicesByModel = async (
+  req: AuthRequest,
+  res: Response,
+): Promise<void> => {
+  try {
+    const body = req.body as z.infer<typeof SearchByModelSchema>;
+    const result = await service.searchDevicesByModelName(body.model);
     res.json(result);
   } catch (error) {
     handleControllerError(error, res);

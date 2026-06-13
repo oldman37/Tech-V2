@@ -10,6 +10,7 @@ import {
   BulkActionSchema,
   SingleActionSchema,
   DeviceSearchSchema,
+  SearchByModelSchema,
   DeviceListActionSchema,
   ActionLogsQuerySchema,
 } from '../validators/intuneDevice.validators';
@@ -70,6 +71,14 @@ router.post(
   requireDeviceManagementAccess(),
   validateRequest(DeviceSearchSchema),
   controller.searchDevices,
+);
+
+router.post(
+  '/devices/search-by-model',
+  validateCsrfToken,
+  requireDeviceManagementAccess(),
+  validateRequest(SearchByModelSchema),
+  controller.searchDevicesByModel,
 );
 
 router.post(

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { INTUNE_DEVICE_ACTION_BATCH_SIZE } from '@mgspe/shared-types';
 
 const IntuneActionSchema = z.enum([
   'syncDevice',
@@ -48,11 +49,18 @@ export const DeviceSearchSchema = z.object({
     .max(50, 'Maximum 50 device names per search'),
 });
 
+export const SearchByModelSchema = z.object({
+  model: z.string().trim().min(2, 'Enter at least 2 characters').max(200),
+});
+
 export const DeviceListActionSchema = z.object({
   intuneDeviceIds: z
     .array(z.string().min(1).max(300))
     .min(1, 'At least one device ID is required')
-    .max(50, 'Maximum 50 devices per action'),
+    .max(
+      INTUNE_DEVICE_ACTION_BATCH_SIZE,
+      `Maximum ${INTUNE_DEVICE_ACTION_BATCH_SIZE} devices per action`,
+    ),
   action:      IntuneActionSchema,
   confirm:     z.boolean(),
   keepUserData: z.boolean().optional(),
