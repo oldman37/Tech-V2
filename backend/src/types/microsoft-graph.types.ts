@@ -204,3 +204,17 @@ export interface BatchResponseItem {
 
 export type IntuneDeviceCollection = GraphCollectionResponse<IntuneDevice>;
 export type AutopilotDeviceCollection = GraphCollectionResponse<AutopilotDevice>;
+
+/**
+ * Microsoft Graph BitLocker recovery key object.
+ * The `key` field is only present when fetching a single key with ?$select=key.
+ * @see https://learn.microsoft.com/en-us/graph/api/resources/bitlockerrecoverykey
+ */
+export interface GraphBitLockerKey {
+  id: string;
+  createdDateTime: string | null;
+  volumeType: string | null;
+  deviceId: string | null;
+  key?: string;
+}
+export type GraphBitLockerKeyCollection = GraphCollectionResponse<GraphBitLockerKey>;

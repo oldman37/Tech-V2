@@ -348,3 +348,27 @@ export interface ReconciliationReport {
   inInventoryOnly: InventoryOnlyDevice[];
   staleDevices: StaleIntuneDevice[];
 }
+
+// ---------------------------------------------------------------------------
+// BitLocker key lookup
+// ---------------------------------------------------------------------------
+
+/** A single BitLocker recovery key entry returned by Graph. */
+export interface BitLockerKeyEntry {
+  id: string;
+  createdDateTime: string | null;
+  volumeType: string | null;
+  /** 48-digit recovery key (6 groups of 6 digits separated by dashes). */
+  key: string;
+}
+
+/** Response from GET /api/intune/bitlocker/by-name/:deviceName */
+export interface BitLockerKeyResponse {
+  /** Serial number from Intune (null if device not found). */
+  serialNumber: string | null;
+  assetTag: string | null;
+  deviceName: string | null;
+  intuneDeviceId: string | null;
+  entraObjectId: string | null;
+  keys: BitLockerKeyEntry[];
+}

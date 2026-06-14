@@ -21,6 +21,10 @@ export const SerialNumberParamSchema = z.object({
   serialNumber: z.string().min(1).max(200),
 });
 
+export const DeviceNameParamSchema = z.object({
+  deviceName: z.string().min(1).max(300),
+});
+
 export const BulkActionSchema = z.object({
   modelId:      z.string().uuid('Invalid model ID'),
   action:       IntuneActionSchema,

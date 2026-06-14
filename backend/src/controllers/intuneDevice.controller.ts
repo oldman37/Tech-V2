@@ -181,6 +181,23 @@ export const getReconciliationReport = async (
 };
 
 // ---------------------------------------------------------------------------
+// BitLocker key lookup
+// ---------------------------------------------------------------------------
+
+export const getBitLockerKeys = async (
+  req: AuthRequest,
+  res: Response,
+): Promise<void> => {
+  try {
+    const { deviceName } = req.params as { deviceName: string };
+    const result = await service.getBitLockerKeys(deviceName, req.user!.id);
+    res.json(result);
+  } catch (error) {
+    handleControllerError(error, res);
+  }
+};
+
+// ---------------------------------------------------------------------------
 // Audit logs
 // ---------------------------------------------------------------------------
 

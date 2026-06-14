@@ -7,6 +7,7 @@ import * as controller from '../controllers/intuneDevice.controller';
 import {
   ModelIdParamSchema,
   SerialNumberParamSchema,
+  DeviceNameParamSchema,
   BulkActionSchema,
   SingleActionSchema,
   DeviceSearchSchema,
@@ -28,6 +29,13 @@ router.get(
   '/reconciliation',
   requireDeviceManagementAccess(),
   controller.getReconciliationReport,
+);
+
+router.get(
+  '/bitlocker/by-name/:deviceName',
+  requireDeviceManagementAccess(),
+  validateRequest(DeviceNameParamSchema, 'params'),
+  controller.getBitLockerKeys,
 );
 
 router.get(

@@ -12,6 +12,7 @@ import type {
   DeviceListActionRequest,
   IntuneActionLogsResponse,
   ReconciliationReport,
+  BitLockerKeyResponse,
 } from '@mgspe/shared-types';
 
 const BASE = '/intune';
@@ -49,4 +50,7 @@ export const intuneService = {
 
   getReconciliation: (): Promise<ReconciliationReport> =>
     api.get(`${BASE}/reconciliation`).then((r) => r.data),
+
+  getBitLockerKeys: (deviceName: string): Promise<BitLockerKeyResponse> =>
+    api.get(`${BASE}/bitlocker/by-name/${encodeURIComponent(deviceName)}`).then((r) => r.data),
 };

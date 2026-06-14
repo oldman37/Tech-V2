@@ -9,6 +9,8 @@ import type {
   AutopilotDeviceCollection,
   BatchRequestItem,
   BatchResponseItem,
+  GraphBitLockerKey,
+  GraphBitLockerKeyCollection,
 } from '../types/microsoft-graph.types';
 import type {
   IntuneAction,
@@ -24,6 +26,8 @@ import type {
   IntuneOnlyDevice,
   InventoryOnlyDevice,
   StaleIntuneDevice,
+  BitLockerKeyEntry,
+  BitLockerKeyResponse,
 } from '@mgspe/shared-types';
 
 const log = createLogger('IntuneDeviceService');
@@ -115,6 +119,28 @@ async function getDeviceBySerial(serialNumber: string): Promise<IntuneDevice | n
       .get(),
   );
   return page.value?.[0] ?? null;
+}
+
+async function getDeviceByName(deviceName: string): Promise<IntuneDevice | null> {
+  const client = await createGraphClient();
+  const safeName = escapeOdata(deviceName);
+  const select =
+    'id,deviceName,serialNumber,operatingSystem,complianceState,lastSyncDateTime,enrolledDateTime,managedDeviceOwnerType,azureADDeviceId,model';
+
+  // Exact match first; falls back to contains for partial names (e.g. barcode suffix)
+  const exactPage: IntuneDeviceCollection = await withRetry(() =>
+    client
+      .api(`/deviceManagement/managedDevices?$filter=deviceName eq '${safeName}'&$select=${select}&$top=1`)
+      .get(),
+  );
+  if (exactPage.value?.[0]) return exactPage.value[0];
+
+  const containsPage: IntuneDeviceCollection = await withRetry(() =>
+    client
+      .api(`/deviceManagement/managedDevices?$filter=contains(deviceName,'${safeName}')&$select=${select}&$top=1`)
+      .get(),
+  );
+  return containsPage.value?.[0] ?? null;
 }
 
 async function getAutopilotIdentity(serialNumber: string): Promise<AutopilotDevice | null> {
@@ -1281,6 +1307,114 @@ export async function getReconciliationReport(): Promise<ReconciliationReport> {
     inIntuneOnly,
     inInventoryOnly,
     staleDevices,
+  };
+}
+
+export async function getBitLockerKeys(
+  deviceName: string,
+  requestedBy: string,
+): Promise<BitLockerKeyResponse> {
+  // Step 1: Resolve Intune device by name (exact match → contains fallback)
+  let intuneDevice: IntuneDevice | null = null;
+  try {
+    intuneDevice = await getDeviceByName(deviceName);
+  } catch (err) {
+    log.error('getBitLockerKeys: failed to query Intune by device name', { deviceName, error: err });
+    throw new AppError('Failed to retrieve Intune device', 502, 'GRAPH_ERROR');
+  }
+
+  if (!intuneDevice) {
+    return { serialNumber: null, assetTag: null, deviceName: null, intuneDeviceId: null, entraObjectId: null, keys: [] };
+  }
+
+  const serialNumber = intuneDevice.serialNumber;
+
+  // Step 2: Resolve asset tag from inventory using the serial returned by Intune
+  const eq = serialNumber
+    ? await prisma.equipment.findFirst({
+        where: { serialNumber },
+        select: { assetTag: true },
+      })
+    : null;
+  const assetTag = eq?.assetTag ?? null;
+
+  // Step 3: The BitLocker recovery key API filters by azureADDeviceId (the hardware device GUID
+  // that Intune stores as azureADDeviceId), NOT the Entra device object ID.
+  const azureADDeviceId = intuneDevice.azureADDeviceId;
+  if (!azureADDeviceId) {
+    return {
+      serialNumber,
+      assetTag,
+      deviceName: intuneDevice.deviceName,
+      intuneDeviceId: intuneDevice.id,
+      entraObjectId: null,
+      keys: [],
+    };
+  }
+
+  // Step 4: List BitLocker key metadata — filter by azureADDeviceId
+  const client = await createGraphClient();
+  const safeId = escapeOdata(azureADDeviceId);
+  let keyList: GraphBitLockerKey[] = [];
+  try {
+    const resp: GraphBitLockerKeyCollection = await withRetry(() =>
+      client
+        .api(
+          `/informationProtection/bitlocker/recoveryKeys?$filter=deviceId eq '${safeId}'&$select=id,createdDateTime,volumeType,deviceId`,
+        )
+        .get(),
+    );
+    keyList = resp.value ?? [];
+  } catch (err: unknown) {
+    const status = (err as { statusCode?: number })?.statusCode;
+    if (status === 403) {
+      throw new AppError(
+        'BitLockerKey.Read.All permission not granted. Ask your Azure administrator to grant this permission on the Entra app registration.',
+        503,
+        'BITLOCKER_PERMISSION_DENIED',
+      );
+    }
+    log.error('getBitLockerKeys: failed to list BitLocker keys from Graph', { serialNumber, azureADDeviceId, error: err });
+    throw new AppError('Failed to retrieve BitLocker keys', 502, 'GRAPH_ERROR');
+  }
+
+  // Step 5: Fetch the actual 48-digit key value for each key ID.
+  // Each call is permanently audit-logged by Microsoft in Azure AD — never log key values here.
+  const keys: BitLockerKeyEntry[] = [];
+  for (const meta of keyList) {
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      const detail: GraphBitLockerKey = await withRetry(() =>
+        client.api(`/informationProtection/bitlocker/recoveryKeys/${meta.id}?$select=key`).get(),
+      );
+      keys.push({
+        id:              meta.id,
+        createdDateTime: meta.createdDateTime,
+        volumeType:      meta.volumeType,
+        key:             detail.key ?? '',
+      });
+    } catch (err) {
+      log.warn('getBitLockerKeys: could not retrieve key value', { keyId: meta.id, error: err });
+      keys.push({ id: meta.id, createdDateTime: meta.createdDateTime, volumeType: meta.volumeType, key: '' });
+    }
+  }
+
+  log.info('BitLocker keys accessed', {
+    requestedBy,
+    deviceName,
+    serialNumber,
+    intuneDeviceId: intuneDevice.id,
+    azureADDeviceId,
+    keyCount: keys.length,
+  });
+
+  return {
+    serialNumber,
+    assetTag,
+    deviceName: intuneDevice.deviceName,
+    intuneDeviceId: intuneDevice.id,
+    entraObjectId: azureADDeviceId,
+    keys,
   };
 }
 

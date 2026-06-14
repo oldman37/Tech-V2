@@ -27,10 +27,12 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import SearchIcon     from '@mui/icons-material/Search';
-import PlayArrowIcon  from '@mui/icons-material/PlayArrow';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import SearchIcon      from '@mui/icons-material/Search';
+import PlayArrowIcon   from '@mui/icons-material/PlayArrow';
+import ExpandMoreIcon  from '@mui/icons-material/ExpandMore';
+import ExpandLessIcon  from '@mui/icons-material/ExpandLess';
+import VisibilityIcon  from '@mui/icons-material/Visibility';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import {
   INTUNE_ACTION_LABELS,
@@ -39,6 +41,7 @@ import {
   type IntuneAction,
   type BulkDeviceActionResponse,
   type IntuneDevicePreview,
+  type BitLockerKeyResponse,
 } from '@mgspe/shared-types';
 import { intuneService } from '../../services/intuneService';
 import DeviceActionConfirmDialog from '../../components/DeviceActionConfirmDialog';
@@ -196,7 +199,7 @@ function ActionSelector({
 // ─── Main component ─────────────────────────────────────────────────────────
 
 export default function IntuneDeviceActionsPage() {
-  const [tab, setTab] = useState<0 | 1 | 2 | 3>(0);
+  const [tab, setTab] = useState<0 | 1 | 2 | 3 | 4>(0);
   const [historyEntries,   setHistoryEntries]   = useState<IntuneHistoryEntry[]>(() => loadHistory());
   const [reloadKey,        setReloadKey]        = useState(0);
   const [preloadedDevices, setPreloadedDevices] = useState<{
@@ -342,6 +345,22 @@ export default function IntuneDeviceActionsPage() {
     retry: 1,
   });
 
+  // ── Tab 4: BitLocker key lookup ────────────────────────────────────────────
+  const [bitlockerDeviceName, setBitlockerDeviceName] = useState('');
+  const [revealedKeys,        setRevealedKeys]        = useState<Set<string>>(new Set());
+  const [copiedKeyId,         setCopiedKeyId]         = useState<string | null>(null);
+
+  const bitlockerMutation = useMutation<BitLockerKeyResponse, Error, string>({
+    mutationFn: (name: string) => intuneService.getBitLockerKeys(name),
+    onSuccess: () => { setRevealedKeys(new Set()); setCopiedKeyId(null); },
+  });
+
+  const handleBitLockerLookup = () => {
+    const name = bitlockerDeviceName.trim();
+    if (name.length < 2) return;
+    bitlockerMutation.mutate(name);
+  };
+
   // ── Results table derived state ──────────────────────────────────────────────
   const filteredResults = results
     ? results.results.filter((r) => {
@@ -375,7 +394,7 @@ export default function IntuneDeviceActionsPage() {
         value={tab}
         onChange={(_, v) => {
           if (v === 1 || v === 2) setHistoryEntries(loadHistory());
-          setTab(v as 0 | 1 | 2 | 3);
+          setTab(v as 0 | 1 | 2 | 3 | 4);
           setResults(null);
           setIsDryRun(true);
         }}
@@ -385,6 +404,7 @@ export default function IntuneDeviceActionsPage() {
         <Tab label="Scan / Search by Name" />
         <Tab label="History" />
         <Tab label="Reconciliation" />
+        <Tab label="BitLocker" />
       </Tabs>
 
       {/* ── TAB 0: BY MODEL ──────────────────────────────────────────────────── */}
@@ -1054,6 +1074,145 @@ export default function IntuneDeviceActionsPage() {
                 )}
               </Paper>
             </>
+          )}
+        </Box>
+      )}
+
+      {/* ── TAB 4: BITLOCKER ────────────────────────────────────────────────── */}
+      {tab === 4 && (
+        <Box>
+          <Paper sx={{ p: 2, mb: 2 }}>
+            <Typography variant="h6" gutterBottom>BitLocker Recovery Key Lookup</Typography>
+            <Alert severity="warning" sx={{ mb: 2 }}>
+              Each key retrieval is permanently audit-logged in Microsoft Azure AD.
+              Only look up keys for active, authorized help-desk requests.
+            </Alert>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="flex-start">
+              <TextField
+                label="Device Name"
+                size="small"
+                sx={{ minWidth: 280 }}
+                value={bitlockerDeviceName}
+                onChange={(e) => setBitlockerDeviceName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleBitLockerLookup(); }}
+                placeholder="e.g. OCS-56538"
+              />
+              <Button
+                variant="contained"
+                startIcon={
+                  bitlockerMutation.isPending
+                    ? <CircularProgress size={16} color="inherit" />
+                    : <SearchIcon />
+                }
+                disabled={bitlockerDeviceName.trim().length < 2 || bitlockerMutation.isPending}
+                onClick={handleBitLockerLookup}
+              >
+                Look Up Keys
+              </Button>
+            </Stack>
+          </Paper>
+
+          {bitlockerMutation.isError && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {(bitlockerMutation.error as unknown as { response?: { data?: { message?: string } } })
+                ?.response?.data?.message
+                ?? bitlockerMutation.error.message
+                ?? 'Failed to retrieve BitLocker keys.'}
+            </Alert>
+          )}
+
+          {bitlockerMutation.data && (
+            <Paper sx={{ p: 2 }}>
+              <Typography variant="h6" gutterBottom>Device Info</Typography>
+              <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mb: 2 }}>
+                {bitlockerMutation.data.deviceName && (
+                  <Chip label={`Device: ${bitlockerMutation.data.deviceName}`} variant="outlined" size="small" />
+                )}
+                {bitlockerMutation.data.serialNumber && (
+                  <Chip label={`Serial: ${bitlockerMutation.data.serialNumber}`} variant="outlined" size="small" />
+                )}
+                {bitlockerMutation.data.assetTag && (
+                  <Chip label={`Asset Tag: ${bitlockerMutation.data.assetTag}`} variant="outlined" size="small" />
+                )}
+                {!bitlockerMutation.data.intuneDeviceId && (
+                  <Chip label="Not found in Intune" color="error" size="small" />
+                )}
+                {bitlockerMutation.data.intuneDeviceId && !bitlockerMutation.data.entraObjectId && (
+                  <Chip label="Not found in Entra ID" color="warning" size="small" />
+                )}
+              </Stack>
+
+              {bitlockerMutation.data.keys.length === 0 ? (
+                <Alert severity="info">
+                  {!bitlockerMutation.data.intuneDeviceId
+                    ? 'Device not found in Intune. Verify the serial number.'
+                    : !bitlockerMutation.data.entraObjectId
+                    ? 'Device found in Intune but not in Entra ID. BitLocker keys cannot be retrieved.'
+                    : 'No BitLocker recovery keys found. The device may not be Windows or BitLocker may not be enabled.'}
+                </Alert>
+              ) : (
+                <>
+                  <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                    Recovery Keys ({bitlockerMutation.data.keys.length})
+                  </Typography>
+                  <Stack spacing={1.5}>
+                    {bitlockerMutation.data.keys.map((k) => (
+                      <Paper key={k.id} variant="outlined" sx={{ p: 1.5 }}>
+                        <Stack spacing={1}>
+                          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                            {k.volumeType && (
+                              <Chip label={k.volumeType} size="small" variant="outlined" />
+                            )}
+                            {k.createdDateTime && (
+                              <Typography variant="caption" color="text.secondary">
+                                Created: {new Date(k.createdDateTime).toLocaleString()}
+                              </Typography>
+                            )}
+                          </Stack>
+                          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                            <Typography
+                              variant="body2"
+                              fontFamily="monospace"
+                              sx={revealedKeys.has(k.id) ? { letterSpacing: 1, userSelect: 'all' } : { filter: 'blur(4px)', userSelect: 'none' }}
+                            >
+                              {revealedKeys.has(k.id)
+                                ? (k.key || '(key value unavailable)')
+                                : '000000-000000-000000-000000-000000-000000'}
+                            </Typography>
+                            <Button
+                              size="small"
+                              startIcon={<VisibilityIcon fontSize="small" />}
+                              onClick={() =>
+                                setRevealedKeys((prev) => {
+                                  const next = new Set(prev);
+                                  if (next.has(k.id)) next.delete(k.id); else next.add(k.id);
+                                  return next;
+                                })
+                              }
+                            >
+                              {revealedKeys.has(k.id) ? 'Hide' : 'Reveal'}
+                            </Button>
+                            {k.key && (
+                              <Button
+                                size="small"
+                                startIcon={<ContentCopyIcon fontSize="small" />}
+                                onClick={() => {
+                                  void navigator.clipboard.writeText(k.key);
+                                  setCopiedKeyId(k.id);
+                                  setTimeout(() => setCopiedKeyId((prev) => prev === k.id ? null : prev), 2000);
+                                }}
+                              >
+                                {copiedKeyId === k.id ? 'Copied!' : 'Copy'}
+                              </Button>
+                            )}
+                          </Stack>
+                        </Stack>
+                      </Paper>
+                    ))}
+                  </Stack>
+                </>
+              )}
+            </Paper>
           )}
         </Box>
       )}
