@@ -474,37 +474,51 @@ async function writeInventoryDisposals(
 ): Promise<void> {
   if (action !== 'fullDecommission' && action !== 'deleteDevice') return;
 
-  const serialsToDispose = results
-    .filter((r) => {
-      if (!r.serialNumber) return false;
-      if (action === 'fullDecommission') {
-        return (
-          r.status === 'success' ||
-          (r.status === 'partial' && r.stepResults?.deleteDevice === 'success')
-        );
-      }
-      return r.status === 'success';
-    })
-    .map((r) => r.serialNumber);
+  const isSuccessful = (r: DeviceActionResult) => {
+    if (action === 'fullDecommission') {
+      return (
+        r.status === 'success' ||
+        (r.status === 'partial' && r.stepResults?.deleteDevice === 'success')
+      );
+    }
+    return r.status === 'success';
+  };
 
-  if (serialsToDispose.length === 0) return;
+  const serialsToDispose  = results.filter((r) =>  !!r.serialNumber && isSuccessful(r)).map((r) => r.serialNumber);
+  // Fallback for OCS-named devices that have no serial in Intune — match by asset tag instead
+  const assetTagsToDispose = results.filter((r) => !r.serialNumber && !!r.assetTag && isSuccessful(r)).map((r) => r.assetTag as string);
 
-  const updated = await prisma.equipment.updateMany({
-    where: {
-      serialNumber: { in: serialsToDispose },
-      isDisposed: false,
-    },
-    data: {
-      isDisposed:    true,
-      disposedDate:  new Date(),
-      disposedReason: `Decommissioned via Intune — IntuneActionLog/${logId}`,
-      status:        'disposed',
-    },
-  });
+  if (serialsToDispose.length === 0 && assetTagsToDispose.length === 0) return;
 
-  log.info(`Inventory write-back: marked ${updated.count} device(s) as disposed`, {
+  const disposalData = {
+    isDisposed:     true,
+    disposedDate:   new Date(),
+    disposedReason: `Decommissioned via Intune — IntuneActionLog/${logId}`,
+    status:         'disposed',
+  } as const;
+
+  let totalCount = 0;
+
+  if (serialsToDispose.length > 0) {
+    const updated = await prisma.equipment.updateMany({
+      where: { serialNumber: { in: serialsToDispose }, isDisposed: false },
+      data:  disposalData,
+    });
+    totalCount += updated.count;
+  }
+
+  if (assetTagsToDispose.length > 0) {
+    const updated = await prisma.equipment.updateMany({
+      where: { assetTag: { in: assetTagsToDispose }, isDisposed: false },
+      data:  disposalData,
+    });
+    totalCount += updated.count;
+  }
+
+  log.info(`Inventory write-back: marked ${totalCount} device(s) as disposed`, {
     logId,
-    serials: serialsToDispose,
+    serials:   serialsToDispose,
+    assetTags: assetTagsToDispose,
   });
 }
 
@@ -1137,7 +1151,14 @@ export async function executeDeviceListAction(
       });
       continue;
     }
-    const assetTag = device.serialNumber ? (assetTagMap.get(device.serialNumber) ?? null) : null;
+    let assetTag: string | null = null;
+    if (device.serialNumber) {
+      assetTag = assetTagMap.get(device.serialNumber) ?? null;
+    } else if (device.deviceName) {
+      // OCS-named devices (e.g. "OCS-54953") have no serial in Intune — derive asset tag from name
+      const ocsMatch = /^OCS-(\d+)$/i.exec(device.deviceName);
+      if (ocsMatch) assetTag = ocsMatch[1];
+    }
     // eslint-disable-next-line no-await-in-loop
     const result = await executeActionOnDevice(device, action, options, assetTag);
     allResults.push(result);

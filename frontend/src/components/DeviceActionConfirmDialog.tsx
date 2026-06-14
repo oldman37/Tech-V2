@@ -19,6 +19,7 @@ import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import DeleteForeverIcon from '@mui/icons-material/DeleteForever';
 import PhonelinkEraseIcon from '@mui/icons-material/PhonelinkErase';
 import DevicesOtherIcon from '@mui/icons-material/DevicesOther';
+import InventoryIcon from '@mui/icons-material/Inventory';
 import {
   INTUNE_ACTION_LABELS,
   INTUNE_ACTION_RISK,
@@ -155,6 +156,12 @@ export default function DeviceActionConfirmDialog({
                   <DeleteForeverIcon fontSize="small" color="error" />
                 </ListItemIcon>
                 <ListItemText primary="Entra ID device object" />
+              </ListItem>
+              <ListItem disableGutters>
+                <ListItemIcon sx={{ minWidth: 32 }}>
+                  <InventoryIcon fontSize="small" color="error" />
+                </ListItemIcon>
+                <ListItemText primary="Equipment marked as disposed in inventory" />
               </ListItem>
             </List>
           </>
