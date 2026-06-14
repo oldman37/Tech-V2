@@ -52,10 +52,10 @@ interface RefData {
 }
 
 interface FormState {
-  categoryId:       string | null;
-  locationId:       string | null;
-  brandId:          string | null;
-  modelId:          string | null;
+  categoryId:        string | null;
+  officeLocationId:  string | null;
+  brandId:           string | null;
+  modelId:           string | null;
   vendorId:         string | null;
   poNumber:         string;
   fundingSourceId:  string | null;
@@ -66,10 +66,10 @@ interface FormState {
 }
 
 const EMPTY_FORM: FormState = {
-  categoryId:      null,
-  locationId:      null,
-  brandId:         null,
-  modelId:         null,
+  categoryId:       null,
+  officeLocationId: null,
+  brandId:          null,
+  modelId:          null,
   vendorId:        null,
   poNumber:        '',
   fundingSourceId: null,
@@ -119,14 +119,36 @@ export default function IntuneToInventoryDialog({ open, devices, onClose, onSucc
         setRefError(null);
       }
 
+      const brands  = brRes.status  === 'fulfilled' ? brRes.value.items  : [];
+      const models  = modRes.status === 'fulfilled' ? modRes.value.items : [];
+
       setRefData({
-        locations:     locRes.status === 'fulfilled' ? locRes.value : [],
-        fundingSources: fsRes.status === 'fulfilled' ? fsRes.value.items : [],
-        brands:        brRes.status === 'fulfilled' ? brRes.value.items : [],
-        vendors:       vendRes.status === 'fulfilled' ? vendRes.value.items : [],
-        categories:    catRes.status === 'fulfilled' ? catRes.value.items : [],
-        models:        modRes.status === 'fulfilled' ? modRes.value.items : [],
+        locations:      locRes.status  === 'fulfilled' ? locRes.value         : [],
+        fundingSources: fsRes.status   === 'fulfilled' ? fsRes.value.items    : [],
+        brands,
+        vendors:        vendRes.status === 'fulfilled' ? vendRes.value.items  : [],
+        categories:     catRes.status  === 'fulfilled' ? catRes.value.items   : [],
+        models,
       });
+
+      // Pre-fill brand and model from Intune when all selected devices share the same values
+      const uniqueManufacturers = [...new Set(devices.map((d) => d.manufacturer?.trim().toLowerCase()).filter(Boolean))];
+      const uniqueModels        = [...new Set(devices.map((d) => d.model?.trim().toLowerCase()).filter(Boolean))];
+
+      if (uniqueManufacturers.length === 1) {
+        const matchedBrand = brands.find((b) => b.name.toLowerCase() === uniqueManufacturers[0]);
+        if (matchedBrand) {
+          const brandModels = models.filter((m) => m.brandId === matchedBrand.id);
+          const matchedModel = uniqueModels.length === 1
+            ? brandModels.find((m) => m.name.toLowerCase() === uniqueModels[0])
+            : undefined;
+          setForm((f) => ({
+            ...f,
+            brandId: matchedBrand.id,
+            modelId: matchedModel?.id ?? null,
+          }));
+        }
+      }
     })();
   }, [open]);
 
@@ -157,8 +179,8 @@ export default function IntuneToInventoryDialog({ open, devices, onClose, onSucc
           model:          d.model,
           manufacturer:   d.manufacturer,
         })),
-        categoryId:      form.categoryId      || null,
-        locationId:      form.locationId      || null,
+        categoryId:       form.categoryId       || null,
+        officeLocationId: form.officeLocationId || null,
         brandId:         form.brandId         || null,
         modelId:         form.modelId         || null,
         vendorId:        form.vendorId        || null,
@@ -234,14 +256,14 @@ export default function IntuneToInventoryDialog({ open, devices, onClose, onSucc
               />
             </Grid>
 
-            {/* Location */}
+            {/* School / Office Location */}
             <Grid size={{ xs: 12, sm: 6 }}>
               <Autocomplete
                 options={refData?.locations ?? []}
                 getOptionLabel={(o) => o.name}
-                value={refData?.locations.find((l) => l.id === form.locationId) ?? null}
-                onChange={(_, v) => set('locationId', v?.id ?? null)}
-                renderInput={(params) => <TextField {...params} label="Location" size="small" />}
+                value={refData?.locations.find((l) => l.id === form.officeLocationId) ?? null}
+                onChange={(_, v) => set('officeLocationId', v?.id ?? null)}
+                renderInput={(params) => <TextField {...params} label="School / Location" size="small" />}
               />
             </Grid>
 
