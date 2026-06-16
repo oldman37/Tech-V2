@@ -699,7 +699,7 @@ export default function IntuneDeviceActionsPage() {
             key={reloadKey}
             initialLookupResult={preloadedDevices ?? undefined}
             initialAction={preloadedAction}
-            onActionComplete={() => { setHistoryEntries(loadHistory()); setHistoryActions({}); }}
+            onActionComplete={() => { setHistoryEntries(loadHistory()); setHistoryActions({}); setPreloadedDevices(null); setPreloadedAction(undefined); }}
           />
           {/* Compact history panel below wizard */}
           {historyEntries.length > 0 && (
