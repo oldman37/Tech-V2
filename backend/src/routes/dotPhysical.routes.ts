@@ -74,7 +74,7 @@ router.delete(
   '/:id',
   authenticate,
   validateCsrfToken,
-  requireModule('TRANSPORTATION', 3),
+  requireModule('TRANSPORTATION', 2),
   controller.deletePhysical,
 );
 

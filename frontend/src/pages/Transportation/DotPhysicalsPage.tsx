@@ -464,7 +464,7 @@ export default function DotPhysicalsPage() {
                     </IconButton>
                   </Tooltip>
                 )}
-                {permLevel >= 3 && (
+                {permLevel >= 2 && (
                   <Tooltip title="Delete">
                     <IconButton
                       size="small"

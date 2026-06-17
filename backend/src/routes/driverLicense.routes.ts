@@ -115,12 +115,12 @@ router.delete(
   controller.deactivateLicense,
 );
 
-// DELETE /api/driver-licenses/:id/hard  — permanent hard delete (level 3+, admin)
+// DELETE /api/driver-licenses/:id/hard  — permanent hard delete (level 2+, secretary/director/admin)
 router.delete(
   '/:id/hard',
   authenticate,
   validateCsrfToken,
-  requireModule('TRANSPORTATION', 3),
+  requireModule('TRANSPORTATION', 2),
   controller.deleteLicense,
 );
 

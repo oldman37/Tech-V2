@@ -344,8 +344,8 @@ export default function DriverLicensePage() {
                   </Tooltip>
                 )}
 
-                {/* Hard delete — admin / level 3+ only */}
-                {permLevel >= 3 && (
+                {/* Hard delete — secretary / level 2+ */}
+                {permLevel >= 2 && (
                   <Tooltip title="Delete Permanently">
                     <IconButton
                       size="small"
