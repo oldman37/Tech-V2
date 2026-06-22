@@ -1,13 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
-import { Box, Button, Typography } from '@mui/material';
-import ShoppingCartCheckoutIcon from '@mui/icons-material/ShoppingCartCheckout';
-import { useNavigate } from 'react-router-dom';
+import { Box, Typography } from '@mui/material';
 import { checkoutReportService } from '../../services/checkoutReport.service';
 import { DashboardWidgets } from '../../components/DeviceManagement/DashboardWidgets';
 
 export default function DeviceManagementDashboard() {
-  const navigate = useNavigate();
-
   const { data, isLoading } = useQuery({
     queryKey: ['checkout-reports', 'dashboard'],
     queryFn:  checkoutReportService.getDashboard,
@@ -22,17 +18,10 @@ export default function DeviceManagementDashboard() {
 
   return (
     <Box sx={{ p: { xs: 1, sm: 3 } }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2, flexWrap: 'wrap', gap: 1 }}>
+      <Box sx={{ mb: 2 }}>
         <Typography variant="h4" fontWeight={600}>
           Device Management Dashboard
         </Typography>
-        <Button
-          variant="contained"
-          startIcon={<ShoppingCartCheckoutIcon />}
-          onClick={() => navigate('/device-management/carts/assign')}
-        >
-          Cart Assignment
-        </Button>
       </Box>
       <DashboardWidgets
         data={data}

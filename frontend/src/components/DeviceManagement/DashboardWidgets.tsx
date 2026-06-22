@@ -1,6 +1,7 @@
-import { Box, Card, CardContent, Chip, CircularProgress, Grid, Typography } from '@mui/material';
+import { Box, Card, CardContent, Chip, CircularProgress, Divider, Grid, Typography } from '@mui/material';
 import type { DashboardData, DamageByGradeItem } from '../../types/checkoutReport.types';
 import { gradeLevelLabel } from '../../constants/gradeLevel';
+import { useIsMobile } from '../../hooks/useResponsive';
 
 interface DashboardWidgetsProps {
   data:          DashboardData | undefined;
@@ -22,6 +23,8 @@ function StatCard({ label, value, sub }: { label: string; value: React.ReactNode
 }
 
 export function DashboardWidgets({ data, isLoading, gradeData, gradeLoading }: DashboardWidgetsProps) {
+  const isMobile = useIsMobile();
+
   if (isLoading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
@@ -32,6 +35,102 @@ export function DashboardWidgets({ data, isLoading, gradeData, gradeLoading }: D
 
   if (!data) return null;
 
+  if (isMobile) {
+    return (
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+
+        {/* Card 1: All three stats as a vertical list */}
+        <Card>
+          <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 1 }}>
+              <Typography variant="body1" color="text.secondary">Active Checkouts</Typography>
+              <Typography variant="h6" fontWeight={700}>{data.activeCheckoutsCount}</Typography>
+            </Box>
+            <Divider />
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 1 }}>
+              <Typography variant="body1" color="text.secondary">In Repair</Typography>
+              <Typography variant="h6" fontWeight={700}>{data.devicesInRepairCount}</Typography>
+            </Box>
+            <Divider />
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 1 }}>
+              <Typography variant="body1" color="text.secondary">Outstanding Invoices</Typography>
+              <Typography variant="h6" fontWeight={700}>${parseFloat(data.outstandingInvoiceTotal).toFixed(2)}</Typography>
+            </Box>
+          </CardContent>
+        </Card>
+
+        {/* Card 2: Damage Incidents + Top Models */}
+        <Card>
+          <CardContent>
+            <Typography variant="overline" color="text.secondary">
+              Damage Incidents — Academic Year
+            </Typography>
+            {data.damageIncidentsThisYear.length === 0 ? (
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                No incidents this academic year
+              </Typography>
+            ) : (
+              <Box sx={{ mt: 2, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(52px, 1fr))', gap: 1 }}>
+                {data.damageIncidentsThisYear.map(({ month, count }) => (
+                  <Box key={month} sx={{ textAlign: 'center', p: 1, borderRadius: 1, bgcolor: count > 0 ? 'error.50' : 'action.hover' }}>
+                    <Typography variant="h6" fontWeight={700} color={count > 0 ? 'error.main' : 'text.primary'}>{count}</Typography>
+                    <Typography variant="caption" color="text.secondary">{month.slice(5)}</Typography>
+                  </Box>
+                ))}
+              </Box>
+            )}
+            <Divider sx={{ my: 2 }} />
+            <Typography variant="overline" color="text.secondary">Top Damaged Models</Typography>
+            {data.topDamagedModels.length === 0 ? (
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>No data</Typography>
+            ) : (
+              <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                {data.topDamagedModels.map((m, i) => (
+                  <Box key={i} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Typography variant="body2">{m.brandName ? `${m.brandName} ${m.modelName}` : m.modelName}</Typography>
+                    <Chip size="small" label={m.incidentCount} color="error" variant="outlined" />
+                  </Box>
+                ))}
+              </Box>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Card 3: Damage by Grade */}
+        <Card>
+          <CardContent>
+            <Typography variant="overline" color="text.secondary">
+              Damage by Grade — Academic Year
+            </Typography>
+            {gradeLoading ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}><CircularProgress size={24} /></Box>
+            ) : !gradeData || gradeData.length === 0 ? (
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>No grade-level data this academic year</Typography>
+            ) : (
+              <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                {gradeData.map((row) => {
+                  const max = gradeData[0]?.incidentCount ?? 1;
+                  const pct = Math.round((row.incidentCount / max) * 100);
+                  return (
+                    <Box key={row.gradeLevel} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Typography variant="body2" sx={{ minWidth: 90 }}>{gradeLevelLabel(row.gradeLevel)}</Typography>
+                      <Box sx={{ flex: 1, height: 12, borderRadius: 1, bgcolor: 'error.100', position: 'relative', overflow: 'hidden' }}>
+                        <Box sx={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${pct}%`, bgcolor: 'error.main', borderRadius: 1 }} />
+                      </Box>
+                      <Chip size="small" label={row.incidentCount} color="error" variant="outlined" sx={{ minWidth: 32 }} />
+                    </Box>
+                  );
+                })}
+              </Box>
+            )}
+          </CardContent>
+        </Card>
+
+      </Box>
+    );
+  }
+
+  // ── Desktop layout ──────────────────────────────────────────────────────────
   return (
     <Grid container spacing={3}>
       {/* Row 1: three stat cards */}

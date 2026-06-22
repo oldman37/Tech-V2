@@ -423,18 +423,34 @@ export default function DotPhysicalsPage() {
       </Box>
 
       <Paper>
-        <Tabs
-          value={tab}
-          onChange={(_, v) => { setTab(v); setPage(0); }}
-          sx={{ borderBottom: '1px solid', borderColor: 'divider' }}
-          variant="scrollable"
-          scrollButtons="auto"
-        >
-          <Tab label="All" value="all" />
-          <Tab label="Valid" value="valid" />
-          <Tab label="Expiring Soon" value="expiring_soon" iconPosition="end" />
-          <Tab label="Expired" value="expired" />
-        </Tabs>
+        {isMobile ? (
+          <Box sx={{ p: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}>
+            <select
+              value={tab}
+              onChange={(e) => { setTab(e.target.value as TabValue); setPage(0); }}
+              className="form-select"
+              style={{ width: '100%' }}
+            >
+              <option value="all">All</option>
+              <option value="valid">Valid</option>
+              <option value="expiring_soon">Expiring Soon</option>
+              <option value="expired">Expired</option>
+            </select>
+          </Box>
+        ) : (
+          <Tabs
+            value={tab}
+            onChange={(_, v) => { setTab(v); setPage(0); }}
+            sx={{ borderBottom: '1px solid', borderColor: 'divider' }}
+            variant="scrollable"
+            scrollButtons="auto"
+          >
+            <Tab label="All" value="all" />
+            <Tab label="Valid" value="valid" />
+            <Tab label="Expiring Soon" value="expiring_soon" iconPosition="end" />
+            <Tab label="Expired" value="expired" />
+          </Tabs>
+        )}
 
         {isLoading && (
           <Box display="flex" justifyContent="center" p={4}>

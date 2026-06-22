@@ -224,7 +224,7 @@ export default function CheckoutPage() {
   });
 
   return (
-    <Box sx={{ p: { xs: 1, sm: 3 }, maxWidth: 1400, mx: 'auto' }}>
+    <Box sx={{ p: { xs: 1, sm: 3 } }}>
       <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/device-management')} sx={{ mb: 2 }}>
         Back
       </Button>

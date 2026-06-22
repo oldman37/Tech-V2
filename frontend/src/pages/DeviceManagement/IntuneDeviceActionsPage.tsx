@@ -48,6 +48,7 @@ import DeviceActionConfirmDialog from '../../components/DeviceActionConfirmDialo
 import IntuneToInventoryDialog from '../../components/IntuneToInventoryDialog';
 import IntuneScanWizardTab, { type IntuneHistoryEntry, loadHistory, buildDryRunResult } from './IntuneScanWizardTab';
 import type { IntuneOnlyDevice } from '@mgspe/shared-types';
+import { useIsMobile } from '../../hooks/useResponsive';
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
@@ -201,6 +202,7 @@ function ActionSelector({
 // ─── Main component ─────────────────────────────────────────────────────────
 
 export default function IntuneDeviceActionsPage() {
+  const isMobile = useIsMobile();
   const [tab, setTab] = useState<0 | 1 | 2 | 3 | 4>(0);
   const [historyEntries,   setHistoryEntries]   = useState<IntuneHistoryEntry[]>(() => loadHistory());
   const [reloadKey,        setReloadKey]        = useState(0);
@@ -396,22 +398,45 @@ export default function IntuneDeviceActionsPage() {
       </Typography>
 
       {/* Mode tabs */}
-      <Tabs
-        value={tab}
-        onChange={(_, v) => {
-          if (v === 1 || v === 2) setHistoryEntries(loadHistory());
-          setTab(v as 0 | 1 | 2 | 3 | 4);
-          setResults(null);
-          setIsDryRun(true);
-        }}
-        sx={{ mb: 2, borderBottom: 1, borderColor: 'divider' }}
-      >
-        <Tab label="By Device Model" />
-        <Tab label="Scan / Search by Name" />
-        <Tab label="History" />
-        <Tab label="Reconciliation" />
-        <Tab label="BitLocker" />
-      </Tabs>
+      {isMobile ? (
+        <Box sx={{ mb: 2 }}>
+          <select
+            value={tab}
+            onChange={(e) => {
+              const v = Number(e.target.value) as 0 | 1 | 2 | 3 | 4;
+              if (v === 1 || v === 2) setHistoryEntries(loadHistory());
+              setTab(v);
+              setResults(null);
+              setIsDryRun(true);
+            }}
+            className="form-select"
+            style={{ width: '100%' }}
+          >
+            <option value={0}>By Device Model</option>
+            <option value={1}>Scan / Search by Name</option>
+            <option value={2}>History</option>
+            <option value={3}>Reconciliation</option>
+            <option value={4}>BitLocker</option>
+          </select>
+        </Box>
+      ) : (
+        <Tabs
+          value={tab}
+          onChange={(_, v) => {
+            if (v === 1 || v === 2) setHistoryEntries(loadHistory());
+            setTab(v as 0 | 1 | 2 | 3 | 4);
+            setResults(null);
+            setIsDryRun(true);
+          }}
+          sx={{ mb: 2, borderBottom: 1, borderColor: 'divider' }}
+        >
+          <Tab label="By Device Model" />
+          <Tab label="Scan / Search by Name" />
+          <Tab label="History" />
+          <Tab label="Reconciliation" />
+          <Tab label="BitLocker" />
+        </Tabs>
+      )}
 
       {/* ── TAB 0: BY MODEL ──────────────────────────────────────────────────── */}
       {tab === 0 && (

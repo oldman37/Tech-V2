@@ -8,6 +8,7 @@ import inventoryService from '../services/inventory.service';
 import { locationService } from '../services/location.service';
 import { modelsService, EquipmentModel } from '../services/referenceDataService';
 import { InventoryItem } from '../types/inventory.types';
+import { useIsMobile } from '../hooks/useResponsive';
 import Autocomplete from '@mui/material/Autocomplete';
 import Button from '@mui/material/Button';
 import Checkbox from '@mui/material/Checkbox';
@@ -54,6 +55,7 @@ const BulkDeleteDisposedPage = () => {
   const [rowsPerPage, setRowsPerPage] = useState(25);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [disposeReason, setDisposeReason] = useState('');
+  const isMobile = useIsMobile();
 
   // Fetch reference data on mount
   useEffect(() => {
@@ -267,58 +269,108 @@ const BulkDeleteDisposedPage = () => {
             </div>
           </div>
 
-          {/* Primary Filter - Model Selection */}
-          <div className="card mb-6">
-            <div>
-              <label
-                className="form-label"
-                style={{ fontWeight: 600, fontSize: '0.9375rem' }}
-              >
-                Select Model to Dispose{' '}
-                <span style={{ color: 'var(--red-500, #ef4444)' }}>*</span>
-              </label>
-              <Autocomplete<EquipmentModel>
-                options={models}
-                getOptionLabel={(m) => m.name}
-                getOptionKey={(m) => m.id}
-                value={models.find((m) => m.id === selectedModelId) ?? null}
-                onChange={(_e, m) => handleModelChange(m ? m.id : '')}
-                isOptionEqualToValue={(a, b) => a.id === b.id}
-                style={{ maxWidth: '32rem' }}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    placeholder="Search or select a model…"
-                    size="small"
-                    variant="outlined"
+          {/* Filters */}
+          {isMobile ? (
+            <div className="card mb-6">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div>
+                  <label className="form-label" style={{ fontWeight: 600, fontSize: '0.9375rem' }}>
+                    Select Model to Dispose{' '}
+                    <span style={{ color: 'var(--red-500, #ef4444)' }}>*</span>
+                  </label>
+                  <Autocomplete<EquipmentModel>
+                    options={models}
+                    getOptionLabel={(m) => m.name}
+                    getOptionKey={(m) => m.id}
+                    value={models.find((m) => m.id === selectedModelId) ?? null}
+                    onChange={(_e, m) => handleModelChange(m ? m.id : '')}
+                    isOptionEqualToValue={(a, b) => a.id === b.id}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        placeholder="Search or select a model…"
+                        size="small"
+                        variant="outlined"
+                      />
+                    )}
                   />
-                )}
-              />
+                </div>
+                <div>
+                  <label className="form-label">Office Location</label>
+                  <select
+                    value={filters.officeLocationId}
+                    onChange={(e) => setFilters({ ...filters, officeLocationId: e.target.value })}
+                    className="form-select"
+                  >
+                    <option value="">All Locations</option>
+                    {locations.map((loc) => (
+                      <option key={loc.id} value={loc.id}>{loc.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <button onClick={handleClearFilters} className="btn btn-secondary btn-sm">
+                    Clear Filters
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
+          ) : (
+            <>
+              {/* Primary Filter - Model Selection */}
+              <div className="card mb-6">
+                <div>
+                  <label
+                    className="form-label"
+                    style={{ fontWeight: 600, fontSize: '0.9375rem' }}
+                  >
+                    Select Model to Dispose{' '}
+                    <span style={{ color: 'var(--red-500, #ef4444)' }}>*</span>
+                  </label>
+                  <Autocomplete<EquipmentModel>
+                    options={models}
+                    getOptionLabel={(m) => m.name}
+                    getOptionKey={(m) => m.id}
+                    value={models.find((m) => m.id === selectedModelId) ?? null}
+                    onChange={(_e, m) => handleModelChange(m ? m.id : '')}
+                    isOptionEqualToValue={(a, b) => a.id === b.id}
+                    style={{ maxWidth: '32rem' }}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        placeholder="Search or select a model…"
+                        size="small"
+                        variant="outlined"
+                      />
+                    )}
+                  />
+                </div>
+              </div>
 
-          {/* Secondary Filters */}
-          <div className="card mb-6">
-            <div>
-              <label className="form-label">Office Location</label>
-              <select
-                value={filters.officeLocationId}
-                onChange={(e) => setFilters({ ...filters, officeLocationId: e.target.value })}
-                className="form-select"
-                style={{ maxWidth: '32rem' }}
-              >
-                <option value="">All Locations</option>
-                {locations.map((loc) => (
-                  <option key={loc.id} value={loc.id}>{loc.name}</option>
-                ))}
-              </select>
-            </div>
-            <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'flex-end' }}>
-              <button onClick={handleClearFilters} className="btn btn-secondary btn-sm">
-                Clear Filters
-              </button>
-            </div>
-          </div>
+              {/* Secondary Filters */}
+              <div className="card mb-6">
+                <div>
+                  <label className="form-label">Office Location</label>
+                  <select
+                    value={filters.officeLocationId}
+                    onChange={(e) => setFilters({ ...filters, officeLocationId: e.target.value })}
+                    className="form-select"
+                    style={{ maxWidth: '32rem' }}
+                  >
+                    <option value="">All Locations</option>
+                    {locations.map((loc) => (
+                      <option key={loc.id} value={loc.id}>{loc.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'flex-end' }}>
+                  <button onClick={handleClearFilters} className="btn btn-secondary btn-sm">
+                    Clear Filters
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
 
           {/* Summary Bar */}
           <div

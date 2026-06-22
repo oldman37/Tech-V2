@@ -342,41 +342,57 @@ export const InventoryManagement = () => {
       </div>
 
           {/* Action Buttons */}
-          <div className="card mb-6">
-            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}>
-              <button 
-                onClick={() => refetch()}
-                className="btn btn-ghost btn-sm"
-                title="Refresh"
-              >
-                🔄 Refresh
+          {isMobile ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1.5rem' }}>
+              <button onClick={handleCreate} className="btn btn-primary" style={{ width: '100%' }}>
+                + Add Item
               </button>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem' }}>
-                <button 
-                  onClick={() => setImportDialogOpen(true)}
-                  className="btn btn-secondary"
-                >
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button onClick={() => setImportDialogOpen(true)} className="btn btn-secondary" style={{ flex: 1 }}>
                   ⬆️ Import
                 </button>
-                <button 
+                <button
                   onClick={handleExport}
                   className="btn btn-secondary"
                   disabled={exportMutation.isPending}
+                  style={{ flex: 1 }}
                 >
-                  {exportMutation.isPending ? '⏳ Exporting...' : '⬇️ Export Excel'}
+                  {exportMutation.isPending ? '⏳...' : '⬇️ Export'}
                 </button>
-                <button 
-                  onClick={handleCreate}
-                  className="btn btn-primary"
-                >
-                  + Add Item
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <button onClick={() => refetch()} className="btn btn-ghost btn-sm" title="Refresh">
+                  🔄
                 </button>
               </div>
             </div>
-          </div>
+          ) : (
+            <div className="card mb-6">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}>
+                <button onClick={() => refetch()} className="btn btn-ghost btn-sm" title="Refresh">
+                  🔄 Refresh
+                </button>
+                <div style={{ display: 'flex', gap: '0.75rem' }}>
+                  <button onClick={() => setImportDialogOpen(true)} className="btn btn-secondary">
+                    ⬆️ Import
+                  </button>
+                  <button
+                    onClick={handleExport}
+                    className="btn btn-secondary"
+                    disabled={exportMutation.isPending}
+                  >
+                    {exportMutation.isPending ? '⏳ Exporting...' : '⬇️ Export Excel'}
+                  </button>
+                  <button onClick={handleCreate} className="btn btn-primary">
+                    + Add Item
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Stats Cards */}
-          {stats && (
+          {stats && !isMobile && (
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', sm: 'repeat(4, 1fr)' }, gap: 2, mb: 3 }}>
               <div className="card">
                 <p className="form-label">Total Items</p>

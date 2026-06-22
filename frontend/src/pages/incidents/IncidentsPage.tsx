@@ -21,6 +21,7 @@ import AddIcon from '@mui/icons-material/Add';
 import SearchIcon from '@mui/icons-material/Search';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useIsMobile } from '../../hooks/useResponsive';
 import { incidentService } from '../../services/incident.service';
 import type { DamageIncident } from '../../types/damageIncident.types';
 import type { IncidentWorkflowStep, IncidentIntent } from '@mgspe/shared-types';
@@ -72,6 +73,7 @@ function WorkflowStepChip({ step }: { step: IncidentWorkflowStep | null }) {
 
 export default function IncidentsPage() {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const [searchParams] = useSearchParams();
 
   const [search,   setSearch]   = useState('');
@@ -111,7 +113,7 @@ export default function IncidentsPage() {
   });
 
   return (
-    <Box sx={{ p: { xs: 1.5, sm: 3 }, maxWidth: 1200, mx: 'auto' }}>
+    <Box sx={{ p: { xs: 1.5, sm: 3 } }}>
       {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3, flexWrap: 'wrap', gap: 2 }}>
         <Typography variant="h5" fontWeight={700}>Incidents</Typography>
@@ -142,13 +144,53 @@ export default function IncidentsPage() {
         />
       </Box>
 
-      {/* Table */}
+      {/* Table (desktop) / Card list (mobile) */}
       {isLoading ? (
         <Box display="flex" justifyContent="center" py={6}>
           <CircularProgress />
         </Box>
       ) : isError ? (
         <Alert severity="error">Failed to load incidents.</Alert>
+      ) : isMobile ? (
+        <>
+          {rows.length === 0 ? (
+            <Typography variant="body2" color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
+              No incidents found.
+            </Typography>
+          ) : (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+              {rows.map((row: DamageIncident) => (
+                <Paper key={row.id} variant="outlined" sx={{ p: 1.5, cursor: 'pointer' }} onClick={() => navigate(`/incidents/${row.id}`)}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                    <Typography variant="body1" fontWeight={700}>{row.incidentNumber ?? '—'}</Typography>
+                    <WorkflowStepChip step={row.workflowStep} />
+                  </Box>
+                  <Typography variant="body2" color="text.secondary">
+                    {row.equipment
+                      ? `${row.equipment.assetTag} — ${row.equipment.name}`
+                      : row.user ? `${row.user.firstName} ${row.user.lastName}` : '—'}
+                  </Typography>
+                  <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'center', mt: 1, flexWrap: 'wrap' }}>
+                    <Chip label={row.equipment ? '💻 Device' : '👤 User'} size="small" color={row.equipment ? 'info' : 'secondary'} variant="outlined" />
+                    <IntentChip intent={row.intent} />
+                    <Typography variant="caption" color="text.secondary" sx={{ ml: 'auto' }}>
+                      {row.damageDate ? new Date(row.damageDate).toLocaleDateString() : '—'}
+                    </Typography>
+                  </Box>
+                </Paper>
+              ))}
+            </Box>
+          )}
+          <TablePagination
+            component="div"
+            count={data?.total ?? 0}
+            page={page}
+            onPageChange={(_e, p) => setPage(p)}
+            rowsPerPage={pageSize}
+            onRowsPerPageChange={(e) => { setPageSize(parseInt(e.target.value, 10)); setPage(0); }}
+            rowsPerPageOptions={[10, 25, 50, 100]}
+          />
+        </>
       ) : (
         <Paper variant="outlined">
           <TableContainer>

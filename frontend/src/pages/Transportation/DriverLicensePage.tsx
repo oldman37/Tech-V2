@@ -262,18 +262,34 @@ export default function DriverLicensePage() {
 
       <Paper>
         {/* Status filter tabs */}
-        <Tabs
-          value={tab}
-          onChange={(_, v) => { setTab(v as TabValue); setPage(0); }}
-          sx={{ borderBottom: '1px solid', borderColor: 'divider' }}
-          variant="scrollable"
-          scrollButtons="auto"
-        >
-          <Tab label="All"           value="all" />
-          <Tab label="Active"        value="active" />
-          <Tab label="Expiring Soon" value="expiring_soon" />
-          <Tab label="Expired"       value="expired" />
-        </Tabs>
+        {isMobile ? (
+          <Box sx={{ p: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}>
+            <select
+              value={tab}
+              onChange={(e) => { setTab(e.target.value as TabValue); setPage(0); }}
+              className="form-select"
+              style={{ width: '100%' }}
+            >
+              <option value="all">All</option>
+              <option value="active">Active</option>
+              <option value="expiring_soon">Expiring Soon</option>
+              <option value="expired">Expired</option>
+            </select>
+          </Box>
+        ) : (
+          <Tabs
+            value={tab}
+            onChange={(_, v) => { setTab(v as TabValue); setPage(0); }}
+            sx={{ borderBottom: '1px solid', borderColor: 'divider' }}
+            variant="scrollable"
+            scrollButtons="auto"
+          >
+            <Tab label="All"           value="all" />
+            <Tab label="Active"        value="active" />
+            <Tab label="Expiring Soon" value="expiring_soon" />
+            <Tab label="Expired"       value="expired" />
+          </Tabs>
+        )}
 
         {isLoading && (
           <Box display="flex" justifyContent="center" p={4}>

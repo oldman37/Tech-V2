@@ -249,6 +249,7 @@ export default function TransportationSettingsPage() {
                     />
                   }
                   label={dotEnabled ? 'Enabled' : 'Disabled'}
+                  sx={{ whiteSpace: 'nowrap' }}
                 />
               </Box>
 
@@ -296,6 +297,7 @@ export default function TransportationSettingsPage() {
                     />
                   }
                   label={licenseEnabled ? 'Enabled' : 'Disabled'}
+                  sx={{ whiteSpace: 'nowrap' }}
                 />
               </Box>
 
@@ -343,6 +345,7 @@ export default function TransportationSettingsPage() {
                     />
                   }
                   label={monthlyEnabled ? 'Enabled' : 'Disabled'}
+                  sx={{ whiteSpace: 'nowrap' }}
                 />
               </Box>
               <TextField
@@ -374,6 +377,7 @@ export default function TransportationSettingsPage() {
                     />
                   }
                   label={thresholdEnabled ? 'Enabled' : 'Disabled'}
+                  sx={{ whiteSpace: 'nowrap' }}
                 />
               </Box>
               <TextField

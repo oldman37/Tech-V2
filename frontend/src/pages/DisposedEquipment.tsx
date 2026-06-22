@@ -289,26 +289,34 @@ const DisposedEquipment = () => {
           </div>
 
           {/* Action Bar */}
-          <div className="card mb-6">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
-              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                <button
-                  onClick={fetchDisposedItems}
-                  className="btn btn-ghost btn-sm"
-                  title="Refresh"
-                >
-                  🔄 Refresh
-                </button>
-              </div>
+          {isMobile ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1.5rem' }}>
               <button
                 onClick={handleExport}
                 className="btn btn-secondary"
                 disabled={exporting}
+                style={{ width: '100%' }}
               >
                 {exporting ? '⏳ Exporting...' : '⬇️ Export Excel'}
               </button>
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <button onClick={fetchDisposedItems} className="btn btn-ghost btn-sm" title="Refresh">
+                  🔄
+                </button>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="card mb-6">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+                <button onClick={fetchDisposedItems} className="btn btn-ghost btn-sm" title="Refresh">
+                  🔄 Refresh
+                </button>
+                <button onClick={handleExport} className="btn btn-secondary" disabled={exporting}>
+                  {exporting ? '⏳ Exporting...' : '⬇️ Export Excel'}
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Error Message */}
           {error && (

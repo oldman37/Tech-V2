@@ -70,22 +70,31 @@ export function FieldTripApprovalPage() {
         Field trip requests pending your review and approval.
       </Typography>
 
-      <Tabs
-        value={activeTab}
-        onChange={(_, v) => setActiveTab(v)}
-        variant="scrollable"
-        scrollButtons="auto"
-        allowScrollButtonsMobile
-        sx={{
-          mb: 2,
-          ...(isMobile && {
-            '& .MuiTab-root': { minWidth: 'auto', px: 1.5, fontSize: '0.8rem' },
-          }),
-        }}
-      >
-        <Tab label="Field Trip Approvals" />
-        <Tab label="Transportation Pending" icon={<DirectionsBusIcon fontSize="small" />} iconPosition="start" />
-      </Tabs>
+      {isMobile ? (
+        <Box sx={{ mb: 2 }}>
+          <select
+            value={activeTab}
+            onChange={(e) => setActiveTab(Number(e.target.value))}
+            className="form-select"
+            style={{ width: '100%' }}
+          >
+            <option value={0}>Field Trip Approvals</option>
+            <option value={1}>Transportation Pending</option>
+          </select>
+        </Box>
+      ) : (
+        <Tabs
+          value={activeTab}
+          onChange={(_, v) => setActiveTab(v)}
+          variant="scrollable"
+          scrollButtons="auto"
+          allowScrollButtonsMobile
+          sx={{ mb: 2 }}
+        >
+          <Tab label="Field Trip Approvals" />
+          <Tab label="Transportation Pending" icon={<DirectionsBusIcon fontSize="small" />} iconPosition="start" />
+        </Tabs>
+      )}
 
       {/* ── Tab 0: Field Trip Approvals ── */}
       {activeTab === 0 && (

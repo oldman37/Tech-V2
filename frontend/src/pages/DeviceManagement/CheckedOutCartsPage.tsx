@@ -54,12 +54,36 @@ function CartStatusChip({ status }: { status: CartStatus }) {
 
 // ── Expanded device sub-table ─────────────────────────────────────────────
 
-function DeviceSubTable({ items }: { items: DeviceCartItemSummary[] }) {
+function DeviceSubTable({ items, mobile }: { items: DeviceCartItemSummary[]; mobile?: boolean }) {
   if (items.length === 0) {
     return (
       <Typography variant="body2" color="text.secondary" sx={{ px: 2, py: 1 }}>
         No devices in this cart.
       </Typography>
+    );
+  }
+
+  if (mobile) {
+    return (
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, pt: 1 }}>
+        {items.map((item) => {
+          const eq = item.equipment;
+          const condition = item.condition ?? eq.condition ?? null;
+          const isAssigned = item.assignmentId !== null;
+          return (
+            <Box key={item.id} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', py: 0.5, borderBottom: '1px solid', borderColor: 'divider' }}>
+              <Box>
+                <Typography variant="body2" fontFamily="monospace" fontWeight={700}>{eq.assetTag}</Typography>
+                <Typography variant="caption" color="text.secondary">{eq.name}</Typography>
+              </Box>
+              <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
+                {condition && <ConditionChip condition={condition} />}
+                <Chip label={isAssigned ? 'Active' : 'Unassigned'} color={isAssigned ? 'success' : 'default'} size="small" variant="outlined" />
+              </Box>
+            </Box>
+          );
+        })}
+      </Box>
     );
   }
 
@@ -117,6 +141,63 @@ function DeviceSubTable({ items }: { items: DeviceCartItemSummary[] }) {
         })}
       </TableBody>
     </Table>
+  );
+}
+
+// ── Mobile cart card ──────────────────────────────────────────────────────────
+
+function CartCard({ cart, onReturn, canReturn }: { cart: DeviceCartDetail; onReturn: (c: DeviceCartDetail) => void; canReturn: boolean }) {
+  const [expanded, setExpanded] = useState(false);
+
+  const primaryUser = cart.users?.find((u) => u.role === 'primary')?.user ?? cart.assignedToUser;
+  const secondaryUsers = cart.users?.filter((u) => u.role === 'secondary').map((u) => u.user) ?? [];
+  const assigneeDisplay = [
+    primaryUser ? `${primaryUser.firstName ?? ''} ${primaryUser.lastName ?? ''}`.trim() : null,
+    ...secondaryUsers.map((u) => `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim()),
+  ].filter(Boolean).join(', ') || '—';
+
+  const isOverdue = cart.dueDate && cart.status !== 'returned' && new Date(cart.dueDate) < new Date();
+  const dueDateDisplay = cart.dueDate
+    ? new Date(cart.dueDate).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })
+    : null;
+  const itemCount = cart.items?.length ?? cart.itemCount;
+
+  return (
+    <Paper variant="outlined" sx={{ p: 1.5, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Typography variant="body1" fontFamily="monospace" fontWeight={700}>
+          {cart.tagNumber ?? cart.name ?? cart.id.slice(0, 8)}
+        </Typography>
+        <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
+          <CartStatusChip status={cart.status} />
+          <Chip label={itemCount} size="small" variant="outlined" />
+        </Box>
+      </Box>
+      {cart.location?.name && (
+        <Typography variant="caption" color="text.secondary">{cart.location.name}</Typography>
+      )}
+      <Typography variant="caption" color="text.secondary">{assigneeDisplay}</Typography>
+      {dueDateDisplay && (
+        <Typography variant="caption" color={isOverdue ? 'error.main' : 'text.secondary'} fontWeight={isOverdue ? 700 : undefined}>
+          Due: {dueDateDisplay}{isOverdue ? ' — Overdue' : ''}
+        </Typography>
+      )}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 0.5 }}>
+        <Button size="small" variant="text" onClick={() => setExpanded((v) => !v)}
+          endIcon={expanded ? <KeyboardArrowUpIcon fontSize="small" /> : <KeyboardArrowDownIcon fontSize="small" />}
+        >
+          {expanded ? 'Hide devices' : `Show devices (${itemCount})`}
+        </Button>
+        {canReturn && cart.status !== 'returned' && (
+          <Button size="small" variant="outlined" color="warning" onClick={() => onReturn(cart)}>
+            Return All
+          </Button>
+        )}
+      </Box>
+      <Collapse in={expanded} timeout="auto" unmountOnExit>
+        <DeviceSubTable items={cart.items ?? []} mobile />
+      </Collapse>
+    </Paper>
   );
 }
 
@@ -386,64 +467,91 @@ export default function CheckedOutCartsPage() {
         </Typography>
       )}
 
-      {/* Table */}
-      <Paper variant="outlined">
-        <Table size="small">
-          <TableHead>
-            <TableRow sx={{ '& th': { fontWeight: 700 } }}>
-              <TableCell sx={{ width: 40, pr: 0 }} />
-              <TableCell>Cart Tag / Name</TableCell>
-              {!isMobile && <TableCell>Assigned To</TableCell>}
-              {!isMobile && <TableCell>Location</TableCell>}
-              <TableCell>Status</TableCell>
-              {!isMobile && <TableCell>Checked Out</TableCell>}
-              {!isMobile && <TableCell>Due Date</TableCell>}
-              <TableCell align="center"># Devices</TableCell>
-              <TableCell align="right">Actions</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {isLoading ? (
-              <TableRow>
-                <TableCell colSpan={isMobile ? 5 : 9} align="center" sx={{ py: 4 }}>
-                  <Typography variant="body2" color="text.secondary">Loading…</Typography>
-                </TableCell>
+      {/* Table (desktop) / Card list (mobile) */}
+      {isMobile ? (
+        <>
+          {isLoading ? (
+            <Typography variant="body2" color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>Loading…</Typography>
+          ) : displayedCarts.length === 0 ? (
+            <Typography variant="body2" color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>No checked-out carts found.</Typography>
+          ) : (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+              {displayedCarts.map((cart) => (
+                <CartCard key={cart.id} cart={cart} onReturn={setReturnTarget} canReturn={canReturn} />
+              ))}
+            </Box>
+          )}
+          {rawData && rawData.total > 0 && (
+            <TablePagination
+              component="div"
+              count={rawData.total}
+              page={page}
+              onPageChange={(_, p) => setPage(p)}
+              rowsPerPage={pageSize}
+              onRowsPerPageChange={(e) => { setPageSize(Number(e.target.value)); setPage(0); }}
+              rowsPerPageOptions={[10, 25, 50]}
+            />
+          )}
+        </>
+      ) : (
+        <Paper variant="outlined">
+          <Table size="small">
+            <TableHead>
+              <TableRow sx={{ '& th': { fontWeight: 700 } }}>
+                <TableCell sx={{ width: 40, pr: 0 }} />
+                <TableCell>Cart Tag / Name</TableCell>
+                <TableCell>Assigned To</TableCell>
+                <TableCell>Location</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell>Checked Out</TableCell>
+                <TableCell>Due Date</TableCell>
+                <TableCell align="center"># Devices</TableCell>
+                <TableCell align="right">Actions</TableCell>
               </TableRow>
-            ) : displayedCarts.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={isMobile ? 5 : 9} align="center" sx={{ py: 4 }}>
-                  <Typography variant="body2" color="text.secondary">
-                    No checked-out carts found.
-                  </Typography>
-                </TableCell>
-              </TableRow>
-            ) : (
-              displayedCarts.map((cart) => (
-                <CartRow
-                  key={cart.id}
-                  cart={cart}
-                  onReturn={setReturnTarget}
-                  isMobile={isMobile}
-                  canReturn={canReturn}
-                />
-              ))
-            )}
-          </TableBody>
-        </Table>
+            </TableHead>
+            <TableBody>
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
+                    <Typography variant="body2" color="text.secondary">Loading…</Typography>
+                  </TableCell>
+                </TableRow>
+              ) : displayedCarts.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
+                    <Typography variant="body2" color="text.secondary">
+                      No checked-out carts found.
+                    </Typography>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                displayedCarts.map((cart) => (
+                  <CartRow
+                    key={cart.id}
+                    cart={cart}
+                    onReturn={setReturnTarget}
+                    isMobile={false}
+                    canReturn={canReturn}
+                  />
+                ))
+              )}
+            </TableBody>
+          </Table>
 
-        {/* Pagination */}
-        {rawData && rawData.total > 0 && (
-          <TablePagination
-            component="div"
-            count={rawData.total}
-            page={page}
-            onPageChange={(_, p) => setPage(p)}
-            rowsPerPage={pageSize}
-            onRowsPerPageChange={(e) => { setPageSize(Number(e.target.value)); setPage(0); }}
-            rowsPerPageOptions={[10, 25, 50]}
-          />
-        )}
-      </Paper>
+          {/* Pagination */}
+          {rawData && rawData.total > 0 && (
+            <TablePagination
+              component="div"
+              count={rawData.total}
+              page={page}
+              onPageChange={(_, p) => setPage(p)}
+              rowsPerPage={pageSize}
+              onRowsPerPageChange={(e) => { setPageSize(Number(e.target.value)); setPage(0); }}
+              rowsPerPageOptions={[10, 25, 50]}
+            />
+          )}
+        </Paper>
+      )}
 
       {/* Return dialog */}
       {returnTarget && (

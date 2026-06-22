@@ -342,27 +342,33 @@ export default function PurchaseOrderList() {
       )}
 
       {/* ── Tabs ── */}
-      <Tabs
-        value={activeTab}
-        onChange={handleTabChange}
-        variant="scrollable"
-        scrollButtons="auto"
-        allowScrollButtonsMobile
-        sx={{
-          mb: 2,
-          ...(isMobile && {
-            '& .MuiTab-root': {
-              minWidth: 'auto',
-              px: 1.5,
-              fontSize: '0.8rem',
-            },
-          }),
-        }}
-      >
-        {visibleTabs.map((t) => (
-          <Tab key={t.key} value={t.key} label={t.label} />
-        ))}
-      </Tabs>
+      {isMobile ? (
+        <Box sx={{ mb: 2 }}>
+          <select
+            value={activeTab}
+            onChange={(e) => { setTab(e.target.value as TabKey); setPage(0); }}
+            className="form-select"
+            style={{ width: '100%' }}
+          >
+            {visibleTabs.map((t) => (
+              <option key={t.key} value={t.key}>{t.label}</option>
+            ))}
+          </select>
+        </Box>
+      ) : (
+        <Tabs
+          value={activeTab}
+          onChange={handleTabChange}
+          variant="scrollable"
+          scrollButtons="auto"
+          allowScrollButtonsMobile
+          sx={{ mb: 2 }}
+        >
+          {visibleTabs.map((t) => (
+            <Tab key={t.key} value={t.key} label={t.label} />
+          ))}
+        </Tabs>
+      )}
 
       {/* ── Filters ── */}
       {isMobile ? (
