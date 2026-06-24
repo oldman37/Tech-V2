@@ -16,6 +16,7 @@ import {
   PurchaseOrderDetail,
 } from './pages/PurchaseOrders'
 import AdminSettings from './pages/admin/AdminSettings'
+import ProvisioningPage from './pages/admin/ProvisioningPage'
 
 import WorkOrderListPage from './pages/WorkOrderListPage'
 import NewWorkOrderPage from './pages/NewWorkOrderPage'
@@ -123,6 +124,16 @@ function App() {
             <ProtectedRoute requireAdmin>
               <AppLayout>
                 <AdminSettings />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/provisioning"
+          element={
+            <ProtectedRoute requireAdmin>
+              <AppLayout>
+                <ProvisioningPage />
               </AppLayout>
             </ProtectedRoute>
           }

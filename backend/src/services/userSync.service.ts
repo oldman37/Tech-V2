@@ -31,6 +31,55 @@ export interface SyncOperationResult {
   errorDetails: SyncErrorDetail[];
 }
 
+export function mapOfficeLocation(entraLocation: string | null | undefined): string | null {
+  if (!entraLocation) return null;
+
+  const normalized = entraLocation.toLowerCase().trim();
+
+  const locationMap: Record<string, string> = {
+    // District Office
+    'district': 'District Office',
+    'central office': 'District Office',
+    'district office': 'District Office',
+    'assigned to district': 'District Office',
+    'assigned to district office': 'District Office',
+
+    // Obion County Central High School
+    'obion county central high school': 'Obion County Central High School',
+    'central high school': 'Obion County Central High School',
+    'central high': 'Obion County Central High School',
+
+    // Elementary Schools
+    'hillcrest elementary': 'Hillcrest Elementary',
+    'hillcrest elementary school': 'Hillcrest Elementary',
+    'lake road elementary': 'Lake Road Elementary',
+    'lake road elementary school': 'Lake Road Elementary',
+    'ridgemont elementary': 'Ridgemont Elementary',
+    'ridgemont elementary school': 'Ridgemont Elementary',
+    'south fulton elementary': 'South Fulton Elementary',
+    'south fulton elementary school': 'South Fulton Elementary',
+
+    // Middle Schools (Ridgemont Elementary becomes OCMS effective 2026-07-01)
+    'obion county middle school': 'Obion County Middle School',
+
+    // South Fulton Middle/High School
+    'south fulton middle high school': 'South Fulton Middle/High School',
+    'south fulton middle/high school': 'South Fulton Middle/High School',
+    'south fulton middle': 'South Fulton Middle/High School',
+    'south fulton high school': 'South Fulton Middle/High School',
+
+    // Departments
+    'maintenance': 'Maintenance Department',
+    'maintenance department': 'Maintenance Department',
+    'transportation': 'Transportation Department',
+    'transportation department': 'Transportation Department',
+    'technology': 'Technology Department',
+    'technology department': 'Technology Department',
+  };
+
+  return locationMap[normalized] ?? entraLocation;
+}
+
 export class UserSyncService {
   private groupRoleMappings: Map<string, RoleMapping>;
 
@@ -335,62 +384,8 @@ export class UserSyncService {
     return { configuredGroups, duplicateGroupIds };
   }
 
-  /**
-   * Map Entra ID office location to standardized values
-   */
   private mapOfficeLocation(entraLocation: string | null | undefined): string | null {
-    if (!entraLocation) return null;
-
-    const normalized = entraLocation.toLowerCase().trim();
-    
-    // Map to standardized location names (must match office_locations.name exactly)
-    const locationMap: Record<string, string> = {
-      // District Office
-      'district': 'District Office',
-      'central office': 'District Office',
-      'district office': 'District Office',
-      'assigned to district': 'District Office',
-      'assigned to district office': 'District Office',
-      
-      // Obion County Central High School
-      'obion county central high school': 'Obion County Central High School',
-      'central high school': 'Obion County Central High School',
-      'central high': 'Obion County Central High School',
-      
-      // Elementary Schools
-      'hillcrest elementary': 'Hillcrest Elementary',
-      'hillcrest elementary school': 'Hillcrest Elementary',
-      'lake road elementary': 'Lake Road Elementary',
-      'lake road elementary school': 'Lake Road Elementary',
-      'ridgemont elementary': 'Ridgemont Elementary',
-      'ridgemont elementary school': 'Ridgemont Elementary',
-      'south fulton elementary': 'South Fulton Elementary',
-      'south fulton elementary school': 'South Fulton Elementary',
-      
-      // South Fulton Middle/High School
-      'south fulton middle high school': 'South Fulton Middle/High School',
-      'south fulton middle/high school': 'South Fulton Middle/High School',
-      'south fulton middle': 'South Fulton Middle/High School',
-      'south fulton high school': 'South Fulton Middle/High School',
-      
-      // Departments
-      'maintenance': 'Maintenance Department',
-      'maintenance department': 'Maintenance Department',
-      'transportation': 'Transportation Department',
-      'transportation department': 'Transportation Department',
-      'technology': 'Technology Department',
-      'technology department': 'Technology Department',
-      
-      // Add more schools as needed
-    };
-
-    // Check for exact match first
-    if (locationMap[normalized]) {
-      return locationMap[normalized];
-    }
-
-    // If no mapping found, return the original value
-    return entraLocation;
+    return mapOfficeLocation(entraLocation);
   }
 
   /**

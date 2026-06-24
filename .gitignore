@@ -65,3 +65,6 @@ uploads/
 
 # Legacy reference (wwwroot)
 /wwwroot/
+
+# CSV Files
+docs/*.csv

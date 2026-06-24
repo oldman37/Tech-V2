@@ -4,6 +4,8 @@ import { prisma } from '../lib/prisma';
 import { msalClient } from '../config/entraId';
 import { Client } from '@microsoft/microsoft-graph-client';
 import { LocationSyncService } from './locationSync.service';
+import { runProvisioningJob } from './userProvision.service';
+import { sendProvisioningReport } from './email.service';
 
 interface JobState {
   executing: boolean;
@@ -15,7 +17,8 @@ interface JobState {
 class CronJobsService {
   private jobs: Map<string, ReturnType<typeof cron.schedule>> = new Map();
   private jobState: Map<string, JobState> = new Map([
-    ['supervisorSync', { executing: false, lastRunAt: null, lastRunDurationMs: null, lastError: null }],
+    ['supervisorSync',  { executing: false, lastRunAt: null, lastRunDurationMs: null, lastError: null }],
+    ['provisioningSync', { executing: false, lastRunAt: null, lastRunDurationMs: null, lastError: null }],
   ]);
 
   /**
@@ -29,6 +32,9 @@ class CronJobsService {
 
     // Refresh token cleanup - runs daily at 3 AM (SP-4)
     this.scheduleRefreshTokenCleanup();
+
+    // Provisioning sync job - runs every 2 hours by default
+    this.scheduleProvisioningSync();
 
     loggers.cron.info('Cron jobs initialized successfully');
   }
@@ -145,6 +151,69 @@ class CronJobsService {
   }
 
   /**
+   * Schedule SIS provisioning sync (runs every 2 hours by default)
+   */
+  private scheduleProvisioningSync() {
+    const schedule = process.env.PROVISIONING_SYNC_SCHEDULE || '0 */2 * * *';
+
+    if (!cron.validate(schedule)) {
+      throw new Error(
+        `Invalid PROVISIONING_SYNC_SCHEDULE: "${schedule}". ` +
+        'Must be a valid cron expression.'
+      );
+    }
+
+    const job = cron.schedule(
+      schedule,
+      async () => {
+        loggers.cron.info('Scheduled provisioning sync started', {
+          schedule,
+          timestamp: new Date().toISOString(),
+        });
+        try {
+          await this.runProvisioningSync();
+        } catch (error) {
+          loggers.cron.error('Scheduled provisioning sync failed', { error });
+        }
+      },
+      { timezone: process.env.TZ || 'America/Chicago' }
+    );
+
+    this.jobs.set('provisioningSync', job);
+    loggers.cron.info('Provisioning sync scheduled', {
+      schedule,
+      timezone: process.env.TZ || 'America/Chicago',
+    });
+  }
+
+  private async runProvisioningSync(): Promise<void> {
+    const state = this.jobState.get('provisioningSync')!;
+    state.executing = true;
+    state.lastError = null;
+    const startedAt = Date.now();
+
+    try {
+      const result = await runProvisioningJob('ALL', 'cron');
+      await sendProvisioningReport(result);
+      loggers.cron.info('Provisioning sync complete', {
+        created:       result.created.length,
+        deprovisioned: result.deprovisioned.length,
+        updated:       result.updated,
+        errors:        result.errors,
+        durationMs:    result.durationMs,
+        testMode:      result.testMode,
+      });
+    } catch (error) {
+      state.lastError = error instanceof Error ? error.message : String(error);
+      throw error;
+    } finally {
+      state.lastRunAt       = new Date();
+      state.lastRunDurationMs = Date.now() - startedAt;
+      state.executing       = false;
+    }
+  }
+
+  /**
    * Manually trigger supervisor sync (can be called from admin endpoint)
    */
   async triggerSupervisorSync(): Promise<void> {
@@ -203,6 +272,9 @@ class CronJobsService {
   private getScheduleExpression(jobName: string): string | null {
     if (jobName === 'supervisorSync') {
       return process.env.SUPERVISOR_SYNC_SCHEDULE || '0 2 * * *';
+    }
+    if (jobName === 'provisioningSync') {
+      return process.env.PROVISIONING_SYNC_SCHEDULE || '0 */2 * * *';
     }
     return null;
   }

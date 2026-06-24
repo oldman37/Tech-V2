@@ -168,6 +168,14 @@ export const queryKeys = {
     activeFiscalYearAudit: () => [...queryKeys.inventoryAudit.all, 'fiscalYearAudits', 'active'] as const,
     fiscalYearAudit: (auditId: string) => [...queryKeys.inventoryAudit.all, 'fiscalYearAudits', auditId] as const,
   },
+  // Provisioning queries
+  provisioning: {
+    all: ['provisioning'] as const,
+    config: () => [...queryKeys.provisioning.all, 'config'] as const,
+    audit: (params?: Record<string, unknown>) => [...queryKeys.provisioning.all, 'audit', params] as const,
+    domains: () => [...queryKeys.provisioning.all, 'domains'] as const,
+    disableBatches: () => [...queryKeys.provisioning.all, 'disable-batches'] as const,
+  },
 } as const;
 
 // Export type for type-safe usage

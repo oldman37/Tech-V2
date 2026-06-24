@@ -1442,6 +1442,191 @@ export async function sendMonthlyFuelReportEmail(params: {
   });
 }
 
+// ---------------------------------------------------------------------------
+// Provisioning report email
+// ---------------------------------------------------------------------------
+
+/**
+ * Send a per-run provisioning summary to PROVISIONING_REPORT_EMAIL recipients.
+ *
+ * Not sent if both created and deprovisioned lists are empty (quiet night = no noise).
+ * Never throws — email is non-critical.
+ */
+export async function sendProvisioningReport(result: {
+  created:       Array<{ displayName: string; upn: string; school: string; userType: 'STAFF' | 'STUDENT' }>;
+  deprovisioned: Array<{ displayName: string; upn: string; school: string; userType: 'STAFF' | 'STUDENT' }>;
+  reEnabled:     Array<{ displayName: string; upn: string; school: string; userType: 'STAFF' | 'STUDENT' }>;
+  updated:       number;
+  errors:        number;
+  durationMs:    number;
+  triggeredBy:   string;
+  testMode:      boolean;
+}, recipientOverride?: string[]): Promise<void> {
+  const recipients = recipientOverride ?? (() => {
+    const raw = process.env.PROVISIONING_REPORT_EMAIL;
+    if (!raw) return [] as string[];
+    return raw.split(',').map((r) => r.trim()).filter(Boolean);
+  })();
+  if (recipients.length === 0) return;
+
+  if (result.created.length === 0 && result.deprovisioned.length === 0 && result.reEnabled.length === 0) return;
+
+  const { created, deprovisioned, reEnabled, updated, errors, durationMs, triggeredBy, testMode } = result;
+  const date = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  const durationSec = (durationMs / 1000).toFixed(1);
+
+  const testBanner = testMode
+    ? `<div style="background:#FFF3E0;border-left:4px solid #E65100;padding:12px 16px;margin-bottom:20px;">
+         <strong style="color:#E65100;">TEST RUN — No changes were made to Entra ID.</strong>
+         All Graph writes were skipped. Counts below show what <em>would have</em> happened.
+       </div>`
+    : '';
+
+  const createdHeader    = testMode ? 'Accounts That Would Be Created' : 'Accounts Created';
+  const deprovHeader     = testMode ? 'Accounts That Would Be Deprovisioned' : 'Accounts Deprovisioned';
+
+  function userTableRows(users: typeof created): string {
+    if (users.length === 0) return '<tr><td colspan="4" style="padding:8px;color:#666;">None</td></tr>';
+    return users.map((u) =>
+      `<tr>
+        <td style="padding:4px 8px;border:1px solid #ddd;">${escapeHtml(u.displayName)}</td>
+        <td style="padding:4px 8px;border:1px solid #ddd;">${escapeHtml(u.upn)}</td>
+        <td style="padding:4px 8px;border:1px solid #ddd;">${escapeHtml(u.school)}</td>
+        <td style="padding:4px 8px;border:1px solid #ddd;">${escapeHtml(u.userType)}</td>
+      </tr>`
+    ).join('');
+  }
+
+  const subjectPrefix = testMode ? '[TEST] ' : '';
+  const createdLabel   = testMode ? `${created.length} would be created` : `${created.length} created`;
+  const deprovLabel    = testMode ? `${deprovisioned.length} would be deprovisioned` : `${deprovisioned.length} deprovisioned`;
+  const reEnabledLabel = testMode ? `${reEnabled.length} would be re-enabled` : `${reEnabled.length} re-enabled`;
+
+  const subjectParts = [createdLabel, deprovLabel];
+  if (reEnabled.length > 0) subjectParts.push(reEnabledLabel);
+  const subject = `${subjectPrefix}[SchoolWorks] Provisioning Report — ${date} — ${subjectParts.join(', ')}`;
+
+  const html = `
+    <h2 style="color:#1565C0;">Provisioning Report — ${escapeHtml(date)}</h2>
+    ${testBanner}
+
+    <h3 style="color:#2E7D32;">${escapeHtml(createdHeader)} (${created.length})</h3>
+    <table style="border-collapse:collapse;width:100%;">
+      <thead><tr style="background:#E8F5E9;">
+        <th style="padding:4px 8px;border:1px solid #ddd;text-align:left;">Name</th>
+        <th style="padding:4px 8px;border:1px solid #ddd;text-align:left;">UPN</th>
+        <th style="padding:4px 8px;border:1px solid #ddd;text-align:left;">School</th>
+        <th style="padding:4px 8px;border:1px solid #ddd;text-align:left;">Type</th>
+      </tr></thead>
+      <tbody>${userTableRows(created)}</tbody>
+    </table>
+
+    <h3 style="color:#C62828;margin-top:24px;">${escapeHtml(deprovHeader)} (${deprovisioned.length})</h3>
+    <table style="border-collapse:collapse;width:100%;">
+      <thead><tr style="background:#FFEBEE;">
+        <th style="padding:4px 8px;border:1px solid #ddd;text-align:left;">Name</th>
+        <th style="padding:4px 8px;border:1px solid #ddd;text-align:left;">UPN</th>
+        <th style="padding:4px 8px;border:1px solid #ddd;text-align:left;">Last School</th>
+        <th style="padding:4px 8px;border:1px solid #ddd;text-align:left;">Type</th>
+      </tr></thead>
+      <tbody>${userTableRows(deprovisioned)}</tbody>
+    </table>
+
+    <h3 style="color:#1565C0;margin-top:24px;">Re-Enabled Accounts (${reEnabled.length})</h3>
+    <table style="border-collapse:collapse;width:100%;">
+      <thead><tr style="background:#E3F2FD;">
+        <th style="padding:4px 8px;border:1px solid #ddd;text-align:left;">Name</th>
+        <th style="padding:4px 8px;border:1px solid #ddd;text-align:left;">UPN</th>
+        <th style="padding:4px 8px;border:1px solid #ddd;text-align:left;">School</th>
+        <th style="padding:4px 8px;border:1px solid #ddd;text-align:left;">Type</th>
+      </tr></thead>
+      <tbody>${userTableRows(reEnabled)}</tbody>
+    </table>
+
+    <h3 style="margin-top:24px;">Summary</h3>
+    <table style="border-collapse:collapse;width:100%;">
+      <tr><td style="padding:4px 8px;font-weight:bold;">Updated (field changes):</td>    <td style="padding:4px 8px;">${updated}</td></tr>
+      <tr><td style="padding:4px 8px;font-weight:bold;">Errors:</td>                     <td style="padding:4px 8px;color:${errors > 0 ? '#C62828' : 'inherit'};">${errors}</td></tr>
+      <tr><td style="padding:4px 8px;font-weight:bold;">Run duration:</td>               <td style="padding:4px 8px;">${escapeHtml(durationSec)}s</td></tr>
+      <tr><td style="padding:4px 8px;font-weight:bold;">Triggered by:</td>               <td style="padding:4px 8px;">${escapeHtml(triggeredBy)}</td></tr>
+      <tr><td style="padding:4px 8px;font-weight:bold;">Mode:</td>                       <td style="padding:4px 8px;">${testMode ? 'TEST (dry run)' : 'LIVE'}</td></tr>
+    </table>
+
+    <p style="color:#666;font-size:12px;margin-top:24px;">Generated by SchoolWorks Provisioning Service.</p>
+  `;
+
+  try {
+    await sendMail({ to: recipients, subject, html, context: 'provisioning_report' });
+  } catch (err) {
+    loggers.email.error('Failed to send provisioning report', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+}
+
+/**
+ * Alert the provisioning admin that a PASS 3 disable batch is held for approval.
+ * Recipients are taken from PROVISIONING_ADMIN_EMAIL (comma-separated).
+ * Never throws — email is non-critical.
+ */
+export async function sendProvisioningDisableAlert(params: {
+  batchId:     string;
+  count:       number;
+  userType:    string;
+  triggeredBy: string;
+  threshold:   number;
+}, recipientOverride?: string[]): Promise<void> {
+  const recipients = recipientOverride ?? (() => {
+    const raw = process.env.PROVISIONING_ADMIN_EMAIL;
+    if (!raw) return [] as string[];
+    return raw.split(',').map((r) => r.trim()).filter(Boolean);
+  })();
+  if (recipients.length === 0) return;
+
+  const { batchId, count, userType, triggeredBy, threshold } = params;
+  const appUrl = process.env.APP_URL ?? '';
+  const date   = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+
+  const html = `
+    <h2 style="color:#E65100;">[Provisioning] Bulk Disable Requires Approval</h2>
+    <p>A provisioning run detected <strong>${count}</strong> ${escapeHtml(userType.toLowerCase())} accounts
+       to disable, which exceeds the configured threshold of <strong>${threshold}</strong>.</p>
+    <p>The disable pass has been <strong>paused</strong> and no accounts have been changed.
+       An administrator must review and approve or reject this batch before any accounts are disabled.</p>
+    <table style="border-collapse:collapse;width:100%;margin-top:16px;">
+      <tr><td style="padding:4px 8px;font-weight:bold;">Date:</td>           <td style="padding:4px 8px;">${escapeHtml(date)}</td></tr>
+      <tr><td style="padding:4px 8px;font-weight:bold;">User Type:</td>      <td style="padding:4px 8px;">${escapeHtml(userType)}</td></tr>
+      <tr><td style="padding:4px 8px;font-weight:bold;">Accounts to Disable:</td> <td style="padding:4px 8px;color:#C62828;font-weight:bold;">${count}</td></tr>
+      <tr><td style="padding:4px 8px;font-weight:bold;">Threshold:</td>      <td style="padding:4px 8px;">${threshold}</td></tr>
+      <tr><td style="padding:4px 8px;font-weight:bold;">Triggered By:</td>   <td style="padding:4px 8px;">${escapeHtml(triggeredBy)}</td></tr>
+      <tr><td style="padding:4px 8px;font-weight:bold;">Batch ID:</td>       <td style="padding:4px 8px;font-size:12px;">${escapeHtml(batchId)}</td></tr>
+    </table>
+    ${appUrl ? `<p style="margin-top:24px;">
+      <a href="${escapeHtml(appUrl)}/admin/provisioning"
+         style="display:inline-block;padding:10px 20px;background-color:#E65100;color:#ffffff;text-decoration:none;border-radius:4px;font-weight:bold;">
+        Review &amp; Approve in SchoolWorks
+      </a>
+    </p>` : ''}
+    <p style="color:#666;font-size:12px;margin-top:24px;">
+      Log in to SchoolWorks → Admin → Provisioning to approve or reject this batch.
+      If rejected, no accounts will be disabled and the batch will be discarded.
+    </p>
+  `;
+
+  try {
+    await sendMail({
+      to:      recipients,
+      subject: `[Provisioning] Action Required — ${count} ${userType.toLowerCase()} accounts held for approval`,
+      html,
+      context: 'provisioning_disable_alert',
+    });
+  } catch (err) {
+    loggers.email.error('Failed to send provisioning disable alert', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+}
+
 /**
  * Send a gas usage threshold alert to the Director of Schools.
  */

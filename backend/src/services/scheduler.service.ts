@@ -10,8 +10,10 @@ import { UserSyncService } from './userSync.service';
 import { TransportationReportService } from './transportationReport.service';
 import { DotPhysicalService } from './dotPhysical.service';
 import { DriverLicenseService } from './driverLicense.service';
+import { runProvisioningJob } from './userProvision.service';
+import { sendProvisioningReport } from './email.service';
 
-type JobKey = 'sync-staff' | 'sync-students' | 'sync-locations' | 'sync-supervisors' | 'transportation-dot-reminders' | 'transportation-monthly-report' | 'transportation-license-reminders';
+type JobKey = 'sync-staff' | 'sync-students' | 'sync-locations' | 'sync-supervisors' | 'transportation-dot-reminders' | 'transportation-monthly-report' | 'transportation-license-reminders' | 'provisioning-sync' | 'provisioning-audit-cleanup';
 
 const VALID_JOB_KEYS: JobKey[] = [
   'sync-staff',
@@ -21,6 +23,8 @@ const VALID_JOB_KEYS: JobKey[] = [
   'transportation-dot-reminders',
   'transportation-monthly-report',
   'transportation-license-reminders',
+  'provisioning-sync',
+  'provisioning-audit-cleanup',
 ];
 
 const TIMEZONE = process.env.TZ || 'America/Chicago';
@@ -33,6 +37,8 @@ const DEFAULT_CRON: Record<JobKey, string> = {
   'transportation-dot-reminders':  '0 7 * * *',
   'transportation-monthly-report': '0 6 1 * *',
   'transportation-license-reminders': '0 7 * * 1',
+  'provisioning-sync':             '0 */2 * * *',
+  'provisioning-audit-cleanup':    '0 2 * * 0',  // weekly Sunday 2 AM
 };
 
 export interface JobScheduleRecord {
@@ -230,6 +236,16 @@ class SchedulerService {
 
   /** Dispatch to the correct underlying service method */
   private async dispatch(jobKey: JobKey): Promise<Record<string, unknown>> {
+    if (jobKey === 'provisioning-audit-cleanup') {
+      const retentionDays = 730;
+      const cutoff = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000);
+      const { count } = await prisma.provisioningAudit.deleteMany({
+        where: { createdAt: { lt: cutoff } },
+      });
+      loggers.scheduler.info('Provisioning audit cleanup complete', { deleted: count, cutoffDate: cutoff.toISOString(), retentionDays });
+      return { deleted: count, retentionDays, cutoffDate: cutoff.toISOString() };
+    }
+
     const graphClient = await createGraphClient();
 
     switch (jobKey) {
@@ -265,19 +281,59 @@ class SchedulerService {
         const svc = new DriverLicenseService(prisma);
         return (await svc.runLicenseReminderJob()) as unknown as Record<string, unknown>;
       }
+      case 'provisioning-sync': {
+        const cfg = await prisma.provisioningConfig.findUnique({ where: { id: 'singleton' } });
+        const reportEmails = cfg?.reportEmails
+          ? (cfg.reportEmails as string).split(',').map((r: string) => r.trim()).filter(Boolean)
+          : undefined;
+        const result = await runProvisioningJob('ALL', 'cron', cfg?.testMode ?? true);
+        await sendProvisioningReport(result, reportEmails);
+        return {
+          created:       result.created.length,
+          deprovisioned: result.deprovisioned.length,
+          updated:       result.updated,
+          errors:        result.errors,
+          durationMs:    result.durationMs,
+          testMode:      result.testMode,
+        };
+      }
     }
   }
 
-  /** Public: list all schedules enriched with live isRunning flag */
+  /** Public: list all schedules enriched with live isRunning flag.
+   *  Always returns one entry per VALID_JOB_KEYS entry so the UI sees
+   *  unconfigured jobs as disabled rather than missing entirely.
+   */
   async getSchedules(): Promise<JobScheduleRecord[]> {
     const schedules = await prisma.jobSchedule.findMany({
       orderBy: { jobKey: 'asc' },
     });
-    return schedules.map((s) => ({
-      ...s,
-      lastRunResult: s.lastRunResult as Record<string, unknown> | null,
-      isRunning: this.isRunning.get(s.jobKey as JobKey) ?? false,
-    }));
+    const dbMap = new Map(schedules.map((s) => [s.jobKey, s]));
+
+    return VALID_JOB_KEYS.map((key) => {
+      const s = dbMap.get(key);
+      if (s) {
+        return {
+          ...s,
+          lastRunResult: s.lastRunResult as Record<string, unknown> | null,
+          isRunning: this.isRunning.get(key) ?? false,
+        };
+      }
+      return {
+        id: '',
+        jobKey: key,
+        cronExpr: DEFAULT_CRON[key],
+        enabled: false,
+        lastRunAt: null,
+        lastRunStatus: null,
+        lastRunResult: null,
+        nextRunAt: null,
+        updatedBy: null,
+        updatedAt: new Date(0),
+        createdAt: new Date(0),
+        isRunning: false,
+      };
+    });
   }
 
   /** Stop all cron tasks (called on graceful shutdown) */

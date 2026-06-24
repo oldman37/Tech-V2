@@ -2037,3 +2037,58 @@ model AuditLog {
   @@index([createdAt])
   @@map("audit_log")
 }
+
+// ============================================
+// PROVISIONING / SIS SYNC
+// ============================================
+
+model ProvisioningAudit {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  triggeredBy  String
+  userType     String
+  upn          String?
+  employeeId   String?
+  action       String
+  errorMessage String?
+  details      Json?
+  createdAt    DateTime @default(now())
+
+  @@index([createdAt(sort: Desc)])
+  @@index([action])
+  @@index([userType])
+  @@map("provisioning_audit")
+}
+
+model ProvisioningConfig {
+  id               String   @id @default("singleton")
+  staffPassword    String
+  studentPassword  String
+  staffUpnDomain       String   @default("ocboe.com")
+  studentUpnDomain     String   @default("students.ocboe.com")
+  testStaffUpnDomain   String?
+  testStudentUpnDomain String?
+  targetTenant         String   @default("TEST")
+  testMode             Boolean  @default(true)
+  disableThreshold Int      @default(50)
+  reportEmails     String?
+  adminEmails      String?
+  updatedAt        DateTime @default(now()) @updatedAt
+  updatedBy        String?
+
+  @@map("provisioning_config")
+}
+
+model ProvisioningDisableBatch {
+  id           String    @id @default(uuid())
+  userType     String
+  triggeredBy  String
+  testMode     Boolean   @default(false)
+  pendingUsers Json
+  status       String    @default("PENDING")
+  createdAt    DateTime  @default(now())
+  resolvedAt   DateTime?
+  resolvedBy   String?
+
+  @@index([status])
+  @@map("provisioning_disable_batch")
+}

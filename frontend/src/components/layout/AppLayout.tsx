@@ -100,6 +100,7 @@ const NAV_SECTIONS: NavSection[] = [
       { label: 'Room Assignments', icon: '🚪', path: '/room-assignments', requireRoomAssignment: true },
       { label: 'Reference Data', icon: '🏷️', path: '/reference-data', adminOnly: true },
       { label: 'Admin Settings', icon: '⚙️', path: '/admin/settings', adminOnly: true },
+      { label: 'Provisioning', icon: '🪪', path: '/admin/provisioning', adminOnly: true },
     ],
   },
 ];

@@ -31,6 +31,7 @@ import LocationOnIcon from '@mui/icons-material/LocationOn';
 import SupervisorAccountIcon from '@mui/icons-material/SupervisorAccount';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import SaveIcon from '@mui/icons-material/Save';
+import DeleteSweepIcon from '@mui/icons-material/DeleteSweep';
 import cronstrue from 'cronstrue';
 import { useSyncStaffUsers, useSyncStudentUsers } from '@/hooks/mutations/useAdminMutations';
 import { useUpdateSchedule, useRunJobNow } from '@/hooks/mutations/useJobMutations';
@@ -40,8 +41,8 @@ import type { JobSchedule, JobResult, SyncResult } from '@/services/adminService
 
 // â”€â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-type JobKey = 'syncStaff' | 'syncStudents' | 'syncLocations' | 'syncSupervisors';
-type ScheduleJobKey = 'sync-staff' | 'sync-students' | 'sync-locations' | 'sync-supervisors';
+type JobKey = 'syncStaff' | 'syncStudents' | 'syncLocations' | 'syncSupervisors' | 'auditCleanup';
+type ScheduleJobKey = 'sync-staff' | 'sync-students' | 'sync-locations' | 'sync-supervisors' | 'provisioning-audit-cleanup';
 
 interface CardState {
   lastResult: string | null;
@@ -336,6 +337,7 @@ function AdminJobsInner() {
     syncStudents:    { lastResult: null, lastError: null },
     syncLocations:   { lastResult: null, lastError: null },
     syncSupervisors: { lastResult: null, lastError: null },
+    auditCleanup:    { lastResult: null, lastError: null },
   });
 
   const { data: schedules, isLoading: isSchedulesLoading } = useJobSchedules();
@@ -398,6 +400,9 @@ function AdminJobsInner() {
       case 'syncSupervisors':
         handleRunNow('sync-supervisors', 'syncSupervisors')();
         break;
+      case 'auditCleanup':
+        handleRunNow('provisioning-audit-cleanup', 'auditCleanup')();
+        break;
     }
   }
 
@@ -417,6 +422,11 @@ function AdminJobsInner() {
     syncSupervisors: {
       title: 'Rebuild Supervisor Assignments?',
       body: 'This will rebuild supervisor-location assignments (Principals, Vice Principals, Directors, etc.) from Entra group membership. Technology Assistants and Maintenance Workers assigned manually are NOT affected. Only run this if Entra-synced supervisor assignments are out of sync.',
+      isDestructive: true,
+    },
+    auditCleanup: {
+      title: 'Run Audit Log Cleanup?',
+      body: 'This will permanently delete provisioning audit log entries older than 2 years. This action cannot be undone.',
       isDestructive: true,
     },
   };
@@ -525,6 +535,27 @@ function AdminJobsInner() {
             lastError={cardState.syncLocations.lastError}
             onRunNow={() => setConfirmJob('syncLocations')}
             onSaveSchedule={handleSaveSchedule('sync-locations', 'syncLocations')}
+          />
+        </Grid>
+
+        <Grid size={{ xs: 12, md: 6 }}>
+          <ScheduledJobCard
+            title="Provisioning Audit Cleanup"
+            description="Deletes provisioning audit log entries older than 2 years to keep the database lean. Safe to run at any time — only removes old records."
+            icon={<DeleteSweepIcon />}
+            statusLine={`Last run: ${formatTimestamp(getSchedule('provisioning-audit-cleanup')?.lastRunAt)}`}
+            schedule={getSchedule('provisioning-audit-cleanup')}
+            isRunningNow={
+              runJobNowMutation.isPending && runJobNowMutation.variables === 'provisioning-audit-cleanup'
+            }
+            isSavingSchedule={
+              updateScheduleMutation.isPending &&
+              updateScheduleMutation.variables?.jobKey === 'provisioning-audit-cleanup'
+            }
+            lastResult={cardState.auditCleanup.lastResult}
+            lastError={cardState.auditCleanup.lastError}
+            onRunNow={() => setConfirmJob('auditCleanup')}
+            onSaveSchedule={handleSaveSchedule('provisioning-audit-cleanup', 'auditCleanup')}
           />
         </Grid>
 

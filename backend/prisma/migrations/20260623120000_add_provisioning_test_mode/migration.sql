@@ -1,0 +1,1 @@
+ALTER TABLE "provisioning_config" ADD COLUMN "testMode" BOOLEAN NOT NULL DEFAULT TRUE;
