@@ -1,253 +1,169 @@
-# Provisioning Page — UX Improvement Ideas
+# Provisioning Page — UX Improvement Ideas (Current State)
 
-Current state: the page has five cards (Run Job, Pending Disables, Passwords,
-Domains, Audit Log). Several important settings still live only in `.env` and
-require a redeploy to change. This doc captures ideas for making the page
-self-service for day-to-day administration.
-
----
-
-## 1. Tenant Switcher (your idea)
-
-**Problem:** The test tenant vs. production tenant is fixed in `.env`. Switching
-requires editing the file and redeploying the backend.
-
-**Proposal:** Add a "Target Tenant" toggle to the Run Job card — or its own card
-— with two options:
-
-- **Production** — uses `ENTRA_*` credentials from `.env`
-- **Test** — uses `PROVISIONING_TENANT_ID/CLIENT_ID/CLIENT_SECRET` from `.env`
-
-The credentials themselves stay in `.env` (they are secrets). The *selection*
-(which set to use) is stored in the DB config row and readable/writable through
-the existing `/provisioning/config` endpoint.
-
-**UI:** A `ToggleButtonGroup` ("Production | Test") next to the existing "Target
-tenant: …" caption. When Test is active, show an amber chip "USING TEST TENANT"
-in the page header so it is never ambiguous.
-
-**Safety:** Switching to Production while Test Mode is OFF should trigger the
-same confirmation dialog as running live — both conditions must be met for a
-destructive run.
-
-**Backend work:** Add a `targetTenant` column (`'PRODUCTION' | 'TEST'`) to
-`provisioning_config`. The service reads it instead of checking env-var presence
-at call time.
+Based on a full audit of `ProvisioningPage.tsx` as of 2026-06-24.
+Items 1–4 and 9 from the prior version of this doc are already implemented
+(tenant switcher, schedule editor, disable threshold, email lists, pause/enable toggle).
+This document captures the remaining gaps in the current page.
 
 ---
 
-## 2. Schedule Editor (your idea)
+## 1. Top-of-Page Status Banner
 
-**Problem:** `PROVISIONING_SYNC_SCHEDULE` is a raw cron expression in `.env`.
-Changing it requires a redeploy.
+**Problem:** You land on the page with no quick summary of current state. To know whether sync is enabled, what mode you're in, and when it last ran, you have to read three separate cards spread across the full page.
 
-**Proposal:** A "Sync Schedule" card with a friendly preset dropdown plus an
-optional custom cron input:
+**Proposal:** A compact status row directly under the page title:
 
-| Label | Cron |
+```
+● Sync Enabled   |  Test Mode (no writes)  |  Test Tenant  |  Last run: 47 min ago · 2 created · 0 errors
+```
+
+Color-coded: green for safe (test mode), amber for test tenant + live, red for production tenant + live mode. Clicking "Last run" jumps to the audit log.
+
+---
+
+## 2. Promote Test Mode Out of the Run Job Card
+
+**Problem:** The Test Mode toggle sits inside the "Run Job" card as though it's just a run option. But it now controls the cron schedule too. The current placement implies "this applies to the next manual run only" and a user could set it for one run and forget it still affects all cron jobs.
+
+**Proposal:** Move the toggle to a top-level card or the status banner, with a clear label like "Global Test Mode — controls manual and scheduled runs." The Run Job card can show the current effective mode as read-only context, but not host the toggle.
+
+---
+
+## 3. Mask Passwords in the Password Card
+
+**Problem:** The Password Config card displays the actual password in plain text:
+```tsx
+{config?.staffPassword ?? 'Not configured'}
+```
+This is a plaintext credential rendered in the browser DOM, visible in DevTools and screenshots.
+
+**Proposal:** Show `••••••••` when a password is set, with an optional "reveal" eye icon for intentional display. The edit form already uses `type="password"` correctly — the read state should match.
+
+---
+
+## 4. Confirm Dialog for "Reject" on Pending Disable Batches
+
+**Problem:** Approving a disable batch has a confirmation dialog. Rejecting does not — but rejecting is also a permanent action: the batch is deleted and those accounts remain enabled until they re-appear in a future run.
+
+**Proposal:** Add a simple confirm dialog for Reject: *"Reject this batch? These X accounts will not be disabled. They will appear again in the next provisioning run if they are still absent from the SIS."*
+
+---
+
+## 5. Humanize Audit Log Action Labels
+
+**Problem:** Action chips show raw enum strings (`DRY_RUN_CREATE`, `DISABLE_HELD`, `REENABLED`). These are readable to developers but cold for an admin checking whether provisioning is working.
+
+**Proposal:** Map to plain-English labels in the chip. Keep the raw value in a tooltip.
+
+| Raw value | Display label |
 |---|---|
-| Every hour | `0 * * * *` |
-| Every 2 hours (default) | `0 */2 * * *` |
-| Every 4 hours | `0 */4 * * *` |
-| Twice daily (6 AM & 6 PM) | `0 6,18 * * *` |
-| Once daily at 2 AM | `0 2 * * *` |
-| Custom… | (shows text input) |
-
-Below the selector, display:
-- A human-readable translation of the selected schedule: *"Runs every 2 hours"*
-- **Next scheduled run:** `Today at 4:00 PM` (computed server-side)
-- **Last completed run:** timestamp + outcome chips (N created · N disabled · N errors)
-
-**Backend work:** Add a `syncSchedule` column to `provisioning_config`. The cron
-job service reads this value from the DB at startup and whenever it changes,
-replacing the env-var-driven schedule. The env var becomes the bootstrap default
-only.
+| `CREATED` | Created |
+| `UPDATED` | Updated |
+| `REENABLED` | Re-enabled |
+| `DISABLED` | Disabled |
+| `DISABLE_HELD` | Held for Approval |
+| `FAILED` | Failed |
+| `SKIPPED` | Skipped |
+| `DRY_RUN_CREATE` | Would Create |
+| `DRY_RUN_UPDATE` | Would Update |
+| `DRY_RUN_DISABLE` | Would Disable |
 
 ---
 
-## 3. Disable Threshold — Move to UI
+## 6. Show Last Run Info on the Schedule Card
 
-**Problem:** `PROVISIONING_DISABLE_THRESHOLD=50` is in `.env`. Changing it
-requires a redeploy.
+**Problem:** The Schedule card shows "Next scheduled run" but nothing about the last run. You have to scroll to the audit log to know if the most recent cron job succeeded.
 
-**Proposal:** Add a number field to a "Safety Settings" card:
+**Proposal:** Add a "Last run" line below "Next scheduled run":
+- `Last run: Jun 24 at 2:00 AM · 2 created · 0 errors · 18s`
+- Or on failure: `Last run: Jun 24 at 2:00 AM · FAILED — see audit log`
 
-- **Bulk-disable threshold:** `[50]` accounts — *"If more than this many accounts
-  would be disabled in a single run, the job pauses and waits for admin approval."*
-- Show a note: *"Set to 0 to disable the safeguard (not recommended)."*
-
-This is already stored-implicitly (read from env at runtime). Moving it to the
-DB config row means one PATCH to the config endpoint saves it.
+The cron service already tracks `lastRunAt`, `lastRunDurationMs`, and `lastError` in memory on the `jobState` map. Surfacing those through the existing jobs/status API (or the config endpoint) would be low effort.
 
 ---
 
-## 4. Notification Email Lists — Move to UI
+## 7. Remove or Explain the `TEST MODE ENV` Chip
 
-**Problem:** `PROVISIONING_ADMIN_EMAIL` and `PROVISIONING_REPORT_EMAIL` are in
-`.env`. Adding or removing a recipient requires a redeploy.
+**Problem:** The Run Job card shows a `TEST MODE ENV` chip when `testModeEnv` is true. Most admins won't know what this means. Since test mode is now DB-driven, the env var no longer controls runtime behavior — it only sets the seed default when the config row is first created.
 
-**Proposal:** A "Notifications" card with two tag/chip inputs:
-
-- **Run report recipients** — who receives the per-run created/disabled summary
-  email. Default: `technology@ocboe.com`.
-- **Disable alert recipients** — who receives the hold-for-approval alert email.
-  Default: same or different list.
-
-Each field is a comma-separated email list rendered as MUI chips (add by typing
-and pressing Enter, remove by clicking ×). Stored in the DB config row as two
-text columns.
+**Proposal:** Remove the chip entirely. If keeping it for operator debugging, replace it with an info icon and tooltip: *"The PROVISIONING_TEST_MODE environment variable is set. It seeded the initial Test Mode value but has no further effect — use the toggle above to change the current setting."*
 
 ---
 
-## 5. Active Tenant Status Banner
+## 8. Smarter Save Schedule Button
 
-**Problem:** The current tenant indicator is a small caption line that is easy to
-miss. A live-mode run against production with the wrong tenant would be bad.
+**Problem:** The "Save Schedule" button is always active even when nothing has been changed from the saved value. Clicking it saves the same value back unnecessarily and gives no feedback that there's a pending change.
 
-**Proposal:** A persistent status bar at the top of the page (below the page
-title) that shows:
-
-```
-[PRODUCTION TENANT]  [LIVE MODE]  Next run: Today 4:00 PM
-```
-or
-```
-[TEST TENANT]  [TEST MODE — no writes]  Next run: Today 4:00 PM
-```
-
-Color-coded: amber for test tenant, red for production + live mode, green for
-test mode regardless of tenant.
+**Proposal:** Track whether the current UI selection differs from `config.syncSchedule`. Only enable Save when there is an actual pending change. When no change is pending, show the button as disabled or label it "No changes."
 
 ---
 
-## 6. Last Run Summary Widget
+## 9. Collapse Rarely-Changed Config Cards
 
-**Problem:** To see the outcome of the last run you have to scroll the audit log
-and mentally aggregate rows.
+**Problem:** Password Config and Domain Config sit at the same visual weight as the Run Job card and audit log, but most admins will configure them once and never touch them again. They add scroll length without providing value on routine visits.
 
-**Proposal:** A small summary row at the top of the Run Job card (or its own
-mini-card) showing the most recent completed run:
-
-```
-Last run: Jun 17 at 2:00 AM · STAFF+STUDENT · LIVE
-Created 3 · Disabled 1 · Updated 47 · 0 errors · 214s
-```
-
-Fetched from a new lightweight `GET /provisioning/last-run` endpoint that returns
-the most recent `provisioning_audit` run-header row (or aggregated from the
-existing audit table using the `triggeredBy` + timestamp grouping already there).
+**Proposal:** Wrap these two cards (and optionally Tenant Switcher) in MUI `Accordion` components that start collapsed, with a one-line summary in the header:
+- **Passwords:** `Staff: configured  ·  Student: configured`
+- **UPN Domains:** `ocboe.com (staff)  ·  ocboe.com (student)`
+- **Target Tenant:** `TEST TENANT`
 
 ---
 
-## 7. Disable Batch History
+## 10. Card Order Rethink
 
-**Problem:** The Pending Disables card only shows `status = PENDING`. Once a
-batch is approved or rejected it disappears. There is no way to see what was
-previously held.
+**Current order:**
+Tenant Switcher → Run Job → Schedule → Safety → Pending Batches → Passwords → Domains → Audit Log
 
-**Proposal:** Add a "Batch History" section below the pending card — a collapsed
-table of the last 10 resolved batches showing: date, user type, count,
-who triggered it, who resolved it, and the outcome (APPROVED/REJECTED). Useful
-for audit trail and spotting patterns (e.g., the threshold fires every Monday
-because of weekend roster changes).
-
----
-
-## 8. Test-Run Before Live Confirmation
-
-**Problem:** The live-run confirmation dialog warns the user but doesn't show
-what will actually change. A nervous admin has no way to preview impact without
-running a separate test run first.
-
-**Proposal:** Change the live-run confirmation flow to a two-step process:
-
-1. User clicks **Run Now** with Test Mode OFF.
-2. Dialog opens: *"Run a preview first?"* with two buttons:
-   - **Preview (test run)** — runs the job in test mode and shows the result
-     inside the dialog before the user commits.
-   - **Skip preview and run live** — existing behavior.
-3. After a preview result is shown inside the dialog, the **Run Live** button
-   activates.
-
-This makes the safe path (preview → confirm) the natural flow, while still
-allowing a direct live run for experienced users.
+**Proposed order (most-used first):**
+1. Status Banner *(new, see #1)*
+2. Pending Disable Batches *(urgent — should be at top when present; invisible when not)*
+3. Run Job
+4. Audit Log
+5. Schedule & Safety *(occasional changes)*
+6. Configuration — collapsed accordion *(passwords, domains, tenant — set once)*
 
 ---
 
-## 9. Scheduled Run — Skip Next / Pause All
+## 11. Clarify "Test Mode vs Test Tenant" Interaction
 
-**Problem:** There is no way to prevent the cron job from running at its next
-scheduled time without editing `.env`. Useful when a CSV file is known to be
-stale or during a data migration.
+**Problem:** Two separate "test" concepts exist on different cards with no explanation of how they combine. An admin could wonder: "If I'm in test mode, why does the tenant selection matter?"
 
-**Proposal:** Two controls in the Schedule card:
+**Proposal:** A short callout blurb connecting the two, either as helper text on the Tenant Switcher card or as a tooltip on the mode toggle:
 
-- **Skip next run** — sets a `skipNextRun: true` flag in the DB. The cron job
-  checks this flag before executing and clears it after skipping. Shows a badge:
-  *"Next scheduled run will be skipped."*
-- **Pause sync** — sets `syncPaused: true`. All scheduled runs are skipped until
-  unpaused. Shows a prominent amber banner on the page: *"Scheduled sync is
-  paused."*
+> *"Test Mode controls whether Entra writes happen (dry run). Test Tenant controls which Entra directory Graph reads from. You can combine them: a dry run against the test tenant simulates provisioning against test-tenant data without writing anything to either tenant."*
 
 ---
 
-## 10. Cron Expression Human-Readable Preview
+## 12. Disable Batch History
 
-**Problem:** Raw cron expressions (`0 */2 * * *`) are not self-explanatory to
-non-technical admins.
+**Problem:** Once a batch is approved or rejected it disappears from the page. There is no way to see what was previously held and resolved. Useful for spotting patterns (e.g., the threshold fires every month-end because of roster changes).
 
-**Proposal:** Wherever a cron expression is displayed or edited, show a plain-
-English translation beneath it. Either compute this client-side with a small
-library (`cronstrue`) or from a backend utility. Example:
-
-```
-0 */2 * * *  →  "Every 2 hours"
-0 2 * * 1    →  "At 2:00 AM, only on Monday"
-```
-
-If using a custom input, validate the expression and show an error if it is
-malformed before allowing save.
+**Proposal:** A collapsed "Batch History" section below the pending card — a table of the last 10 resolved batches: date, user type, account count, triggered by, resolved by, outcome (APPROVED / REJECTED).
 
 ---
 
-## 11. Per-School Provisioning Stats (Audit Log Enhancement)
+## 13. Audit Log Search
 
-**Problem:** The audit log is a flat table. There is no way to quickly see which
-school had the most new accounts or the most disables.
+**Problem:** As the log grows, finding a specific user or a specific run window requires paging through everything.
 
-**Proposal:** Add a collapsible "Stats" section above the audit log table with a
-small summary for the most recent real run: accounts created/disabled/updated
-broken down by `officeLocation` (school). Useful for catching data issues (e.g.,
-an entire school's worth of students disappeared from the CSV).
+**Proposal:** A search field above the table that filters by UPN or employee ID. Either pass the value as a query param to the existing `GET /provisioning/audit` endpoint (adding an optional `search` param to the backend) or filter the current page client-side for a lower-effort version.
 
 ---
 
-## Priority Ranking
+## Priority Summary
 
-| # | Idea | Effort | Value |
-|---|---|---|---|
-| 1 | Tenant Switcher | Medium | High — eliminates a common redeploy |
-| 2 | Schedule Editor | Medium | High — most-requested config pain point |
-| 3 | Disable Threshold in UI | Low | High — removes a redeploy for tuning |
-| 4 | Notification Emails in UI | Low | High — removes a redeploy for email changes |
-| 5 | Active Tenant Banner | Low | Medium — safety / visibility |
-| 6 | Last Run Summary | Low | Medium — reduces audit-log diving |
-| 7 | Batch History | Low | Medium — audit trail completeness |
-| 8 | Preview before Live | Medium | Medium — reduces anxiety for new admins |
-| 9 | Skip / Pause Schedule | Low | Medium — operational flexibility |
-| 10 | Cron Human-Readable | Low | Low — nice-to-have polish |
-| 11 | Per-School Stats | High | Low — useful but rarely needed |
-
----
-
-## What Should Stay in `.env`
-
-These should **never** move to the UI because they are secrets or bootstrap
-values that must exist before the backend can start:
-
-- `PROVISIONING_TENANT_ID / CLIENT_ID / CLIENT_SECRET` — OAuth secrets
-- `PROVISIONING_STAFF_GROUP_ID / STUDENT_GROUP_ID` — Entra object IDs
-- `ENTRA_ALL_STAFF_GROUP_ID / ENTRA_ALL_STUDENTS_GROUP_ID` — same
-- `PROVISIONING_TEST_MODE` — env-level default (can be overridden in UI, but the
-  env var acts as a hard floor when `true`: the service ignores a DB `false` if
-  the env var is `true`, preventing accidental live runs on a test deployment)
+| # | Item | Impact | Effort |
+|---|------|--------|--------|
+| 3 | Mask passwords | High (security) | Low |
+| 4 | Confirm Reject dialog | High (safety) | Low |
+| 2 | Promote Test Mode toggle | High | Low |
+| 7 | Remove/fix TEST MODE ENV chip | Medium | Low |
+| 5 | Humanize audit action labels | Medium | Low |
+| 8 | Smarter Save Schedule button | Medium | Low |
+| 1 | Status banner | High | Medium |
+| 6 | Last run info on Schedule card | Medium | Medium |
+| 9 | Collapse rarely-changed cards | Medium | Low |
+| 10 | Card order rethink | Medium | Low |
+| 11 | Clarify test mode vs tenant | Medium | Low |
+| 12 | Disable batch history | Medium | Medium |
+| 13 | Audit log search | Medium | High |

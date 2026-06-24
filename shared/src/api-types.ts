@@ -153,3 +153,37 @@ export interface GetRoomsByLocationResponse {
   rooms: Room[];
   total: number;
 }
+
+// ============================================================================
+// Provisioning API Types
+// ============================================================================
+
+export interface ProvisioningStatus {
+  syncEnabled: boolean;
+  testMode: boolean;
+  targetTenant: 'PRODUCTION' | 'TEST';
+  executing: boolean;
+  lastRunAt: string | null;
+  lastRunDurationMs: number | null;
+  lastRunError: string | null;
+  lastRunSummary: {
+    created: number;
+    deprovisioned: number;
+    reEnabled: number;
+    updated: number;
+    errors: number;
+    testMode: boolean;
+  } | null;
+}
+
+export interface DisableBatchHistoryItem {
+  id: string;
+  userType: string;
+  triggeredBy: string;
+  testMode: boolean;
+  status: string;
+  accountCount: number;
+  createdAt: string;
+  resolvedAt: string | null;
+  resolvedBy: string | null;
+}

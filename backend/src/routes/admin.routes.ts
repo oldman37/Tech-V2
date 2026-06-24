@@ -5,7 +5,6 @@ import { authenticate, requireAdmin, AuthRequest } from '../middleware/auth';
 import { validateCsrfToken } from '../middleware/csrf';
 import { UserSyncService } from '../services/userSync.service';
 import { LocationSyncService } from '../services/locationSync.service';
-import { cronJobsService } from '../services/cronJobs.service';
 import { schedulerService, VALID_JOB_KEYS, computeNextRun } from '../services/scheduler.service';
 import { prisma } from '../lib/prisma';
 import { createGraphClient } from '../utils/graphClient';
@@ -237,49 +236,6 @@ router.post('/users/:userId/force-group-sync', async (req: AuthRequest, res: Res
     res.json({ success: true, message: `Group cache cleared for ${user.email}. Groups will re-sync on next token refresh.` });
   } catch (error) {
     loggers.admin.error('Force group re-sync failed', { error, userId });
-    handleControllerError(error, res);
-  }
-});
-
-// Cron Jobs Management
-// Get status of all scheduled jobs
-router.get('/cron-jobs/status', (req: Request, res: Response) => {
-  try {
-    const status = cronJobsService.getStatus();
-    res.json({
-      jobs: status,
-      timezone: process.env.TZ || 'America/Chicago'
-    });
-  } catch (error: any) {
-    loggers.admin.error('Failed to get cron status', { error });
-    res.status(500).json({ error: 'Failed to get cron job status' });
-  }
-});
-
-// Manually trigger supervisor sync
-router.post('/sync-supervisors/trigger', async (req: AuthRequest, res: Response) => {
-  try {
-    loggers.admin.info('Manual supervisor sync triggered', {
-      triggeredBy: req.user?.email,
-      userId: req.user?.id,
-    });
-    
-    // Run sync in background and return immediately
-    cronJobsService.triggerSupervisorSync()
-      .then(() => {
-        loggers.admin.info('Manual supervisor sync completed');
-      })
-      .catch((error) => {
-        loggers.admin.error('Manual supervisor sync failed', { error });
-      });
-
-    res.json({ 
-      message: 'Supervisor sync started. Check logs for progress.',
-      triggeredBy: req.user?.email,
-      triggeredAt: new Date().toISOString()
-    });
-  } catch (error) {
-    loggers.admin.error('Failed to trigger sync', { error });
     handleControllerError(error, res);
   }
 });

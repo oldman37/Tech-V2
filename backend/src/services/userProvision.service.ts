@@ -365,9 +365,31 @@ export async function applyDisableBatch(
   if (!batch) throw new Error(`Disable batch ${batchId} not found`);
   if (batch.status !== 'PENDING') throw new Error(`Batch ${batchId} is already ${batch.status}`);
 
-  const users = batch.pendingUsers as Array<{
+  const allUsers = batch.pendingUsers as Array<{
     id: string; upn: string; displayName: string; employeeId: string; officeLocation: string | null;
   }>;
+
+  // Re-validate against current SIS to skip any accounts that re-enrolled since the batch was held
+  const csvPath = batch.userType === 'STAFF'
+    ? (process.env.SIS_STAFF_CSV ?? '/sis-data/staff.csv')
+    : (process.env.SIS_STUDENT_CSV ?? '/sis-data/students.csv');
+  let currentSisIds: Set<string>;
+  try {
+    const sisMap = batch.userType === 'STAFF' ? parseStaffCSV(csvPath) : parseStudentCSV(csvPath);
+    currentSisIds = new Set(sisMap.keys());
+  } catch (err) {
+    throw new Error(`Cannot validate batch ${batchId}: SIS CSV read failed — ${err instanceof Error ? err.message : String(err)}`);
+  }
+
+  const reEnrolled = allUsers.filter((u) => currentSisIds.has(u.employeeId));
+  const users      = allUsers.filter((u) => !currentSisIds.has(u.employeeId));
+
+  if (reEnrolled.length > 0) {
+    loggers.server.warn('Provisioning: batch approval — skipping re-enrolled accounts', {
+      batchId,
+      skipped: reEnrolled.map((u) => u.upn),
+    });
+  }
 
   const batchCfg = await prisma.provisioningConfig.findUnique({ where: { id: 'singleton' } });
   const batchTargetTenant = (batchCfg?.targetTenant ?? 'TEST') as 'PRODUCTION' | 'TEST';
@@ -519,8 +541,14 @@ async function runForType(
 
   loggers.server.info(`Provisioning: fetched ${type} Entra users`, { count: allEntraUsers.length });
 
-  // UPN exists callback (checks against in-memory cache — no extra Graph calls per user)
-  const existsInEntra = async (upn: string) => upnSet.has(upn.toLowerCase());
+  // Atomic check-and-claim for UPN allocation — prevents same-run concurrency collisions.
+  // upnSet is a synchronous Set so has() + add() execute without yielding to the event loop.
+  const claimUpn = async (upn: string): Promise<boolean> => {
+    const key = upn.toLowerCase();
+    if (upnSet.has(key)) return true;
+    upnSet.add(key);
+    return false;
+  };
 
   const userSyncService = new UserSyncService(prisma, graphClient);
 
@@ -539,7 +567,10 @@ async function runForType(
         const wasDisabled = entraUser.accountEnabled === false;
         if (wasDisabled) patch['accountEnabled'] = true;
 
-        if (mappedLocation !== undefined && mappedLocation !== (entraUser.officeLocation ?? null)) {
+        if (sisRow.school && mappedLocation === sisRow.school) {
+          loggers.server.warn('Provisioning: unmapped school name — officeLocation pushed verbatim', { school: sisRow.school });
+        }
+        if (mappedLocation !== null && mappedLocation !== (entraUser.officeLocation ?? null)) {
           patch['officeLocation'] = mappedLocation;
         }
 
@@ -549,9 +580,23 @@ async function runForType(
         // ageGroup is excluded from Pass 1: Graph returns null for it even after setting,
         // so including it would patch every student every run. New accounts get it via Pass 2.
 
+        // Name fields — both staff and students. UPN is intentionally NOT reconciled (sign-in identity).
+        const expectedGivenName   = sisRow.firstName;
+        const expectedSurname     = sisRow.lastName;
+        const expectedDisplayName = `${sisRow.firstName} ${sisRow.lastName}`;
+        if (expectedGivenName   !== (entraUser.givenName   ?? '')) patch['givenName']   = expectedGivenName;
+        if (expectedSurname     !== (entraUser.surname      ?? '')) patch['surname']     = expectedSurname;
+        if (expectedDisplayName !== (entraUser.displayName  ?? '')) patch['displayName'] = expectedDisplayName;
+
         if (type === 'STAFF') {
           const row = sisRow as StaffRow;
           if (row.staffType !== (entraUser.jobTitle ?? '')) patch['jobTitle'] = row.staffType;
+        }
+
+        if (type === 'STUDENT') {
+          const row = sisRow as StudentRow;
+          const expectedDepartment = `Grade ${row.grade}`;
+          if (expectedDepartment !== (entraUser.department ?? '')) patch['department'] = expectedDepartment;
         }
 
         if (Object.keys(patch).length === 0) {
@@ -593,20 +638,18 @@ async function runForType(
       let upn = '';
       try {
         const initialPassword = type === 'STAFF' ? config.staffPassword : config.studentPassword;
-        const mappedLocation  = (userSyncService as any).mapOfficeLocation(sisRow.school) as string | null;
+        const mappedLocation  = mapOfficeLocation(sisRow.school);
 
         let resolved: { upn: string; mailNickname: string };
         if (type === 'STAFF') {
           const row = sisRow as StaffRow;
-          resolved  = await resolveStaffUpn(row.firstName, row.lastName, config.staffUpnDomain, existsInEntra);
+          resolved  = await resolveStaffUpn(row.firstName, row.lastName, config.staffUpnDomain, claimUpn);
         } else {
           const row = sisRow as StudentRow;
-          resolved  = await resolveStudentUpn(row.firstName, row.middleName, row.lastName, config.studentUpnDomain, existsInEntra);
+          resolved  = await resolveStudentUpn(row.firstName, row.middleName, row.lastName, config.studentUpnDomain, claimUpn);
         }
 
         upn = resolved.upn;
-        // Reserve in local cache immediately to avoid collision across parallel tasks
-        upnSet.add(upn.toLowerCase());
 
         const displayName = type === 'STAFF'
           ? `${(sisRow as StaffRow).firstName} ${(sisRow as StaffRow).lastName}`

@@ -3,8 +3,8 @@ import { AuthRequest } from '../middleware/auth';
 import { handleControllerError } from '../utils/errorHandler';
 import { prisma } from '../lib/prisma';
 import { runProvisioningJob, getProvisioningDomains, applyDisableBatch } from '../services/userProvision.service';
+import { schedulerService, computeNextRun } from '../services/scheduler.service';
 import { sendProvisioningReport } from '../services/email.service';
-import { schedulerService } from '../services/scheduler.service';
 import {
   RunProvisioningSchema,
   UpdateProvisioningConfigSchema,
@@ -29,6 +29,28 @@ export const runProvisioning = async (req: AuthRequest, res: Response): Promise<
 
     const result = await runProvisioningJob(userType, triggeredBy, testMode);
     await sendProvisioningReport(result, reportEmails);
+
+    // Write outcome to JobSchedule so the Status Banner reflects manual runs
+    const runResultJson = {
+      created:       result.created.length,
+      deprovisioned: result.deprovisioned.length,
+      reEnabled:     result.reEnabled.length,
+      updated:       result.updated,
+      errors:        result.errors,
+      durationMs:    result.durationMs,
+      testMode:      result.testMode,
+    };
+    try {
+      const schedule = await prisma.jobSchedule.findUnique({ where: { jobKey: 'provisioning-sync' } });
+      const nextRunAt = schedule?.enabled && schedule.cronExpr ? computeNextRun(schedule.cronExpr) : (schedule?.nextRunAt ?? null);
+      await prisma.jobSchedule.upsert({
+        where:  { jobKey: 'provisioning-sync' },
+        update: { lastRunAt: new Date(), lastRunStatus: 'success', lastRunResult: runResultJson, nextRunAt },
+        create: { jobKey: 'provisioning-sync', cronExpr: '0 */2 * * *', enabled: false, lastRunAt: new Date(), lastRunStatus: 'success', lastRunResult: runResultJson, nextRunAt: null },
+      });
+    } catch (dbErr) {
+      // Non-critical — do not fail the HTTP response
+    }
 
     res.json({
       success:             true,
@@ -242,6 +264,66 @@ export const approveDisableBatch = async (req: AuthRequest, res: Response): Prom
     const approvedBy = req.user?.email ?? req.user?.id ?? 'unknown';
     const result = await applyDisableBatch(id, approvedBy);
     res.json({ success: true, ...result });
+  } catch (error) {
+    handleControllerError(error, res);
+  }
+};
+
+// ---------------------------------------------------------------------------
+// GET /api/provisioning/status
+// ---------------------------------------------------------------------------
+
+export const getStatus = async (_req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const [config, jobSchedule] = await Promise.all([
+      prisma.provisioningConfig.findUnique({ where: { id: 'singleton' } }),
+      prisma.jobSchedule.findUnique({ where: { jobKey: 'provisioning-sync' } }),
+    ]);
+
+    const lastRunResult = jobSchedule?.lastRunResult as Record<string, unknown> | null;
+    const lastRunError = jobSchedule?.lastRunStatus === 'error'
+      ? ((lastRunResult?.['error'] as string) ?? 'Unknown error')
+      : null;
+    const lastRunSummary = (lastRunResult && jobSchedule?.lastRunStatus === 'success') ? {
+      created:       Number(lastRunResult['created']       ?? 0),
+      deprovisioned: Number(lastRunResult['deprovisioned'] ?? 0),
+      reEnabled:     Number(lastRunResult['reEnabled']     ?? 0),
+      updated:       Number(lastRunResult['updated']       ?? 0),
+      errors:        Number(lastRunResult['errors']        ?? 0),
+      testMode:      Boolean(lastRunResult['testMode']     ?? true),
+    } : null;
+
+    res.json({
+      syncEnabled:       jobSchedule?.enabled ?? false,
+      testMode:          config?.testMode ?? true,
+      targetTenant:      config?.targetTenant ?? 'TEST',
+      executing:         schedulerService.isJobRunning('provisioning-sync'),
+      lastRunAt:         jobSchedule?.lastRunAt?.toISOString() ?? null,
+      lastRunDurationMs: lastRunResult ? (Number(lastRunResult['durationMs']) || null) : null,
+      lastRunError,
+      lastRunSummary,
+    });
+  } catch (error) {
+    handleControllerError(error, res);
+  }
+};
+
+// ---------------------------------------------------------------------------
+// GET /api/provisioning/disable-batches/history
+// ---------------------------------------------------------------------------
+
+export const listDisableBatchHistory = async (_req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const batches = await prisma.provisioningDisableBatch.findMany({
+      where:   { status: { not: 'PENDING' } },
+      orderBy: { resolvedAt: 'desc' },
+      take:    10,
+    });
+    const result = batches.map(({ pendingUsers, ...rest }) => ({
+      ...rest,
+      accountCount: (pendingUsers as unknown[]).length,
+    }));
+    res.json(result);
   } catch (error) {
     handleControllerError(error, res);
   }

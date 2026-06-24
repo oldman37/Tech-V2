@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
   Alert,
   Box,
   Button,
@@ -36,6 +39,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ManageAccountsIcon from '@mui/icons-material/ManageAccounts';
 import ScheduleIcon from '@mui/icons-material/Schedule';
 import SecurityIcon from '@mui/icons-material/Security';
@@ -47,6 +51,7 @@ import provisioningService, {
   type ProvisioningUserType,
   type RunProvisioningResult,
   type DisableBatch,
+  type DisableBatchHistoryItem,
 } from '@/services/provisioningService';
 
 // ---------------------------------------------------------------------------
@@ -61,6 +66,17 @@ function formatTimestamp(iso: string | null | undefined): string {
 function formatDuration(ms: number): string {
   if (ms < 1000) return `${ms}ms`;
   return `${(ms / 1000).toFixed(1)}s`;
+}
+
+function timeAgo(iso: string | null): string {
+  if (!iso) return 'Never';
+  const diffMs  = Date.now() - new Date(iso).getTime();
+  const diffMin = Math.floor(diffMs / 60_000);
+  if (diffMin < 1)  return 'Just now';
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24)  return `${diffHr}h ago`;
+  return `${Math.floor(diffHr / 24)}d ago`;
 }
 
 type ActionColor = 'success' | 'primary' | 'default' | 'warning' | 'error' | 'info';
@@ -79,6 +95,83 @@ function actionChipColor(action: string): ActionColor {
     case 'DRY_RUN_DISABLE':       return 'info';
     default:                      return 'default';
   }
+}
+
+function actionLabel(action: string): string {
+  switch (action) {
+    case 'CREATED':          return 'Created';
+    case 'UPDATED':          return 'Updated';
+    case 'REENABLED':        return 'Re-enabled';
+    case 'DISABLED':         return 'Disabled';
+    case 'DISABLE_HELD':     return 'Held for Approval';
+    case 'FAILED':           return 'Failed';
+    case 'SKIPPED':          return 'Skipped';
+    case 'DRY_RUN_CREATE':   return 'Would Create';
+    case 'DRY_RUN_UPDATE':   return 'Would Update';
+    case 'DRY_RUN_DISABLE':  return 'Would Disable';
+    default:                 return action;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Status Banner
+// ---------------------------------------------------------------------------
+
+function StatusBanner() {
+  const { data: status, isLoading } = useQuery({
+    queryKey:       queryKeys.provisioning.status(),
+    queryFn:        provisioningService.getStatus,
+    refetchInterval: 60_000,
+  });
+
+  if (isLoading) {
+    return (
+      <Stack direction="row" spacing={1} flexWrap="wrap">
+        <Skeleton variant="rounded" width={120} height={24} />
+        <Skeleton variant="rounded" width={110} height={24} />
+        <Skeleton variant="rounded" width={130} height={24} />
+        <Skeleton variant="rounded" width={180} height={24} />
+      </Stack>
+    );
+  }
+
+  if (!status) return null;
+
+  const { syncEnabled, testMode, targetTenant, lastRunAt, lastRunDurationMs, lastRunError, lastRunSummary } = status;
+
+  const lastRunText = (() => {
+    if (!lastRunAt) return 'Last run: Never';
+    const ago = timeAgo(lastRunAt);
+    if (lastRunError) return `Last run: ${ago} · FAILED`;
+    if (lastRunSummary) {
+      const dur = lastRunDurationMs ? ` · ${formatDuration(lastRunDurationMs)}` : '';
+      return `Last run: ${ago} · ${lastRunSummary.created} created · ${lastRunSummary.errors} errors${dur}`;
+    }
+    return `Last run: ${ago}`;
+  })();
+
+  return (
+    <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+      <Chip
+        label={syncEnabled ? 'Sync Enabled' : 'Sync Disabled'}
+        color={syncEnabled ? 'success' : 'default'}
+        size="small"
+      />
+      <Chip
+        label={testMode ? 'Test Mode' : 'Live Mode'}
+        color={testMode ? 'primary' : 'error'}
+        size="small"
+      />
+      <Chip
+        label={targetTenant === 'TEST' ? 'Test Tenant' : 'Production Tenant'}
+        color={targetTenant === 'TEST' ? 'warning' : 'error'}
+        size="small"
+      />
+      <Typography variant="caption" color={lastRunError ? 'error.main' : 'text.secondary'}>
+        {lastRunText}
+      </Typography>
+    </Stack>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -164,6 +257,12 @@ function TenantSwitcherCard() {
               )}
             </Typography>
 
+            <Typography variant="body2" color="text.secondary">
+              <em>Test Mode</em> (below) controls whether Entra writes happen.
+              This setting controls <em>which</em> tenant is read from. Combined: a dry run against
+              the test tenant simulates provisioning using test-tenant data without writing to either tenant.
+            </Typography>
+
             <Divider />
 
             <Stack direction="row" alignItems="center" spacing={2}>
@@ -231,6 +330,90 @@ function TenantSwitcherCard() {
 }
 
 // ---------------------------------------------------------------------------
+// Test Mode card (global — controls both manual and scheduled runs)
+// ---------------------------------------------------------------------------
+
+function TestModeCard() {
+  const queryClient = useQueryClient();
+  const initializedRef = useRef(false);
+  const [testMode, setTestMode] = useState<boolean>(true);
+
+  const { data: config, isLoading } = useQuery({
+    queryKey: queryKeys.provisioning.config(),
+    queryFn:  provisioningService.getConfig,
+  });
+
+  useEffect(() => {
+    if (config && !initializedRef.current) {
+      setTestMode(config.testMode);
+      initializedRef.current = true;
+    }
+  }, [config]);
+
+  const saveMutation = useMutation({
+    mutationFn: (value: boolean) => provisioningService.updateConfig({ testMode: value }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.provisioning.config() }),
+  });
+
+  function handleChange(value: boolean) {
+    setTestMode(value);
+    saveMutation.mutate(value);
+  }
+
+  if (isLoading) {
+    return (
+      <Card variant="outlined">
+        <CardContent>
+          <Skeleton variant="text" width="40%" height={32} />
+          <Skeleton variant="rectangular" height={40} sx={{ mt: 2 }} />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card
+      variant="outlined"
+      sx={{ borderColor: testMode ? 'primary.main' : 'error.main' }}
+    >
+      <CardContent>
+        <Stack spacing={2}>
+          <Stack direction="row" alignItems="center" spacing={1.5}>
+            <Typography variant="h6" component="h2" sx={{ flexGrow: 1 }}>
+              Run Mode
+            </Typography>
+            <Chip
+              label={testMode ? 'TEST MODE — no writes' : 'LIVE MODE — writes to Entra'}
+              color={testMode ? 'primary' : 'error'}
+              size="small"
+            />
+            {saveMutation.isPending && <CircularProgress size={18} />}
+          </Stack>
+
+          <Typography variant="body2" color="text.secondary">
+            Controls both manual runs and the automated sync schedule. In Test Mode all Graph
+            writes are skipped — the run reports what <em>would</em> happen without making any changes.
+          </Typography>
+
+          <Divider />
+
+          <FormControlLabel
+            control={
+              <Switch
+                checked={testMode}
+                onChange={(e) => handleChange(e.target.checked)}
+                disabled={saveMutation.isPending}
+              />
+            }
+            label={testMode ? 'Test Mode (no writes to Entra)' : 'Live Mode (writes to Entra)'}
+          />
+        </Stack>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Schedule Editor card
 // ---------------------------------------------------------------------------
 
@@ -260,12 +443,24 @@ function ScheduleEditorCard() {
     queryFn:  provisioningService.getConfig,
   });
 
+  const { data: jobStatus } = useQuery({
+    queryKey:       queryKeys.provisioning.status(),
+    queryFn:        provisioningService.getStatus,
+    refetchInterval: 60_000,
+  });
+
   const currentCron    = config?.syncSchedule ?? '0 */2 * * *';
   const presetLabel    = resolvePresetLabel(currentCron);
   const isCustom       = presetLabel === 'Custom…';
 
   const selected       = selectedOverride ?? presetLabel;
   const cronFieldValue = customCron !== null ? customCron : (isCustom ? currentCron : '');
+
+  const hasPendingChange = (() => {
+    if (selectedOverride !== null && selectedOverride !== presetLabel) return true;
+    if ((selected === 'Custom…') && cronFieldValue !== currentCron) return true;
+    return false;
+  })();
 
   const updateMutation = useMutation({
     mutationFn: provisioningService.updateConfig,
@@ -370,7 +565,7 @@ function ScheduleEditorCard() {
               size="small"
               variant="contained"
               onClick={handleSave}
-              disabled={updateMutation.isPending}
+              disabled={!hasPendingChange || updateMutation.isPending}
               startIcon={updateMutation.isPending ? <CircularProgress size={14} color="inherit" /> : undefined}
             >
               {updateMutation.isPending ? 'Saving…' : 'Save Schedule'}
@@ -390,6 +585,17 @@ function ScheduleEditorCard() {
           {config?.nextRunAt && config.syncEnabled && (
             <Typography variant="caption" color="text.secondary">
               Next scheduled run: {new Date(config.nextRunAt).toLocaleString()}
+            </Typography>
+          )}
+          {jobStatus?.lastRunAt && (
+            <Typography variant="caption" color={jobStatus.lastRunError ? 'error.main' : 'text.secondary'}>
+              {'Last run: '}
+              {timeAgo(jobStatus.lastRunAt)}
+              {jobStatus.lastRunDurationMs ? ` · ${formatDuration(jobStatus.lastRunDurationMs)}` : ''}
+              {jobStatus.lastRunSummary && !jobStatus.lastRunError
+                ? ` · ${jobStatus.lastRunSummary.created} created · ${jobStatus.lastRunSummary.errors} errors`
+                : ''}
+              {jobStatus.lastRunError ? ` · FAILED — ${jobStatus.lastRunError}` : ''}
             </Typography>
           )}
           {!config?.syncEnabled && (
@@ -585,35 +791,17 @@ function SafetySettingsCard() {
 
 function RunJobCard() {
   const [userType, setUserType] = useState<ProvisioningUserType>('ALL');
-  const [testMode, setTestMode] = useState<boolean>(true);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [lastResult, setLastResult] = useState<RunProvisioningResult | null>(null);
   const [lastError, setLastError] = useState<string | null>(null);
   const queryClient = useQueryClient();
-  const initializedRef = useRef(false);
 
   const { data: config } = useQuery({
     queryKey: queryKeys.provisioning.config(),
     queryFn: provisioningService.getConfig,
   });
 
-  // Initialise testMode from DB once on first load; don't override subsequent user changes
-  useEffect(() => {
-    if (config && !initializedRef.current) {
-      setTestMode(config.testMode);
-      initializedRef.current = true;
-    }
-  }, [config]);
-
-  const saveTestModeMutation = useMutation({
-    mutationFn: (value: boolean) => provisioningService.updateConfig({ testMode: value }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.provisioning.config() }),
-  });
-
-  function handleTestModeChange(value: boolean) {
-    setTestMode(value);
-    saveTestModeMutation.mutate(value);
-  }
+  const testMode = config?.testMode ?? true;
 
   const runMutation = useMutation({
     mutationFn: provisioningService.run,
@@ -656,9 +844,6 @@ function RunJobCard() {
               <Typography variant="h6" component="h2" sx={{ flexGrow: 1 }}>
                 Run Provisioning Job
               </Typography>
-              {config?.testModeEnv && (
-                <Chip label="TEST MODE ENV" color="warning" size="small" />
-              )}
             </Stack>
 
             <Typography variant="body2" color="text.secondary">
@@ -711,18 +896,6 @@ function RunJobCard() {
                   <MenuItem value="STUDENT">Students Only</MenuItem>
                 </Select>
               </FormControl>
-
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={testMode}
-                    onChange={(e) => handleTestModeChange(e.target.checked)}
-                    disabled={runMutation.isPending || saveTestModeMutation.isPending}
-                    size="small"
-                  />
-                }
-                label={testMode ? 'Test Mode (no writes)' : 'Live Mode (writes to Entra)'}
-              />
 
               <Button
                 variant="contained"
@@ -851,102 +1024,99 @@ function PasswordConfigCard() {
 
   if (isLoading) {
     return (
-      <Card variant="outlined">
-        <CardContent>
-          <Skeleton variant="text" width="40%" height={32} />
-          <Skeleton variant="text" width="70%" sx={{ mt: 1 }} />
-          <Skeleton variant="text" width="70%" />
-        </CardContent>
-      </Card>
+      <Box sx={{ p: 2 }}>
+        <Skeleton variant="text" width="40%" height={32} />
+        <Skeleton variant="text" width="70%" sx={{ mt: 1 }} />
+        <Skeleton variant="text" width="70%" />
+      </Box>
     );
   }
 
+  const staffConfigured   = Boolean(config?.staffPassword);
+  const studentConfigured = Boolean(config?.studentPassword);
+
   return (
-    <Card variant="outlined">
-      <CardContent>
-        <Stack spacing={2}>
-          <Typography variant="h6" component="h2">
-            Default Account Passwords
+    <Stack spacing={2}>
+      <Typography variant="h6" component="h3">
+        Default Account Passwords
+      </Typography>
+
+      <Typography variant="body2" color="text.secondary">
+        Initial passwords assigned to newly created accounts. After first login users are
+        required to change their password. Passwords are stored on the server and never returned to the browser after saving.
+      </Typography>
+
+      <Divider />
+
+      <Stack spacing={0.5}>
+        <Stack direction="row" spacing={1} alignItems="center">
+          <Typography variant="body2" sx={{ minWidth: 140 }}>Staff password:</Typography>
+          <Typography variant="body2" color={staffConfigured ? 'text.primary' : 'text.disabled'}>
+            {staffConfigured ? '••••••••' : 'Not configured'}
           </Typography>
-
-          <Typography variant="body2" color="text.secondary">
-            Initial passwords assigned to newly created accounts. After first login users are
-            required to change their password. Passwords are stored on the server and never returned to the browser after saving.
-          </Typography>
-
-          <Divider />
-
-          <Stack spacing={0.5}>
-            <Stack direction="row" spacing={1} alignItems="center">
-              <Typography variant="body2" sx={{ minWidth: 140 }}>Staff password:</Typography>
-              <Typography variant="body2" color={config?.staffPassword ? 'text.primary' : 'text.disabled'}>
-                {config?.staffPassword ?? 'Not configured'}
-              </Typography>
-            </Stack>
-            <Stack direction="row" spacing={1} alignItems="center">
-              <Typography variant="body2" sx={{ minWidth: 140 }}>Student password:</Typography>
-              <Typography variant="body2" color={config?.studentPassword ? 'text.primary' : 'text.disabled'}>
-                {config?.studentPassword ?? 'Not configured'}
-              </Typography>
-            </Stack>
-            {config?.updatedBy && (
-              <Typography variant="caption" color="text.secondary">
-                Last updated by {config.updatedBy} on {formatTimestamp(config.updatedAt)}
-              </Typography>
-            )}
-          </Stack>
-
-          <Collapse in={editing}>
-            <Stack spacing={2}>
-              <TextField
-                label="New staff password"
-                type="password"
-                size="small"
-                value={staffPw}
-                onChange={(e) => setStaffPw(e.target.value)}
-                helperText="Leave blank to keep existing"
-                fullWidth
-                autoComplete="new-password"
-              />
-              <TextField
-                label="New student password"
-                type="password"
-                size="small"
-                value={studentPw}
-                onChange={(e) => setStudentPw(e.target.value)}
-                helperText="Leave blank to keep existing"
-                fullWidth
-                autoComplete="new-password"
-              />
-              {saveError && <Alert severity="error">{saveError}</Alert>}
-            </Stack>
-          </Collapse>
-
-          <Stack direction="row" spacing={1}>
-            {!editing ? (
-              <Button size="small" variant="outlined" onClick={() => setEditing(true)}>
-                Edit Passwords
-              </Button>
-            ) : (
-              <>
-                <Button size="small" onClick={handleCancel} disabled={updateMutation.isPending}>
-                  Cancel
-                </Button>
-                <Button
-                  size="small"
-                  variant="contained"
-                  onClick={handleSave}
-                  disabled={updateMutation.isPending}
-                  startIcon={updateMutation.isPending ? <CircularProgress size={14} color="inherit" /> : undefined}
-                >
-                  {updateMutation.isPending ? 'Saving…' : 'Save'}
-                </Button>
-              </>
-            )}
-          </Stack>
         </Stack>
-      </CardContent>
-    </Card>
+        <Stack direction="row" spacing={1} alignItems="center">
+          <Typography variant="body2" sx={{ minWidth: 140 }}>Student password:</Typography>
+          <Typography variant="body2" color={studentConfigured ? 'text.primary' : 'text.disabled'}>
+            {studentConfigured ? '••••••••' : 'Not configured'}
+          </Typography>
+        </Stack>
+        {config?.updatedBy && (
+          <Typography variant="caption" color="text.secondary">
+            Last updated by {config.updatedBy} on {formatTimestamp(config.updatedAt)}
+          </Typography>
+        )}
+      </Stack>
+
+      <Collapse in={editing}>
+        <Stack spacing={2}>
+          <TextField
+            label="New staff password"
+            type="password"
+            size="small"
+            value={staffPw}
+            onChange={(e) => setStaffPw(e.target.value)}
+            helperText="Leave blank to keep existing"
+            fullWidth
+            autoComplete="new-password"
+          />
+          <TextField
+            label="New student password"
+            type="password"
+            size="small"
+            value={studentPw}
+            onChange={(e) => setStudentPw(e.target.value)}
+            helperText="Leave blank to keep existing"
+            fullWidth
+            autoComplete="new-password"
+          />
+          {saveError && <Alert severity="error">{saveError}</Alert>}
+        </Stack>
+      </Collapse>
+
+      <Stack direction="row" spacing={1}>
+        {!editing ? (
+          <Button size="small" variant="outlined" onClick={() => setEditing(true)}>
+            Edit Passwords
+          </Button>
+        ) : (
+          <>
+            <Button size="small" onClick={handleCancel} disabled={updateMutation.isPending}>
+              Cancel
+            </Button>
+            <Button
+              size="small"
+              variant="contained"
+              onClick={handleSave}
+              disabled={updateMutation.isPending}
+              startIcon={updateMutation.isPending ? <CircularProgress size={14} color="inherit" /> : undefined}
+            >
+              {updateMutation.isPending ? 'Saving…' : 'Save'}
+            </Button>
+          </>
+        )}
+      </Stack>
+    </Stack>
   );
 }
 
@@ -1014,126 +1184,120 @@ function DomainConfigCard() {
 
   if (isLoading) {
     return (
-      <Card variant="outlined">
-        <CardContent>
-          <Skeleton variant="text" width="40%" height={32} />
-          <Skeleton variant="rectangular" height={56} sx={{ mt: 2 }} />
-          <Skeleton variant="rectangular" height={56} sx={{ mt: 2 }} />
-        </CardContent>
-      </Card>
+      <Box sx={{ p: 2 }}>
+        <Skeleton variant="text" width="40%" height={32} />
+        <Skeleton variant="rectangular" height={56} sx={{ mt: 2 }} />
+        <Skeleton variant="rectangular" height={56} sx={{ mt: 2 }} />
+      </Box>
     );
   }
 
   return (
-    <Card variant="outlined">
-      <CardContent>
-        <Stack spacing={2}>
-          <Typography variant="h6" component="h2">
-            UPN Domains
-          </Typography>
+    <Stack spacing={2}>
+      <Typography variant="h6" component="h3">
+        UPN Domains
+      </Typography>
 
-          <Typography variant="body2" color="text.secondary">
-            Select the verified domain suffix used when generating User Principal Names.
-            Production and test tenants can use separate domains.
-          </Typography>
+      <Typography variant="body2" color="text.secondary">
+        Select the verified domain suffix used when generating User Principal Names.
+        Production and test tenants can use separate domains.
+      </Typography>
 
+      <Divider />
+
+      <Typography variant="subtitle2" color="text.secondary">Production Tenant</Typography>
+
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+        <FormControl size="small" fullWidth>
+          <InputLabel>Staff UPN Domain</InputLabel>
+          <Select
+            value={resolvedStaff}
+            label="Staff UPN Domain"
+            onChange={(e) => setStaffDomainOverride(e.target.value)}
+            disabled={updateMutation.isPending}
+          >
+            {productionDomains.map((d) => (
+              <MenuItem key={d} value={d}>{d}</MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+
+        <FormControl size="small" fullWidth>
+          <InputLabel>Student UPN Domain</InputLabel>
+          <Select
+            value={resolvedStudent}
+            label="Student UPN Domain"
+            onChange={(e) => setStudentDomainOverride(e.target.value)}
+            disabled={updateMutation.isPending}
+          >
+            {productionDomains.map((d) => (
+              <MenuItem key={d} value={d}>{d}</MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+      </Stack>
+
+      {showTestDomains && (
+        <>
           <Divider />
 
-          <Typography variant="subtitle2" color="text.secondary">Production Tenant</Typography>
+          <Typography variant="subtitle2" color="text.secondary">
+            Test Tenant Domains
+          </Typography>
+
+          <Typography variant="caption" color="text.secondary">
+            Used when the target tenant is set to TEST. Leave blank to fall back to the production domains above.
+          </Typography>
 
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
             <FormControl size="small" fullWidth>
-              <InputLabel>Staff UPN Domain</InputLabel>
+              <InputLabel>Test Staff Domain</InputLabel>
               <Select
-                value={resolvedStaff}
-                label="Staff UPN Domain"
-                onChange={(e) => setStaffDomainOverride(e.target.value)}
+                value={resolvedTestStaff}
+                label="Test Staff Domain"
+                onChange={(e) => setTestStaffDomainOverride(e.target.value)}
                 disabled={updateMutation.isPending}
               >
-                {productionDomains.map((d) => (
+                <MenuItem value=""><em>Not configured (use production domain)</em></MenuItem>
+                {testDomains.map((d) => (
                   <MenuItem key={d} value={d}>{d}</MenuItem>
                 ))}
               </Select>
             </FormControl>
 
             <FormControl size="small" fullWidth>
-              <InputLabel>Student UPN Domain</InputLabel>
+              <InputLabel>Test Student Domain</InputLabel>
               <Select
-                value={resolvedStudent}
-                label="Student UPN Domain"
-                onChange={(e) => setStudentDomainOverride(e.target.value)}
+                value={resolvedTestStudent}
+                label="Test Student Domain"
+                onChange={(e) => setTestStudentDomainOverride(e.target.value)}
                 disabled={updateMutation.isPending}
               >
-                {productionDomains.map((d) => (
+                <MenuItem value=""><em>Not configured (use production domain)</em></MenuItem>
+                {testDomains.map((d) => (
                   <MenuItem key={d} value={d}>{d}</MenuItem>
                 ))}
               </Select>
             </FormControl>
           </Stack>
+        </>
+      )}
 
-          {showTestDomains && (
-            <>
-              <Divider />
+      {saveError && <Alert severity="error">{saveError}</Alert>}
+      {saved     && <Alert severity="success">Domains saved.</Alert>}
 
-              <Typography variant="subtitle2" color="text.secondary">
-                Test Tenant Domains
-              </Typography>
-
-              <Typography variant="caption" color="text.secondary">
-                Used when the target tenant is set to TEST. Leave blank to fall back to the production domains above.
-              </Typography>
-
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                <FormControl size="small" fullWidth>
-                  <InputLabel>Test Staff Domain</InputLabel>
-                  <Select
-                    value={resolvedTestStaff}
-                    label="Test Staff Domain"
-                    onChange={(e) => setTestStaffDomainOverride(e.target.value)}
-                    disabled={updateMutation.isPending}
-                  >
-                    <MenuItem value=""><em>Not configured (use production domain)</em></MenuItem>
-                    {testDomains.map((d) => (
-                      <MenuItem key={d} value={d}>{d}</MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-
-                <FormControl size="small" fullWidth>
-                  <InputLabel>Test Student Domain</InputLabel>
-                  <Select
-                    value={resolvedTestStudent}
-                    label="Test Student Domain"
-                    onChange={(e) => setTestStudentDomainOverride(e.target.value)}
-                    disabled={updateMutation.isPending}
-                  >
-                    <MenuItem value=""><em>Not configured (use production domain)</em></MenuItem>
-                    {testDomains.map((d) => (
-                      <MenuItem key={d} value={d}>{d}</MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Stack>
-            </>
-          )}
-
-          {saveError && <Alert severity="error">{saveError}</Alert>}
-          {saved     && <Alert severity="success">Domains saved.</Alert>}
-
-          <Stack direction="row" spacing={1}>
-            <Button
-              size="small"
-              variant="contained"
-              onClick={handleSave}
-              disabled={updateMutation.isPending}
-              startIcon={updateMutation.isPending ? <CircularProgress size={14} color="inherit" /> : undefined}
-            >
-              {updateMutation.isPending ? 'Saving…' : 'Save Domains'}
-            </Button>
-          </Stack>
-        </Stack>
-      </CardContent>
-    </Card>
+      <Stack direction="row" spacing={1}>
+        <Button
+          size="small"
+          variant="contained"
+          onClick={handleSave}
+          disabled={updateMutation.isPending}
+          startIcon={updateMutation.isPending ? <CircularProgress size={14} color="inherit" /> : undefined}
+        >
+          {updateMutation.isPending ? 'Saving…' : 'Save Domains'}
+        </Button>
+      </Stack>
+    </Stack>
   );
 }
 
@@ -1155,6 +1319,7 @@ function PendingDisablesCard() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.provisioning.disableBatches() });
       queryClient.invalidateQueries({ queryKey: queryKeys.provisioning.audit() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.provisioning.disableBatchHistory() });
     },
   });
 
@@ -1162,11 +1327,14 @@ function PendingDisablesCard() {
     mutationFn: (id: string) => provisioningService.rejectDisableBatch(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.provisioning.disableBatches() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.provisioning.disableBatchHistory() });
+      setRejectConfirmId(null);
     },
   });
 
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [expandedId, setExpandedId]       = useState<string | null>(null);
   const [approveResult, setApproveResult] = useState<{ disabled: number; errors: number } | null>(null);
+  const [rejectConfirmId, setRejectConfirmId] = useState<string | null>(null);
 
   if (isLoading) return null;
   if (batches.length === 0 && !approveResult) return null;
@@ -1184,102 +1352,196 @@ function PendingDisablesCard() {
   }
 
   return (
-    <Card variant="outlined" sx={{ borderColor: 'warning.main' }}>
-      <CardContent>
+    <>
+      <Card variant="outlined" sx={{ borderColor: 'warning.main' }}>
+        <CardContent>
+          <Stack spacing={2}>
+            <Stack direction="row" alignItems="center" spacing={1}>
+              <Typography variant="h6" component="h2" color="warning.dark" sx={{ flexGrow: 1 }}>
+                Pending Disable Approval
+              </Typography>
+              <Chip label={`${batches.length} batch${batches.length !== 1 ? 'es' : ''}`} color="warning" size="small" />
+            </Stack>
+
+            <Alert severity="warning">
+              The following disable batch{batches.length !== 1 ? 'es were' : ' was'} held because the number of accounts
+              to disable exceeded the configured threshold. Review the list and approve or reject each batch.
+            </Alert>
+
+            <Stack spacing={2}>
+              {batches.map((batch: DisableBatch) => {
+                const isPending  = approveMutation.isPending || rejectMutation.isPending;
+                const isExpanded = expandedId === batch.id;
+
+                return (
+                  <Box key={batch.id} sx={{ border: 1, borderColor: 'divider', borderRadius: 1, p: 2 }}>
+                    <Stack spacing={1}>
+                      <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap">
+                        <Chip label={batch.userType} size="small" color="default" />
+                        {batch.testMode && <Chip label="TEST MODE" size="small" color="warning" />}
+                        <Typography variant="body2" color="error.main" fontWeight="bold">
+                          {batch.pendingUsers.length} accounts to disable
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" sx={{ flexGrow: 1 }}>
+                          Triggered by {batch.triggeredBy} · {formatTimestamp(batch.createdAt)}
+                        </Typography>
+                      </Stack>
+
+                      <Button
+                        size="small"
+                        variant="text"
+                        onClick={() => setExpandedId(isExpanded ? null : batch.id)}
+                        sx={{ alignSelf: 'flex-start', px: 0 }}
+                      >
+                        {isExpanded ? 'Hide accounts' : `Show ${batch.pendingUsers.length} accounts`}
+                      </Button>
+
+                      <Collapse in={isExpanded}>
+                        <Box sx={{ maxHeight: 240, overflowY: 'auto', border: 1, borderColor: 'divider', borderRadius: 1 }}>
+                          <Table size="small">
+                            <TableHead>
+                              <TableRow>
+                                <TableCell>Display Name</TableCell>
+                                <TableCell>UPN</TableCell>
+                                <TableCell>School</TableCell>
+                              </TableRow>
+                            </TableHead>
+                            <TableBody>
+                              {batch.pendingUsers.map((u) => (
+                                <TableRow key={u.id}>
+                                  <TableCell>{u.displayName}</TableCell>
+                                  <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.7rem' }}>{u.upn}</TableCell>
+                                  <TableCell>{u.officeLocation ?? '—'}</TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </Box>
+                      </Collapse>
+
+                      <Stack direction="row" spacing={1}>
+                        <Button
+                          size="small"
+                          variant="contained"
+                          color="error"
+                          disabled={isPending}
+                          startIcon={approveMutation.isPending ? <CircularProgress size={14} color="inherit" /> : undefined}
+                          onClick={async () => {
+                            const r = await approveMutation.mutateAsync(batch.id);
+                            setApproveResult({ disabled: r.disabled, errors: r.errors });
+                          }}
+                        >
+                          Approve &amp; Disable
+                        </Button>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          color="inherit"
+                          disabled={isPending}
+                          onClick={() => setRejectConfirmId(batch.id)}
+                        >
+                          Reject
+                        </Button>
+                      </Stack>
+                    </Stack>
+                  </Box>
+                );
+              })}
+            </Stack>
+          </Stack>
+        </CardContent>
+      </Card>
+
+      <Dialog open={rejectConfirmId !== null} onClose={() => setRejectConfirmId(null)} maxWidth="sm" fullWidth>
+        <DialogTitle>Reject Disable Batch?</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} mt={1}>
+            <DialogContentText>
+              These accounts will <strong>not</strong> be disabled. They will reappear in the next
+              provisioning run if they are still absent from the SIS export.
+            </DialogContentText>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setRejectConfirmId(null)}>Cancel</Button>
+          <Button
+            variant="outlined"
+            disabled={rejectMutation.isPending}
+            startIcon={rejectMutation.isPending ? <CircularProgress size={14} color="inherit" /> : undefined}
+            onClick={() => { if (rejectConfirmId) rejectMutation.mutate(rejectConfirmId); }}
+          >
+            {rejectMutation.isPending ? 'Rejecting…' : 'Reject'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Disable Batch History
+// ---------------------------------------------------------------------------
+
+function DisableBatchHistorySection() {
+  const [expanded, setExpanded] = useState(false);
+
+  const { data: history = [], isLoading } = useQuery({
+    queryKey:       queryKeys.provisioning.disableBatchHistory(),
+    queryFn:        provisioningService.getDisableBatchHistory,
+    staleTime:      60_000,
+    refetchInterval: 60_000,
+  });
+
+  if (isLoading || history.length === 0) return null;
+
+  return (
+    <Card variant="outlined">
+      <CardContent sx={{ '&:last-child': { pb: 2 } }}>
         <Stack spacing={2}>
           <Stack direction="row" alignItems="center" spacing={1}>
-            <Typography variant="h6" component="h2" color="warning.dark" sx={{ flexGrow: 1 }}>
-              Pending Disable Approval
+            <Typography variant="h6" component="h2" sx={{ flexGrow: 1 }}>
+              Batch History
             </Typography>
-            <Chip label={`${batches.length} batch${batches.length !== 1 ? 'es' : ''}`} color="warning" size="small" />
+            <Chip label={`${history.length}`} size="small" color="default" />
+            <IconButton size="small" onClick={() => setExpanded((e) => !e)}>
+              {expanded ? <KeyboardArrowUpIcon fontSize="small" /> : <KeyboardArrowDownIcon fontSize="small" />}
+            </IconButton>
           </Stack>
 
-          <Alert severity="warning">
-            The following disable batch{batches.length !== 1 ? 'es were' : ' was'} held because the number of accounts
-            to disable exceeded the configured threshold. Review the list and approve or reject each batch.
-          </Alert>
-
-          <Stack spacing={2}>
-            {batches.map((batch: DisableBatch) => {
-              const isPending  = approveMutation.isPending || rejectMutation.isPending;
-              const isExpanded = expandedId === batch.id;
-
-              return (
-                <Box key={batch.id} sx={{ border: 1, borderColor: 'divider', borderRadius: 1, p: 2 }}>
-                  <Stack spacing={1}>
-                    <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap">
-                      <Chip label={batch.userType} size="small" color="default" />
-                      {batch.testMode && <Chip label="TEST MODE" size="small" color="warning" />}
-                      <Typography variant="body2" color="error.main" fontWeight="bold">
-                        {batch.pendingUsers.length} accounts to disable
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary" sx={{ flexGrow: 1 }}>
-                        Triggered by {batch.triggeredBy} · {formatTimestamp(batch.createdAt)}
-                      </Typography>
-                    </Stack>
-
-                    <Button
-                      size="small"
-                      variant="text"
-                      onClick={() => setExpandedId(isExpanded ? null : batch.id)}
-                      sx={{ alignSelf: 'flex-start', px: 0 }}
-                    >
-                      {isExpanded ? 'Hide accounts' : `Show ${batch.pendingUsers.length} accounts`}
-                    </Button>
-
-                    <Collapse in={isExpanded}>
-                      <Box sx={{ maxHeight: 240, overflowY: 'auto', border: 1, borderColor: 'divider', borderRadius: 1 }}>
-                        <Table size="small">
-                          <TableHead>
-                            <TableRow>
-                              <TableCell>Display Name</TableCell>
-                              <TableCell>UPN</TableCell>
-                              <TableCell>School</TableCell>
-                            </TableRow>
-                          </TableHead>
-                          <TableBody>
-                            {batch.pendingUsers.map((u) => (
-                              <TableRow key={u.id}>
-                                <TableCell>{u.displayName}</TableCell>
-                                <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.7rem' }}>{u.upn}</TableCell>
-                                <TableCell>{u.officeLocation ?? '—'}</TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      </Box>
-                    </Collapse>
-
-                    <Stack direction="row" spacing={1}>
-                      <Button
-                        size="small"
-                        variant="contained"
-                        color="error"
-                        disabled={isPending}
-                        startIcon={approveMutation.isPending ? <CircularProgress size={14} color="inherit" /> : undefined}
-                        onClick={async () => {
-                          const r = await approveMutation.mutateAsync(batch.id);
-                          setApproveResult({ disabled: r.disabled, errors: r.errors });
-                        }}
-                      >
-                        Approve & Disable
-                      </Button>
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        color="inherit"
-                        disabled={isPending}
-                        startIcon={rejectMutation.isPending ? <CircularProgress size={14} color="inherit" /> : undefined}
-                        onClick={() => rejectMutation.mutate(batch.id)}
-                      >
-                        Reject
-                      </Button>
-                    </Stack>
-                  </Stack>
-                </Box>
-              );
-            })}
-          </Stack>
+          <Collapse in={expanded}>
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Resolved</TableCell>
+                    <TableCell>Type</TableCell>
+                    <TableCell>Accounts</TableCell>
+                    <TableCell>Triggered by</TableCell>
+                    <TableCell>Resolved by</TableCell>
+                    <TableCell>Outcome</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {history.map((item: DisableBatchHistoryItem) => (
+                    <TableRow key={item.id}>
+                      <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatTimestamp(item.resolvedAt ?? item.createdAt)}</TableCell>
+                      <TableCell>{item.userType}</TableCell>
+                      <TableCell>{item.accountCount}</TableCell>
+                      <TableCell>{item.triggeredBy}</TableCell>
+                      <TableCell>{item.resolvedBy ?? '—'}</TableCell>
+                      <TableCell>
+                        <Chip
+                          label={item.status === 'APPROVED' ? 'Approved' : 'Rejected'}
+                          color={item.status === 'APPROVED' ? 'success' : 'default'}
+                          size="small"
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Collapse>
         </Stack>
       </CardContent>
     </Card>
@@ -1304,7 +1566,6 @@ function AuditDetailPanel({ details }: { details: Record<string, unknown> | null
     );
   }
 
-  // details.patch for UPDATED/REENABLED, details.fields for CREATED
   const entries = Object.entries(
     (details['patch'] as Record<string, unknown> | undefined) ??
     (details['fields'] as Record<string, unknown> | undefined) ??
@@ -1464,12 +1725,14 @@ function AuditLogSection() {
                             </TableCell>
                             <TableCell>{row.employeeId ?? '—'}</TableCell>
                             <TableCell>
-                              <Chip
-                                label={row.action}
-                                color={actionChipColor(row.action)}
-                                size="small"
-                                sx={{ fontFamily: 'monospace', fontSize: '0.7rem' }}
-                              />
+                              <Tooltip title={row.action} placement="top">
+                                <Chip
+                                  label={actionLabel(row.action)}
+                                  color={actionChipColor(row.action)}
+                                  size="small"
+                                  sx={{ fontFamily: 'monospace', fontSize: '0.7rem' }}
+                                />
+                              </Tooltip>
                             </TableCell>
                             <TableCell>
                               {row.errorMessage ? (
@@ -1559,26 +1822,65 @@ function AuditLogSection() {
 // ---------------------------------------------------------------------------
 
 export default function ProvisioningPage() {
+  const { data: config } = useQuery({
+    queryKey: queryKeys.provisioning.config(),
+    queryFn:  provisioningService.getConfig,
+  });
+
+  const staffConfigured   = config ? (config.staffPassword ? 'Configured' : 'Not set') : '…';
+  const studentConfigured = config ? (config.studentPassword ? 'Configured' : 'Not set') : '…';
+  const staffDomain       = config?.staffUpnDomain ?? '…';
+  const studentDomain     = config?.studentUpnDomain ?? '…';
+
   return (
     <Box sx={{ p: { xs: 2, sm: 3 }, maxWidth: 1100, mx: 'auto' }}>
       <Box sx={{ mb: 3 }}>
         <Typography variant="h4" component="h1" gutterBottom>
           User Provisioning
         </Typography>
-        <Typography variant="body1" color="text.secondary">
-          Manage automatic account creation and deprovisioning from the Synergy SIS export.
-          Enable Test Mode to simulate runs without writing to Microsoft Entra.
-        </Typography>
+        <Box sx={{ mt: 1 }}>
+          <StatusBanner />
+        </Box>
       </Box>
 
       <Stack spacing={3}>
         <TenantSwitcherCard />
+        <TestModeCard />
         <RunJobCard />
+        <PendingDisablesCard />
+        <DisableBatchHistorySection />
         <ScheduleEditorCard />
         <SafetySettingsCard />
-        <PendingDisablesCard />
-        <PasswordConfigCard />
-        <DomainConfigCard />
+
+        {/* Rarely-changed config — collapsed by default */}
+        <Accordion variant="outlined" disableGutters>
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <Stack direction="row" spacing={2} alignItems="center">
+              <Typography variant="subtitle1" fontWeight={500}>Default Account Passwords</Typography>
+              <Typography variant="caption" color="text.secondary">
+                Staff: {staffConfigured} · Student: {studentConfigured}
+              </Typography>
+            </Stack>
+          </AccordionSummary>
+          <AccordionDetails>
+            <PasswordConfigCard />
+          </AccordionDetails>
+        </Accordion>
+
+        <Accordion variant="outlined" disableGutters>
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <Stack direction="row" spacing={2} alignItems="center">
+              <Typography variant="subtitle1" fontWeight={500}>UPN Domains</Typography>
+              <Typography variant="caption" color="text.secondary">
+                Staff: {staffDomain} · Student: {studentDomain}
+              </Typography>
+            </Stack>
+          </AccordionSummary>
+          <AccordionDetails>
+            <DomainConfigCard />
+          </AccordionDetails>
+        </Accordion>
+
         <AuditLogSection />
       </Stack>
     </Box>

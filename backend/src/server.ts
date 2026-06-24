@@ -14,6 +14,7 @@ const server = app.listen(PORT, () => {
   });
 
   // Start background schedulers
+  cronJobsService.start();
   schedulerService.start().catch((err) => {
     loggers.server.error('SchedulerService startup failed', { error: err });
   });

@@ -291,6 +291,7 @@ class SchedulerService {
         return {
           created:       result.created.length,
           deprovisioned: result.deprovisioned.length,
+          reEnabled:     result.reEnabled.length,
           updated:       result.updated,
           errors:        result.errors,
           durationMs:    result.durationMs,
@@ -298,6 +299,11 @@ class SchedulerService {
         };
       }
     }
+  }
+
+  /** Public: check whether a specific job is currently executing */
+  isJobRunning(jobKey: string): boolean {
+    return this.isRunning.get(jobKey as JobKey) ?? false;
   }
 
   /** Public: list all schedules enriched with live isRunning flag.

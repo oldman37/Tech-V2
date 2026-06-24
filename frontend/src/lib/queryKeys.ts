@@ -172,9 +172,11 @@ export const queryKeys = {
   provisioning: {
     all: ['provisioning'] as const,
     config: () => [...queryKeys.provisioning.all, 'config'] as const,
+    status: () => [...queryKeys.provisioning.all, 'status'] as const,
     audit: (params?: Record<string, unknown>) => [...queryKeys.provisioning.all, 'audit', params] as const,
     domains: () => [...queryKeys.provisioning.all, 'domains'] as const,
     disableBatches: () => [...queryKeys.provisioning.all, 'disable-batches'] as const,
+    disableBatchHistory: () => [...queryKeys.provisioning.all, 'disable-batch-history'] as const,
   },
 } as const;
 

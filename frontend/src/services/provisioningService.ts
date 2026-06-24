@@ -1,4 +1,6 @@
 import api from './api';
+import type { ProvisioningStatus, DisableBatchHistoryItem } from '@mgspe/shared-types';
+export type { ProvisioningStatus, DisableBatchHistoryItem };
 
 export type ProvisioningUserType = 'ALL' | 'STAFF' | 'STUDENT';
 
@@ -66,6 +68,7 @@ export interface ProvisioningAuditResponse {
   pages: number;
 }
 
+
 export interface ProvisioningConfig {
   staffPassword: string | null;
   studentPassword: string | null;
@@ -105,6 +108,16 @@ export interface UpdateProvisioningConfigInput {
 }
 
 const provisioningService = {
+  getStatus: async (): Promise<ProvisioningStatus> => {
+    const res = await api.get<ProvisioningStatus>('/provisioning/status');
+    return res.data;
+  },
+
+  getDisableBatchHistory: async (): Promise<DisableBatchHistoryItem[]> => {
+    const res = await api.get<DisableBatchHistoryItem[]>('/provisioning/disable-batches/history');
+    return res.data;
+  },
+
   run: async (input: RunProvisioningInput): Promise<RunProvisioningResult> => {
     const res = await api.post<RunProvisioningResult>('/provisioning/run', input);
     return res.data;

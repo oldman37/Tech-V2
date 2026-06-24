@@ -1469,7 +1469,13 @@ export async function sendProvisioningReport(result: {
   })();
   if (recipients.length === 0) return;
 
-  if (result.created.length === 0 && result.deprovisioned.length === 0 && result.reEnabled.length === 0) return;
+  if (
+    result.created.length === 0 &&
+    result.deprovisioned.length === 0 &&
+    result.reEnabled.length === 0 &&
+    result.errors === 0 &&
+    result.updated === 0
+  ) return;
 
   const { created, deprovisioned, reEnabled, updated, errors, durationMs, triggeredBy, testMode } = result;
   const date = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
@@ -1581,7 +1587,13 @@ export async function sendProvisioningDisableAlert(params: {
     if (!raw) return [] as string[];
     return raw.split(',').map((r) => r.trim()).filter(Boolean);
   })();
-  if (recipients.length === 0) return;
+  if (recipients.length === 0) {
+    loggers.email.warn(
+      'Provisioning disable alert: no recipients configured — batch held but no alert sent',
+      { batchId: params.batchId, count: params.count },
+    );
+    return;
+  }
 
   const { batchId, count, userType, triggeredBy, threshold } = params;
   const appUrl = process.env.APP_URL ?? '';
