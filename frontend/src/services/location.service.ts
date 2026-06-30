@@ -11,6 +11,8 @@ import {
   UpdateLocationRequest,
   AssignSupervisorRequest,
   SupervisorType,
+  SupervisorDelegation,
+  CreateDelegationRequest,
 } from '../types/location.types';
 import api from './api';
 
@@ -112,6 +114,20 @@ export const locationService = {
       `/locations/${locationId}/supervisor/${supervisorType}`
     );
     return response.data;
+  },
+
+  async getDelegations(locationId: string): Promise<SupervisorDelegation[]> {
+    const response = await api.get<SupervisorDelegation[]>(`/locations/${locationId}/delegations`);
+    return response.data;
+  },
+
+  async createDelegation(locationId: string, data: CreateDelegationRequest): Promise<SupervisorDelegation> {
+    const response = await api.post<SupervisorDelegation>(`/locations/${locationId}/delegations`, data);
+    return response.data;
+  },
+
+  async revokeDelegation(locationId: string, delegationId: string): Promise<void> {
+    await api.delete(`/locations/${locationId}/delegations/${delegationId}`);
   },
 };
 

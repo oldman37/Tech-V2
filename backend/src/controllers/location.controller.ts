@@ -184,3 +184,50 @@ export const deleteOfficeLocation = async (req: Request, res: Response) => {
     handleControllerError(error, res);
   }
 };
+
+/**
+ * List all temporary supervisor delegations for a location
+ */
+export const getDelegations = async (req: Request, res: Response) => {
+  try {
+    const delegations = await locationService.getDelegations(req.params.locationId as string);
+    res.json(delegations);
+  } catch (error) {
+    handleControllerError(error, res);
+  }
+};
+
+/**
+ * Create a temporary supervisor delegation for a location
+ */
+export const createDelegation = async (req: AuthRequest, res: Response) => {
+  try {
+    const locationId = req.params.locationId as string;
+    const { supervisorType, delegateUserId, expiresAt, reason } = req.body;
+    const createdById = req.user!.id;
+
+    const delegation = await locationService.createDelegation(
+      locationId,
+      { supervisorType, delegateUserId, expiresAt: new Date(expiresAt), reason },
+      createdById,
+    );
+    res.status(201).json(delegation);
+  } catch (error) {
+    handleControllerError(error, res);
+  }
+};
+
+/**
+ * Revoke (soft-delete) a temporary supervisor delegation
+ */
+export const revokeDelegation = async (req: Request, res: Response) => {
+  try {
+    await locationService.revokeDelegation(
+      req.params.locationId as string,
+      req.params.delegationId as string,
+    );
+    res.json({ message: 'Delegation revoked successfully' });
+  } catch (error) {
+    handleControllerError(error, res);
+  }
+};

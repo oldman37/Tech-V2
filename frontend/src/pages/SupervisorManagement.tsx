@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 const US_STATES = [
   { code: 'AL', name: 'Alabama' }, { code: 'AK', name: 'Alaska' }, { code: 'AZ', name: 'Arizona' },
@@ -30,6 +30,7 @@ import {
   getSupervisorDisplayName,
   AssignSupervisorRequest,
   CreateLocationRequest,
+  SupervisorDelegation,
 } from '../types/location.types';
 import { Box, Paper, Button } from '@mui/material';
 import locationService from '../services/location.service';
@@ -1012,6 +1013,66 @@ const EditLocationModal: React.FC<EditLocationModalProps> = ({ location, users, 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Delegation state
+  const [delegations, setDelegations] = useState<SupervisorDelegation[]>([]);
+  const [showDelegatesSection, setShowDelegatesSection] = useState(false);
+  const [showAddDelegate, setShowAddDelegate] = useState(false);
+  const [newDelegate, setNewDelegate] = useState<{
+    supervisorType: SupervisorType | '';
+    delegateUserId: string | null;
+    expiresAt: string;
+    reason: string;
+  }>({ supervisorType: '', delegateUserId: null, expiresAt: '', reason: '' });
+
+  useEffect(() => {
+    locationService.getDelegations(location.id)
+      .then(setDelegations)
+      .catch(() => { /* silently ignore */ });
+  }, [location.id]);
+
+  const activeDelegations = delegations.filter(
+    (d) => d.isActive && new Date(d.expiresAt) > new Date(),
+  );
+
+  const delegatableRoles = Array.from(
+    new Set(
+      supervisors
+        .filter((s) => s.isPrimary && s.supervisorType !== 'TECHNOLOGY_ASSISTANT' && s.supervisorType !== 'MAINTENANCE_WORKER')
+        .map((s) => s.supervisorType),
+    ),
+  );
+
+  const handleRevoke = async (delegationId: string) => {
+    setError(null);
+    try {
+      await locationService.revokeDelegation(location.id, delegationId);
+      setDelegations(await locationService.getDelegations(location.id));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to revoke delegation');
+    }
+  };
+
+  const handleCreateDelegate = async () => {
+    if (!newDelegate.supervisorType || !newDelegate.delegateUserId || !newDelegate.expiresAt) {
+      setError('Role, delegate, and expiry date are required');
+      return;
+    }
+    setError(null);
+    try {
+      await locationService.createDelegation(location.id, {
+        supervisorType: newDelegate.supervisorType as SupervisorType,
+        delegateUserId: newDelegate.delegateUserId,
+        expiresAt: new Date(newDelegate.expiresAt).toISOString(),
+        reason: newDelegate.reason || undefined,
+      });
+      setDelegations(await locationService.getDelegations(location.id));
+      setShowAddDelegate(false);
+      setNewDelegate({ supervisorType: '', delegateUserId: null, expiresAt: '', reason: '' });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to set delegate');
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -1384,6 +1445,152 @@ const EditLocationModal: React.FC<EditLocationModalProps> = ({ location, users, 
                         </button>
                       </div>
                     ))}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          {/* Temporary Delegates Section */}
+          <div style={{ borderTop: '2px solid var(--slate-200)', paddingTop: '1.5rem', marginTop: '1rem' }}>
+            <button
+              type="button"
+              onClick={() => setShowDelegatesSection(!showDelegatesSection)}
+              style={{
+                width: '100%',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '0.75rem 1rem',
+                background: activeDelegations.length > 0 ? 'var(--amber-50, #fffbeb)' : 'var(--slate-100)',
+                border: activeDelegations.length > 0 ? '1px solid var(--amber-200, #fde68a)' : 'none',
+                borderRadius: '0.375rem',
+                cursor: 'pointer',
+                fontSize: '0.875rem',
+                fontWeight: 600,
+                color: 'var(--slate-900)',
+                marginBottom: '1rem',
+              }}
+            >
+              <span>Temporary Delegates ({activeDelegations.length} active)</span>
+              <span style={{ fontSize: '1.25rem', transform: showDelegatesSection ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>
+                ▼
+              </span>
+            </button>
+
+            {showDelegatesSection && (
+              <>
+                <div className="flex" style={{ justifyContent: 'flex-end', marginBottom: '1rem' }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowAddDelegate(!showAddDelegate)}
+                    className="btn btn-sm btn-primary"
+                    disabled={delegatableRoles.length === 0}
+                    title={delegatableRoles.length === 0 ? 'No primary supervisors assigned to this location' : undefined}
+                  >
+                    {showAddDelegate ? 'Cancel' : '+ Set Temporary Delegate'}
+                  </button>
+                </div>
+
+                {showAddDelegate && (
+                  <div style={{ padding: '1rem', background: 'var(--slate-50)', borderRadius: '0.375rem', marginBottom: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    <select
+                      value={newDelegate.supervisorType}
+                      onChange={(e) => setNewDelegate({ ...newDelegate, supervisorType: e.target.value as SupervisorType | '' })}
+                      className="form-select"
+                      style={{ fontSize: '0.875rem' }}
+                    >
+                      <option value="">Select role to delegate...</option>
+                      {delegatableRoles.map((type) => (
+                        <option key={type} value={type}>
+                          {SUPERVISOR_TYPE_LABELS[type]}
+                        </option>
+                      ))}
+                    </select>
+
+                    <UserSearchAutocomplete
+                      value={newDelegate.delegateUserId}
+                      onChange={(id) => setNewDelegate({ ...newDelegate, delegateUserId: id })}
+                      label="Temporary delegate..."
+                    />
+
+                    <div>
+                      <label className="form-label">Expires</label>
+                      <input
+                        type="datetime-local"
+                        value={newDelegate.expiresAt}
+                        onChange={(e) => setNewDelegate({ ...newDelegate, expiresAt: e.target.value })}
+                        className="form-input"
+                        min={new Date().toISOString().slice(0, 16)}
+                        style={{ fontSize: '0.875rem' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="form-label">Reason (optional)</label>
+                      <input
+                        type="text"
+                        value={newDelegate.reason}
+                        onChange={(e) => setNewDelegate({ ...newDelegate, reason: e.target.value })}
+                        className="form-input"
+                        placeholder="e.g., Out of town July 1–5"
+                        maxLength={200}
+                        style={{ fontSize: '0.875rem' }}
+                      />
+                    </div>
+
+                    <button type="button" onClick={handleCreateDelegate} className="btn btn-primary btn-sm">
+                      Set Delegate
+                    </button>
+                  </div>
+                )}
+
+                {delegations.length === 0 ? (
+                  <p style={{ fontSize: '0.875rem', color: 'var(--slate-400)', fontStyle: 'italic', textAlign: 'center', padding: '1rem' }}>
+                    No temporary delegates set
+                  </p>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    {delegations.map((d) => {
+                      const isExpired = !d.isActive || new Date(d.expiresAt) <= new Date();
+                      return (
+                        <div
+                          key={d.id}
+                          style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            padding: '0.75rem',
+                            background: isExpired ? 'var(--slate-50)' : 'var(--amber-50, #fffbeb)',
+                            borderRadius: '0.375rem',
+                            fontSize: '0.875rem',
+                            border: isExpired ? '1px solid var(--slate-200)' : '1px solid var(--amber-200, #fde68a)',
+                            opacity: isExpired ? 0.6 : 1,
+                          }}
+                        >
+                          <div>
+                            <div style={{ fontWeight: 500, color: 'var(--slate-900)' }}>
+                              {SUPERVISOR_TYPE_LABELS[d.supervisorType]} → {d.delegate.displayName || `${d.delegate.firstName} ${d.delegate.lastName}`}
+                            </div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--slate-500)' }}>
+                              Expires {new Date(d.expiresAt).toLocaleString()}
+                              {d.reason && ` • ${d.reason}`}
+                              {isExpired && ' • (expired/revoked)'}
+                            </div>
+                          </div>
+                          {!isExpired && (
+                            <button
+                              type="button"
+                              onClick={() => handleRevoke(d.id)}
+                              className="btn btn-sm"
+                              style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', background: 'none', border: '1px solid var(--red-300, #fca5a5)', color: 'var(--red-700, #b91c1c)' }}
+                            >
+                              Revoke
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </>

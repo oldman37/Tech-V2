@@ -124,25 +124,27 @@ router.post(
  * Level 3 = Supervisor (submitted → supervisor_approved).
  * Level 5 = Finance Director (supervisor_approved → finance_director_approved).
  * Level 6 = Director of Schools (finance_director_approved → dos_approved).
- * Route requires level 3 minimum; service differentiates behavior by exact level.
+ * Route gate is level 2 so active delegates (regular staff) can reach the service;
+ * the service enforces actual approval-stage permissions and delegation checks.
  */
 router.post(
   '/:id/approve',
   validateRequest(PurchaseOrderIdParamSchema, 'params'),
   validateRequest(ApproveSchema, 'body'),
-  requireModule('REQUISITIONS', 3),
+  requireModule('REQUISITIONS', 2),
   purchaseOrderController.approvePurchaseOrder,
 );
 
 /**
  * POST /api/purchase-orders/:id/reject
  * Reject / deny at any workflow stage.
+ * Level 2 gate allows active delegates; service enforces actual rejection permissions.
  */
 router.post(
   '/:id/reject',
   validateRequest(PurchaseOrderIdParamSchema, 'params'),
   validateRequest(RejectSchema, 'body'),
-  requireModule('REQUISITIONS', 3),
+  requireModule('REQUISITIONS', 2),
   purchaseOrderController.rejectPurchaseOrder,
 );
 

@@ -51,6 +51,27 @@ export interface AssignSupervisorDto {
   assignedBy?: string;
 }
 
+export interface SupervisorDelegationWithDetails {
+  id: string;
+  locationId: string;
+  supervisorType: string;
+  delegateUserId: string;
+  expiresAt: Date;
+  reason: string | null;
+  isActive: boolean;
+  createdById: string;
+  createdAt: Date;
+  updatedAt: Date;
+  delegate: {
+    id: string;
+    displayName: string | null;
+    firstName: string | null;
+    lastName: string | null;
+    email: string;
+    jobTitle: string | null;
+  };
+}
+
 /**
  * Service for managing office location operations
  * Handles all location CRUD operations and supervisor assignments
@@ -551,5 +572,85 @@ export class LocationService {
    */
   getValidSupervisorTypes(): string[] {
     return [...this.validSupervisorTypes];
+  }
+
+  // -------------------------------------------------------------------------
+  // Supervisor Delegations
+  // -------------------------------------------------------------------------
+
+  private readonly workerOnlyTypes = ['TECHNOLOGY_ASSISTANT', 'MAINTENANCE_WORKER'];
+
+  async getDelegations(locationId: string): Promise<SupervisorDelegationWithDetails[]> {
+    return this.prisma.supervisorDelegation.findMany({
+      where: { locationId },
+      include: {
+        delegate: {
+          select: {
+            id: true,
+            displayName: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            jobTitle: true,
+          },
+        },
+      },
+      orderBy: [{ isActive: 'desc' }, { expiresAt: 'asc' }],
+    });
+  }
+
+  async createDelegation(
+    locationId: string,
+    data: { supervisorType: string; delegateUserId: string; expiresAt: Date; reason?: string },
+    createdById: string,
+  ): Promise<SupervisorDelegationWithDetails> {
+    if (this.workerOnlyTypes.includes(data.supervisorType)) {
+      throw new ValidationError(
+        `${data.supervisorType} is a work-order routing role and cannot be delegated for PO approval`,
+        'supervisorType',
+      );
+    }
+
+    if (data.expiresAt <= new Date()) {
+      throw new ValidationError('Expiry date must be in the future', 'expiresAt');
+    }
+
+    const location = await this.prisma.officeLocation.findUnique({ where: { id: locationId } });
+    if (!location) throw new NotFoundError('Office location', locationId);
+
+    return this.prisma.supervisorDelegation.create({
+      data: {
+        locationId,
+        supervisorType: data.supervisorType,
+        delegateUserId: data.delegateUserId,
+        expiresAt: data.expiresAt,
+        reason: data.reason ?? null,
+        createdById,
+      },
+      include: {
+        delegate: {
+          select: {
+            id: true,
+            displayName: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            jobTitle: true,
+          },
+        },
+      },
+    });
+  }
+
+  async revokeDelegation(locationId: string, delegationId: string): Promise<void> {
+    const delegation = await this.prisma.supervisorDelegation.findFirst({
+      where: { id: delegationId, locationId },
+    });
+    if (!delegation) throw new NotFoundError('Supervisor delegation', delegationId);
+
+    await this.prisma.supervisorDelegation.update({
+      where: { id: delegationId },
+      data: { isActive: false },
+    });
   }
 }

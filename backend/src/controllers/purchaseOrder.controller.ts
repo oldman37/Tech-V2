@@ -292,8 +292,9 @@ export const approvePurchaseOrder = async (req: AuthRequest, res: Response): Pro
  */
 export const rejectPurchaseOrder = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const data = RejectSchema.parse(req.body);
-    const po   = await service.rejectPurchaseOrder(req.params.id as string, req.user!.id, data);
+    const data    = RejectSchema.parse(req.body);
+    const permLvl = req.user!.permLevel ?? 1;
+    const po      = await service.rejectPurchaseOrder(req.params.id as string, req.user!.id, permLvl, data);
 
     if (po.User?.email) {
       sendRequisitionRejected(po as any, po.User.email, data.reason).catch(() => {});

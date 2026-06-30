@@ -111,9 +111,28 @@ export const AssignSupervisorSchema = z.object({
 });
 
 /**
+ * Validation schema for creating a temporary supervisor delegation
+ */
+export const CreateDelegationSchema = z.object({
+  supervisorType: SupervisorType,
+  delegateUserId: z.string().uuid('Invalid user ID format'),
+  expiresAt: z.string().datetime('Invalid datetime format — must be ISO 8601'),
+  reason: z.string().max(200).optional(),
+});
+
+/**
+ * Validation schema for delegation URL params (locationId + delegationId)
+ */
+export const DelegationParamSchema = z.object({
+  locationId: z.string().uuid('Invalid location ID format'),
+  delegationId: z.string().uuid('Invalid delegation ID format'),
+});
+
+/**
  * TypeScript type exports (inferred from schemas)
  */
 export type LocationIdParam = z.infer<typeof LocationIdParamSchema>;
 export type CreateOfficeLocation = z.infer<typeof CreateOfficeLocationSchema>;
 export type UpdateOfficeLocation = z.infer<typeof UpdateOfficeLocationSchema>;
 export type AssignSupervisor = z.infer<typeof AssignSupervisorSchema>;
+export type CreateDelegation = z.infer<typeof CreateDelegationSchema>;

@@ -217,6 +217,27 @@ model LocationSupervisor {
   @@map("location_supervisors")
 }
 
+model SupervisorDelegation {
+  id             String         @id @default(uuid())
+  locationId     String
+  supervisorType String
+  delegateUserId String
+  expiresAt      DateTime
+  reason         String?
+  isActive       Boolean        @default(true)
+  createdById    String
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  location       OfficeLocation @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  delegate       User           @relation("SupervisorDelegationDelegate", fields: [delegateUserId], references: [id], onDelete: Cascade)
+  createdBy      User           @relation("SupervisorDelegationCreatedBy", fields: [createdById], references: [id])
+
+  @@index([locationId, supervisorType])
+  @@index([delegateUserId])
+  @@index([expiresAt])
+  @@map("supervisor_delegations")
+}
+
 model locations {
   id                 String               @id @default(uuid())
   buildingName       String
@@ -297,6 +318,7 @@ model OfficeLocation {
   fiscalYearLocationStatuses FiscalYearLocationStatus[]
 
   transportationFuelStations TransportationFuelStation[]
+  supervisorDelegations      SupervisorDelegation[]
 
   @@index([isActive])
   @@index([type])
@@ -571,6 +593,8 @@ model User {
   driverLicensesUploaded       DriverLicense[] @relation("DriverLicenseUploader")
   intuneActionLogs             IntuneActionLog[] @relation("IntuneActionLogPerformedBy")
   refreshTokens                RefreshToken[]
+  supervisorDelegations        SupervisorDelegation[] @relation("SupervisorDelegationDelegate")
+  delegationsCreated           SupervisorDelegation[] @relation("SupervisorDelegationCreatedBy")
 
   @@index([employeeId])
   @@map("users")

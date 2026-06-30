@@ -80,6 +80,34 @@ export interface LocationSupervisorWithDetails extends LocationSupervisor {
   };
 }
 
+export interface SupervisorDelegation {
+  id: string;
+  locationId: string;
+  supervisorType: SupervisorType;
+  delegateUserId: string;
+  expiresAt: string;
+  reason: string | null;
+  isActive: boolean;
+  createdById: string;
+  createdAt: string;
+  updatedAt: string;
+  delegate: {
+    id: string;
+    displayName: string | null;
+    firstName: string;
+    lastName: string;
+    email: string;
+    jobTitle: string | null;
+  };
+}
+
+export interface CreateDelegationRequest {
+  supervisorType: SupervisorType;
+  delegateUserId: string;
+  expiresAt: string;
+  reason?: string;
+}
+
 // API request/response types
 export interface AssignSupervisorRequest {
   userId: string;

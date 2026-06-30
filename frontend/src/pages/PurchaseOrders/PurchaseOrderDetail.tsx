@@ -252,16 +252,17 @@ export default function PurchaseOrderDetail() {
   const canActAtDosStage = isFoodService
     ? po.status === 'supervisor_approved' && permLevel >= 6 && isDosApprover
     : po.status === 'finance_director_approved' && permLevel >= 6 && isDosApprover;
-  const canActAtSupStage = po.status === 'submitted' && permLevel >= 3 && !isDosApprover && !isFinanceDirector && !isAdmin && !isPoEntryUser && !isFoodServicePoEntry;
+  const isActiveDelegate = !!(po as any).isActiveDelegate;
+  const canActAtSupStage = po.status === 'submitted' && (permLevel >= 3 || isActiveDelegate) && !isDosApprover && !isFinanceDirector && !isAdmin && !isPoEntryUser && !isFoodServicePoEntry;
   // District Office POs: Finance Director approves at the supervisor stage
   const canActAtDistrictOfficeSupStage = po.status === 'submitted' && isDistrictOfficePO && isFinanceDirector;
   const effectiveCanAct  = canActAtFdStage || canActAtDosStage || canActAtSupStage || canActAtDistrictOfficeSupStage;
 
   const canApprove  = po.status === 'submitted' && assignedSupervisorId && !isDistrictOfficePO
-    ? user?.id === assignedSupervisorId
+    ? user?.id === assignedSupervisorId || isActiveDelegate
     : effectiveCanAct;
   const canReject   = po.status === 'submitted' && assignedSupervisorId && !isDistrictOfficePO
-    ? user?.id === assignedSupervisorId
+    ? user?.id === assignedSupervisorId || isActiveDelegate
     : effectiveCanAct;
   const canIssue    = isFoodService
     ? isFoodServicePoEntry && permLevel >= 4 && po.status === 'dos_approved'

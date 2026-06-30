@@ -509,8 +509,24 @@ export class PurchaseOrderService {
       throw new NotFoundError('Purchase order', id);
     }
 
+    // Determine whether the requesting user is an active delegate for this PO's location.
+    // Used to grant view access and surface the approve button on the frontend.
+    let isActiveDelegate = false;
+    if (po.status === 'submitted' && po.officeLocationId) {
+      const now = new Date();
+      const delegation = await this.prisma.supervisorDelegation.findFirst({
+        where: {
+          locationId: po.officeLocationId,
+          delegateUserId: userId,
+          isActive: true,
+          expiresAt: { gt: now },
+        },
+      });
+      isActiveDelegate = !!delegation;
+    }
+
     if (permLevel < 3) {
-      if (po.requestorId !== userId) {
+      if (po.requestorId !== userId && !isActiveDelegate) {
         throw new AuthorizationError('You do not have permission to view this purchase order');
       }
     } else if (permLevel === 3) {
@@ -530,7 +546,7 @@ export class PurchaseOrderService {
     }
     // permLevel >= 4: global visibility
 
-    return po;
+    return { ...po, isActiveDelegate };
   }
 
   // -------------------------------------------------------------------------
@@ -1002,15 +1018,39 @@ export class PurchaseOrderService {
       );
     }
 
-    if (permLevel < stageReq.requiredLevel) {
+    // Allow active delegates to pass the permLevel gate for the submitted stage.
+    // The supervisor-stage delegation check (below) verifies they are actually
+    // delegated for this specific location — this only prevents the gate from
+    // rejecting them before that check runs.
+    let effectivePermLevel = permLevel;
+    let isDelegateApprover = false;
+    if (po.status === 'submitted' && po.officeLocationId) {
+      const now = new Date();
+      const activeDelegation = await this.prisma.supervisorDelegation.findFirst({
+        where: {
+          locationId: po.officeLocationId,
+          delegateUserId: userId,
+          isActive: true,
+          expiresAt: { gt: now },
+        },
+      });
+      if (activeDelegation) {
+        effectivePermLevel = Math.max(permLevel, stageReq.requiredLevel);
+        isDelegateApprover = true;
+      }
+    }
+
+    if (effectivePermLevel < stageReq.requiredLevel) {
       throw new AuthorizationError(
         `This approval stage requires permission level ${stageReq.requiredLevel} or higher (your level: ${permLevel})`,
       );
     }
 
     // ── Separation of duties ────────────────────────────────────────────────
-    // 1. The requestor may not approve their own PO at any stage.
-    if (po.requestorId === userId) {
+    // 1. The requestor may not approve their own PO at any stage — unless they
+    //    are acting as a temporary delegate, in which case they hold supervisor
+    //    authority for the location and the restriction is lifted.
+    if (po.requestorId === userId && !isDelegateApprover) {
       loggers.purchaseOrder.warn('Self-approval attempt blocked', {
         poId: id,
         userId,
@@ -1153,9 +1193,21 @@ export class PurchaseOrderService {
           });
           if (locSup) {
             if (locSup.userId !== userId) {
-              throw new AuthorizationError(
-                'Only the assigned supervisor for this location can approve at this stage',
-              );
+              const now = new Date();
+              const delegation = await this.prisma.supervisorDelegation.findFirst({
+                where: {
+                  locationId: po.officeLocationId!,
+                  supervisorType: locSup.supervisorType,
+                  delegateUserId: userId,
+                  isActive: true,
+                  expiresAt: { gt: now },
+                },
+              });
+              if (!delegation) {
+                throw new AuthorizationError(
+                  'Only the assigned supervisor (or their active delegate) can approve at this stage',
+                );
+              }
             }
           } else {
             // No primary supervisor assigned — block until one is configured.
@@ -1260,7 +1312,7 @@ export class PurchaseOrderService {
    * Transitions: any rejectable status → denied.
    * Sets denialReason on the PO record.
    */
-  async rejectPurchaseOrder(id: string, userId: string, rejectData: RejectDto) {
+  async rejectPurchaseOrder(id: string, userId: string, permLevel: number, rejectData: RejectDto) {
     const po = await this.prisma.purchase_orders.findUnique({ where: { id } });
     if (!po) throw new NotFoundError('Purchase order', id);
 
@@ -1269,6 +1321,26 @@ export class PurchaseOrderService {
         `Purchase order in status "${po.status}" cannot be rejected`,
         'status',
       );
+    }
+
+    // Users below level 3 may only reject at the submitted stage if they hold
+    // an active delegation for the PO's location.
+    if (permLevel < 3) {
+      if (po.status !== 'submitted' || !po.officeLocationId) {
+        throw new AuthorizationError('You do not have permission to reject this purchase order');
+      }
+      const now = new Date();
+      const delegation = await this.prisma.supervisorDelegation.findFirst({
+        where: {
+          locationId: po.officeLocationId,
+          delegateUserId: userId,
+          isActive: true,
+          expiresAt: { gt: now },
+        },
+      });
+      if (!delegation) {
+        throw new AuthorizationError('You do not have permission to reject this purchase order');
+      }
     }
 
     const fromStatus = po.status as POStatus;
