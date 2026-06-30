@@ -53,6 +53,8 @@ import provisioningService, {
   type DisableBatch,
   type DisableBatchHistoryItem,
 } from '@/services/provisioningService';
+import { useUpdateSchedule } from '@/hooks/mutations/useJobMutations';
+import { useJobSchedules } from '@/hooks/queries/useJobSchedules';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -431,49 +433,40 @@ function resolvePresetLabel(cronExpr: string | null): string {
   return found ? found.label : 'Custom…';
 }
 
-function ScheduleEditorCard() {
+// ---------------------------------------------------------------------------
+// Split Schedule card — independent Staff / Student cron schedules
+// ---------------------------------------------------------------------------
+
+interface SplitScheduleRowProps {
+  label:   string;
+  jobKey:  'provisioning-sync-staff' | 'provisioning-sync-students';
+}
+
+function SplitScheduleRow({ label, jobKey }: SplitScheduleRowProps) {
   const [saveError, setSaveError]               = useState<string | null>(null);
   const [saved, setSaved]                       = useState(false);
   const [selectedOverride, setSelectedOverride] = useState<string | null>(null);
   const [customCron, setCustomCron]             = useState<string | null>(null);
   const queryClient = useQueryClient();
 
-  const { data: config, isLoading } = useQuery({
-    queryKey: queryKeys.provisioning.config(),
-    queryFn:  provisioningService.getConfig,
-  });
+  const { data: schedules } = useJobSchedules();
+  const schedule = schedules?.find((s) => s.jobKey === jobKey);
 
-  const { data: jobStatus } = useQuery({
-    queryKey:       queryKeys.provisioning.status(),
-    queryFn:        provisioningService.getStatus,
-    refetchInterval: 60_000,
-  });
+  const currentCron = schedule?.cronExpr ?? '0 3 * * *';
+  const enabled     = schedule?.enabled  ?? false;
 
-  const currentCron    = config?.syncSchedule ?? '0 */2 * * *';
   const presetLabel    = resolvePresetLabel(currentCron);
   const isCustom       = presetLabel === 'Custom…';
-
   const selected       = selectedOverride ?? presetLabel;
   const cronFieldValue = customCron !== null ? customCron : (isCustom ? currentCron : '');
 
   const hasPendingChange = (() => {
     if (selectedOverride !== null && selectedOverride !== presetLabel) return true;
-    if ((selected === 'Custom…') && cronFieldValue !== currentCron) return true;
+    if (selected === 'Custom…' && cronFieldValue !== currentCron) return true;
     return false;
   })();
 
-  const updateMutation = useMutation({
-    mutationFn: provisioningService.updateConfig,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.provisioning.config() });
-      setSaveError(null);
-      setSaved(true);
-      setTimeout(() => setSaved(false), 3000);
-      setSelectedOverride(null);
-      setCustomCron(null);
-    },
-    onError: (err: Error) => setSaveError(err.message),
-  });
+  const updateMutation = useUpdateSchedule();
 
   function handleSave() {
     setSaveError(null);
@@ -484,26 +477,124 @@ function ScheduleEditorCard() {
       expr = val;
     } else {
       const preset = SCHEDULE_PRESETS.find((p) => p.label === selected);
-      expr = preset?.cron ?? '0 */2 * * *';
+      expr = preset?.cron ?? '0 3 * * *';
     }
-    updateMutation.mutate({ syncSchedule: expr, syncEnabled: config?.syncEnabled ?? true });
-  }
-
-  function handleToggleEnabled() {
-    updateMutation.mutate({ syncEnabled: !(config?.syncEnabled ?? true) });
-  }
-
-  if (isLoading) {
-    return (
-      <Card variant="outlined">
-        <CardContent>
-          <Skeleton variant="text" width="40%" height={32} />
-          <Skeleton variant="rectangular" height={56} sx={{ mt: 2 }} />
-        </CardContent>
-      </Card>
+    updateMutation.mutate(
+      { jobKey, payload: { cronExpr: expr, enabled } },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: queryKeys.admin.jobSchedules() });
+          setSaveError(null);
+          setSaved(true);
+          setTimeout(() => setSaved(false), 3000);
+          setSelectedOverride(null);
+          setCustomCron(null);
+        },
+        onError: (err: Error) => setSaveError(err.message),
+      },
     );
   }
 
+  function handleToggleEnabled() {
+    updateMutation.mutate(
+      { jobKey, payload: { cronExpr: currentCron, enabled: !enabled } },
+      {
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.admin.jobSchedules() }),
+        onError: (err: Error) => setSaveError(err.message),
+      },
+    );
+  }
+
+  return (
+    <Stack spacing={1.5}>
+      <Stack direction="row" alignItems="center" spacing={1}>
+        <Typography variant="body2" sx={{ fontWeight: 500, minWidth: 100 }}>
+          {label}
+        </Typography>
+        <Chip
+          label={enabled ? 'Enabled' : 'Disabled'}
+          color={enabled ? 'success' : 'default'}
+          size="small"
+        />
+      </Stack>
+
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="flex-start">
+        <FormControl size="small" sx={{ minWidth: 200 }}>
+          <InputLabel>Schedule</InputLabel>
+          <Select
+            value={selected}
+            label="Schedule"
+            onChange={(e) => {
+              setSelectedOverride(e.target.value);
+              if (e.target.value !== 'Custom…') setCustomCron(null);
+            }}
+            disabled={updateMutation.isPending}
+          >
+            {SCHEDULE_PRESETS.map((p) => (
+              <MenuItem key={p.label} value={p.label}>{p.label}</MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+
+        {selected === 'Custom…' && (
+          <TextField
+            label="Cron expression"
+            size="small"
+            value={cronFieldValue}
+            onChange={(e) => setCustomCron(e.target.value)}
+            placeholder="0 3 * * *"
+            helperText="Standard 5-field cron"
+            disabled={updateMutation.isPending}
+            sx={{ minWidth: 200 }}
+          />
+        )}
+      </Stack>
+
+      <Stack direction="row" spacing={2} alignItems="center">
+        <Button
+          size="small"
+          variant="contained"
+          onClick={handleSave}
+          disabled={!hasPendingChange || updateMutation.isPending}
+          startIcon={updateMutation.isPending ? <CircularProgress size={14} color="inherit" /> : undefined}
+        >
+          {updateMutation.isPending ? 'Saving…' : 'Save Schedule'}
+        </Button>
+        <Button
+          size="small"
+          variant="outlined"
+          color={enabled ? 'warning' : 'success'}
+          onClick={handleToggleEnabled}
+          disabled={updateMutation.isPending}
+        >
+          {enabled ? 'Disable' : 'Enable'}
+        </Button>
+      </Stack>
+
+      {schedule?.nextRunAt && enabled && (
+        <Typography variant="caption" color="text.secondary">
+          Next run: {new Date(schedule.nextRunAt).toLocaleString()}
+        </Typography>
+      )}
+      {schedule?.lastRunAt && (
+        <Typography variant="caption" color={schedule.lastRunStatus === 'error' ? 'error.main' : 'text.secondary'}>
+          Last run: {new Date(schedule.lastRunAt).toLocaleString()}
+          {schedule.lastRunStatus === 'error' ? ' · FAILED' : ''}
+        </Typography>
+      )}
+      {!enabled && (
+        <Typography variant="caption" color="text.secondary">
+          Disabled — will not run automatically
+        </Typography>
+      )}
+
+      {saveError && <Alert severity="error" sx={{ py: 0.5 }}>{saveError}</Alert>}
+      {saved     && <Alert severity="success" sx={{ py: 0.5 }}>Schedule saved.</Alert>}
+    </Stack>
+  );
+}
+
+function SplitScheduleCard() {
   return (
     <Card variant="outlined">
       <CardContent>
@@ -512,100 +603,23 @@ function ScheduleEditorCard() {
             <Box sx={{ color: 'primary.main', display: 'flex' }}>
               <ScheduleIcon />
             </Box>
-            <Typography variant="h6" component="h2" sx={{ flexGrow: 1 }}>
-              Sync Schedule
+            <Typography variant="h6" component="h2">
+              Schedules
             </Typography>
-            <Chip
-              label={config?.syncEnabled ? 'Enabled' : 'Disabled'}
-              color={config?.syncEnabled ? 'success' : 'default'}
-              size="small"
-            />
           </Stack>
 
           <Typography variant="body2" color="text.secondary">
-            Controls how often the automated SIS sync runs. Changes take effect immediately without a redeploy.
+            Run staff and student provisioning on independent schedules. Useful when one type changes
+            more frequently than the other.
           </Typography>
 
           <Divider />
 
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="flex-start">
-            <FormControl size="small" sx={{ minWidth: 220 }}>
-              <InputLabel>Schedule</InputLabel>
-              <Select
-                value={selected}
-                label="Schedule"
-                onChange={(e) => {
-                  setSelectedOverride(e.target.value);
-                  if (e.target.value !== 'Custom…') setCustomCron(null);
-                }}
-                disabled={updateMutation.isPending}
-              >
-                {SCHEDULE_PRESETS.map((p) => (
-                  <MenuItem key={p.label} value={p.label}>{p.label}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+          <SplitScheduleRow label="Staff Only"   jobKey="provisioning-sync-staff"    />
 
-            {selected === 'Custom…' && (
-              <TextField
-                label="Cron expression"
-                size="small"
-                value={cronFieldValue}
-                onChange={(e) => setCustomCron(e.target.value)}
-                placeholder="0 */2 * * *"
-                helperText="Standard 5-field cron (minute hour day month weekday)"
-                disabled={updateMutation.isPending}
-                sx={{ minWidth: 220 }}
-              />
-            )}
-          </Stack>
+          <Divider />
 
-          <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
-            <Button
-              size="small"
-              variant="contained"
-              onClick={handleSave}
-              disabled={!hasPendingChange || updateMutation.isPending}
-              startIcon={updateMutation.isPending ? <CircularProgress size={14} color="inherit" /> : undefined}
-            >
-              {updateMutation.isPending ? 'Saving…' : 'Save Schedule'}
-            </Button>
-
-            <Button
-              size="small"
-              variant="outlined"
-              color={config?.syncEnabled ? 'warning' : 'success'}
-              onClick={handleToggleEnabled}
-              disabled={updateMutation.isPending}
-            >
-              {config?.syncEnabled ? 'Disable Sync' : 'Enable Sync'}
-            </Button>
-          </Stack>
-
-          {config?.nextRunAt && config.syncEnabled && (
-            <Typography variant="caption" color="text.secondary">
-              Next scheduled run: {new Date(config.nextRunAt).toLocaleString()}
-            </Typography>
-          )}
-          {jobStatus?.lastRunAt && (
-            <Typography variant="caption" color={jobStatus.lastRunError ? 'error.main' : 'text.secondary'}>
-              {'Last run: '}
-              {timeAgo(jobStatus.lastRunAt)}
-              {jobStatus.lastRunDurationMs ? ` · ${formatDuration(jobStatus.lastRunDurationMs)}` : ''}
-              {jobStatus.lastRunSummary && !jobStatus.lastRunError
-                ? ` · ${jobStatus.lastRunSummary.created} created · ${jobStatus.lastRunSummary.errors} errors`
-                : ''}
-              {jobStatus.lastRunError ? ` · FAILED — ${jobStatus.lastRunError}` : ''}
-            </Typography>
-          )}
-          {!config?.syncEnabled && (
-            <Alert severity="warning" sx={{ py: 0.5 }}>
-              Scheduled sync is disabled — no automatic runs will occur until re-enabled.
-            </Alert>
-          )}
-
-          {saveError && <Alert severity="error">{saveError}</Alert>}
-          {saved     && <Alert severity="success">Schedule saved.</Alert>}
+          <SplitScheduleRow label="Students Only" jobKey="provisioning-sync-students" />
         </Stack>
       </CardContent>
     </Card>
@@ -1869,7 +1883,7 @@ export default function ProvisioningPage() {
         <RunJobCard />
         <PendingDisablesCard />
         <DisableBatchHistorySection />
-        <ScheduleEditorCard />
+        <SplitScheduleCard />
         <SafetySettingsCard />
 
         {/* Rarely-changed config — collapsed by default */}

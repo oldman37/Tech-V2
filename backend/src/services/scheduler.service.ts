@@ -13,7 +13,7 @@ import { DriverLicenseService } from './driverLicense.service';
 import { runProvisioningJob } from './userProvision.service';
 import { sendProvisioningReport } from './email.service';
 
-type JobKey = 'sync-staff' | 'sync-students' | 'sync-locations' | 'sync-supervisors' | 'transportation-dot-reminders' | 'transportation-monthly-report' | 'transportation-license-reminders' | 'provisioning-sync' | 'provisioning-audit-cleanup';
+type JobKey = 'sync-staff' | 'sync-students' | 'sync-locations' | 'sync-supervisors' | 'transportation-dot-reminders' | 'transportation-monthly-report' | 'transportation-license-reminders' | 'provisioning-sync' | 'provisioning-sync-staff' | 'provisioning-sync-students' | 'provisioning-audit-cleanup';
 
 const VALID_JOB_KEYS: JobKey[] = [
   'sync-staff',
@@ -24,6 +24,8 @@ const VALID_JOB_KEYS: JobKey[] = [
   'transportation-monthly-report',
   'transportation-license-reminders',
   'provisioning-sync',
+  'provisioning-sync-staff',
+  'provisioning-sync-students',
   'provisioning-audit-cleanup',
 ];
 
@@ -38,6 +40,8 @@ const DEFAULT_CRON: Record<JobKey, string> = {
   'transportation-monthly-report': '0 6 1 * *',
   'transportation-license-reminders': '0 7 * * 1',
   'provisioning-sync':             '0 */2 * * *',
+  'provisioning-sync-staff':       '0 3 * * *',
+  'provisioning-sync-students':    '0 3 * * *',
   'provisioning-audit-cleanup':    '0 2 * * 0',  // weekly Sunday 2 AM
 };
 
@@ -287,6 +291,40 @@ class SchedulerService {
           ? (cfg.reportEmails as string).split(',').map((r: string) => r.trim()).filter(Boolean)
           : undefined;
         const result = await runProvisioningJob('ALL', 'cron', cfg?.testMode ?? true);
+        await sendProvisioningReport(result, reportEmails);
+        return {
+          created:       result.created.length,
+          deprovisioned: result.deprovisioned.length,
+          reEnabled:     result.reEnabled.length,
+          updated:       result.updated.length,
+          errors:        result.errors,
+          durationMs:    result.durationMs,
+          testMode:      result.testMode,
+        };
+      }
+      case 'provisioning-sync-staff': {
+        const cfg = await prisma.provisioningConfig.findUnique({ where: { id: 'singleton' } });
+        const reportEmails = cfg?.reportEmails
+          ? (cfg.reportEmails as string).split(',').map((r: string) => r.trim()).filter(Boolean)
+          : undefined;
+        const result = await runProvisioningJob('STAFF', 'cron', cfg?.testMode ?? true);
+        await sendProvisioningReport(result, reportEmails);
+        return {
+          created:       result.created.length,
+          deprovisioned: result.deprovisioned.length,
+          reEnabled:     result.reEnabled.length,
+          updated:       result.updated.length,
+          errors:        result.errors,
+          durationMs:    result.durationMs,
+          testMode:      result.testMode,
+        };
+      }
+      case 'provisioning-sync-students': {
+        const cfg = await prisma.provisioningConfig.findUnique({ where: { id: 'singleton' } });
+        const reportEmails = cfg?.reportEmails
+          ? (cfg.reportEmails as string).split(',').map((r: string) => r.trim()).filter(Boolean)
+          : undefined;
+        const result = await runProvisioningJob('STUDENT', 'cron', cfg?.testMode ?? true);
         await sendProvisioningReport(result, reportEmails);
         return {
           created:       result.created.length,
