@@ -17,13 +17,7 @@ import {
   StepLabel,
   Stepper,
   Switch,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
   TablePagination,
-  TableRow,
   TextField,
   Tooltip,
   Typography,
@@ -45,6 +39,8 @@ import { intuneService } from '../../services/intuneService';
 import DeviceActionConfirmDialog from '../../components/DeviceActionConfirmDialog';
 import { useIsMobile } from '../../hooks/useResponsive';
 import { useAuthStore } from '../../store/authStore';
+import { ResponsiveTable } from '../../components/responsive';
+import type { Column } from '../../components/responsive';
 
 // ─── History ──────────────────────────────────────────────────────────────────
 
@@ -425,50 +421,63 @@ export default function IntuneScanWizardTab({ initialLookupResult, initialAction
                 </Tooltip>
               </Stack>
 
-              <TableContainer ref={tableContainerRef} sx={{ maxHeight: 360, mb: 2 }}>
-                <Table size="small" stickyHeader>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Scanned Name</TableCell>
-                      <TableCell>Intune Status</TableCell>
-                      <TableCell>Device Name</TableCell>
-                      <TableCell>Model</TableCell>
-                      <TableCell>Serial</TableCell>
-                      <TableCell>Asset Tag</TableCell>
-                      <TableCell padding="checkbox" />
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {scannedEntries.map((entry) => (
-                      <TableRow key={entry.id}>
-                        <TableCell>{entry.name}</TableCell>
-                        <TableCell>
-                          {entry.status === 'pending' ? (
-                            <CircularProgress size={16} />
-                          ) : entry.status === 'found' ? (
-                            <Chip
-                              label={entry.device?.enrollmentStatus === 'enrolled' ? 'Enrolled' : 'Not Enrolled'}
-                              size="small"
-                              color={entry.device?.enrollmentStatus === 'enrolled' ? 'success' : 'default'}
-                            />
-                          ) : (
-                            <Chip label="Not Found" size="small" color="error" />
-                          )}
-                        </TableCell>
-                        <TableCell>{entry.device?.displayName ?? (entry.status === 'pending' ? '' : '—')}</TableCell>
-                        <TableCell>{entry.device?.model ?? (entry.status === 'pending' ? '' : '—')}</TableCell>
-                        <TableCell>{entry.device?.serialNumber || (entry.status === 'pending' ? '' : '—')}</TableCell>
-                        <TableCell>{entry.device?.assetTag ?? (entry.status === 'pending' ? '' : '—')}</TableCell>
-                        <TableCell padding="checkbox">
-                          <IconButton size="small" onClick={() => removeEntry(entry.id)}>
-                            <DeleteOutlineIcon fontSize="small" />
-                          </IconButton>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
+              <Box ref={tableContainerRef} sx={{ maxHeight: 360, overflowY: 'auto', mb: 2 }}>
+                <ResponsiveTable<ScannedEntry>
+                  columns={[
+                    {
+                      key: 'name',
+                      label: 'Scanned Name',
+                      isPrimary: true,
+                      render: (entry) => entry.name,
+                    },
+                    {
+                      key: 'status',
+                      label: 'Intune Status',
+                      isSecondary: true,
+                      render: (entry) =>
+                        entry.status === 'pending' ? (
+                          <CircularProgress size={16} />
+                        ) : entry.status === 'found' ? (
+                          <Chip
+                            label={entry.device?.enrollmentStatus === 'enrolled' ? 'Enrolled' : 'Not Enrolled'}
+                            size="small"
+                            color={entry.device?.enrollmentStatus === 'enrolled' ? 'success' : 'default'}
+                          />
+                        ) : (
+                          <Chip label="Not Found" size="small" color="error" />
+                        ),
+                    },
+                    {
+                      key: 'displayName',
+                      label: 'Device Name',
+                      render: (entry) => entry.device?.displayName ?? (entry.status === 'pending' ? '' : '—'),
+                    },
+                    {
+                      key: 'model',
+                      label: 'Model',
+                      hideOnMobile: true,
+                      render: (entry) => entry.device?.model ?? (entry.status === 'pending' ? '' : '—'),
+                    },
+                    {
+                      key: 'serialNumber',
+                      label: 'Serial',
+                      render: (entry) => entry.device?.serialNumber || (entry.status === 'pending' ? '' : '—'),
+                    },
+                    {
+                      key: 'assetTag',
+                      label: 'Asset Tag',
+                      render: (entry) => entry.device?.assetTag ?? (entry.status === 'pending' ? '' : '—'),
+                    },
+                  ]}
+                  rows={scannedEntries}
+                  getRowKey={(entry) => entry.id}
+                  rowActions={(entry) => (
+                    <IconButton size="small" onClick={() => removeEntry(entry.id)}>
+                      <DeleteOutlineIcon fontSize="small" />
+                    </IconButton>
+                  )}
+                />
+              </Box>
             </>
           )}
 
@@ -631,61 +640,75 @@ export default function IntuneScanWizardTab({ initialLookupResult, initialAction
             <Chip label={`Not enrolled: ${actionResults.notEnrolled}`} size="small" color="default" />
           </Stack>
           <Divider sx={{ mb: 1.5 }} />
-          <TableContainer>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Device Name / Asset Tag</TableCell>
-                  <TableCell>Serial</TableCell>
-                  <TableCell>Status</TableCell>
-                  {actionResults.action === 'fullDecommission' && (
-                    <>
-                      <TableCell>Delete</TableCell>
-                      <TableCell>Autopilot</TableCell>
-                      <TableCell>Entra</TableCell>
-                    </>
-                  )}
-                  <TableCell>Error</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {actionResults.results
-                  .slice(resultsPage * resultsRowsPerPage, resultsPage * resultsRowsPerPage + resultsRowsPerPage)
-                  .map((r, i) => (
-                  <TableRow key={r.intuneDeviceId || r.serialNumber || i}>
-                    <TableCell>{r.assetTag ?? r.serialNumber ?? '—'}</TableCell>
-                    <TableCell>{r.serialNumber || '—'}</TableCell>
-                    <TableCell>
-                      <Chip
-                        label={r.status}
-                        size="small"
-                        color={STATUS_CHIP_COLOUR[r.status] ?? 'default'}
-                      />
-                    </TableCell>
-                    {actionResults.action === 'fullDecommission' && (
-                      <>
-                        <TableCell>{r.stepResults?.deleteDevice    ?? '—'}</TableCell>
-                        <TableCell>{r.stepResults?.removeAutopilot ?? '—'}</TableCell>
-                        <TableCell>{r.stepResults?.removeEntra     ?? '—'}</TableCell>
-                      </>
-                    )}
-                    <TableCell sx={{ color: 'error.main', fontSize: 12 }}>
-                      {r.error ?? ''}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-            <TablePagination
-              component="div"
-              count={actionResults.results.length}
-              page={resultsPage}
-              onPageChange={(_, p) => setResultsPage(p)}
-              rowsPerPage={resultsRowsPerPage}
-              onRowsPerPageChange={(e) => { setResultsRowsPerPage(parseInt(e.target.value, 10)); setResultsPage(0); }}
-              rowsPerPageOptions={[10, 25, 50, 100]}
-            />
-          </TableContainer>
+          <ResponsiveTable<DeviceActionResult>
+            columns={[
+              {
+                key: 'assetTag',
+                label: 'Device Name / Asset Tag',
+                isPrimary: true,
+                render: (r) => r.assetTag ?? r.serialNumber ?? '—',
+              },
+              {
+                key: 'serialNumber',
+                label: 'Serial',
+                render: (r) => r.serialNumber || '—',
+              },
+              {
+                key: 'status',
+                label: 'Status',
+                isSecondary: true,
+                render: (r) => (
+                  <Chip
+                    label={r.status}
+                    size="small"
+                    color={STATUS_CHIP_COLOUR[r.status] ?? 'default'}
+                  />
+                ),
+              },
+              ...(actionResults.action === 'fullDecommission'
+                ? ([
+                    {
+                      key: 'stepResults.deleteDevice',
+                      label: 'Delete',
+                      render: (r) => r.stepResults?.deleteDevice ?? '—',
+                    },
+                    {
+                      key: 'stepResults.removeAutopilot',
+                      label: 'Autopilot',
+                      render: (r) => r.stepResults?.removeAutopilot ?? '—',
+                    },
+                    {
+                      key: 'stepResults.removeEntra',
+                      label: 'Entra',
+                      render: (r) => r.stepResults?.removeEntra ?? '—',
+                    },
+                  ] satisfies Column<DeviceActionResult>[])
+                : []),
+              {
+                key: 'error',
+                label: 'Error',
+                render: (r) => (
+                  <Typography component="span" variant="body2" color="error.main" sx={{ fontSize: 12 }}>
+                    {r.error ?? ''}
+                  </Typography>
+                ),
+              },
+            ]}
+            rows={actionResults.results.slice(
+              resultsPage * resultsRowsPerPage,
+              resultsPage * resultsRowsPerPage + resultsRowsPerPage,
+            )}
+            getRowKey={(r) => r.intuneDeviceId || r.serialNumber || `${r.assetTag ?? ''}-${r.status}`}
+          />
+          <TablePagination
+            component="div"
+            count={actionResults.results.length}
+            page={resultsPage}
+            onPageChange={(_, p) => setResultsPage(p)}
+            rowsPerPage={resultsRowsPerPage}
+            onRowsPerPageChange={(e) => { setResultsRowsPerPage(parseInt(e.target.value, 10)); setResultsPage(0); }}
+            rowsPerPageOptions={[10, 25, 50, 100]}
+          />
           <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
             <Button variant="outlined" onClick={handleReset}>
               Start Over

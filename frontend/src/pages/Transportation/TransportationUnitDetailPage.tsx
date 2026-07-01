@@ -23,23 +23,20 @@ import {
   Grid,
   IconButton,
   Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   TextField,
   Tooltip,
   Typography,
 } from '@mui/material';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import { PageBackButton } from '@/components/layout/PageBackButton';
+import { ResponsiveTable } from '@/components/responsive/ResponsiveTable';
+import type { Column } from '@/components/responsive/ResponsiveTable';
 import PersonRemoveIcon from '@mui/icons-material/PersonRemove';
 import { useAuthStore } from '@/store/authStore';
 import { transportationUnitApi } from '@/services/transportation.service';
 import { api } from '@/services/api';
 import { UNIT_TYPE_LABELS, FUEL_TYPE_LABELS } from '@/types/transportation.types';
+import type { TransportationUnitAssignment } from '@/types/transportation.types';
 import { useIsMobile } from '@/hooks/useResponsive';
 
 interface UserOption {
@@ -50,6 +47,63 @@ interface UserOption {
   email: string;
   jobTitle?: string | null;
 }
+
+const activeAssignmentColumns: Column<TransportationUnitAssignment>[] = [
+  {
+    key: 'driver',
+    label: 'Driver',
+    isPrimary: true,
+    render: (a) => (
+      <>
+        <Typography variant="body2" fontWeight="bold">
+          {a.user?.displayName ?? `${a.user?.firstName ?? ''} ${a.user?.lastName ?? ''}`}
+        </Typography>
+        <Typography variant="caption" color="text.secondary">
+          {a.user?.jobTitle ?? ''}
+        </Typography>
+      </>
+    ),
+  },
+  {
+    key: 'isPrimary',
+    label: 'Primary',
+    isSecondary: true,
+    render: (a) => a.isPrimary ? <Chip label="Primary" size="small" color="primary" /> : null,
+  },
+  {
+    key: 'assignedAt',
+    label: 'Assigned',
+    render: (a) => new Date(a.assignedAt).toLocaleDateString('en-US', {
+      month: 'short', day: 'numeric', year: 'numeric',
+    }),
+  },
+];
+
+const historyAssignmentColumns: Column<TransportationUnitAssignment>[] = [
+  {
+    key: 'driver',
+    label: 'Driver',
+    isPrimary: true,
+    render: (a) => a.user?.displayName ?? `${a.user?.firstName ?? ''} ${a.user?.lastName ?? ''}`,
+  },
+  {
+    key: 'assignedAt',
+    label: 'Assigned',
+    isSecondary: true,
+    render: (a) => new Date(a.assignedAt).toLocaleDateString('en-US', {
+      month: 'short', day: 'numeric', year: 'numeric',
+    }),
+  },
+  {
+    key: 'unassignedAt',
+    label: 'Unassigned',
+    render: (a) => a.unassignedAt
+      ? new Date(a.unassignedAt).toLocaleDateString('en-US', {
+          month: 'short', day: 'numeric', year: 'numeric',
+        })
+      : '—',
+  },
+];
 
 export default function TransportationUnitDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -228,58 +282,26 @@ export default function TransportationUnitDetailPage() {
                 )}
               </Box>
             ) : (
-              <TableContainer sx={{ overflowX: 'auto' }}>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Driver</TableCell>
-                    <TableCell>Primary</TableCell>
-                    <TableCell>Assigned</TableCell>
-                    {permLevel >= 2 && <TableCell />}
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {activeAssignments.map((a) => (
-                    <TableRow key={a.id}>
-                      <TableCell>
-                        <Typography variant="body2" fontWeight="bold">
-                          {a.user?.displayName ??
-                            `${a.user?.firstName ?? ''} ${a.user?.lastName ?? ''}`}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {a.user?.jobTitle ?? ''}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        {a.isPrimary && <Chip label="Primary" size="small" color="primary" />}
-                      </TableCell>
-                      <TableCell>
-                        {new Date(a.assignedAt).toLocaleDateString('en-US', {
-                          month: 'short', day: 'numeric', year: 'numeric',
-                        })}
-                      </TableCell>
-                      {permLevel >= 2 && (
-                        <TableCell>
-                          <Tooltip title="Unassign">
-                            <IconButton
-                              size="small"
-                              color="error"
-                              onClick={() => {
-                                if (window.confirm('Unassign this driver?')) {
-                                  unassignMutation.mutate(a.id);
-                                }
-                              }}
-                            >
-                              <PersonRemoveIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        </TableCell>
-                      )}
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-              </TableContainer>
+              <ResponsiveTable<TransportationUnitAssignment>
+                columns={activeAssignmentColumns}
+                rows={activeAssignments}
+                getRowKey={(a) => a.id}
+                rowActions={permLevel >= 2 ? (a) => (
+                  <Tooltip title="Unassign">
+                    <IconButton
+                      size="small"
+                      color="error"
+                      onClick={() => {
+                        if (window.confirm('Unassign this driver?')) {
+                          unassignMutation.mutate(a.id);
+                        }
+                      }}
+                    >
+                      <PersonRemoveIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                ) : undefined}
+              />
             )}
           </Paper>
         </Grid>
@@ -291,39 +313,11 @@ export default function TransportationUnitDetailPage() {
               <Box p={2} borderBottom="1px solid" borderColor="divider">
                 <Typography variant="h6" fontWeight="bold">Assignment History</Typography>
               </Box>
-              <TableContainer sx={{ overflowX: 'auto' }}>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Driver</TableCell>
-                      <TableCell>Assigned</TableCell>
-                      <TableCell>Unassigned</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {historyAssignments.map((a) => (
-                      <TableRow key={a.id}>
-                        <TableCell>
-                          {a.user?.displayName ??
-                            `${a.user?.firstName ?? ''} ${a.user?.lastName ?? ''}`}
-                        </TableCell>
-                        <TableCell>
-                          {new Date(a.assignedAt).toLocaleDateString('en-US', {
-                            month: 'short', day: 'numeric', year: 'numeric',
-                          })}
-                        </TableCell>
-                        <TableCell>
-                          {a.unassignedAt
-                            ? new Date(a.unassignedAt).toLocaleDateString('en-US', {
-                                month: 'short', day: 'numeric', year: 'numeric',
-                              })
-                            : '—'}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
+              <ResponsiveTable<TransportationUnitAssignment>
+                columns={historyAssignmentColumns}
+                rows={historyAssignments}
+                getRowKey={(a) => a.id}
+              />
             </Paper>
           </Grid>
         )}

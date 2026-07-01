@@ -4,15 +4,7 @@ import {
   Box,
   Button,
   Chip,
-  CircularProgress,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
   TablePagination,
-  TableRow,
   TextField,
   Typography,
   InputAdornment,
@@ -21,7 +13,8 @@ import AddIcon from '@mui/icons-material/Add';
 import SearchIcon from '@mui/icons-material/Search';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useIsMobile } from '../../hooks/useResponsive';
+import { ResponsiveTable } from '../../components/responsive';
+import type { Column } from '../../components/responsive';
 import { incidentService } from '../../services/incident.service';
 import type { DamageIncident } from '../../types/damageIncident.types';
 import type { IncidentWorkflowStep, IncidentIntent } from '@mgspe/shared-types';
@@ -73,7 +66,6 @@ function WorkflowStepChip({ step }: { step: IncidentWorkflowStep | null }) {
 
 export default function IncidentsPage() {
   const navigate = useNavigate();
-  const isMobile = useIsMobile();
   const [searchParams] = useSearchParams();
 
   const [search,   setSearch]   = useState('');
@@ -112,6 +104,71 @@ export default function IncidentsPage() {
     return num.includes(q) || tag.includes(q) || usr.includes(q);
   });
 
+  const columns: Column<DamageIncident>[] = [
+    {
+      key:       'incidentNumber',
+      label:     'Incident #',
+      isPrimary: true,
+      render:    (row) => (
+        <Typography variant="body2" fontWeight={600}>
+          {row.incidentNumber ?? '—'}
+        </Typography>
+      ),
+    },
+    {
+      key:    'type',
+      label:  'Type',
+      render: (row) => (
+        <Chip
+          label={row.equipment ? '💻 Device' : '👤 User'}
+          size="small"
+          color={row.equipment ? 'info' : 'secondary'}
+          variant="outlined"
+        />
+      ),
+    },
+    {
+      key:         'device',
+      label:       'Device / User',
+      isSecondary: true,
+      render:      (row) =>
+        row.equipment
+          ? <Typography variant="body2">{row.equipment.assetTag} — {row.equipment.name}</Typography>
+          : row.user
+            ? <Typography variant="body2">{row.user.firstName} {row.user.lastName}</Typography>
+            : <Typography variant="body2" color="text.secondary">—</Typography>,
+    },
+    {
+      key:    'damageDate',
+      label:  'Damage Date',
+      render: (row) => (
+        <Typography variant="body2">
+          {row.damageDate ? new Date(row.damageDate).toLocaleDateString() : '—'}
+        </Typography>
+      ),
+    },
+    {
+      key:    'intent',
+      label:  'Intent',
+      render: (row) => <IntentChip intent={row.intent} />,
+    },
+    {
+      key:    'workflowStep',
+      label:  'Workflow Step',
+      render: (row) => <WorkflowStepChip step={row.workflowStep} />,
+    },
+    {
+      key:          'createdAt',
+      label:        'Created',
+      hideOnMobile: true,
+      render:       (row) => (
+        <Typography variant="body2">
+          {new Date(row.createdAt).toLocaleDateString()}
+        </Typography>
+      ),
+    },
+  ];
+
   return (
     <Box sx={{ p: { xs: 1.5, sm: 3 } }}>
       {/* Header */}
@@ -145,42 +202,18 @@ export default function IncidentsPage() {
       </Box>
 
       {/* Table (desktop) / Card list (mobile) */}
-      {isLoading ? (
-        <Box display="flex" justifyContent="center" py={6}>
-          <CircularProgress />
-        </Box>
-      ) : isError ? (
+      {isError ? (
         <Alert severity="error">Failed to load incidents.</Alert>
-      ) : isMobile ? (
+      ) : (
         <>
-          {rows.length === 0 ? (
-            <Typography variant="body2" color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
-              No incidents found.
-            </Typography>
-          ) : (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-              {rows.map((row: DamageIncident) => (
-                <Paper key={row.id} variant="outlined" sx={{ p: 1.5, cursor: 'pointer' }} onClick={() => navigate(`/incidents/${row.id}`)}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
-                    <Typography variant="body1" fontWeight={700}>{row.incidentNumber ?? '—'}</Typography>
-                    <WorkflowStepChip step={row.workflowStep} />
-                  </Box>
-                  <Typography variant="body2" color="text.secondary">
-                    {row.equipment
-                      ? `${row.equipment.assetTag} — ${row.equipment.name}`
-                      : row.user ? `${row.user.firstName} ${row.user.lastName}` : '—'}
-                  </Typography>
-                  <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'center', mt: 1, flexWrap: 'wrap' }}>
-                    <Chip label={row.equipment ? '💻 Device' : '👤 User'} size="small" color={row.equipment ? 'info' : 'secondary'} variant="outlined" />
-                    <IntentChip intent={row.intent} />
-                    <Typography variant="caption" color="text.secondary" sx={{ ml: 'auto' }}>
-                      {row.damageDate ? new Date(row.damageDate).toLocaleDateString() : '—'}
-                    </Typography>
-                  </Box>
-                </Paper>
-              ))}
-            </Box>
-          )}
+          <ResponsiveTable
+            columns={columns}
+            rows={rows}
+            getRowKey={(row) => row.id}
+            onRowClick={(row) => navigate(`/incidents/${row.id}`)}
+            loading={isLoading}
+            emptyMessage="No incidents found."
+          />
           <TablePagination
             component="div"
             count={data?.total ?? 0}
@@ -191,91 +224,6 @@ export default function IncidentsPage() {
             rowsPerPageOptions={[10, 25, 50, 100]}
           />
         </>
-      ) : (
-        <Paper variant="outlined">
-          <TableContainer>
-            <Table size="small" sx={{ minWidth: 700 }}>
-              <TableHead>
-                <TableRow>
-                  <TableCell><strong>Incident #</strong></TableCell>
-                  <TableCell><strong>Type</strong></TableCell>
-                  <TableCell><strong>Device / User</strong></TableCell>
-                  <TableCell><strong>Damage Date</strong></TableCell>
-                  <TableCell><strong>Intent</strong></TableCell>
-                  <TableCell><strong>Workflow Step</strong></TableCell>
-                  <TableCell><strong>Created</strong></TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {rows.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} align="center" sx={{ py: 4, color: 'text.secondary' }}>
-                      No incidents found.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  rows.map((row: DamageIncident) => (
-                    <TableRow
-                      key={row.id}
-                      hover
-                      sx={{ cursor: 'pointer' }}
-                      onClick={() => navigate(`/incidents/${row.id}`)}
-                    >
-                      <TableCell>
-                        <Typography variant="body2" fontWeight={600}>
-                          {row.incidentNumber ?? '—'}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          label={row.equipment ? '💻 Device' : '👤 User'}
-                          size="small"
-                          color={row.equipment ? 'info' : 'secondary'}
-                          variant="outlined"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        {row.equipment
-                          ? <Typography variant="body2">{row.equipment.assetTag} — {row.equipment.name}</Typography>
-                          : row.user
-                            ? <Typography variant="body2">{row.user.firstName} {row.user.lastName}</Typography>
-                            : <Typography variant="body2" color="text.secondary">—</Typography>}
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2">
-                          {row.damageDate
-                            ? new Date(row.damageDate).toLocaleDateString()
-                            : '—'}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <IntentChip intent={row.intent} />
-                      </TableCell>
-                      <TableCell>
-                        <WorkflowStepChip step={row.workflowStep} />
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2">
-                          {new Date(row.createdAt).toLocaleDateString()}
-                        </Typography>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-
-          <TablePagination
-            component="div"
-            count={data?.total ?? 0}
-            page={page}
-            onPageChange={(_e, p) => setPage(p)}
-            rowsPerPage={pageSize}
-            onRowsPerPageChange={(e) => { setPageSize(parseInt(e.target.value, 10)); setPage(0); }}
-            rowsPerPageOptions={[10, 25, 50, 100]}
-          />
-        </Paper>
       )}
     </Box>
   );

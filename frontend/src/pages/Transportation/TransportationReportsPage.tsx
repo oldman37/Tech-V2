@@ -16,12 +16,6 @@ import {
   CircularProgress,
   Grid,
   Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   TextField,
   Typography,
 } from '@mui/material';
@@ -29,9 +23,42 @@ import BarChartIcon from '@mui/icons-material/BarChart';
 import EmailIcon from '@mui/icons-material/Email';
 import WarningIcon from '@mui/icons-material/Warning';
 import { PageBackButton } from '@/components/layout/PageBackButton';
+import { ResponsiveTable } from '@/components/responsive/ResponsiveTable';
+import type { Column } from '@/components/responsive/ResponsiveTable';
 import { useAuthStore } from '@/store/authStore';
 import { reportApi } from '@/services/transportation.service';
-import type { MonthlyFuelReport } from '@/types/transportation.types';
+import type { MonthlyFuelReport, UnitReportRow, UserReportRow } from '@/types/transportation.types';
+
+const byUnitColumns: Column<UnitReportRow>[] = [
+  {
+    key: 'unitNumber',
+    label: 'Unit #',
+    isPrimary: true,
+    render: (row) => <Typography variant="body2" fontWeight="bold">{row.unitNumber}</Typography>,
+  },
+  {
+    key: 'fuelType',
+    label: 'Fuel Type',
+    isSecondary: true,
+  },
+  {
+    key: 'totalGallons',
+    label: 'Gallons',
+    align: 'right',
+    render: (row) => row.totalGallons.toFixed(3),
+  },
+  {
+    key: 'totalCost',
+    label: 'Cost',
+    align: 'right',
+    render: (row) => row.totalCost > 0 ? `$${row.totalCost.toFixed(2)}` : '—',
+  },
+  {
+    key: 'entryCount',
+    label: 'Entries',
+    align: 'right',
+  },
+];
 
 function SummaryCard({ label, value, color }: { label: string; value: string; color?: string }) {
   return (
@@ -65,6 +92,44 @@ export default function TransportationReportsPage() {
     queryFn: () => reportApi.getMonthlyFuelReport(fetchMonth),
     enabled: !!fetchMonth,
   });
+
+  const byUserColumns: Column<UserReportRow>[] = [
+    {
+      key: 'displayName',
+      label: 'Driver',
+      isPrimary: true,
+      render: (row) => {
+        const isTopUser = report?.topGasUser?.displayName === row.displayName;
+        return (
+          <Typography variant="body2" fontWeight={isTopUser ? 'bold' : 'normal'}>
+            {row.displayName}
+            {isTopUser && (
+              <Typography component="span" variant="caption" color="warning.main" ml={1}>
+                ★ Top User
+              </Typography>
+            )}
+          </Typography>
+        );
+      },
+    },
+    {
+      key: 'totalGallons',
+      label: 'Gallons',
+      align: 'right',
+      render: (row) => row.totalGallons.toFixed(3),
+    },
+    {
+      key: 'totalCost',
+      label: 'Cost',
+      align: 'right',
+      render: (row) => row.totalCost > 0 ? `$${row.totalCost.toFixed(2)}` : '—',
+    },
+    {
+      key: 'entryCount',
+      label: 'Entries',
+      align: 'right',
+    },
+  ];
 
   const sendMutation = useMutation({
     mutationFn: () => reportApi.sendMonthlyReport(fetchMonth),
@@ -189,39 +254,12 @@ export default function TransportationReportsPage() {
             <Box p={2} borderBottom="1px solid" borderColor="divider">
               <Typography variant="h6" fontWeight="bold">Fuel by Unit</Typography>
             </Box>
-            <TableContainer sx={{ overflowX: 'auto' }}>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Unit #</TableCell>
-                    <TableCell>Fuel Type</TableCell>
-                    <TableCell align="right">Gallons</TableCell>
-                    <TableCell align="right">Cost</TableCell>
-                    <TableCell align="right">Entries</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {report.byUnit.map((row) => (
-                    <TableRow key={row.unitId} hover>
-                      <TableCell><Typography variant="body2" fontWeight="bold">{row.unitNumber}</Typography></TableCell>
-                      <TableCell>{row.fuelType}</TableCell>
-                      <TableCell align="right">{row.totalGallons.toFixed(3)}</TableCell>
-                      <TableCell align="right">
-                        {row.totalCost > 0 ? `$${row.totalCost.toFixed(2)}` : '—'}
-                      </TableCell>
-                      <TableCell align="right">{row.entryCount}</TableCell>
-                    </TableRow>
-                  ))}
-                  {report.byUnit.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={5} align="center" sx={{ py: 3 }}>
-                        <Typography color="text.secondary">No data for this month.</Typography>
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
+            <ResponsiveTable<UnitReportRow>
+              columns={byUnitColumns}
+              rows={report.byUnit}
+              getRowKey={(row) => row.unitId}
+              emptyMessage="No data for this month."
+            />
           </Paper>
 
           {/* Fuel by User */}
@@ -229,53 +267,12 @@ export default function TransportationReportsPage() {
             <Box p={2} borderBottom="1px solid" borderColor="divider">
               <Typography variant="h6" fontWeight="bold">Fuel by Driver</Typography>
             </Box>
-            <TableContainer sx={{ overflowX: 'auto' }}>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Driver</TableCell>
-                    <TableCell align="right">Gallons</TableCell>
-                    <TableCell align="right">Cost</TableCell>
-                    <TableCell align="right">Entries</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {report.byUser.map((row) => {
-                    const isTopUser = report.topGasUser?.displayName === row.displayName;
-                    return (
-                      <TableRow
-                        key={row.userId}
-                        hover
-                        sx={isTopUser ? { backgroundColor: 'warning.50' } : {}}
-                      >
-                        <TableCell>
-                          <Typography variant="body2" fontWeight={isTopUser ? 'bold' : 'normal'}>
-                            {row.displayName}
-                            {isTopUser && (
-                              <Typography component="span" variant="caption" color="warning.main" ml={1}>
-                                ★ Top User
-                              </Typography>
-                            )}
-                          </Typography>
-                        </TableCell>
-                        <TableCell align="right">{row.totalGallons.toFixed(3)}</TableCell>
-                        <TableCell align="right">
-                          {row.totalCost > 0 ? `$${row.totalCost.toFixed(2)}` : '—'}
-                        </TableCell>
-                        <TableCell align="right">{row.entryCount}</TableCell>
-                      </TableRow>
-                    );
-                  })}
-                  {report.byUser.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={4} align="center" sx={{ py: 3 }}>
-                        <Typography color="text.secondary">No data for this month.</Typography>
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
+            <ResponsiveTable<UserReportRow>
+              columns={byUserColumns}
+              rows={report.byUser}
+              getRowKey={(row) => row.userId}
+              emptyMessage="No data for this month."
+            />
           </Paper>
         </>
       )}

@@ -41,19 +41,13 @@ import {
   Step,
   StepLabel,
   Stepper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   TextField,
   Typography,
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
 import { PageBackButton } from '../../components/layout/PageBackButton';
-import { useForm, useFieldArray, Controller } from 'react-hook-form';
+import { useForm, useFieldArray, Controller, type FieldArrayWithId } from 'react-hook-form';
 import { z } from 'zod';
 import { getFieldError } from '../../utils/formHelpers';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -65,6 +59,7 @@ import { useCreatePurchaseOrder, useSubmitPurchaseOrder } from '@/hooks/mutation
 import type { ShipToType } from '@/types/purchaseOrder.types';
 import { api } from '@/services/api';
 import { useIsMobile } from '@/hooks/useResponsive';
+import { ResponsiveTable, Column } from '@/components/responsive';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -336,6 +331,141 @@ export default function RequisitionWizard() {
 
   // Step 2 (Line Items) uses the full page width on non-mobile viewports so the table has room to breathe
   const isWideStep = activeStep === 1 && !isMobile;
+
+  // ── Step 2 (Line Items) editable table columns ──
+  type ItemField = FieldArrayWithId<z.input<typeof CreatePurchaseOrderSchema>, 'items', 'id'>;
+  const lineItemEditColumns: Column<ItemField>[] = [
+    {
+      key: 'model',
+      label: 'Item Number',
+      isSecondary: true,
+      render: (field) => (
+        <TextField
+          size="small"
+          {...register(`items.${fields.indexOf(field)}.model`)}
+          fullWidth
+          multiline
+          maxRows={2}
+          {...getFieldError(errors.items?.[fields.indexOf(field)]?.model)}
+          inputProps={{ maxLength: 200 }}
+        />
+      ),
+    },
+    {
+      key: 'description',
+      label: 'Description *',
+      isPrimary: true,
+      render: (field) => (
+        <TextField
+          size="small"
+          {...register(`items.${fields.indexOf(field)}.description`)}
+          fullWidth
+          multiline
+          maxRows={3}
+          {...getFieldError(errors.items?.[fields.indexOf(field)]?.description)}
+          helperText={errors.items?.[fields.indexOf(field)]?.description?.message}
+          inputProps={{ maxLength: 500 }}
+        />
+      ),
+    },
+    {
+      key: 'quantity',
+      label: 'Qty *',
+      align: 'right',
+      render: (field) => (
+        <TextField
+          size="small"
+          type="number"
+          {...register(`items.${fields.indexOf(field)}.quantity`, { valueAsNumber: true })}
+          onFocus={(e) => e.target.select()}
+          inputProps={{ min: 1, style: { textAlign: 'right' } }}
+          sx={{ width: 80, ml: 'auto', display: 'block' }}
+          error={!!errors.items?.[fields.indexOf(field)]?.quantity}
+          helperText={errors.items?.[fields.indexOf(field)]?.quantity?.message ?? ''}
+        />
+      ),
+    },
+    {
+      key: 'unitPrice',
+      label: 'Unit Price *',
+      align: 'right',
+      render: (field) => (
+        <TextField
+          size="small"
+          type="number"
+          {...register(`items.${fields.indexOf(field)}.unitPrice`, { valueAsNumber: true })}
+          onFocus={(e) => e.target.select()}
+          inputProps={{ min: 0, step: '0.01', style: { textAlign: 'right' } }}
+          sx={{ width: 120, ml: 'auto', display: 'block' }}
+          error={!!errors.items?.[fields.indexOf(field)]?.unitPrice}
+          helperText={errors.items?.[fields.indexOf(field)]?.unitPrice?.message ?? ''}
+        />
+      ),
+    },
+    {
+      key: 'lineTotal',
+      label: 'Line Total',
+      align: 'right',
+      render: (field) => {
+        const index = fields.indexOf(field);
+        return (
+          <Typography variant="body2">
+            {formatCurrency((watchedItems[index]?.quantity ?? 0) * (watchedItems[index]?.unitPrice ?? 0))}
+          </Typography>
+        );
+      },
+    },
+  ];
+
+  const lineItemRowActions = (field: ItemField) => (
+    <IconButton
+      size="small"
+      color="error"
+      onClick={() => remove(fields.indexOf(field))}
+      disabled={fields.length === 1}
+    >
+      <DeleteIcon fontSize="small" />
+    </IconButton>
+  );
+
+  // ── Step 3 (Review) read-only items summary columns ──
+  type ReviewItem = CreatePurchaseOrderInput['items'][number];
+  const reviewItemColumns: Column<ReviewItem>[] = [
+    {
+      key: 'lineNumber',
+      label: '#',
+      hideOnMobile: true,
+      render: (item) => watchedItems.indexOf(item) + 1,
+    },
+    {
+      key: 'model',
+      label: 'Item Number',
+      isSecondary: true,
+      render: (item) => item.model || '—',
+    },
+    {
+      key: 'description',
+      label: 'Description',
+      isPrimary: true,
+    },
+    {
+      key: 'quantity',
+      label: 'Qty',
+      align: 'right',
+    },
+    {
+      key: 'unitPrice',
+      label: 'Unit Price',
+      align: 'right',
+      render: (item) => formatCurrency(item.unitPrice),
+    },
+    {
+      key: 'total',
+      label: 'Total',
+      align: 'right',
+      render: (item) => formatCurrency((item.quantity || 0) * (item.unitPrice || 0)),
+    },
+  ];
 
   // ── Render ──
   return (
@@ -624,164 +754,12 @@ export default function RequisitionWizard() {
             </Button>
           </Box>
 
-          {/* Line items: card layout on mobile, table on desktop */}
-          {isMobile ? (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              {fields.map((field, index) => (
-                <Box
-                  key={field.id}
-                  sx={{
-                    border: '1px solid',
-                    borderColor: 'divider',
-                    borderRadius: 1,
-                    p: 1.5,
-                    position: 'relative',
-                  }}
-                >
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                    <Typography variant="caption" color="text.secondary">Item {index + 1}</Typography>
-                    <IconButton
-                      size="small"
-                      color="error"
-                      onClick={() => remove(index)}
-                      disabled={fields.length === 1}
-                    >
-                      <DeleteIcon fontSize="small" />
-                    </IconButton>
-                  </Box>
-                  <TextField
-                    size="small"
-                    label="Description *"
-                    {...register(`items.${index}.description`)}
-                    fullWidth
-                    sx={{ mb: 1.5 }}
-                    {...getFieldError(errors.items?.[index]?.description)}
-                    helperText={errors.items?.[index]?.description?.message ?? `${watchedItems[index]?.description?.length ?? 0}/500`}
-                    inputProps={{ maxLength: 500 }}
-                  />
-                  <TextField
-                    size="small"
-                    label="Item Number"
-                    {...register(`items.${index}.model`)}
-                    fullWidth
-                    sx={{ mb: 1.5 }}
-                    {...getFieldError(errors.items?.[index]?.model)}
-                    inputProps={{ maxLength: 200 }}
-                  />
-                  <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5 }}>
-                    <TextField
-                      size="small"
-                      label="Qty *"
-                      type="number"
-                      {...register(`items.${index}.quantity`, { valueAsNumber: true })}
-                      onFocus={(e) => e.target.select()}
-                      inputProps={{ min: 1, style: { textAlign: 'right' } }}
-                      fullWidth
-                      error={!!errors.items?.[index]?.quantity}
-                      helperText={errors.items?.[index]?.quantity?.message ?? ''}
-                    />
-                    <TextField
-                      size="small"
-                      label="Unit Price *"
-                      type="number"
-                      {...register(`items.${index}.unitPrice`, { valueAsNumber: true })}
-                      onFocus={(e) => e.target.select()}
-                      inputProps={{ min: 0, step: '0.01', style: { textAlign: 'right' } }}
-                      fullWidth
-                      error={!!errors.items?.[index]?.unitPrice}
-                      helperText={errors.items?.[index]?.unitPrice?.message ?? ''}
-                    />
-                  </Box>
-                  <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
-                    <Typography variant="body2" fontWeight={600}>
-                      Line Total: {formatCurrency((watchedItems[index]?.quantity ?? 0) * (watchedItems[index]?.unitPrice ?? 0))}
-                    </Typography>
-                  </Box>
-                </Box>
-              ))}
-            </Box>
-          ) : (
-          <TableContainer sx={{ overflowX: 'auto' }}>
-            <Table size="small" sx={{ tableLayout: 'fixed' }}>
-              <TableHead>
-                <TableRow>
-                  <TableCell sx={{ width: '25%' }}>Item Number</TableCell>
-                  <TableCell sx={{ width: '25%' }}>Description *</TableCell>
-                  <TableCell align="right" sx={{ width: 90 }}>Qty *</TableCell>
-                  <TableCell align="right" sx={{ width: 140 }}>Unit Price *</TableCell>
-                  <TableCell align="right" sx={{ width: 110 }}>Line Total</TableCell>
-                  <TableCell sx={{ width: 40 }} />
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {fields.map((field, index) => (
-                  <TableRow key={field.id}>
-                    <TableCell>
-                      <TextField
-                        size="small"
-                        {...register(`items.${index}.model`)}
-                        fullWidth
-                        multiline
-                        maxRows={2}
-                        {...getFieldError(errors.items?.[index]?.model)}
-                        inputProps={{ maxLength: 200 }}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <TextField
-                        size="small"
-                        {...register(`items.${index}.description`)}
-                        fullWidth
-                        multiline
-                        maxRows={3}
-                        {...getFieldError(errors.items?.[index]?.description)}
-                        helperText={errors.items?.[index]?.description?.message}
-                        inputProps={{ maxLength: 500 }}
-                      />
-                    </TableCell>
-                    <TableCell align="right">
-                      <TextField
-                        size="small"
-                        type="number"
-                        {...register(`items.${index}.quantity`, { valueAsNumber: true })}
-                        onFocus={(e) => e.target.select()}
-                        inputProps={{ min: 1, style: { textAlign: 'right' } }}
-                        sx={{ width: 80, ml: 'auto', display: 'block' }}
-                        error={!!errors.items?.[index]?.quantity}
-                        helperText={errors.items?.[index]?.quantity?.message ?? ''}
-                      />
-                    </TableCell>
-                    <TableCell align="right">
-                      <TextField
-                        size="small"
-                        type="number"
-                        {...register(`items.${index}.unitPrice`, { valueAsNumber: true })}
-                        onFocus={(e) => e.target.select()}
-                        inputProps={{ min: 0, step: '0.01', style: { textAlign: 'right' } }}
-                        sx={{ width: 120, ml: 'auto', display: 'block' }}
-                        error={!!errors.items?.[index]?.unitPrice}
-                        helperText={errors.items?.[index]?.unitPrice?.message ?? ''}
-                      />
-                    </TableCell>
-                    <TableCell align="right">
-                      <Typography variant="body2">{formatCurrency((watchedItems[index]?.quantity ?? 0) * (watchedItems[index]?.unitPrice ?? 0))}</Typography>
-                    </TableCell>
-                    <TableCell>
-                      <IconButton
-                        size="small"
-                        color="error"
-                        onClick={() => remove(index)}
-                        disabled={fields.length === 1}
-                      >
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-          )}
+          <ResponsiveTable<ItemField>
+            columns={lineItemEditColumns}
+            rows={fields}
+            getRowKey={(field) => field.id}
+            rowActions={lineItemRowActions}
+          />
 
           {/* Shipping cost + Running total */}
           <Box sx={{ mt: 2, display: 'flex', justifyContent: { xs: 'stretch', sm: 'flex-end' } }}>
@@ -876,63 +854,11 @@ export default function RequisitionWizard() {
           <Divider sx={{ mb: 2 }} />
 
           {/* Items summary */}
-          {isMobile ? (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-              {watchedItems.map((item, idx) => (
-                <Box
-                  key={idx}
-                  sx={{
-                    border: '1px solid',
-                    borderColor: 'divider',
-                    borderRadius: 1,
-                    p: 1.5,
-                  }}
-                >
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                    <Typography variant="body2" fontWeight={600} sx={{ wordBreak: 'break-word', flex: 1, mr: 1 }}>
-                      {item.description}
-                    </Typography>
-                    <Typography variant="body2" fontWeight={600} sx={{ whiteSpace: 'nowrap' }}>
-                      {formatCurrency((item.quantity || 0) * (item.unitPrice || 0))}
-                    </Typography>
-                  </Box>
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, color: 'text.secondary' }}>
-                    <Typography variant="caption">#{idx + 1}</Typography>
-                    {item.model && <Typography variant="caption">Item: {item.model}</Typography>}
-                    <Typography variant="caption">Qty: {item.quantity}</Typography>
-                    <Typography variant="caption">@ {formatCurrency(item.unitPrice)}</Typography>
-                  </Box>
-                </Box>
-              ))}
-            </Box>
-          ) : (
-          <TableContainer sx={{ overflowX: 'auto' }}>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>#</TableCell>
-                  <TableCell>Item Number</TableCell>
-                  <TableCell>Description</TableCell>
-                  <TableCell align="right">Qty</TableCell>
-                  <TableCell align="right">Unit Price</TableCell>
-                  <TableCell align="right">Total</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {watchedItems.map((item, idx) => (
-                  <TableRow key={idx}>
-                    <TableCell>{idx + 1}</TableCell>
-                    <TableCell>{item.model || '—'}</TableCell>
-                    <TableCell>{item.description}</TableCell>
-                    <TableCell align="right">{item.quantity}</TableCell>
-                    <TableCell align="right">{formatCurrency(item.unitPrice)}</TableCell>
-                    <TableCell align="right">{formatCurrency((item.quantity || 0) * (item.unitPrice || 0))}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-          )}
+          <ResponsiveTable<ReviewItem>
+            columns={reviewItemColumns}
+            rows={watchedItems}
+            getRowKey={(item) => watchedItems.indexOf(item)}
+          />
 
           {/* Financial summary */}
           <Box sx={{ mt: 2, display: 'flex', justifyContent: { xs: 'stretch', sm: 'flex-end' } }}>

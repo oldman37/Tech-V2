@@ -37,12 +37,6 @@ import {
   Stepper,
   Switch,
   Tab,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   Tabs,
   TextField,
   Typography,
@@ -59,6 +53,7 @@ import settingsService, {
 } from '../../services/settingsService';
 import { queryKeys } from '../../lib/queryKeys';
 import { useIsMobile } from '../../hooks/useResponsive';
+import { ResponsiveTable, type Column } from '../../components/responsive';
 import { AdminJobsContent } from './AdminJobsPage';
 import AdminEmailQueueTab from './AdminEmailQueueTab';
 import AdminBackupTab from './AdminBackupTab';
@@ -732,6 +727,91 @@ function FiscalYearTab({ settings, isFiscalYearExpired }: FiscalYearTabProps) {
     return null;
   }, [summary]);
 
+  // ── Rows / columns for the in-progress requisitions summary table ──
+  const inProgressRows: { status: string; count: number; isTotal?: boolean }[] = summary
+    ? [
+        ...Object.entries(summary.inProgressCounts)
+          .filter(([key]) => key !== 'total')
+          .map(([status, count]) => ({ status, count: count as number })),
+        { status: 'total', count: summary.inProgressCounts.total, isTotal: true },
+      ]
+    : [];
+
+  const inProgressColumns: Column<{ status: string; count: number; isTotal?: boolean }>[] = [
+    {
+      key: 'status',
+      label: 'Status',
+      isPrimary: true,
+      render: (r) => {
+        const label = r.isTotal ? 'Total' : STATUS_LABELS[r.status] ?? r.status;
+        return r.isTotal ? <strong>{label}</strong> : label;
+      },
+    },
+    {
+      key: 'count',
+      label: 'Count',
+      align: 'right',
+      render: (r) => (r.isTotal ? <strong>{r.count}</strong> : r.count),
+    },
+  ];
+
+  // ── Rows / columns for the work order status summary table ──
+  const workOrderStatusRows: { status: string; count: number; isTotal?: boolean }[] = workOrderSummary
+    ? [
+        ...(['OPEN', 'IN_PROGRESS', 'ON_HOLD', 'RESOLVED', 'CLOSED'] as const).map((s) => ({
+          status: s as string,
+          count: workOrderSummary.totals[s],
+        })),
+        { status: 'total', count: workOrderSummary.totals.total, isTotal: true },
+      ]
+    : [];
+
+  const workOrderStatusColumns: Column<{ status: string; count: number; isTotal?: boolean }>[] = [
+    {
+      key: 'status',
+      label: 'Status',
+      isPrimary: true,
+      render: (r) => {
+        const label = r.isTotal ? 'Total' : WORK_ORDER_STATUS_LABELS[r.status] ?? r.status;
+        return r.isTotal ? <strong>{label}</strong> : label;
+      },
+    },
+    {
+      key: 'count',
+      label: 'Count',
+      align: 'right',
+      render: (r) => (r.isTotal ? <strong>{r.count}</strong> : r.count),
+    },
+  ];
+
+  // ── Rows / columns for the work order by-department summary table ──
+  type DeptCounts = {
+    OPEN: number;
+    IN_PROGRESS: number;
+    ON_HOLD: number;
+    RESOLVED: number;
+    CLOSED: number;
+    total: number;
+  };
+  const byDepartmentRows: (DeptCounts & { dept: string })[] = workOrderSummary
+    ? Object.entries(workOrderSummary.byDepartment).map(([dept, counts]) => ({ dept, ...counts }))
+    : [];
+
+  const byDepartmentColumns: Column<DeptCounts & { dept: string }>[] = [
+    {
+      key: 'dept',
+      label: 'Department',
+      isPrimary: true,
+      render: (r) => (r.dept === 'TECHNOLOGY' ? 'Technology' : 'Maintenance'),
+    },
+    { key: 'OPEN', label: 'Open', align: 'right', render: (r) => r.OPEN },
+    { key: 'IN_PROGRESS', label: 'In Progress', align: 'right', render: (r) => r.IN_PROGRESS },
+    { key: 'ON_HOLD', label: 'On Hold', align: 'right', render: (r) => r.ON_HOLD },
+    { key: 'RESOLVED', label: 'Resolved', align: 'right', render: (r) => r.RESOLVED },
+    { key: 'CLOSED', label: 'Closed', align: 'right', render: (r) => r.CLOSED },
+    { key: 'total', label: 'Total', align: 'right', isSecondary: true, render: (r) => r.total },
+  ];
+
   // ── Stepper navigation ──
   const fieldsForStep: Record<number, (keyof WizardValues)[]> = {
     0: ['fiscalYearLabel'],
@@ -949,30 +1029,11 @@ function FiscalYearTab({ settings, isFiscalYearExpired }: FiscalYearTabProps) {
                             <Typography variant="body2" color="text.secondary">
                               In-progress requisitions for FY {summary.currentFiscalYear ?? '(none)'}:
                             </Typography>
-                            <TableContainer>
-                              <Table size="small">
-                                <TableHead>
-                                  <TableRow>
-                                    <TableCell>Status</TableCell>
-                                    <TableCell align="right">Count</TableCell>
-                                  </TableRow>
-                                </TableHead>
-                                <TableBody>
-                                  {Object.entries(summary.inProgressCounts)
-                                    .filter(([key]) => key !== 'total')
-                                    .map(([status, count]) => (
-                                      <TableRow key={status}>
-                                        <TableCell>{STATUS_LABELS[status] ?? status}</TableCell>
-                                        <TableCell align="right">{count as number}</TableCell>
-                                      </TableRow>
-                                    ))}
-                                  <TableRow>
-                                    <TableCell><strong>Total</strong></TableCell>
-                                    <TableCell align="right"><strong>{summary.inProgressCounts.total}</strong></TableCell>
-                                  </TableRow>
-                                </TableBody>
-                              </Table>
-                            </TableContainer>
+                            <ResponsiveTable
+                              columns={inProgressColumns}
+                              rows={inProgressRows}
+                              getRowKey={(r) => r.status}
+                            />
                           </>
                         ) : (
                           <Alert severity="info">No in-progress requisitions found.</Alert>
@@ -1111,60 +1172,20 @@ function FiscalYearTab({ settings, isFiscalYearExpired }: FiscalYearTabProps) {
                             </Alert>
 
                             <Typography variant="subtitle2">All Work Orders This Year</Typography>
-                            <TableContainer>
-                              <Table size="small">
-                                <TableHead>
-                                  <TableRow>
-                                    <TableCell>Status</TableCell>
-                                    <TableCell align="right">Count</TableCell>
-                                  </TableRow>
-                                </TableHead>
-                                <TableBody>
-                                  {(['OPEN', 'IN_PROGRESS', 'ON_HOLD', 'RESOLVED', 'CLOSED'] as const).map((s) => (
-                                    <TableRow key={s}>
-                                      <TableCell>{WORK_ORDER_STATUS_LABELS[s]}</TableCell>
-                                      <TableCell align="right">{workOrderSummary.totals[s]}</TableCell>
-                                    </TableRow>
-                                  ))}
-                                  <TableRow>
-                                    <TableCell><strong>Total</strong></TableCell>
-                                    <TableCell align="right"><strong>{workOrderSummary.totals.total}</strong></TableCell>
-                                  </TableRow>
-                                </TableBody>
-                              </Table>
-                            </TableContainer>
+                            <ResponsiveTable
+                              columns={workOrderStatusColumns}
+                              rows={workOrderStatusRows}
+                              getRowKey={(r) => r.status}
+                            />
 
                             {Object.keys(workOrderSummary.byDepartment).length > 0 && (
                               <>
                                 <Typography variant="subtitle2" sx={{ mt: 1 }}>By Department</Typography>
-                                <TableContainer>
-                                  <Table size="small">
-                                    <TableHead>
-                                      <TableRow>
-                                        <TableCell>Department</TableCell>
-                                        <TableCell align="right">Open</TableCell>
-                                        <TableCell align="right">In Progress</TableCell>
-                                        <TableCell align="right">On Hold</TableCell>
-                                        <TableCell align="right">Resolved</TableCell>
-                                        <TableCell align="right">Closed</TableCell>
-                                        <TableCell align="right">Total</TableCell>
-                                      </TableRow>
-                                    </TableHead>
-                                    <TableBody>
-                                      {Object.entries(workOrderSummary.byDepartment).map(([dept, counts]) => (
-                                        <TableRow key={dept}>
-                                          <TableCell>{dept === 'TECHNOLOGY' ? 'Technology' : 'Maintenance'}</TableCell>
-                                          <TableCell align="right">{counts.OPEN}</TableCell>
-                                          <TableCell align="right">{counts.IN_PROGRESS}</TableCell>
-                                          <TableCell align="right">{counts.ON_HOLD}</TableCell>
-                                          <TableCell align="right">{counts.RESOLVED}</TableCell>
-                                          <TableCell align="right">{counts.CLOSED}</TableCell>
-                                          <TableCell align="right">{counts.total}</TableCell>
-                                        </TableRow>
-                                      ))}
-                                    </TableBody>
-                                  </Table>
-                                </TableContainer>
+                                <ResponsiveTable
+                                  columns={byDepartmentColumns}
+                                  rows={byDepartmentRows}
+                                  getRowKey={(r) => r.dept}
+                                />
                               </>
                             )}
 

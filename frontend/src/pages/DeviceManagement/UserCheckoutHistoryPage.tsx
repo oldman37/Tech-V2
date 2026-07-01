@@ -9,11 +9,6 @@ import {
   Divider,
   Paper,
   Tab,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
   Tabs,
   Typography,
 } from '@mui/material';
@@ -24,6 +19,8 @@ import { userService } from '../../services/userService';
 import { deviceAssignmentService } from '../../services/deviceAssignment.service';
 import { damageIncidentService } from '../../services/damageIncident.service';
 import { ConditionChip } from '../../components/DeviceManagement/ConditionChip';
+import { ResponsiveTable } from '../../components/responsive';
+import type { Column } from '../../components/responsive';
 import type { CheckoutCondition } from '@mgspe/shared-types';
 
 // ---------------------------------------------------------------------------
@@ -224,64 +221,78 @@ export default function UserCheckoutHistoryPage() {
             </Typography>
           ) : (
             <Paper>
-              <Box sx={{ overflowX: 'auto' }}>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      {['Asset Tag', 'Device Name', 'Type', 'Checked Out', 'Condition Out', 'Returned', 'Condition In'].map((h) => (
-                        <TableCell key={h}><strong>{h}</strong></TableCell>
-                      ))}
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {assignments.map((a) => (
-                      <TableRow
-                        key={a.id}
-                        sx={{ '&:hover': { bgcolor: 'action.hover', cursor: 'pointer' } }}
-                        onClick={() => a.equipment && navigate(`/device-management/devices/${a.equipment.id}`)}
-                      >
-                        <TableCell onClick={(e) => e.stopPropagation()}>
-                          {a.equipment ? (
-                            <RouterLink
-                              to={`/device-management/devices/${a.equipment.id}`}
-                              style={{ fontFamily: 'monospace', fontWeight: 600 }}
-                            >
-                              {a.equipment.assetTag}
-                            </RouterLink>
-                          ) : (
-                            <Typography variant="body2" fontFamily="monospace" color="text.secondary">
-                              {a.equipmentId}
-                            </Typography>
-                          )}
-                        </TableCell>
-                        <TableCell>{a.equipment?.name ?? '—'}</TableCell>
-                        <TableCell>
-                          <Chip
-                            label={a.assigneeType === 'student' ? 'Student' : 'Staff'}
-                            size="small"
-                            color={a.assigneeType === 'student' ? 'primary' : 'secondary'}
-                            variant="outlined"
-                          />
-                        </TableCell>
-                        <TableCell>{fmtDate(a.checkoutAt)}</TableCell>
-                        <TableCell>
-                          <ConditionChip condition={a.checkoutCondition as CheckoutCondition} />
-                        </TableCell>
-                        <TableCell>
-                          {a.returnedAt ? fmtDate(a.returnedAt) : (
-                            <Chip label="Active" color="info" size="small" variant="outlined" />
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {a.returnCondition ? (
-                            <ConditionChip condition={a.returnCondition as CheckoutCondition} />
-                          ) : '—'}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </Box>
+              <ResponsiveTable<typeof assignments[number]>
+                columns={[
+                  {
+                    key: 'assetTag',
+                    label: 'Asset Tag',
+                    isPrimary: true,
+                    render: (a) =>
+                      a.equipment ? (
+                        <RouterLink
+                          to={`/device-management/devices/${a.equipment.id}`}
+                          style={{ fontFamily: 'monospace', fontWeight: 600 }}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {a.equipment.assetTag}
+                        </RouterLink>
+                      ) : (
+                        <Typography variant="body2" fontFamily="monospace" color="text.secondary">
+                          {a.equipmentId}
+                        </Typography>
+                      ),
+                  },
+                  {
+                    key: 'name',
+                    label: 'Device Name',
+                    isSecondary: true,
+                    render: (a) => a.equipment?.name ?? '—',
+                  },
+                  {
+                    key: 'assigneeType',
+                    label: 'Type',
+                    render: (a) => (
+                      <Chip
+                        label={a.assigneeType === 'student' ? 'Student' : 'Staff'}
+                        size="small"
+                        color={a.assigneeType === 'student' ? 'primary' : 'secondary'}
+                        variant="outlined"
+                      />
+                    ),
+                  },
+                  {
+                    key: 'checkoutAt',
+                    label: 'Checked Out',
+                    render: (a) => fmtDate(a.checkoutAt),
+                  },
+                  {
+                    key: 'checkoutCondition',
+                    label: 'Condition Out',
+                    hideOnMobile: true,
+                    render: (a) => <ConditionChip condition={a.checkoutCondition as CheckoutCondition} />,
+                  },
+                  {
+                    key: 'returnedAt',
+                    label: 'Returned',
+                    render: (a) =>
+                      a.returnedAt ? fmtDate(a.returnedAt) : (
+                        <Chip label="Active" color="info" size="small" variant="outlined" />
+                      ),
+                  },
+                  {
+                    key: 'returnCondition',
+                    label: 'Condition In',
+                    hideOnMobile: true,
+                    render: (a) =>
+                      a.returnCondition ? (
+                        <ConditionChip condition={a.returnCondition as CheckoutCondition} />
+                      ) : '—',
+                  },
+                ]}
+                rows={assignments}
+                getRowKey={(a) => a.id}
+                onRowClick={(a) => a.equipment && navigate(`/device-management/devices/${a.equipment.id}`)}
+              />
             </Paper>
           )}
         </Box>
@@ -298,67 +309,85 @@ export default function UserCheckoutHistoryPage() {
             </Typography>
           ) : (
             <Paper>
-              <Box sx={{ overflowX: 'auto' }}>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      {['Incident #', 'Type', 'Device', 'Damage Type', 'Severity', 'Date', 'Status'].map((h) => (
-                        <TableCell key={h}><strong>{h}</strong></TableCell>
-                      ))}
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {(incidentsData?.items ?? []).map((inc) => (
-                      <TableRow
-                        key={inc.id}
-                        onClick={() => navigate(`/device-management/incidents/${inc.id}`)}
-                        sx={{ '&:hover': { bgcolor: 'action.hover', cursor: 'pointer' } }}
-                      >
-                        <TableCell>
-                          <Typography variant="body2" fontFamily="monospace">
-                            {inc.incidentNumber ?? '—'}
-                          </Typography>
-                        </TableCell>
-                        <TableCell>
-                          <Chip
-                            label={inc.equipment ? '💻 Device' : '👤 User'}
-                            size="small"
-                            color={inc.equipment ? 'info' : 'secondary'}
-                            variant="outlined"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          {inc.equipment ? (
-                            <Box component="span" sx={{ fontFamily: 'monospace', fontSize: '0.85rem' }}>
-                              {inc.equipment.assetTag}
-                            </Box>
-                          ) : '—'}
-                        </TableCell>
-                        <TableCell sx={{ textTransform: 'capitalize' }}>
-                          {String(inc.damageType).replace(/_/g, ' ')}
-                        </TableCell>
-                        <TableCell>
-                          <Chip
-                            label={String(inc.severity).replace(/_/g, ' ')}
-                            color={SEVERITY_COLORS[inc.severity] ?? 'default'}
-                            size="small"
-                            sx={{ textTransform: 'capitalize' }}
-                          />
-                        </TableCell>
-                        <TableCell>{fmtDate(inc.reportedAt)}</TableCell>
-                        <TableCell>
-                          <Chip
-                            label={inc.status.replace(/_/g, ' ')}
-                            size="small"
-                            variant="outlined"
-                            sx={{ textTransform: 'capitalize' }}
-                          />
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </Box>
+              <ResponsiveTable<NonNullable<typeof incidentsData>['items'][number]>
+                columns={[
+                  {
+                    key: 'incidentNumber',
+                    label: 'Incident #',
+                    isPrimary: true,
+                    render: (inc) => (
+                      <Typography variant="body2" fontFamily="monospace">
+                        {inc.incidentNumber ?? '—'}
+                      </Typography>
+                    ),
+                  },
+                  {
+                    key: 'type',
+                    label: 'Type',
+                    isSecondary: true,
+                    render: (inc) => (
+                      <Chip
+                        label={inc.equipment ? '💻 Device' : '👤 User'}
+                        size="small"
+                        color={inc.equipment ? 'info' : 'secondary'}
+                        variant="outlined"
+                      />
+                    ),
+                  },
+                  {
+                    key: 'device',
+                    label: 'Device',
+                    render: (inc) =>
+                      inc.equipment ? (
+                        <Box component="span" sx={{ fontFamily: 'monospace', fontSize: '0.85rem' }}>
+                          {inc.equipment.assetTag}
+                        </Box>
+                      ) : '—',
+                  },
+                  {
+                    key: 'damageType',
+                    label: 'Damage Type',
+                    hideOnMobile: true,
+                    render: (inc) => (
+                      <span style={{ textTransform: 'capitalize' }}>
+                        {String(inc.damageType).replace(/_/g, ' ')}
+                      </span>
+                    ),
+                  },
+                  {
+                    key: 'severity',
+                    label: 'Severity',
+                    render: (inc) => (
+                      <Chip
+                        label={String(inc.severity).replace(/_/g, ' ')}
+                        color={SEVERITY_COLORS[inc.severity] ?? 'default'}
+                        size="small"
+                        sx={{ textTransform: 'capitalize' }}
+                      />
+                    ),
+                  },
+                  {
+                    key: 'reportedAt',
+                    label: 'Date',
+                    render: (inc) => fmtDate(inc.reportedAt),
+                  },
+                  {
+                    key: 'status',
+                    label: 'Status',
+                    render: (inc) => (
+                      <Chip
+                        label={inc.status.replace(/_/g, ' ')}
+                        size="small"
+                        variant="outlined"
+                        sx={{ textTransform: 'capitalize' }}
+                      />
+                    ),
+                  },
+                ] as Column<NonNullable<typeof incidentsData>['items'][number]>[]}
+                rows={incidentsData?.items ?? []}
+                getRowKey={(inc) => inc.id}
+                onRowClick={(inc) => navigate(`/device-management/incidents/${inc.id}`)}
+              />
             </Paper>
           )}
         </Box>

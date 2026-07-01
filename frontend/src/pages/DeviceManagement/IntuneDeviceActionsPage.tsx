@@ -16,13 +16,7 @@ import {
   Stack,
   Switch,
   Tab,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
   TablePagination,
-  TableRow,
   Tabs,
   TextField,
   Typography,
@@ -49,6 +43,8 @@ import IntuneToInventoryDialog from '../../components/IntuneToInventoryDialog';
 import IntuneScanWizardTab, { type IntuneHistoryEntry, loadHistory, buildDryRunResult } from './IntuneScanWizardTab';
 import type { IntuneOnlyDevice } from '@mgspe/shared-types';
 import { useIsMobile } from '../../hooks/useResponsive';
+import { ResponsiveTable } from '../../components/responsive';
+import type { Column } from '../../components/responsive';
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
@@ -106,28 +102,36 @@ function mergeBatchResults(
 /** Compact table that reveals every device captured in a history entry. */
 function HistoryDeviceTable({ devices }: { devices: IntuneHistoryEntry['devices'] }) {
   return (
-    <TableContainer sx={{ maxHeight: 320 }}>
-      <Table size="small" stickyHeader>
-        <TableHead>
-          <TableRow>
-            <TableCell>Device Name</TableCell>
-            <TableCell>Asset Tag</TableCell>
-            <TableCell>Serial</TableCell>
-            <TableCell>OS</TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {devices.map((d, idx) => (
-            <TableRow key={d.intuneDeviceId || d.serialNumber || idx}>
-              <TableCell>{d.displayName ?? '—'}</TableCell>
-              <TableCell>{d.assetTag ?? '—'}</TableCell>
-              <TableCell>{d.serialNumber || '—'}</TableCell>
-              <TableCell>{d.operatingSystem ?? '—'}</TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </TableContainer>
+    <Box sx={{ maxHeight: 320, overflowY: 'auto' }}>
+      <ResponsiveTable<IntuneHistoryEntry['devices'][number] & { _idx: number }>
+        columns={[
+          {
+            key: 'displayName',
+            label: 'Device Name',
+            isPrimary: true,
+            render: (d) => d.displayName ?? '—',
+          },
+          {
+            key: 'assetTag',
+            label: 'Asset Tag',
+            isSecondary: true,
+            render: (d) => d.assetTag ?? '—',
+          },
+          {
+            key: 'serialNumber',
+            label: 'Serial',
+            render: (d) => d.serialNumber || '—',
+          },
+          {
+            key: 'operatingSystem',
+            label: 'OS',
+            render: (d) => d.operatingSystem ?? '—',
+          },
+        ]}
+        rows={devices.map((d, _idx) => ({ ...d, _idx }))}
+        getRowKey={(d) => d.intuneDeviceId || d.serialNumber || d._idx}
+      />
+    </Box>
   );
 }
 
@@ -569,85 +573,107 @@ export default function IntuneDeviceActionsPage() {
                             </Typography>
                           )}
                         </Stack>
-                        <TableContainer>
-                          <Table size="small" stickyHeader>
-                            <TableHead>
-                              <TableRow>
-                                <TableCell padding="checkbox">
-                                  <Checkbox
-                                    size="small"
-                                    indeterminate={somePageDeviceSelected && !allPageDeviceSelected}
-                                    checked={allPageDeviceSelected}
-                                    onChange={(e) => {
-                                      if (e.target.checked) {
-                                        setDeviceSelectedIds((prev) => new Set([...prev, ...pagedDevices.map(getDeviceKey)]));
-                                      } else {
-                                        setDeviceSelectedIds((prev) => {
-                                          const next = new Set(prev);
-                                          pagedDevices.forEach((d) => next.delete(getDeviceKey(d)));
-                                          return next;
-                                        });
-                                      }
-                                    }}
-                                  />
-                                </TableCell>
-                                <TableCell>Device Name</TableCell>
-                                <TableCell>Model</TableCell>
-                                <TableCell>Asset Tag</TableCell>
-                                <TableCell>Serial</TableCell>
-                                <TableCell>OS</TableCell>
-                                <TableCell>Intune</TableCell>
-                                <TableCell>Last Sync</TableCell>
-                                <TableCell>Compliance</TableCell>
-                              </TableRow>
-                            </TableHead>
-                            <TableBody>
-                              {pagedDevices.map((d, idx) => (
-                                <TableRow key={d.intuneDeviceId || d.serialNumber || idx}>
-                                  <TableCell padding="checkbox">
-                                    <Checkbox
-                                      size="small"
-                                      checked={deviceSelectedIds.has(getDeviceKey(d))}
-                                      onChange={(e) => {
-                                        setDeviceSelectedIds((prev) => {
-                                          const next = new Set(prev);
-                                          if (e.target.checked) next.add(getDeviceKey(d));
-                                          else next.delete(getDeviceKey(d));
-                                          return next;
-                                        });
-                                      }}
-                                    />
-                                  </TableCell>
-                                  <TableCell>{d.displayName ?? '—'}</TableCell>
-                                  <TableCell>{d.model ?? '—'}</TableCell>
-                                  <TableCell>{d.assetTag ?? '—'}</TableCell>
-                                  <TableCell>{d.serialNumber || '—'}</TableCell>
-                                  <TableCell>{d.operatingSystem ?? '—'}</TableCell>
-                                  <TableCell>
-                                    <Chip
-                                      label={d.enrollmentStatus === 'enrolled' ? 'Enrolled' : 'Not Enrolled'}
-                                      size="small"
-                                      color={d.enrollmentStatus === 'enrolled' ? 'success' : 'default'}
-                                    />
-                                  </TableCell>
-                                  <TableCell>
-                                    {d.lastSyncDateTime ? new Date(d.lastSyncDateTime).toLocaleString() : '—'}
-                                  </TableCell>
-                                  <TableCell>{d.complianceState ?? '—'}</TableCell>
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                          <TablePagination
-                            component="div"
-                            count={filteredDevices.length}
-                            page={devicePage}
-                            onPageChange={(_, p) => setDevicePage(p)}
-                            rowsPerPage={deviceRowsPerPage}
-                            onRowsPerPageChange={(e) => { setDeviceRowsPerPage(parseInt(e.target.value, 10)); setDevicePage(0); }}
-                            rowsPerPageOptions={[10, 25, 50, 100]}
-                          />
-                        </TableContainer>
+                        <ResponsiveTable<IntuneDevicePreview & { _idx: number }>
+                          columns={[
+                            {
+                              key: 'select',
+                              label: (
+                                <Checkbox
+                                  size="small"
+                                  indeterminate={somePageDeviceSelected && !allPageDeviceSelected}
+                                  checked={allPageDeviceSelected}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      setDeviceSelectedIds((prev) => new Set([...prev, ...pagedDevices.map(getDeviceKey)]));
+                                    } else {
+                                      setDeviceSelectedIds((prev) => {
+                                        const next = new Set(prev);
+                                        pagedDevices.forEach((d) => next.delete(getDeviceKey(d)));
+                                        return next;
+                                      });
+                                    }
+                                  }}
+                                />
+                              ),
+                              render: (d) => (
+                                <Checkbox
+                                  size="small"
+                                  checked={deviceSelectedIds.has(getDeviceKey(d))}
+                                  onChange={(e) => {
+                                    setDeviceSelectedIds((prev) => {
+                                      const next = new Set(prev);
+                                      if (e.target.checked) next.add(getDeviceKey(d));
+                                      else next.delete(getDeviceKey(d));
+                                      return next;
+                                    });
+                                  }}
+                                />
+                              ),
+                            },
+                            {
+                              key: 'displayName',
+                              label: 'Device Name',
+                              isPrimary: true,
+                              render: (d) => d.displayName ?? '—',
+                            },
+                            {
+                              key: 'model',
+                              label: 'Model',
+                              isSecondary: true,
+                              render: (d) => d.model ?? '—',
+                            },
+                            {
+                              key: 'assetTag',
+                              label: 'Asset Tag',
+                              render: (d) => d.assetTag ?? '—',
+                            },
+                            {
+                              key: 'serialNumber',
+                              label: 'Serial',
+                              render: (d) => d.serialNumber || '—',
+                            },
+                            {
+                              key: 'operatingSystem',
+                              label: 'OS',
+                              hideOnMobile: true,
+                              render: (d) => d.operatingSystem ?? '—',
+                            },
+                            {
+                              key: 'enrollmentStatus',
+                              label: 'Intune',
+                              render: (d) => (
+                                <Chip
+                                  label={d.enrollmentStatus === 'enrolled' ? 'Enrolled' : 'Not Enrolled'}
+                                  size="small"
+                                  color={d.enrollmentStatus === 'enrolled' ? 'success' : 'default'}
+                                />
+                              ),
+                            },
+                            {
+                              key: 'lastSyncDateTime',
+                              label: 'Last Sync',
+                              hideOnMobile: true,
+                              render: (d) => (d.lastSyncDateTime ? new Date(d.lastSyncDateTime).toLocaleString() : '—'),
+                            },
+                            {
+                              key: 'complianceState',
+                              label: 'Compliance',
+                              hideOnMobile: true,
+                              render: (d) => d.complianceState ?? '—',
+                            },
+                          ]}
+                          rows={pagedDevices.map((d, idx) => ({ ...d, _idx: idx }))}
+                          getRowKey={(d) => getDeviceKey(d) || d._idx}
+                        />
+                        <TablePagination
+                          component="div"
+                          count={filteredDevices.length}
+                          page={devicePage}
+                          onPageChange={(_, p) => setDevicePage(p)}
+                          rowsPerPage={deviceRowsPerPage}
+                          onRowsPerPageChange={(e) => { setDeviceRowsPerPage(parseInt(e.target.value, 10)); setDevicePage(0); }}
+                          rowsPerPageOptions={[10, 25, 50, 100]}
+                        />
                       </>
                     );
                   })()}
@@ -957,41 +983,58 @@ export default function IntuneDeviceActionsPage() {
                 {recoReport.staleDevices.length === 0 ? (
                   <Typography variant="body2" color="text.secondary">No stale devices found.</Typography>
                 ) : (
-                  <TableContainer>
-                    <Table size="small">
-                      <TableHead>
-                        <TableRow>
-                          <TableCell>Device Name</TableCell>
-                          <TableCell>Serial</TableCell>
-                          <TableCell>Asset Tag</TableCell>
-                          <TableCell>Model</TableCell>
-                          <TableCell>OS</TableCell>
-                          <TableCell>Days Since Sync</TableCell>
-                          <TableCell>In Inventory</TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {recoReport.staleDevices
-                          .slice(recoPage0 * 25, recoPage0 * 25 + 25)
-                          .map((d) => (
-                            <TableRow key={d.intuneDeviceId}>
-                              <TableCell>{d.deviceName ?? '—'}</TableCell>
-                              <TableCell>{d.serialNumber ?? '—'}</TableCell>
-                              <TableCell>{d.assetTag ?? '—'}</TableCell>
-                              <TableCell>{d.model ?? '—'}</TableCell>
-                              <TableCell>{d.operatingSystem ?? '—'}</TableCell>
-                              <TableCell>
-                                <Chip
-                                  label={d.daysSinceSync}
-                                  size="small"
-                                  color={d.daysSinceSync >= 90 ? 'error' : 'warning'}
-                                />
-                              </TableCell>
-                              <TableCell>{d.inInventory ? 'Yes' : 'No'}</TableCell>
-                            </TableRow>
-                          ))}
-                      </TableBody>
-                    </Table>
+                  <>
+                    <ResponsiveTable<typeof recoReport.staleDevices[number]>
+                      columns={[
+                        {
+                          key: 'deviceName',
+                          label: 'Device Name',
+                          isPrimary: true,
+                          render: (d) => d.deviceName ?? '—',
+                        },
+                        {
+                          key: 'serialNumber',
+                          label: 'Serial',
+                          render: (d) => d.serialNumber ?? '—',
+                        },
+                        {
+                          key: 'assetTag',
+                          label: 'Asset Tag',
+                          render: (d) => d.assetTag ?? '—',
+                        },
+                        {
+                          key: 'model',
+                          label: 'Model',
+                          hideOnMobile: true,
+                          render: (d) => d.model ?? '—',
+                        },
+                        {
+                          key: 'operatingSystem',
+                          label: 'OS',
+                          hideOnMobile: true,
+                          render: (d) => d.operatingSystem ?? '—',
+                        },
+                        {
+                          key: 'daysSinceSync',
+                          label: 'Days Since Sync',
+                          isSecondary: true,
+                          render: (d) => (
+                            <Chip
+                              label={d.daysSinceSync}
+                              size="small"
+                              color={d.daysSinceSync >= 90 ? 'error' : 'warning'}
+                            />
+                          ),
+                        },
+                        {
+                          key: 'inInventory',
+                          label: 'In Inventory',
+                          render: (d) => (d.inInventory ? 'Yes' : 'No'),
+                        },
+                      ]}
+                      rows={recoReport.staleDevices.slice(recoPage0 * 25, recoPage0 * 25 + 25)}
+                      getRowKey={(d) => d.intuneDeviceId}
+                    />
                     <TablePagination
                       component="div"
                       count={recoReport.staleDevices.length}
@@ -1000,7 +1043,7 @@ export default function IntuneDeviceActionsPage() {
                       rowsPerPage={25}
                       rowsPerPageOptions={[25]}
                     />
-                  </TableContainer>
+                  </>
                 )}
               </Paper>
 
@@ -1051,11 +1094,12 @@ export default function IntuneDeviceActionsPage() {
                     {filteredInIntuneOnly.length === 0 ? (
                       <Typography variant="body2" color="text.secondary">No devices match the filter.</Typography>
                     ) : (
-                    <TableContainer>
-                      <Table size="small">
-                        <TableHead>
-                          <TableRow>
-                            <TableCell padding="checkbox">
+                    <>
+                      <ResponsiveTable<typeof filteredInIntuneOnly[number]>
+                        columns={[
+                          {
+                            key: 'select',
+                            label: (
                               <Checkbox
                                 size="small"
                                 indeterminate={
@@ -1078,25 +1122,13 @@ export default function IntuneDeviceActionsPage() {
                                   });
                                 }}
                               />
-                            </TableCell>
-                            <TableCell>Device Name</TableCell>
-                            <TableCell>Serial</TableCell>
-                            <TableCell>Model</TableCell>
-                            <TableCell>OS</TableCell>
-                            <TableCell>Last Sync</TableCell>
-                            <TableCell>Enrolled</TableCell>
-                            <TableCell>Compliance</TableCell>
-                          </TableRow>
-                        </TableHead>
-                        <TableBody>
-                          {filteredInIntuneOnly
-                            .slice(recoPage1 * 25, recoPage1 * 25 + 25)
-                            .map((d) => (
-                              <TableRow
-                                key={d.intuneDeviceId}
-                                selected={selectedForInventory.has(d.intuneDeviceId)}
-                                hover
-                                onClick={() => {
+                            ),
+                            render: (d) => (
+                              <Checkbox
+                                size="small"
+                                checked={selectedForInventory.has(d.intuneDeviceId)}
+                                onClick={(e) => e.stopPropagation()}
+                                onChange={() => {
                                   setSelectedForInventory((prev) => {
                                     const next = new Set(prev);
                                     if (next.has(d.intuneDeviceId)) next.delete(d.intuneDeviceId);
@@ -1104,34 +1136,62 @@ export default function IntuneDeviceActionsPage() {
                                     return next;
                                   });
                                 }}
-                                sx={{ cursor: 'pointer' }}
-                              >
-                                <TableCell padding="checkbox">
-                                  <Checkbox
-                                    size="small"
-                                    checked={selectedForInventory.has(d.intuneDeviceId)}
-                                    onClick={(e) => e.stopPropagation()}
-                                    onChange={() => {
-                                      setSelectedForInventory((prev) => {
-                                        const next = new Set(prev);
-                                        if (next.has(d.intuneDeviceId)) next.delete(d.intuneDeviceId);
-                                        else next.add(d.intuneDeviceId);
-                                        return next;
-                                      });
-                                    }}
-                                  />
-                                </TableCell>
-                                <TableCell>{d.deviceName ?? '—'}</TableCell>
-                                <TableCell>{d.serialNumber ?? '—'}</TableCell>
-                                <TableCell>{d.model ?? '—'}</TableCell>
-                                <TableCell>{d.operatingSystem ?? '—'}</TableCell>
-                                <TableCell>{d.lastSyncDateTime ? new Date(d.lastSyncDateTime).toLocaleDateString() : '—'}</TableCell>
-                                <TableCell>{d.enrolledDateTime ? new Date(d.enrolledDateTime).toLocaleDateString() : '—'}</TableCell>
-                                <TableCell>{d.complianceState ?? '—'}</TableCell>
-                              </TableRow>
-                            ))}
-                        </TableBody>
-                      </Table>
+                              />
+                            ),
+                          },
+                          {
+                            key: 'deviceName',
+                            label: 'Device Name',
+                            isPrimary: true,
+                            render: (d) => d.deviceName ?? '—',
+                          },
+                          {
+                            key: 'serialNumber',
+                            label: 'Serial',
+                            isSecondary: true,
+                            render: (d) => d.serialNumber ?? '—',
+                          },
+                          {
+                            key: 'model',
+                            label: 'Model',
+                            hideOnMobile: true,
+                            render: (d) => d.model ?? '—',
+                          },
+                          {
+                            key: 'operatingSystem',
+                            label: 'OS',
+                            hideOnMobile: true,
+                            render: (d) => d.operatingSystem ?? '—',
+                          },
+                          {
+                            key: 'lastSyncDateTime',
+                            label: 'Last Sync',
+                            render: (d) => (d.lastSyncDateTime ? new Date(d.lastSyncDateTime).toLocaleDateString() : '—'),
+                          },
+                          {
+                            key: 'enrolledDateTime',
+                            label: 'Enrolled',
+                            hideOnMobile: true,
+                            render: (d) => (d.enrolledDateTime ? new Date(d.enrolledDateTime).toLocaleDateString() : '—'),
+                          },
+                          {
+                            key: 'complianceState',
+                            label: 'Compliance',
+                            hideOnMobile: true,
+                            render: (d) => d.complianceState ?? '—',
+                          },
+                        ]}
+                        rows={filteredInIntuneOnly.slice(recoPage1 * 25, recoPage1 * 25 + 25)}
+                        getRowKey={(d) => d.intuneDeviceId}
+                        onRowClick={(d) => {
+                          setSelectedForInventory((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(d.intuneDeviceId)) next.delete(d.intuneDeviceId);
+                            else next.add(d.intuneDeviceId);
+                            return next;
+                          });
+                        }}
+                      />
                       <TablePagination
                         component="div"
                         count={filteredInIntuneOnly.length}
@@ -1140,7 +1200,7 @@ export default function IntuneDeviceActionsPage() {
                         rowsPerPage={25}
                         rowsPerPageOptions={[25]}
                       />
-                    </TableContainer>
+                    </>
                     )}
                   </>
                   );
@@ -1158,31 +1218,42 @@ export default function IntuneDeviceActionsPage() {
                 {recoReport.inInventoryOnly.length === 0 ? (
                   <Typography variant="body2" color="text.secondary">All active inventory devices are enrolled in Intune.</Typography>
                 ) : (
-                  <TableContainer>
-                    <Table size="small">
-                      <TableHead>
-                        <TableRow>
-                          <TableCell>Asset Tag</TableCell>
-                          <TableCell>Serial</TableCell>
-                          <TableCell>Name</TableCell>
-                          <TableCell>Model</TableCell>
-                          <TableCell>Brand</TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {recoReport.inInventoryOnly
-                          .slice(recoPage2 * 25, recoPage2 * 25 + 25)
-                          .map((d) => (
-                            <TableRow key={d.assetTag}>
-                              <TableCell>{d.assetTag}</TableCell>
-                              <TableCell>{d.serialNumber}</TableCell>
-                              <TableCell>{d.name}</TableCell>
-                              <TableCell>{d.modelName ?? '—'}</TableCell>
-                              <TableCell>{d.brandName ?? '—'}</TableCell>
-                            </TableRow>
-                          ))}
-                      </TableBody>
-                    </Table>
+                  <>
+                    <ResponsiveTable<typeof recoReport.inInventoryOnly[number]>
+                      columns={[
+                        {
+                          key: 'assetTag',
+                          label: 'Asset Tag',
+                          isPrimary: true,
+                          render: (d) => d.assetTag,
+                        },
+                        {
+                          key: 'serialNumber',
+                          label: 'Serial',
+                          isSecondary: true,
+                          render: (d) => d.serialNumber,
+                        },
+                        {
+                          key: 'name',
+                          label: 'Name',
+                          render: (d) => d.name,
+                        },
+                        {
+                          key: 'modelName',
+                          label: 'Model',
+                          hideOnMobile: true,
+                          render: (d) => d.modelName ?? '—',
+                        },
+                        {
+                          key: 'brandName',
+                          label: 'Brand',
+                          hideOnMobile: true,
+                          render: (d) => d.brandName ?? '—',
+                        },
+                      ]}
+                      rows={recoReport.inInventoryOnly.slice(recoPage2 * 25, recoPage2 * 25 + 25)}
+                      getRowKey={(d) => d.assetTag}
+                    />
                     <TablePagination
                       component="div"
                       count={recoReport.inInventoryOnly.length}
@@ -1191,7 +1262,7 @@ export default function IntuneDeviceActionsPage() {
                       rowsPerPage={25}
                       rowsPerPageOptions={[25]}
                     />
-                  </TableContainer>
+                  </>
                 )}
               </Paper>
             </>
@@ -1378,53 +1449,66 @@ export default function IntuneDeviceActionsPage() {
               </Typography>
             )}
           </Stack>
-          <TableContainer>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Device Name / Asset Tag</TableCell>
-                  <TableCell>Serial</TableCell>
-                  <TableCell>Status</TableCell>
-                  {results.action === 'fullDecommission' && (
-                    <>
-                      <TableCell>Delete</TableCell>
-                      <TableCell>Autopilot</TableCell>
-                      <TableCell>Entra</TableCell>
-                    </>
-                  )}
-                  <TableCell>Error</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {pagedResultRows.map((r, i) => (
-                  <TableRow key={r.intuneDeviceId || r.serialNumber || i}>
-                    <TableCell>{r.assetTag ?? r.serialNumber ?? '—'}</TableCell>
-                    <TableCell>{r.serialNumber || '—'}</TableCell>
-                    <TableCell>
-                      <Chip label={r.status} size="small" color={STATUS_CHIP_COLOUR[r.status] ?? 'default'} />
-                    </TableCell>
-                    {results.action === 'fullDecommission' && (
-                      <>
-                        <TableCell>{r.stepResults?.deleteDevice   ?? '—'}</TableCell>
-                        <TableCell>{r.stepResults?.removeAutopilot ?? '—'}</TableCell>
-                        <TableCell>{r.stepResults?.removeEntra     ?? '—'}</TableCell>
-                      </>
-                    )}
-                    <TableCell sx={{ color: 'error.main', fontSize: 12 }}>{r.error ?? ''}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-            <TablePagination
-              component="div"
-              count={filteredResults.length}
-              page={resultsPage}
-              onPageChange={(_, p) => setResultsPage(p)}
-              rowsPerPage={resultsRowsPerPage}
-              onRowsPerPageChange={(e) => { setResultsRowsPerPage(parseInt(e.target.value, 10)); setResultsPage(0); }}
-              rowsPerPageOptions={[10, 25, 50, 100]}
-            />
-          </TableContainer>
+          <ResponsiveTable<typeof pagedResultRows[number] & { _idx: number }>
+            columns={[
+              {
+                key: 'assetTag',
+                label: 'Device Name / Asset Tag',
+                isPrimary: true,
+                render: (r) => r.assetTag ?? r.serialNumber ?? '—',
+              },
+              {
+                key: 'serialNumber',
+                label: 'Serial',
+                render: (r) => r.serialNumber || '—',
+              },
+              {
+                key: 'status',
+                label: 'Status',
+                isSecondary: true,
+                render: (r) => <Chip label={r.status} size="small" color={STATUS_CHIP_COLOUR[r.status] ?? 'default'} />,
+              },
+              ...(results.action === 'fullDecommission'
+                ? ([
+                    {
+                      key: 'stepResults.deleteDevice',
+                      label: 'Delete',
+                      render: (r) => r.stepResults?.deleteDevice ?? '—',
+                    },
+                    {
+                      key: 'stepResults.removeAutopilot',
+                      label: 'Autopilot',
+                      render: (r) => r.stepResults?.removeAutopilot ?? '—',
+                    },
+                    {
+                      key: 'stepResults.removeEntra',
+                      label: 'Entra',
+                      render: (r) => r.stepResults?.removeEntra ?? '—',
+                    },
+                  ] satisfies Column<typeof pagedResultRows[number] & { _idx: number }>[])
+                : []),
+              {
+                key: 'error',
+                label: 'Error',
+                render: (r) => (
+                  <Typography component="span" variant="body2" color="error.main" sx={{ fontSize: 12 }}>
+                    {r.error ?? ''}
+                  </Typography>
+                ),
+              },
+            ]}
+            rows={pagedResultRows.map((r, i) => ({ ...r, _idx: i }))}
+            getRowKey={(r) => r.intuneDeviceId || r.serialNumber || r._idx}
+          />
+          <TablePagination
+            component="div"
+            count={filteredResults.length}
+            page={resultsPage}
+            onPageChange={(_, p) => setResultsPage(p)}
+            rowsPerPage={resultsRowsPerPage}
+            onRowsPerPageChange={(e) => { setResultsRowsPerPage(parseInt(e.target.value, 10)); setResultsPage(0); }}
+            rowsPerPageOptions={[10, 25, 50, 100]}
+          />
         </Paper>
       )}
 

@@ -14,12 +14,6 @@ import {
   DialogTitle,
   Divider,
   Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   TextField,
   Typography,
 } from '@mui/material';
@@ -28,8 +22,9 @@ import RestoreIcon from '@mui/icons-material/Restore';
 import BuildIcon from '@mui/icons-material/Build';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { adminService } from '../../services/adminService';
+import { adminService, type BackupFile } from '../../services/adminService';
 import { queryKeys } from '../../lib/queryKeys';
+import { ResponsiveTable, type Column } from '../../components/responsive';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -168,6 +163,34 @@ export default function AdminBackupTab() {
   const maintenanceEnabled = maintenanceQuery.data?.enabled ?? false;
   const maintLoading = enableMaintMutation.isPending || disableMaintMutation.isPending;
 
+  // Column definitions for ResponsiveTable
+  const backupColumns: Column<BackupFile>[] = [
+    {
+      key: 'filename',
+      label: 'Filename',
+      isPrimary: true,
+      render: (b) => (
+        <Typography variant="body2" fontFamily="monospace" noWrap title={b.filename}>
+          {b.filename}
+        </Typography>
+      ),
+    },
+    {
+      key: 'sizeBytes',
+      label: 'Size',
+      align: 'right',
+      isSecondary: true,
+      render: (b) => <Chip label={formatBytes(b.sizeBytes)} size="small" variant="outlined" />,
+    },
+    {
+      key: 'createdAt',
+      label: 'Created',
+      render: (b) => (
+        <Typography variant="body2">{new Date(b.createdAt).toLocaleString()}</Typography>
+      ),
+    },
+  ];
+
   return (
     <Stack spacing={4}>
       {/* ─── Maintenance Mode ─────────────────────────────────────────────── */}
@@ -299,51 +322,21 @@ export default function AdminBackupTab() {
         )}
 
         {backupsQuery.data && (backupsQuery.data.backups ?? []).length > 0 && (
-          <TableContainer>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Filename</TableCell>
-                  <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>Size</TableCell>
-                  <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>Created</TableCell>
-                  <TableCell />
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {(backupsQuery.data?.backups ?? []).map((b) => (
-                  <TableRow key={b.filename} hover>
-                    <TableCell sx={{ maxWidth: { xs: 160, sm: 300 } }}>
-                      <Typography variant="body2" fontFamily="monospace" noWrap title={b.filename}>
-                        {b.filename}
-                      </Typography>
-                      {/* Show size + date inline on mobile since columns are hidden */}
-                      <Typography variant="caption" color="text.secondary" sx={{ display: { xs: 'block', sm: 'none' } }}>
-                        {formatBytes(b.sizeBytes)} · {new Date(b.createdAt).toLocaleString()}
-                      </Typography>
-                    </TableCell>
-                    <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' }, whiteSpace: 'nowrap' }}>
-                      <Chip label={formatBytes(b.sizeBytes)} size="small" variant="outlined" />
-                    </TableCell>
-                    <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' }, whiteSpace: 'nowrap' }}>
-                      <Typography variant="body2">
-                        {new Date(b.createdAt).toLocaleString()}
-                      </Typography>
-                    </TableCell>
-                    <TableCell align="right" sx={{ whiteSpace: 'nowrap', width: 1 }}>
-                      <Button
-                        size="small"
-                        color="warning"
-                        startIcon={<RestoreIcon />}
-                        onClick={() => setRestoreTarget(b.filename)}
-                      >
-                        Restore
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
+          <ResponsiveTable<BackupFile>
+            columns={backupColumns}
+            rows={backupsQuery.data.backups ?? []}
+            getRowKey={(b) => b.filename}
+            rowActions={(b) => (
+              <Button
+                size="small"
+                color="warning"
+                startIcon={<RestoreIcon />}
+                onClick={() => setRestoreTarget(b.filename)}
+              >
+                Restore
+              </Button>
+            )}
+          />
         )}
       </Box>
 

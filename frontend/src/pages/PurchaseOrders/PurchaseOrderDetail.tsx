@@ -35,12 +35,6 @@ import {
   StepContent,
   StepLabel,
   Stepper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   TextField,
   Tooltip,
   Typography,
@@ -63,8 +57,10 @@ import {
   PO_STATUS_CHIP_COLOR,
   type POStatus,
   type WorkflowType,
+  type PurchaseOrderItem,
 } from '@/types/purchaseOrder.types';
 import { useIsMobile } from '@/hooks/useResponsive';
+import { ResponsiveTable, Column } from '@/components/responsive';
 
 const formatCurrency = (val: string | number | null | undefined) =>
   val != null
@@ -345,6 +341,44 @@ export default function PurchaseOrderDetail() {
       ? WORKFLOW_STAGES.findIndex((s) => s.status === 'finance_director_approved')
       : WORKFLOW_STAGES.findIndex((s) => s.status === po.status);
 
+  // ── Line items table columns ──
+  const lineItemColumns: Column<PurchaseOrderItem>[] = [
+    {
+      key: 'lineNumber',
+      label: '#',
+      hideOnMobile: true,
+      render: (item) => item.lineNumber ?? po.po_items.indexOf(item) + 1,
+    },
+    {
+      key: 'description',
+      label: 'Description',
+      isPrimary: true,
+    },
+    {
+      key: 'model',
+      label: 'Item Number',
+      isSecondary: true,
+      render: (item) => item.model ?? '—',
+    },
+    {
+      key: 'quantity',
+      label: 'Qty',
+      align: 'right',
+    },
+    {
+      key: 'unitPrice',
+      label: 'Unit Price',
+      align: 'right',
+      render: (item) => formatCurrency(item.unitPrice),
+    },
+    {
+      key: 'totalPrice',
+      label: 'Total',
+      align: 'right',
+      render: (item) => formatCurrency(item.totalPrice),
+    },
+  ];
+
   // ── Render ──
   return (
     <Box sx={{ p: { xs: 1, sm: 3 } }}>
@@ -491,65 +525,11 @@ export default function PurchaseOrderDetail() {
           <Paper sx={{ p: { xs: 1.5, sm: 3 }, mb: 2 }}>
             <Typography variant="h6" gutterBottom>Line Items</Typography>
 
-            {/* Mobile: card layout */}
-            {isMobile ? (
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                {po.po_items.map((item, idx) => (
-                  <Box
-                    key={item.id}
-                    sx={{
-                      border: '1px solid',
-                      borderColor: 'divider',
-                      borderRadius: 1,
-                      p: 1.5,
-                    }}
-                  >
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                      <Typography variant="body2" fontWeight={600} sx={{ wordBreak: 'break-word', flex: 1, mr: 1 }}>
-                        {item.description}
-                      </Typography>
-                      <Typography variant="body2" fontWeight={600} sx={{ whiteSpace: 'nowrap' }}>
-                        {formatCurrency(item.totalPrice)}
-                      </Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, color: 'text.secondary' }}>
-                      <Typography variant="caption">#{item.lineNumber ?? idx + 1}</Typography>
-                      {item.model && <Typography variant="caption">Item: {item.model}</Typography>}
-                      <Typography variant="caption">Qty: {item.quantity}</Typography>
-                      <Typography variant="caption">@ {formatCurrency(item.unitPrice)}</Typography>
-                    </Box>
-                  </Box>
-                ))}
-              </Box>
-            ) : (
-              /* Desktop: standard table */
-              <TableContainer sx={{ overflowX: 'auto' }}>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>#</TableCell>
-                      <TableCell>Description</TableCell>
-                      <TableCell>Item Number</TableCell>
-                      <TableCell align="right">Qty</TableCell>
-                      <TableCell align="right">Unit Price</TableCell>
-                      <TableCell align="right">Total</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {po.po_items.map((item, idx) => (
-                      <TableRow key={item.id}>
-                        <TableCell>{item.lineNumber ?? idx + 1}</TableCell>
-                        <TableCell>{item.description}</TableCell>
-                        <TableCell>{item.model ?? '—'}</TableCell>
-                        <TableCell align="right">{item.quantity}</TableCell>
-                        <TableCell align="right">{formatCurrency(item.unitPrice)}</TableCell>
-                        <TableCell align="right">{formatCurrency(item.totalPrice)}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            )}
+            <ResponsiveTable<PurchaseOrderItem>
+              columns={lineItemColumns}
+              rows={po.po_items}
+              getRowKey={(item) => item.id}
+            />
 
             {/* Financial Summary */}
             <Box sx={{ mt: 2, display: 'flex', justifyContent: { xs: 'stretch', sm: 'flex-end' } }}>

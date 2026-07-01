@@ -12,14 +12,8 @@ import {
   FormControl,
   InputLabel,
   MenuItem,
-  Paper,
   Select,
   Tab,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
   Tabs,
   TextField,
   Typography,
@@ -32,6 +26,7 @@ import { locationService } from '../../services/location.service';
 import { useAuthStore, selectCanSeeAllLocations } from '../../store/authStore';
 import type { InvoiceAgingBucket, GradeLevelSummaryItem } from '../../types/checkoutReport.types';
 import { gradeLevelLabel } from '../../constants/gradeLevel';
+import { ResponsiveTable } from '../../components/responsive';
 
 type ReportType = 'active-checkouts' | 'damage-summary' | 'repair-costs' | 'invoice-aging' | 'grade-level-summary' | null;
 
@@ -277,79 +272,55 @@ export default function ReportsPage() {
               <Typography variant="h6" sx={{ mb: 1 }}>
                 {group.campus} — {group.count} record{group.count !== 1 ? 's' : ''}
               </Typography>
-              {isMobile ? (
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                  {group.items.map(item => (
-                    <Paper key={item.id} variant="outlined" sx={{ p: 1.5 }}>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
-                        <Typography variant="body1" fontFamily="monospace" fontWeight={700}>
-                          {item.equipment?.assetTag ?? '—'}
-                        </Typography>
-                        {item.status === 'Checked In' ? (
-                          <Chip label="Checked In" color="success" size="small" />
-                        ) : (
-                          <Chip label="Checked Out" color="warning" size="small" />
-                        )}
-                      </Box>
-                      <Typography variant="body2" color="text.secondary">{item.equipment?.name ?? '—'}</Typography>
-                      {item.user && (
-                        <Typography variant="body2" color="text.secondary">
-                          {item.user.firstName} {item.user.lastName}
-                        </Typography>
-                      )}
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.5 }}>
-                        <Typography variant="caption" color="text.secondary">
-                          Out: {new Date(item.checkoutAt).toLocaleDateString()}
-                        </Typography>
-                        {item.returnedAt && (
-                          <Typography variant="caption" color="text.secondary">
-                            In: {new Date(item.returnedAt).toLocaleDateString()}
-                          </Typography>
-                        )}
-                      </Box>
-                    </Paper>
-                  ))}
-                </Box>
-              ) : (
-                <Box sx={{ overflowX: 'auto' }}>
-                  <Table size="small">
-                    <TableHead>
-                      <TableRow>
-                        <TableCell>Asset Tag</TableCell>
-                        <TableCell>Device</TableCell>
-                        <TableCell>User</TableCell>
-                        <TableCell>Email</TableCell>
-                        <TableCell>Checked Out</TableCell>
-                        <TableCell>Returned</TableCell>
-                        <TableCell>Status</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {group.items.map(item => (
-                        <TableRow key={item.id}>
-                          <TableCell>{item.equipment?.assetTag ?? '—'}</TableCell>
-                          <TableCell>{item.equipment?.name ?? '—'}</TableCell>
-                          <TableCell>
-                            {item.user ? `${item.user.firstName} ${item.user.lastName}` : '—'}
-                          </TableCell>
-                          <TableCell>{item.user?.email ?? '—'}</TableCell>
-                          <TableCell>{new Date(item.checkoutAt).toLocaleDateString()}</TableCell>
-                          <TableCell>
-                            {item.returnedAt ? new Date(item.returnedAt).toLocaleDateString() : '—'}
-                          </TableCell>
-                          <TableCell>
-                            {item.status === 'Checked In' ? (
-                              <Chip label="Checked In" color="success" size="small" />
-                            ) : (
-                              <Chip label="Checked Out" color="warning" size="small" />
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </Box>
-              )}
+              <ResponsiveTable<typeof group.items[number]>
+                columns={[
+                  {
+                    key: 'assetTag',
+                    label: 'Asset Tag',
+                    isPrimary: true,
+                    render: (item) => item.equipment?.assetTag ?? '—',
+                  },
+                  {
+                    key: 'name',
+                    label: 'Device',
+                    render: (item) => item.equipment?.name ?? '—',
+                  },
+                  {
+                    key: 'user',
+                    label: 'User',
+                    isSecondary: true,
+                    render: (item) => (item.user ? `${item.user.firstName} ${item.user.lastName}` : '—'),
+                  },
+                  {
+                    key: 'email',
+                    label: 'Email',
+                    hideOnMobile: true,
+                    render: (item) => item.user?.email ?? '—',
+                  },
+                  {
+                    key: 'checkoutAt',
+                    label: 'Checked Out',
+                    render: (item) => new Date(item.checkoutAt).toLocaleDateString(),
+                  },
+                  {
+                    key: 'returnedAt',
+                    label: 'Returned',
+                    render: (item) => (item.returnedAt ? new Date(item.returnedAt).toLocaleDateString() : '—'),
+                  },
+                  {
+                    key: 'status',
+                    label: 'Status',
+                    render: (item) =>
+                      item.status === 'Checked In' ? (
+                        <Chip label="Checked In" color="success" size="small" />
+                      ) : (
+                        <Chip label="Checked Out" color="warning" size="small" />
+                      ),
+                  },
+                ]}
+                rows={group.items}
+                getRowKey={(item) => item.id}
+              />
             </Box>
           ))}
         </Box>
@@ -357,92 +328,61 @@ export default function ReportsPage() {
 
       {/* Damage Summary */}
       {selectedReport === 'damage-summary' && !loadingDamage && damageSummary && (
-        isMobile ? (
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-            {damageSummary.length === 0 ? (
-              <Alert severity="info">No data for selected range.</Alert>
-            ) : damageSummary.map((row, i) => (
-              <Paper key={i} variant="outlined" sx={{ p: 1.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Box>
-                  <Typography variant="body2" fontWeight={600}>{row.damageType}</Typography>
-                  <Typography variant="caption" color="text.secondary">{row.severity}</Typography>
-                </Box>
-                <Chip label={row.count} size="small" variant="outlined" />
-              </Paper>
-            ))}
-          </Box>
-        ) : (
-          <Box sx={{ overflowX: 'auto' }}>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Damage Type</TableCell>
-                  <TableCell>Severity</TableCell>
-                  <TableCell align="right">Count</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {damageSummary.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={3} align="center">No data for selected range.</TableCell>
-                  </TableRow>
-                )}
-                {damageSummary.map((row, i) => (
-                  <TableRow key={i}>
-                    <TableCell>{row.damageType}</TableCell>
-                    <TableCell>{row.severity}</TableCell>
-                    <TableCell align="right">{row.count}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Box>
-        )
+        <ResponsiveTable<typeof damageSummary[number]>
+          columns={[
+            {
+              key: 'damageType',
+              label: 'Damage Type',
+              isPrimary: true,
+              render: (row) => row.damageType,
+            },
+            {
+              key: 'severity',
+              label: 'Severity',
+              isSecondary: true,
+              render: (row) => row.severity,
+            },
+            {
+              key: 'count',
+              label: 'Count',
+              align: 'right',
+              render: (row) => row.count,
+            },
+          ]}
+          rows={damageSummary}
+          getRowKey={(row) => `${row.damageType}-${row.severity}`}
+          emptyMessage="No data for selected range."
+        />
       )}
 
       {/* Repair Costs by Vendor */}
       {selectedReport === 'repair-costs' && !loadingRepair && repairCosts && (
-        isMobile ? (
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-            {repairCosts.length === 0 ? (
-              <Alert severity="info">No data for selected range.</Alert>
-            ) : repairCosts.map((row, i) => (
-              <Paper key={i} variant="outlined" sx={{ p: 1.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Typography variant="body2" fontWeight={600}>{row.vendorName}</Typography>
-                <Box sx={{ textAlign: 'right' }}>
-                  <Typography variant="body2" fontWeight={700}>${row.totalCost.toFixed(2)}</Typography>
-                  <Typography variant="caption" color="text.secondary">{row.ticketCount} ticket{row.ticketCount !== 1 ? 's' : ''}</Typography>
-                </Box>
-              </Paper>
-            ))}
-          </Box>
-        ) : (
-          <Box sx={{ overflowX: 'auto' }}>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Vendor</TableCell>
-                  <TableCell align="right">Tickets</TableCell>
-                  <TableCell align="right">Total Cost</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {repairCosts.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={3} align="center">No data for selected range.</TableCell>
-                  </TableRow>
-                )}
-                {repairCosts.map((row, i) => (
-                  <TableRow key={i}>
-                    <TableCell>{row.vendorName}</TableCell>
-                    <TableCell align="right">{row.ticketCount}</TableCell>
-                    <TableCell align="right">${row.totalCost.toFixed(2)}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Box>
-        )
+        <ResponsiveTable<typeof repairCosts[number]>
+          columns={[
+            {
+              key: 'vendorName',
+              label: 'Vendor',
+              isPrimary: true,
+              render: (row) => row.vendorName,
+            },
+            {
+              key: 'ticketCount',
+              label: 'Tickets',
+              align: 'right',
+              render: (row) => row.ticketCount,
+            },
+            {
+              key: 'totalCost',
+              label: 'Total Cost',
+              align: 'right',
+              isSecondary: true,
+              render: (row) => `$${row.totalCost.toFixed(2)}`,
+            },
+          ]}
+          rows={repairCosts}
+          getRowKey={(row) => row.vendorName}
+          emptyMessage="No data for selected range."
+        />
       )}
 
       {/* Invoice Aging */}
@@ -475,71 +415,51 @@ export default function ReportsPage() {
 
       {/* Grade Level Summary */}
       {selectedReport === 'grade-level-summary' && !loadingGrade && gradeSummary && (
-        isMobile ? (
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-            {gradeSummary.length === 0 ? (
-              <Alert severity="info">No grade-level data for the selected range.</Alert>
-            ) : gradeSummary.map((row: GradeLevelSummaryItem) => (
-              <Paper key={row.gradeLevel} variant="outlined" sx={{ p: 1.5 }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                  <Chip label={gradeLevelLabel(row.gradeLevel)} size="small" color="primary" variant="outlined" />
-                  <Chip label={`${row.incidentCount} incident${row.incidentCount !== 1 ? 's' : ''}`} size="small" variant="outlined" />
-                </Box>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <Box>
-                    <Typography variant="caption" color="text.secondary" display="block">Repair Cost</Typography>
-                    <Typography variant="body2" fontWeight={600}>${row.totalRepairCost}</Typography>
-                  </Box>
-                  <Box sx={{ textAlign: 'center' }}>
-                    <Typography variant="caption" color="text.secondary" display="block">Outstanding</Typography>
-                    <Typography variant="body2" fontWeight={600}>${row.outstandingInvoiceTotal}</Typography>
-                  </Box>
-                  <Box sx={{ textAlign: 'right' }}>
-                    <Typography variant="caption" color="text.secondary" display="block">Avg / Incident</Typography>
-                    <Typography variant="body2" fontWeight={600}>${row.avgCostPerIncident}</Typography>
-                  </Box>
-                </Box>
-              </Paper>
-            ))}
-          </Box>
-        ) : (
-          <Box sx={{ overflowX: 'auto' }}>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Grade</TableCell>
-                  <TableCell align="right">Incidents</TableCell>
-                  <TableCell align="right">Total Repair Cost</TableCell>
-                  <TableCell align="right">Outstanding Invoices</TableCell>
-                  <TableCell align="right">Avg Cost / Incident</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {gradeSummary.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={5} align="center">No grade-level data for the selected range.</TableCell>
-                  </TableRow>
-                )}
-                {gradeSummary.map((row: GradeLevelSummaryItem) => (
-                  <TableRow key={row.gradeLevel}>
-                    <TableCell>
-                      <Chip
-                        label={gradeLevelLabel(row.gradeLevel)}
-                        size="small"
-                        color="primary"
-                        variant="outlined"
-                      />
-                    </TableCell>
-                    <TableCell align="right">{row.incidentCount}</TableCell>
-                    <TableCell align="right">${row.totalRepairCost}</TableCell>
-                    <TableCell align="right">${row.outstandingInvoiceTotal}</TableCell>
-                    <TableCell align="right">${row.avgCostPerIncident}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Box>
-        )
+        <ResponsiveTable<GradeLevelSummaryItem>
+          columns={[
+            {
+              key: 'gradeLevel',
+              label: 'Grade',
+              isPrimary: true,
+              render: (row) => (
+                <Chip
+                  label={gradeLevelLabel(row.gradeLevel)}
+                  size="small"
+                  color="primary"
+                  variant="outlined"
+                />
+              ),
+            },
+            {
+              key: 'incidentCount',
+              label: 'Incidents',
+              align: 'right',
+              isSecondary: true,
+              render: (row) => row.incidentCount,
+            },
+            {
+              key: 'totalRepairCost',
+              label: 'Total Repair Cost',
+              align: 'right',
+              render: (row) => `$${row.totalRepairCost}`,
+            },
+            {
+              key: 'outstandingInvoiceTotal',
+              label: 'Outstanding Invoices',
+              align: 'right',
+              render: (row) => `$${row.outstandingInvoiceTotal}`,
+            },
+            {
+              key: 'avgCostPerIncident',
+              label: 'Avg Cost / Incident',
+              align: 'right',
+              render: (row) => `$${row.avgCostPerIncident}`,
+            },
+          ]}
+          rows={gradeSummary}
+          getRowKey={(row) => row.gradeLevel ?? 'ungraded'}
+          emptyMessage="No grade-level data for the selected range."
+        />
       )}
     </Box>
   );

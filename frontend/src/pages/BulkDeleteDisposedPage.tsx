@@ -9,17 +9,13 @@ import { locationService } from '../services/location.service';
 import { modelsService, EquipmentModel } from '../services/referenceDataService';
 import { InventoryItem } from '../types/inventory.types';
 import { useIsMobile } from '../hooks/useResponsive';
+import { ResponsiveTable } from '../components/responsive';
+import type { Column } from '../components/responsive';
 import Autocomplete from '@mui/material/Autocomplete';
 import Button from '@mui/material/Button';
 import Checkbox from '@mui/material/Checkbox';
 import Dialog from '@mui/material/Dialog';
-import Table from '@mui/material/Table';
-import TableBody from '@mui/material/TableBody';
-import TableCell from '@mui/material/TableCell';
-import TableContainer from '@mui/material/TableContainer';
-import TableHead from '@mui/material/TableHead';
 import TablePagination from '@mui/material/TablePagination';
-import TableRow from '@mui/material/TableRow';
 import TextField from '@mui/material/TextField';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
@@ -224,6 +220,70 @@ const BulkDeleteDisposedPage = () => {
   const handleSelectAll = () => {
     setSelectedIds(new Set(allIds));
   };
+
+  const columns: Column<InventoryItem>[] = [
+    {
+      key:    'select',
+      label:  (
+        <Checkbox
+          indeterminate={somePageSelected}
+          checked={allPageSelected}
+          onChange={handleToggleAll}
+          disabled={loading || pagedItems.length === 0}
+        />
+      ),
+      render: (item) => (
+        <Checkbox
+          checked={selectedIds.has(item.id)}
+          onChange={() => handleToggleRow(item.id)}
+          onClick={(e) => e.stopPropagation()}
+        />
+      ),
+    },
+    {
+      key:       'assetTag',
+      label:     'Asset Tag',
+      isPrimary: true,
+      render:    (item) => <strong style={{ fontWeight: 600 }}>{item.assetTag}</strong>,
+    },
+    {
+      key:         'name',
+      label:       'Name',
+      isSecondary: true,
+      render:      (item) => item.name,
+    },
+    {
+      key:          'serialNumber',
+      label:        'Serial #',
+      hideOnMobile: true,
+      render:       (item) => item.serialNumber || '—',
+    },
+    {
+      key:    'location',
+      label:  'Location',
+      render: (item) => item.officeLocation?.name || '—',
+    },
+    {
+      key:    'disposalDate',
+      label:  'Disposal Date',
+      render: (item) => formatDate(item.disposedDate || item.disposalDate),
+    },
+    {
+      key:          'reason',
+      label:        'Reason',
+      hideOnMobile: true,
+      render:       (item) =>
+        item.disposedReason ? (
+          <span title={item.disposedReason}>
+            {item.disposedReason.length > 40
+              ? `${item.disposedReason.slice(0, 40)}…`
+              : item.disposedReason}
+          </span>
+        ) : (
+          <span style={{ color: 'var(--slate-400)' }}>{'—'}</span>
+        ),
+    },
+  ];
 
   return (
     <>
@@ -476,92 +536,14 @@ const BulkDeleteDisposedPage = () => {
                 </div>
               )}
               <div className="card" style={{ padding: 0 }}>
-                <TableContainer>
-                  <Table size="small">
-                    <TableHead>
-                      <TableRow>
-                        <TableCell padding="checkbox">
-                          <Checkbox
-                            indeterminate={somePageSelected}
-                            checked={allPageSelected}
-                            onChange={handleToggleAll}
-                            disabled={loading || pagedItems.length === 0}
-                          />
-                        </TableCell>
-                        <TableCell>Asset Tag</TableCell>
-                        <TableCell>Name</TableCell>
-                        <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
-                          Serial #
-                        </TableCell>
-                        <TableCell>Location</TableCell>
-                        <TableCell>Disposal Date</TableCell>
-                        <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
-                          Reason
-                        </TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {loading ? (
-                        <TableRow>
-                          <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
-                            Loading…
-                          </TableCell>
-                        </TableRow>
-                      ) : pagedItems.length === 0 ? (
-                        <TableRow>
-                          <TableCell
-                            colSpan={7}
-                            align="center"
-                            sx={{ py: 4, color: 'text.secondary' }}
-                          >
-                            No active {selectedModelName} devices found matching the current
-                            filters.
-                          </TableCell>
-                        </TableRow>
-                      ) : (
-                        pagedItems.map((item) => (
-                          <TableRow
-                            key={item.id}
-                            hover
-                            selected={selectedIds.has(item.id)}
-                            onClick={() => handleToggleRow(item.id)}
-                            sx={{ cursor: 'pointer' }}
-                          >
-                            <TableCell padding="checkbox">
-                              <Checkbox
-                                checked={selectedIds.has(item.id)}
-                                onChange={() => handleToggleRow(item.id)}
-                                onClick={(e) => e.stopPropagation()}
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <strong style={{ fontWeight: 600 }}>{item.assetTag}</strong>
-                            </TableCell>
-                            <TableCell>{item.name}</TableCell>
-                            <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
-                              {item.serialNumber || '\u2014'}
-                            </TableCell>
-                            <TableCell>{item.officeLocation?.name || '\u2014'}</TableCell>
-                            <TableCell>
-                              {formatDate(item.disposedDate || item.disposalDate)}
-                            </TableCell>
-                            <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
-                              {item.disposedReason ? (
-                                <span title={item.disposedReason}>
-                                  {item.disposedReason.length > 40
-                                    ? `${item.disposedReason.slice(0, 40)}\u2026`
-                                    : item.disposedReason}
-                                </span>
-                              ) : (
-                                <span style={{ color: 'var(--slate-400)' }}>{'\u2014'}</span>
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        ))
-                      )}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
+                <ResponsiveTable
+                  columns={columns}
+                  rows={pagedItems}
+                  getRowKey={(item) => item.id}
+                  onRowClick={(item) => handleToggleRow(item.id)}
+                  loading={loading}
+                  emptyMessage={`No active ${selectedModelName} devices found matching the current filters.`}
+                />
                 <TablePagination
                   component="div"
                   count={items.length}

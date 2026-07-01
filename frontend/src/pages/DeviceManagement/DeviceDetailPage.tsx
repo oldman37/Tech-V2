@@ -21,15 +21,12 @@ import {
   Paper,
   Select,
   Tab,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
   Tabs,
   TextField,
   Typography,
 } from '@mui/material';
+import { ResponsiveTable } from '../../components/responsive';
+import type { Column } from '../../components/responsive';
 import AddIcon from '@mui/icons-material/Add';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
@@ -322,84 +319,89 @@ export default function DeviceDetailPage() {
             <Box display="flex" justifyContent="center" p={4}><CircularProgress /></Box>
           ) : (
             <Paper sx={{ mb: 0 }}>
-              <Box sx={{ overflowX: 'auto' }}>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      {['Incident #', 'Damage Type', 'Severity', 'Reported By', 'Reported At', 'Status', 'Repair Ticket'].map((h) => (
-                        <TableCell key={h}><strong>{h}</strong></TableCell>
-                      ))}
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {(incidentsData?.items ?? []).map((incident) => (
-                      <TableRow
-                        key={incident.id}
-                        onClick={() => navigate(`/device-management/incidents/${incident.id}`)}
-                        sx={{ '&:hover': { bgcolor: 'action.hover', cursor: 'pointer' } }}
-                      >
-                        <TableCell>
-                          <Typography variant="body2" fontFamily="monospace">
-                            {incident.incidentNumber ?? '—'}
-                          </Typography>
-                        </TableCell>
-                        <TableCell>
-                          <DamageTypeBadge type={incident.damageType} />
-                        </TableCell>
-                        <TableCell>
-                          <Chip
-                            label={String(incident.severity).replace(/_/g, ' ')}
-                            color={SEVERITY_COLORS[incident.severity] ?? 'default'}
-                            size="small"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          {incident.reporter
-                            ? `${incident.reporter.firstName} ${incident.reporter.lastName}`
-                            : '—'}
-                        </TableCell>
-                        <TableCell>
-                          {new Date(incident.reportedAt).toLocaleDateString('en-US', {
-                            month: 'short', day: 'numeric', year: 'numeric',
-                          })}
-                        </TableCell>
-                        <TableCell>
-                          <Chip
-                            label={incident.status.replace(/_/g, ' ')}
-                            size="small"
-                            variant="outlined"
-                            sx={{ textTransform: 'capitalize' }}
-                          />
-                        </TableCell>
-                        <TableCell onClick={(e) => e.stopPropagation()}>
-                          {incident.repairTickets && incident.repairTickets.length > 0
-                            ? incident.repairTickets.map((rt) => (
-                                <Chip
-                                  key={rt.id}
-                                  label={`→ ${rt.ticketNumber}`}
-                                  size="small"
-                                  color="info"
-                                  variant="outlined"
-                                  clickable
-                                  onClick={() => navigate(`/device-management/repair-tickets/${rt.id}`)}
-                                  sx={{ mr: 0.5 }}
-                                />
-                              ))
-                            : <Typography variant="caption" color="text.disabled">—</Typography>
-                          }
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                    {(incidentsData?.items ?? []).length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={7} align="center">
-                          <Typography variant="body2" color="text.secondary">No damage reports found for this device.</Typography>
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </Box>
+              <ResponsiveTable<NonNullable<typeof incidentsData>['items'][number]>
+                columns={[
+                  {
+                    key: 'incidentNumber',
+                    label: 'Incident #',
+                    isPrimary: true,
+                    render: (incident) => (
+                      <Typography variant="body2" fontFamily="monospace">
+                        {incident.incidentNumber ?? '—'}
+                      </Typography>
+                    ),
+                  },
+                  {
+                    key: 'damageType',
+                    label: 'Damage Type',
+                    render: (incident) => <DamageTypeBadge type={incident.damageType} />,
+                  },
+                  {
+                    key: 'severity',
+                    label: 'Severity',
+                    isSecondary: true,
+                    render: (incident) => (
+                      <Chip
+                        label={String(incident.severity).replace(/_/g, ' ')}
+                        color={SEVERITY_COLORS[incident.severity] ?? 'default'}
+                        size="small"
+                      />
+                    ),
+                  },
+                  {
+                    key: 'reporter',
+                    label: 'Reported By',
+                    hideOnMobile: true,
+                    render: (incident) =>
+                      incident.reporter
+                        ? `${incident.reporter.firstName} ${incident.reporter.lastName}`
+                        : '—',
+                  },
+                  {
+                    key: 'reportedAt',
+                    label: 'Reported At',
+                    render: (incident) =>
+                      new Date(incident.reportedAt).toLocaleDateString('en-US', {
+                        month: 'short', day: 'numeric', year: 'numeric',
+                      }),
+                  },
+                  {
+                    key: 'status',
+                    label: 'Status',
+                    render: (incident) => (
+                      <Chip
+                        label={incident.status.replace(/_/g, ' ')}
+                        size="small"
+                        variant="outlined"
+                        sx={{ textTransform: 'capitalize' }}
+                      />
+                    ),
+                  },
+                  {
+                    key: 'repairTickets',
+                    label: 'Repair Ticket',
+                    render: (incident) =>
+                      incident.repairTickets && incident.repairTickets.length > 0
+                        ? incident.repairTickets.map((rt) => (
+                            <Chip
+                              key={rt.id}
+                              label={`→ ${rt.ticketNumber}`}
+                              size="small"
+                              color="info"
+                              variant="outlined"
+                              clickable
+                              onClick={() => navigate(`/device-management/repair-tickets/${rt.id}`)}
+                              sx={{ mr: 0.5 }}
+                            />
+                          ))
+                        : <Typography variant="caption" color="text.disabled">—</Typography>,
+                  },
+                ] as Column<NonNullable<typeof incidentsData>['items'][number]>[]}
+                rows={incidentsData?.items ?? []}
+                getRowKey={(incident) => incident.id}
+                onRowClick={(incident) => navigate(`/device-management/incidents/${incident.id}`)}
+                emptyMessage="No damage reports found for this device."
+              />
             </Paper>
           )}
 
@@ -414,75 +416,80 @@ export default function DeviceDetailPage() {
           </Box>
 
           <Paper>
-            <Box sx={{ overflowX: 'auto' }}>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    {['Ticket #', 'Status', 'Vendor', 'Created', 'Date of Repair', 'Repair Cost', 'Damage Report'].map((h) => (
-                      <TableCell key={h}><strong>{h}</strong></TableCell>
-                    ))}
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {(ticketsData?.items ?? []).map((ticket) => (
-                    <TableRow
-                      key={ticket.id}
-                      onClick={() => navigate(`/device-management/repair-tickets/${ticket.id}`)}
-                      sx={{ '&:hover': { bgcolor: 'action.hover', cursor: 'pointer' } }}
-                    >
-                      <TableCell>
-                        <Typography variant="body2" fontFamily="monospace">{ticket.ticketNumber}</Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          label={ticket.status.replace(/_/g, ' ')}
-                          size="small"
-                          sx={{ textTransform: 'capitalize' }}
-                        />
-                      </TableCell>
-                      <TableCell>{ticket.vendor?.name ?? '—'}</TableCell>
-                      <TableCell>
-                        {new Date(ticket.createdAt).toLocaleDateString('en-US', {
+            <ResponsiveTable<NonNullable<typeof ticketsData>['items'][number]>
+              columns={[
+                {
+                  key: 'ticketNumber',
+                  label: 'Ticket #',
+                  isPrimary: true,
+                  render: (ticket) => (
+                    <Typography variant="body2" fontFamily="monospace">{ticket.ticketNumber}</Typography>
+                  ),
+                },
+                {
+                  key: 'status',
+                  label: 'Status',
+                  isSecondary: true,
+                  render: (ticket) => (
+                    <Chip
+                      label={ticket.status.replace(/_/g, ' ')}
+                      size="small"
+                      sx={{ textTransform: 'capitalize' }}
+                    />
+                  ),
+                },
+                {
+                  key: 'vendor',
+                  label: 'Vendor',
+                  render: (ticket) => ticket.vendor?.name ?? '—',
+                },
+                {
+                  key: 'createdAt',
+                  label: 'Created',
+                  hideOnMobile: true,
+                  render: (ticket) =>
+                    new Date(ticket.createdAt).toLocaleDateString('en-US', {
+                      month: 'short', day: 'numeric', year: 'numeric',
+                    }),
+                },
+                {
+                  key: 'expectedReturnDate',
+                  label: 'Date of Repair',
+                  render: (ticket) =>
+                    ticket.expectedReturnDate
+                      ? new Date(ticket.expectedReturnDate).toLocaleDateString('en-US', {
                           month: 'short', day: 'numeric', year: 'numeric',
-                        })}
-                      </TableCell>
-                      <TableCell>
-                        {ticket.expectedReturnDate
-                          ? new Date(ticket.expectedReturnDate).toLocaleDateString('en-US', {
-                              month: 'short', day: 'numeric', year: 'numeric',
-                            })
-                          : '—'}
-                      </TableCell>
-                      <TableCell>
-                        {ticket.repairCost ? `$${ticket.repairCost}` : '—'}
-                      </TableCell>
-                      <TableCell onClick={(e) => e.stopPropagation()}>
-                        {ticket.damageIncident
-                          ? (
-                              <Chip
-                                label={`← ${ticket.damageIncident.incidentNumber ?? ticket.damageIncidentId}`}
-                                size="small"
-                                color="warning"
-                                variant="outlined"
-                                clickable
-                                onClick={() => navigate(`/device-management/incidents/${ticket.damageIncidentId}`)}
-                              />
-                            )
-                          : <Typography variant="caption" color="text.disabled">—</Typography>
-                        }
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {(ticketsData?.items ?? []).length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={7} align="center">
-                        <Typography variant="body2" color="text.secondary">No repair tickets found for this device.</Typography>
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </Box>
+                        })
+                      : '—',
+                },
+                {
+                  key: 'repairCost',
+                  label: 'Repair Cost',
+                  render: (ticket) => (ticket.repairCost ? `$${ticket.repairCost}` : '—'),
+                },
+                {
+                  key: 'damageIncident',
+                  label: 'Damage Report',
+                  render: (ticket) =>
+                    ticket.damageIncident
+                      ? (
+                          <Chip
+                            label={`← ${ticket.damageIncident.incidentNumber ?? ticket.damageIncidentId}`}
+                            size="small"
+                            color="warning"
+                            variant="outlined"
+                            clickable
+                            onClick={() => navigate(`/device-management/incidents/${ticket.damageIncidentId}`)}
+                          />
+                        )
+                      : <Typography variant="caption" color="text.disabled">—</Typography>,
+                },
+              ] as Column<NonNullable<typeof ticketsData>['items'][number]>[]}
+              rows={ticketsData?.items ?? []}
+              getRowKey={(ticket) => ticket.id}
+              onRowClick={(ticket) => navigate(`/device-management/repair-tickets/${ticket.id}`)}
+              emptyMessage="No repair tickets found for this device."
+            />
           </Paper>
         </Box>
       )}
@@ -504,53 +511,57 @@ export default function DeviceDetailPage() {
             </Typography>
           ) : (
             <Paper>
-              <Box sx={{ overflowX: 'auto' }}>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      {['Invoice #', 'Recipient', 'Amount', 'Status', 'Due Date'].map((h) => (
-                        <TableCell key={h}><strong>{h}</strong></TableCell>
-                      ))}
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {(invoicesData?.items ?? []).map((invoice) => {
+              <ResponsiveTable<NonNullable<typeof invoicesData>['items'][number]>
+                columns={[
+                  {
+                    key: 'invoiceNumber',
+                    label: 'Invoice #',
+                    isPrimary: true,
+                    render: (invoice) => (
+                      <Typography variant="body2" fontFamily="monospace">
+                        {invoice.invoiceNumber}
+                      </Typography>
+                    ),
+                  },
+                  {
+                    key: 'recipientName',
+                    label: 'Recipient',
+                    isSecondary: true,
+                    render: (invoice) => invoice.recipientName ?? invoice.recipientEmail,
+                  },
+                  {
+                    key: 'amount',
+                    label: 'Amount',
+                    render: (invoice) => `$${parseFloat(invoice.amount).toFixed(2)}`,
+                  },
+                  {
+                    key: 'status',
+                    label: 'Status',
+                    render: (invoice) => <InvoiceStatusChip status={invoice.status} />,
+                  },
+                  {
+                    key: 'dueDate',
+                    label: 'Due Date',
+                    render: (invoice) => {
                       const isOverdue =
                         new Date(invoice.dueDate) < new Date() &&
                         invoice.status !== 'paid' &&
                         invoice.status !== 'waived';
                       return (
-                        <TableRow
-                          key={invoice.id}
-                          onClick={() => navigate(`/device-management/invoices/${invoice.id}`)}
-                          sx={{ '&:hover': { bgcolor: 'action.hover', cursor: 'pointer' } }}
-                        >
-                          <TableCell>
-                            <Typography variant="body2" fontFamily="monospace">
-                              {invoice.invoiceNumber}
-                            </Typography>
-                          </TableCell>
-                          <TableCell>
-                            {invoice.recipientName ?? invoice.recipientEmail}
-                          </TableCell>
-                          <TableCell>
-                            ${parseFloat(invoice.amount).toFixed(2)}
-                          </TableCell>
-                          <TableCell>
-                            <InvoiceStatusChip status={invoice.status} />
-                          </TableCell>
-                          <TableCell sx={{ color: isOverdue ? 'error.main' : undefined }}>
-                            {new Date(invoice.dueDate).toLocaleDateString('en-US', {
-                              month: 'short', day: 'numeric', year: 'numeric',
-                            })}
-                            {isOverdue && ' ⚠'}
-                          </TableCell>
-                        </TableRow>
+                        <Typography variant="body2" component="span" color={isOverdue ? 'error.main' : undefined}>
+                          {new Date(invoice.dueDate).toLocaleDateString('en-US', {
+                            month: 'short', day: 'numeric', year: 'numeric',
+                          })}
+                          {isOverdue && ' ⚠'}
+                        </Typography>
                       );
-                    })}
-                  </TableBody>
-                </Table>
-              </Box>
+                    },
+                  },
+                ] as Column<NonNullable<typeof invoicesData>['items'][number]>[]}
+                rows={invoicesData?.items ?? []}
+                getRowKey={(invoice) => invoice.id}
+                onRowClick={(invoice) => navigate(`/device-management/invoices/${invoice.id}`)}
+              />
             </Paper>
           )}
         </Box>
@@ -616,57 +627,70 @@ export default function DeviceDetailPage() {
             </Typography>
           ) : (
             <Paper>
-              <Box sx={{ overflowX: 'auto' }}>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      {['Assignee', 'Type', 'Checked Out', 'Condition Out', 'Checked In', 'Condition In', 'Checked Out By'].map((h) => (
-                        <TableCell key={h}><strong>{h}</strong></TableCell>
-                      ))}
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {assignments.map((a) => (
-                      <TableRow key={a.id}>
-                        <TableCell>
-                          {a.user ? `${a.user.firstName} ${a.user.lastName}` : a.userId}
-                        </TableCell>
-                        <TableCell>
-                          <Chip
-                            label={a.assigneeType === 'student' ? 'Student' : 'Staff'}
-                            size="small"
-                            color={a.assigneeType === 'student' ? 'primary' : 'secondary'}
-                            variant="outlined"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          {new Date(a.checkoutAt).toLocaleDateString('en-US', {
+              <ResponsiveTable<DeviceAssignment>
+                columns={[
+                  {
+                    key: 'user',
+                    label: 'Assignee',
+                    isPrimary: true,
+                    render: (a) => (a.user ? `${a.user.firstName} ${a.user.lastName}` : a.userId),
+                  },
+                  {
+                    key: 'assigneeType',
+                    label: 'Type',
+                    isSecondary: true,
+                    render: (a) => (
+                      <Chip
+                        label={a.assigneeType === 'student' ? 'Student' : 'Staff'}
+                        size="small"
+                        color={a.assigneeType === 'student' ? 'primary' : 'secondary'}
+                        variant="outlined"
+                      />
+                    ),
+                  },
+                  {
+                    key: 'checkoutAt',
+                    label: 'Checked Out',
+                    render: (a) =>
+                      new Date(a.checkoutAt).toLocaleDateString('en-US', {
+                        month: 'short', day: 'numeric', year: 'numeric',
+                      }),
+                  },
+                  {
+                    key: 'checkoutCondition',
+                    label: 'Condition Out',
+                    hideOnMobile: true,
+                    render: (a) => <ConditionChip condition={a.checkoutCondition} />,
+                  },
+                  {
+                    key: 'returnedAt',
+                    label: 'Checked In',
+                    render: (a) =>
+                      a.returnedAt
+                        ? new Date(a.returnedAt).toLocaleDateString('en-US', {
                             month: 'short', day: 'numeric', year: 'numeric',
-                          })}
-                        </TableCell>
-                        <TableCell>
-                          <ConditionChip condition={a.checkoutCondition} />
-                        </TableCell>
-                        <TableCell>
-                          {a.returnedAt
-                            ? new Date(a.returnedAt).toLocaleDateString('en-US', {
-                                month: 'short', day: 'numeric', year: 'numeric',
-                              })
-                            : <Chip label="Active" color="info" size="small" />}
-                        </TableCell>
-                        <TableCell>
-                          {a.returnCondition ? <ConditionChip condition={a.returnCondition} /> : '—'}
-                        </TableCell>
-                        <TableCell>
-                          {a.checkedOutByUser
-                            ? `${a.checkedOutByUser.firstName} ${a.checkedOutByUser.lastName}`
-                            : a.checkoutBy}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </Box>
+                          })
+                        : <Chip label="Active" color="info" size="small" />,
+                  },
+                  {
+                    key: 'returnCondition',
+                    label: 'Condition In',
+                    hideOnMobile: true,
+                    render: (a) => (a.returnCondition ? <ConditionChip condition={a.returnCondition} /> : '—'),
+                  },
+                  {
+                    key: 'checkedOutByUser',
+                    label: 'Checked Out By',
+                    hideOnMobile: true,
+                    render: (a) =>
+                      a.checkedOutByUser
+                        ? `${a.checkedOutByUser.firstName} ${a.checkedOutByUser.lastName}`
+                        : a.checkoutBy,
+                  },
+                ]}
+                rows={assignments}
+                getRowKey={(a) => a.id}
+              />
             </Paper>
           )}
         </Box>

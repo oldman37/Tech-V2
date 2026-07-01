@@ -17,12 +17,6 @@ import {
   CircularProgress,
   Grid,
   Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   Typography,
 } from '@mui/material';
 import DirectionsBusIcon from '@mui/icons-material/DirectionsBus';
@@ -30,7 +24,8 @@ import LocalGasStationIcon from '@mui/icons-material/LocalGasStation';
 import WarningIcon from '@mui/icons-material/Warning';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import { parseDateLocal } from '@/utils/inventoryFormatters';
-import { useIsMobile } from '@/hooks/useResponsive';
+import { ResponsiveTable } from '@/components/responsive/ResponsiveTable';
+import type { Column } from '@/components/responsive/ResponsiveTable';
 import { useAuthStore } from '@/store/authStore';
 import { transportationDashboardApi } from '@/services/transportation.service';
 import {
@@ -39,7 +34,7 @@ import {
   DOT_STATUS_COLORS,
   DOT_STATUS_LABELS,
 } from '@/types/transportation.types';
-import type { DotPhysical } from '@/types/transportation.types';
+import type { DotPhysical, FuelConsumptionEntry } from '@/types/transportation.types';
 
 function StatCard({ label, value, color }: { label: string; value: number | string; color?: string }) {
   return (
@@ -61,12 +56,70 @@ export default function TransportationDashboardPage() {
   const { user } = useAuthStore();
   const isAdmin = user?.roles?.includes('ADMIN');
   const permLevel = isAdmin ? 6 : (user?.permLevels?.TRANSPORTATION ?? 1);
-  const isMobile = useIsMobile();
 
   const { data: dashboard, isLoading, error } = useQuery({
     queryKey: ['transportation-dashboard'],
     queryFn: transportationDashboardApi.getDashboard,
   });
+
+  const myRecentEntriesColumns: Column<FuelConsumptionEntry>[] = [
+    {
+      key: 'entryDate',
+      label: 'Date',
+      isPrimary: true,
+      render: (entry) => parseDateLocal(entry.entryDate).toLocaleDateString('en-US', {
+        month: 'short', day: 'numeric', year: 'numeric',
+      }),
+    },
+    {
+      key: 'unit',
+      label: 'Unit',
+      isSecondary: true,
+      render: (entry) => entry.unit?.unitNumber ?? '—',
+    },
+    {
+      key: 'location',
+      label: 'Location',
+      render: (entry) => entry.fuelStation?.officeLocation?.name ?? '—',
+    },
+    {
+      key: 'fuelAmount',
+      label: 'Amount',
+      align: 'right',
+      render: (entry) => `${Number(entry.fuelAmount).toFixed(3)} ${entry.fuelUnit}`,
+    },
+    {
+      key: 'mileageAtFueling',
+      label: 'Mileage',
+      align: 'right',
+      render: (entry) => `${entry.mileageAtFueling.toLocaleString()} mi`,
+    },
+  ];
+
+  const expiringDotColumns: Column<DotPhysical>[] = [
+    {
+      key: 'driver',
+      label: 'Driver',
+      isPrimary: true,
+      render: (p) => p.driver?.displayName ??
+        `${p.driver?.firstName ?? ''} ${p.driver?.lastName ?? ''}`,
+    },
+    {
+      key: 'expirationDate',
+      label: 'Expiration Date',
+      isSecondary: true,
+      render: (p) => parseDateLocal(p.expirationDate).toLocaleDateString('en-US', {
+        month: 'short', day: 'numeric', year: 'numeric',
+      }),
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      render: (p) => p.status
+        ? <Chip label={DOT_STATUS_LABELS[p.status]} color={DOT_STATUS_COLORS[p.status]} size="small" />
+        : null,
+    },
+  ];
 
   if (isLoading) {
     return (
@@ -197,63 +250,11 @@ export default function TransportationDashboardPage() {
                     Recent Fuel Entries
                   </Typography>
                 </Box>
-                {isMobile ? (
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, p: 1 }}>
-                    {dashboard.myRecentEntries.slice(0, 5).map((entry) => (
-                      <Box key={entry.id} sx={{ p: 1, borderBottom: '1px solid', borderColor: 'divider' }}>
-                        <Box display="flex" justifyContent="space-between">
-                          <Typography variant="body2" fontWeight={600}>
-                            {parseDateLocal(entry.entryDate).toLocaleDateString('en-US', {
-                              month: 'short', day: 'numeric',
-                            })}
-                            {' · '}{entry.unit?.unitNumber ?? '—'}
-                          </Typography>
-                          <Typography variant="body2">
-                            {Number(entry.fuelAmount).toFixed(1)} {entry.fuelUnit}
-                          </Typography>
-                        </Box>
-                        <Typography variant="caption" color="text.secondary">
-                          {entry.fuelStation?.officeLocation?.name ?? '—'} · {entry.mileageAtFueling.toLocaleString()} mi
-                        </Typography>
-                      </Box>
-                    ))}
-                  </Box>
-                ) : (
-                  <TableContainer sx={{ overflowX: 'auto' }}>
-                    <Table size="small">
-                      <TableHead>
-                        <TableRow>
-                          <TableCell>Date</TableCell>
-                          <TableCell>Unit</TableCell>
-                          <TableCell>Location</TableCell>
-                          <TableCell align="right">Amount</TableCell>
-                          <TableCell align="right">Mileage</TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {dashboard.myRecentEntries.slice(0, 5).map((entry) => (
-                          <TableRow key={entry.id}>
-                            <TableCell>
-                              {parseDateLocal(entry.entryDate).toLocaleDateString('en-US', {
-                                month: 'short', day: 'numeric', year: 'numeric',
-                              })}
-                            </TableCell>
-                            <TableCell>{entry.unit?.unitNumber ?? '—'}</TableCell>
-                            <TableCell>
-                              {entry.fuelStation?.officeLocation?.name ?? '—'}
-                            </TableCell>
-                            <TableCell align="right">
-                              {Number(entry.fuelAmount).toFixed(3)} {entry.fuelUnit}
-                            </TableCell>
-                            <TableCell align="right">
-                              {entry.mileageAtFueling.toLocaleString()} mi
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
-                )}
+                <ResponsiveTable<FuelConsumptionEntry>
+                  columns={myRecentEntriesColumns}
+                  rows={dashboard.myRecentEntries.slice(0, 5)}
+                  getRowKey={(entry) => entry.id}
+                />
               </Paper>
             </Grid>
           )}
@@ -367,63 +368,11 @@ export default function TransportationDashboardPage() {
               DOT Physical Alerts
             </Typography>
           </Box>
-          {isMobile ? (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, p: 1 }}>
-              {expiringDot.map((p) => (
-                <Box key={p.id} sx={{ p: 1, borderBottom: '1px solid', borderColor: 'divider', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1 }}>
-                  <Box>
-                    <Typography variant="body2" fontWeight={600}>
-                      {p.driver?.displayName ?? `${p.driver?.firstName ?? ''} ${p.driver?.lastName ?? ''}`}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      Expires {parseDateLocal(p.expirationDate).toLocaleDateString('en-US', {
-                        month: 'short', day: 'numeric', year: 'numeric',
-                      })}
-                    </Typography>
-                  </Box>
-                  {p.status && (
-                    <Chip label={DOT_STATUS_LABELS[p.status]} color={DOT_STATUS_COLORS[p.status]} size="small" />
-                  )}
-                </Box>
-              ))}
-            </Box>
-          ) : (
-            <TableContainer sx={{ overflowX: 'auto' }}>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Driver</TableCell>
-                    <TableCell>Expiration Date</TableCell>
-                    <TableCell>Status</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {expiringDot.map((p) => (
-                    <TableRow key={p.id}>
-                      <TableCell>
-                        {p.driver?.displayName ??
-                          `${p.driver?.firstName ?? ''} ${p.driver?.lastName ?? ''}`}
-                      </TableCell>
-                      <TableCell>
-                        {parseDateLocal(p.expirationDate).toLocaleDateString('en-US', {
-                          month: 'short', day: 'numeric', year: 'numeric',
-                        })}
-                      </TableCell>
-                      <TableCell>
-                        {p.status && (
-                          <Chip
-                            label={DOT_STATUS_LABELS[p.status]}
-                            color={DOT_STATUS_COLORS[p.status]}
-                            size="small"
-                          />
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          )}
+          <ResponsiveTable<DotPhysical>
+            columns={expiringDotColumns}
+            rows={expiringDot}
+            getRowKey={(p) => p.id}
+          />
         </Paper>
       )}
     </Box>
