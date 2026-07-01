@@ -78,6 +78,7 @@ const FONT_BLD  = 'Helvetica-Bold';
 const FONT_SIG  = path.join(__dirname, '..', 'assets', 'fonts', 'FreestyleScript.ttf');
 const PRIMARY   = '#1565C0';
 const LIGHT_BG  = '#F5F5F5';
+const BILL_TO_LINES = ['Obion County Schools', '1700 N Fifth St.', 'Union City, TN 38261'];
 
 // ---------------------------------------------------------------------------
 // Helper: draw a horizontal rule
@@ -197,10 +198,26 @@ export async function generatePurchaseOrderPdf(po: POForPdf): Promise<Buffer> {
       hRule(doc, doc.y);
       doc.moveDown(0.5);
 
-      // ---- Ship To -------------------------------------------------------
-      if (po.shipTo) {
-        doc.font(FONT_BLD).fontSize(10).fillColor(PRIMARY).text('SHIP TO');
-        doc.font(FONT_REG).fontSize(9).fillColor('#212121').text(po.shipTo, { width: COL_W });
+      // ---- Bill To | Ship To ----------------------------------------------
+      {
+        const btLeftX  = MARGIN;
+        const btRightX = MARGIN + COL_W / 2 + 10;
+        const btColW   = (COL_W / 2) - 10;
+        const btTop    = doc.y;
+
+        doc.font(FONT_BLD).fontSize(10).fillColor(PRIMARY).text('BILL TO', btLeftX, btTop);
+        doc.font(FONT_REG).fontSize(9).fillColor('#212121');
+        for (const line of BILL_TO_LINES) doc.text(line, btLeftX, doc.y, { width: btColW });
+        const leftEndY = doc.y;
+
+        let rightEndY = btTop;
+        if (po.shipTo) {
+          doc.font(FONT_BLD).fontSize(10).fillColor(PRIMARY).text('SHIP TO', btRightX, btTop, { width: btColW });
+          doc.font(FONT_REG).fontSize(9).fillColor('#212121').text(po.shipTo, btRightX, doc.y, { width: btColW });
+          rightEndY = doc.y;
+        }
+
+        doc.y = Math.max(leftEndY, rightEndY);
         doc.moveDown(0.5);
         hRule(doc, doc.y);
         doc.moveDown(0.5);
