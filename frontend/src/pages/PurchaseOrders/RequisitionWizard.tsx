@@ -334,9 +334,12 @@ export default function RequisitionWizard() {
   const shipping = Number(watchedShippingCost) || 0;
   const grandTotal = subtotal + shipping;
 
+  // Step 2 (Line Items) uses the full page width on non-mobile viewports so the table has room to breathe
+  const isWideStep = activeStep === 1 && !isMobile;
+
   // ── Render ──
   return (
-    <Box sx={{ p: { xs: 1, sm: 3 }, maxWidth: 900, mx: 'auto' }}>
+    <Box sx={{ p: { xs: 1, sm: 3 }, maxWidth: isWideStep ? 'none' : 900, mx: 'auto' }}>
       {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
         <PageBackButton to="/purchase-orders" />
@@ -699,13 +702,13 @@ export default function RequisitionWizard() {
             </Box>
           ) : (
           <TableContainer sx={{ overflowX: 'auto' }}>
-            <Table size="small">
+            <Table size="small" sx={{ tableLayout: 'fixed' }}>
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ width: 130 }}>Item Number</TableCell>
-                  <TableCell>Description *</TableCell>
-                  <TableCell sx={{ width: 110 }}>Qty *</TableCell>
-                  <TableCell sx={{ width: 150 }}>Unit Price *</TableCell>
+                  <TableCell sx={{ width: '25%' }}>Item Number</TableCell>
+                  <TableCell sx={{ width: '25%' }}>Description *</TableCell>
+                  <TableCell align="right" sx={{ width: 90 }}>Qty *</TableCell>
+                  <TableCell align="right" sx={{ width: 120 }}>Unit Price *</TableCell>
                   <TableCell align="right" sx={{ width: 110 }}>Line Total</TableCell>
                   <TableCell sx={{ width: 40 }} />
                 </TableRow>
@@ -718,6 +721,8 @@ export default function RequisitionWizard() {
                         size="small"
                         {...register(`items.${index}.model`)}
                         fullWidth
+                        multiline
+                        maxRows={2}
                         {...getFieldError(errors.items?.[index]?.model)}
                         inputProps={{ maxLength: 200 }}
                       />
@@ -727,31 +732,33 @@ export default function RequisitionWizard() {
                         size="small"
                         {...register(`items.${index}.description`)}
                         fullWidth
+                        multiline
+                        maxRows={3}
                         {...getFieldError(errors.items?.[index]?.description)}
-                        helperText={errors.items?.[index]?.description?.message ?? `${watchedItems[index]?.description?.length ?? 0}/500`}
+                        helperText={errors.items?.[index]?.description?.message}
                         inputProps={{ maxLength: 500 }}
                       />
                     </TableCell>
-                    <TableCell>
+                    <TableCell align="right">
                       <TextField
                         size="small"
                         type="number"
                         {...register(`items.${index}.quantity`, { valueAsNumber: true })}
                         onFocus={(e) => e.target.select()}
                         inputProps={{ min: 1, style: { textAlign: 'right' } }}
-                        fullWidth
+                        sx={{ width: 80, ml: 'auto', display: 'block' }}
                         error={!!errors.items?.[index]?.quantity}
                         helperText={errors.items?.[index]?.quantity?.message ?? ''}
                       />
                     </TableCell>
-                    <TableCell>
+                    <TableCell align="right">
                       <TextField
                         size="small"
                         type="number"
                         {...register(`items.${index}.unitPrice`, { valueAsNumber: true })}
                         onFocus={(e) => e.target.select()}
                         inputProps={{ min: 0, step: '0.01', style: { textAlign: 'right' } }}
-                        fullWidth
+                        sx={{ width: 100, ml: 'auto', display: 'block' }}
                         error={!!errors.items?.[index]?.unitPrice}
                         helperText={errors.items?.[index]?.unitPrice?.message ?? ''}
                       />

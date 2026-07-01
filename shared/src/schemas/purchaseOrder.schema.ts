@@ -38,7 +38,7 @@ export const PurchaseOrderItemSchema = z.object({
     .positive('Quantity must be greater than zero'),
   unitPrice: z
     .number()
-    .positive('Unit price must be greater than zero'),
+    .min(0, 'Unit price cannot be negative'),
   lineNumber: z.number().int().positive().optional(),
   model: z
     .string()
