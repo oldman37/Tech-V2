@@ -236,6 +236,7 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
           </div>
         );
       })}
+      <div className="shell-sidebar-footer">v{__APP_VERSION__}</div>
     </>
   );
 

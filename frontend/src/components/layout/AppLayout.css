@@ -85,12 +85,24 @@
 .shell-sidebar {
   width: 260px;
   flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
   background: #ffffff;
   border-right: 1px solid var(--slate-200, #e2e8f0);
   overflow-y: auto;
   padding: 1rem 0.75rem;
   scrollbar-width: thin;
   scrollbar-color: var(--slate-300) transparent;
+}
+
+.shell-sidebar-footer {
+  margin-top: auto;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--slate-200, #e2e8f0);
+  text-align: center;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--slate-400, #94a3b8);
 }
 
 .shell-sidebar::-webkit-scrollbar {
@@ -240,7 +252,8 @@
    Breakpoint: 768px here matches JS useMediaQuery('(min-width:769px)') in AppLayout.tsx */
 @media (max-width: 768px) {
   .shell-sidebar--mobile {
-    display: block;
+    display: flex;
+    flex-direction: column;
     width: 100%;
     border-right: none;
     height: 100%;
