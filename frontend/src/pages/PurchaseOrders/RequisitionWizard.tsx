@@ -626,9 +626,6 @@ export default function RequisitionWizard() {
                   First Approver
                 </Typography>
                 <Typography variant="body2">Finance Director</Typography>
-                <Typography variant="caption" color="text.secondary">
-                  District Office: routed to Finance Director at supervisor stage
-                </Typography>
               </Box>
             )}
             {watchedEntityType !== 'DISTRICT_OFFICE' && selectedEntitySupervisor && (

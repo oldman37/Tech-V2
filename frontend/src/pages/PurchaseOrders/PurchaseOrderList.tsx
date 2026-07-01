@@ -246,7 +246,7 @@ export default function PurchaseOrderList() {
         // On the "Pending My Approval" tab, show the awaiting-approval stage instead of the current status
         const pendingLabels: Partial<Record<POStatus, string>> = {
           submitted:                 'Awaiting Supervisor Approval',
-          supervisor_approved:       po.workflowType === 'food_service'
+          supervisor_approved:       (po.workflowType === 'food_service' || po.skipFinanceDirectorApproval)
                                        ? 'Awaiting Director of Schools Approval'
                                        : 'Awaiting Finance Director Approval',
           finance_director_approved: 'Awaiting Director of Schools Approval',

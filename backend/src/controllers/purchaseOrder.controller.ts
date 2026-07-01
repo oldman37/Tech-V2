@@ -80,7 +80,7 @@ export const getPurchaseOrders = async (req: AuthRequest, res: Response): Promis
 export const createPurchaseOrder = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const data = CreatePurchaseOrderSchema.parse(req.body);
-    const po   = await service.createPurchaseOrder(data, req.user!.id);
+    const po   = await service.createPurchaseOrder(data, req.user!.id, req.user!.groups ?? []);
     res.status(201).json(po);
   } catch (error) {
     handleControllerError(error, res);
@@ -179,8 +179,9 @@ export const submitPurchaseOrder = async (req: AuthRequest, res: Response): Prom
       }
     } else if (selfSupervisorBypass) {
       // Requestor is their own supervisor — notify next approver group.
-      // For food service POs, next stage after supervisor is Director of Schools (skip FD).
-      if (po.workflowType === 'food_service') {
+      // For food service POs, or when the requestor is a Finance Director themselves,
+      // the next stage after supervisor is Director of Schools (skip FD).
+      if (po.workflowType === 'food_service' || (po as any).skipFinanceDirectorApproval) {
         if (snapshot.dos.length) {
           sendApprovalActionRequired(po as any, snapshot.dos, 'Director of Schools Approval').catch(() => {});
         }
@@ -248,8 +249,8 @@ export const approvePurchaseOrder = async (req: AuthRequest, res: Response): Pro
 
     if (po.status === 'supervisor_approved') {
       // Supervisor approved — route to next approver based on workflow type.
-      if (po.workflowType === 'food_service') {
-        // Food service: supervisor approved → notify Director of Schools (skip FD)
+      if (po.workflowType === 'food_service' || (po as any).skipFinanceDirectorApproval) {
+        // Food service, or requestor is a Finance Director: supervisor approved → notify Director of Schools (skip FD)
         if (snapshot?.dos?.length) {
           sendApprovalActionRequired(po as any, snapshot.dos, 'Director of Schools Approval').catch(() => {});
         }

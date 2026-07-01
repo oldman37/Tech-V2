@@ -399,6 +399,13 @@ model purchase_orders {
   /// 'food_service' = Food Service flow (FS Supervisor → DOS → FS PO Entry)
   workflowType      String   @default("standard")
 
+  /// Set at creation when the Finance Director would otherwise have to approve this PO
+  /// twice: either the requestor is themselves a Finance Director group member, the PO's
+  /// entity location is DISTRICT_OFFICE (routes supervisor-stage approval to the Finance
+  /// Director), or the PO's location has a primary supervisor of type FINANCE_DIRECTOR.
+  /// Skips the finance_director_approved stage (Supervisor → DOS directly).
+  skipFinanceDirectorApproval Boolean @default(false)
+
   // Approver email snapshot (captured at submit time)
   approverEmailsSnapshot Json?
 

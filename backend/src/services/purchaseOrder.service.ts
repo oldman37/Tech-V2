@@ -152,17 +152,17 @@ export class PurchaseOrderService {
   }
 
   /**
-   * Build the approval-requirements map for the Food Service workflow.
-   * Skips the finance_director_approved stage entirely:
-   *   submitted → supervisor_approved (Food Services Supervisor)
-   *   supervisor_approved → dos_approved (Director of Schools)
+   * Build the approval-requirements map that skips the finance_director_approved stage
+   * entirely: submitted → supervisor_approved → dos_approved.
+   * Used by Food Service POs (workflowType 'food_service') AND by any standard PO whose
+   * requestor is themselves a Finance Director group member (skipFinanceDirectorApproval).
    */
-  private async getFoodServiceApprovalRequirements(): Promise<Partial<Record<POStatus, { to: POStatus; requiredLevel: number }>>> {
+  private async getFinanceDirectorSkipApprovalRequirements(): Promise<Partial<Record<POStatus, { to: POStatus; requiredLevel: number }>>> {
     const s = await this.settingsService.getSettings();
     return {
       'submitted':           { to: 'supervisor_approved', requiredLevel: s.supervisorApprovalLevel },
       'supervisor_approved': { to: 'dos_approved',        requiredLevel: s.dosApprovalLevel },
-      // NOTE: finance_director_approved stage is SKIPPED for food service POs
+      // NOTE: finance_director_approved stage is SKIPPED here
     };
   }
 
@@ -178,6 +178,7 @@ export class PurchaseOrderService {
   async createPurchaseOrder(
     data: CreatePurchaseOrderDto,
     requestorId: string,
+    userGroups: string[] = [],
   ) {
     await this.assertFiscalYearActive();
 
@@ -202,6 +203,31 @@ export class PurchaseOrderService {
     );
     const totalAmount = itemsTotal + (data.shippingCost ?? 0);
 
+    // Resolve workflow type, then determine whether the Finance Director would otherwise
+    // have to approve this PO twice (unless it's an explicit Food Service PO):
+    //   1. the requestor is themselves a Finance Director group member, or
+    //   2. the entity location is DISTRICT_OFFICE, which routes supervisor-stage approval
+    //      to the Finance Director (see submitPurchaseOrder/approvePurchaseOrder), or
+    //   3. the location's primary supervisor is of type FINANCE_DIRECTOR (e.g. the
+    //      "Finance Department" location), so she already approves once as supervisor.
+    // In any of these cases the finance_director_approved stage is skipped so she never
+    // has to approve the same PO a second time.
+    const resolvedWorkflowType = data.workflowType ?? 'standard';
+    const fdGroupId = process.env.ENTRA_FINANCE_DIRECTOR_GROUP_ID;
+    const isDistrictOffice = resolvedEntityType === 'DISTRICT_OFFICE';
+    let supervisorIsFinanceDirector = false;
+    if (data.officeLocationId && !isDistrictOffice) {
+      const primarySupervisor = await this.prisma.locationSupervisor.findFirst({
+        where: { locationId: data.officeLocationId, isPrimary: true, supervisorType: 'FINANCE_DIRECTOR' },
+      });
+      supervisorIsFinanceDirector = !!primarySupervisor;
+    }
+    const skipFinanceDirectorApproval =
+      resolvedWorkflowType !== 'food_service' &&
+      (isDistrictOffice ||
+        supervisorIsFinanceDirector ||
+        (!!fdGroupId && userGroups.includes(fdGroupId)));
+
     const po = await this.prisma.$transaction(async (tx) => {
       const record = await tx.purchase_orders.create({
         data: {
@@ -219,7 +245,8 @@ export class PurchaseOrderService {
           amount:           new Prisma.Decimal(totalAmount),
           status:           'draft',
           fiscalYear:       settings.currentFiscalYear,
-          workflowType:     data.workflowType ?? 'standard',
+          workflowType:     resolvedWorkflowType,
+          skipFinanceDirectorApproval,
           po_items: {
             create: data.items.map((item: { description: string; lineNumber?: number; model?: string | null; quantity: number; unitPrice: number }, index: number) => ({
               description: item.description,
@@ -368,7 +395,9 @@ export class PurchaseOrderService {
       const isFD  = fdGroupId  ? userGroups.includes(fdGroupId)  : false;
       const isDoS = dosGroupId ? userGroups.includes(dosGroupId) : false;
       if (isFD) {
-        pendingOrClauses.push({ status: 'supervisor_approved', workflowType: 'standard' });
+        // Exclude POs whose requestor is themselves a Finance Director (skipFinanceDirectorApproval) —
+        // those route straight to DoS and should never appear in a Finance Director's own queue.
+        pendingOrClauses.push({ status: 'supervisor_approved', workflowType: 'standard', skipFinanceDirectorApproval: false });
         // District Office POs route Finance Director approval at the supervisor stage
         pendingOrClauses.push({ status: 'submitted', entityType: 'DISTRICT_OFFICE', workflowType: 'standard' });
       }
@@ -378,9 +407,11 @@ export class PurchaseOrderService {
         pendingOrClauses.push({ status: 'finance_director_approved' });
       }
 
-      // Stage 3b: DoS approval for food service POs (status = 'supervisor_approved', workflowType = 'food_service')
+      // Stage 3b: DoS approval when the finance_director_approved stage is skipped —
+      // Food Service POs, or standard POs whose requestor is a Finance Director.
       if (isDoS) {
         pendingOrClauses.push({ status: 'supervisor_approved', workflowType: 'food_service' });
+        pendingOrClauses.push({ status: 'supervisor_approved', skipFinanceDirectorApproval: true });
       }
 
       // Stage 4: PO Entry / Issue (status = 'dos_approved') — standard flow
@@ -921,7 +952,7 @@ export class PurchaseOrderService {
         } else {
           // --- Normal submit: draft → submitted ---
           const routingNote = isDistrictOffice
-            ? 'District Office: routed to Finance Director at supervisor stage'
+            ? undefined
             : supervisorName
               ? `Routed to supervisor: ${supervisorName}`
               : po.officeLocationId
@@ -1008,9 +1039,14 @@ export class PurchaseOrderService {
     const po = await this.prisma.purchase_orders.findUnique({ where: { id } });
     if (!po) throw new NotFoundError('Purchase order', id);
 
+    // True when this PO skips the finance_director_approved stage entirely — either
+    // because it's a Food Service PO, or because the requestor is themselves a Finance
+    // Director group member (skipFinanceDirectorApproval, set at creation time).
+    const skipFd = po.workflowType === 'food_service' || po.skipFinanceDirectorApproval;
+
     // Select approval chain based on workflow type
-    const approvalRequirements = po.workflowType === 'food_service'
-      ? await this.getFoodServiceApprovalRequirements()
+    const approvalRequirements = skipFd
+      ? await this.getFinanceDirectorSkipApprovalRequirements()
       : await this.getApprovalRequirements();
     const stageReq = approvalRequirements[po.status as POStatus];
     if (!stageReq) {
@@ -1088,21 +1124,21 @@ export class PurchaseOrderService {
     // permLevel alone is insufficient — we verify the approver is in the Finance
     // Director Entra group (or Director of Schools group, who may also approve at
     // this stage as the most senior financial authority).
-    // For food service POs, supervisor_approved → dos_approved (Director of Schools).
+    // When skipFd, supervisor_approved → dos_approved (Director of Schools) directly.
     if (po.status === 'supervisor_approved') {
-      if (po.workflowType === 'food_service') {
-        // Food service flow: supervisor_approved → dos_approved requires DoS group
+      if (skipFd) {
+        // Food service, or Finance-Director-self-requested: supervisor_approved → dos_approved requires DoS group
         const dosGroupId = process.env.ENTRA_DIRECTOR_OF_SCHOOLS_GROUP_ID;
         if (dosGroupId) {
           const isDosApprover = userGroups.includes(dosGroupId);
           if (!isDosApprover) {
             loggers.purchaseOrder.warn('Unauthorized approval attempt blocked', {
               poId: id,
-              stage: 'food_service_dos',
+              stage: 'finance_director_skip_dos',
               action: 'unauthorized_approval_attempt',
             });
             throw new AuthorizationError(
-              'Director of Schools approval is required for Food Service purchase orders at this stage',
+              'Director of Schools approval is required for this purchase order at this stage',
             );
           }
         }

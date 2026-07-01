@@ -147,6 +147,7 @@ export interface PurchaseOrderSummary {
   officeLocationId?: string | null;
   entityType?: 'SCHOOL' | 'DEPARTMENT' | 'PROGRAM' | 'DISTRICT_OFFICE' | null;
   workflowType?: WorkflowType;
+  skipFinanceDirectorApproval?: boolean;
   isApproved: boolean;
   createdAt: string;
   updatedAt: string;
