@@ -787,7 +787,9 @@ export class PurchaseOrderService {
               locationId: po.officeLocationId,
               isPrimary: true,
               user: { isActive: true },
-              ...(expectedSupervisorType ? { supervisorType: expectedSupervisorType } : {}),
+              ...(expectedSupervisorType
+                ? { supervisorType: expectedSupervisorType }
+                : { supervisorType: { notIn: ['TECHNOLOGY_ASSISTANT', 'MAINTENANCE_WORKER'] } }),
             },
             include: { user: { select: { id: true, email: true, displayName: true, firstName: true, lastName: true } } },
           });
@@ -1188,7 +1190,9 @@ export class PurchaseOrderService {
               locationId: po.officeLocationId,
               isPrimary: true,
               user: { isActive: true },
-              ...(expectedSupervisorType ? { supervisorType: expectedSupervisorType } : {}),
+              ...(expectedSupervisorType
+                ? { supervisorType: expectedSupervisorType }
+                : { supervisorType: { notIn: ['TECHNOLOGY_ASSISTANT', 'MAINTENANCE_WORKER'] } }),
             },
           });
           if (locSup) {
