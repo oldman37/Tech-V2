@@ -1192,22 +1192,10 @@ export class PurchaseOrderService {
             },
           });
           if (locSup) {
-            if (locSup.userId !== userId) {
-              const now = new Date();
-              const delegation = await this.prisma.supervisorDelegation.findFirst({
-                where: {
-                  locationId: po.officeLocationId!,
-                  supervisorType: locSup.supervisorType,
-                  delegateUserId: userId,
-                  isActive: true,
-                  expiresAt: { gt: now },
-                },
-              });
-              if (!delegation) {
-                throw new AuthorizationError(
-                  'Only the assigned supervisor (or their active delegate) can approve at this stage',
-                );
-              }
+            if (locSup.userId !== userId && !isDelegateApprover) {
+              throw new AuthorizationError(
+                'Only the assigned supervisor (or their active delegate) can approve at this stage',
+              );
             }
           } else {
             // No primary supervisor assigned — block until one is configured.
