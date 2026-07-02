@@ -1664,6 +1664,107 @@ export async function sendProvisioningDisableAlert(params: {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Vendor request notification email
+// ---------------------------------------------------------------------------
+
+/**
+ * Notify the ENTRA_ADMIN_GROUP_ID members that a requisition submitter has requested a
+ * new vendor. Recipients are resolved live from Microsoft Graph, same as the other
+ * approver-email snapshots in this file — no separate admin-email env var to maintain.
+ * Never throws — the vendor request itself already succeeded; email is non-critical.
+ */
+export async function sendVendorRequestNotification(
+  vendor: {
+    id: string;
+    name: string;
+    contactName?: string | null;
+    email?: string | null;
+    phone?: string | null;
+    address?: string | null;
+    city?: string | null;
+    state?: string | null;
+    zip?: string | null;
+    fax?: string | null;
+    website?: string | null;
+  },
+  requester: { name: string; email: string },
+): Promise<void> {
+  const groupId = process.env.ENTRA_ADMIN_GROUP_ID;
+  if (!groupId) {
+    loggers.email.warn(
+      'Vendor request notification: ENTRA_ADMIN_GROUP_ID not configured — request created but no alert sent',
+      { vendorId: vendor.id, vendorName: vendor.name },
+    );
+    return;
+  }
+
+  let recipients: string[];
+  try {
+    recipients = await fetchGroupEmails(groupId);
+  } catch (error) {
+    loggers.email.error('Vendor request notification: failed to fetch admin group emails from Microsoft Graph', {
+      error: error instanceof Error ? error.message : String(error),
+      vendorId: vendor.id,
+    });
+    return;
+  }
+  if (recipients.length === 0) {
+    loggers.email.warn(
+      'Vendor request notification: admin group has no resolvable emails — request created but no alert sent',
+      { vendorId: vendor.id, vendorName: vendor.name },
+    );
+    return;
+  }
+
+  const cityStateZip = [vendor.city, vendor.state, vendor.zip].filter(Boolean).join(', ');
+  const appUrl = process.env.APP_URL ?? '';
+
+  try {
+    await sendMail({
+      to:      recipients,
+      subject: `New Vendor Request Pending Approval: ${vendor.name}`,
+      context: 'vendor_request',
+      relatedEntityId: vendor.id,
+      html: `
+        <h2 style="color:#E65100;">New Vendor Request Pending Approval</h2>
+        <p><strong>${escapeHtml(requester.name)}</strong> (${escapeHtml(requester.email)}) has requested a new
+           vendor be added while filling out a purchase requisition. It is usable on their PO now, but is
+           hidden from everyone else until you review and approve it.</p>
+        <table style="border-collapse:collapse;width:100%;margin-top:16px;">
+          <tr><td style="padding:4px 8px;font-weight:bold;">Vendor Name:</td>
+              <td style="padding:4px 8px;">${escapeHtml(vendor.name)}</td></tr>
+          ${vendor.contactName ? `<tr><td style="padding:4px 8px;font-weight:bold;">Contact Name:</td>
+              <td style="padding:4px 8px;">${escapeHtml(vendor.contactName)}</td></tr>` : ''}
+          ${vendor.email ? `<tr><td style="padding:4px 8px;font-weight:bold;">Email:</td>
+              <td style="padding:4px 8px;">${escapeHtml(vendor.email)}</td></tr>` : ''}
+          ${vendor.phone ? `<tr><td style="padding:4px 8px;font-weight:bold;">Phone:</td>
+              <td style="padding:4px 8px;">${escapeHtml(vendor.phone)}</td></tr>` : ''}
+          ${vendor.address ? `<tr><td style="padding:4px 8px;font-weight:bold;">Address:</td>
+              <td style="padding:4px 8px;">${escapeHtml(vendor.address)}</td></tr>` : ''}
+          ${cityStateZip ? `<tr><td style="padding:4px 8px;font-weight:bold;">City/State/Zip:</td>
+              <td style="padding:4px 8px;">${escapeHtml(cityStateZip)}</td></tr>` : ''}
+          ${vendor.fax ? `<tr><td style="padding:4px 8px;font-weight:bold;">Fax:</td>
+              <td style="padding:4px 8px;">${escapeHtml(vendor.fax)}</td></tr>` : ''}
+          ${vendor.website ? `<tr><td style="padding:4px 8px;font-weight:bold;">Website:</td>
+              <td style="padding:4px 8px;">${escapeHtml(vendor.website)}</td></tr>` : ''}
+        </table>
+        ${appUrl ? `<p style="margin-top:24px;">
+          <a href="${escapeHtml(appUrl)}/reference-data?tab=vendors"
+             style="display:inline-block;padding:10px 20px;background-color:#E65100;color:#ffffff;text-decoration:none;border-radius:4px;font-weight:bold;">
+            Review Pending Vendor Requests
+          </a>
+        </p>` : ''}
+      `,
+    });
+  } catch (err) {
+    loggers.email.error('Failed to send vendor request notification', {
+      error: err instanceof Error ? err.message : String(err),
+      vendorId: vendor.id,
+    });
+  }
+}
+
 /**
  * Send a gas usage threshold alert to the Director of Schools.
  */

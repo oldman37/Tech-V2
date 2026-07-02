@@ -52,6 +52,10 @@ export const GetVendorsQuerySchema = z.object({
     .union([z.boolean(), z.string()])
     .transform((v) => (typeof v === 'string' ? v === 'true' : v))
     .optional(),
+  pendingApproval: z
+    .union([z.boolean(), z.string()])
+    .transform((v) => (typeof v === 'string' ? v === 'true' : v))
+    .optional(),
   sortBy: z.enum(['name', 'createdAt']).default('name'),
   sortOrder: z.enum(['asc', 'desc']).default('asc'),
 });

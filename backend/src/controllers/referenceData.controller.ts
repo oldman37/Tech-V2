@@ -10,6 +10,7 @@ import { handleControllerError } from '../utils/errorHandler';
 import { prisma } from '../lib/prisma';
 import { Prisma } from '@prisma/client';
 import { NotFoundError } from '../utils/errors';
+import { sendVendorRequestNotification } from '../services/email.service';
 import {
   GetBrandsQuerySchema, CreateBrandSchema, UpdateBrandSchema,
   GetVendorsQuerySchema, CreateVendorSchema, UpdateVendorSchema,
@@ -92,10 +93,13 @@ export const deleteBrand = async (req: AuthRequest, res: Response): Promise<void
 
 export const getVendors = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { page, limit, search, isActive, sortBy, sortOrder } = GetVendorsQuerySchema.parse(req.query);
+    const { page, limit, search, isActive, pendingApproval, sortBy, sortOrder } = GetVendorsQuerySchema.parse(req.query);
     const skip = (page - 1) * limit;
     const where = {
       ...(isActive !== undefined && { isActive }),
+      // Default to hiding vendors still awaiting admin approval — callers that need the
+      // pending queue (the Reference Data admin UI) must explicitly ask for it.
+      pendingApproval: pendingApproval !== undefined ? pendingApproval : false,
       ...(search && { name: { contains: search, mode: 'insensitive' as const } }),
     };
     const [items, total] = await Promise.all([
@@ -129,6 +133,34 @@ export const createVendor = async (req: AuthRequest, res: Response): Promise<voi
   }
 };
 
+/**
+ * Let a requisition submitter (REQUISITIONS module, not TECHNOLOGY) add a vendor that
+ * isn't in the system yet. The vendor is created immediately — so the requester's own PO
+ * can use it right away — but flagged pendingApproval so it stays hidden from everyone
+ * else's vendor list until an admin reviews it in Reference Data.
+ */
+export const requestNewVendor = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const data = CreateVendorSchema.parse(req.body);
+    const item = await prisma.vendors.create({
+      data: {
+        ...data,
+        pendingApproval: true,
+        requestedByName: req.user!.name,
+        requestedByEmail: req.user!.email,
+      },
+    });
+    await sendVendorRequestNotification(item, { name: req.user!.name, email: req.user!.email });
+    res.status(201).json(item);
+  } catch (error: unknown) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      res.status(409).json({ message: 'A vendor with this name already exists — search for it in the vendor list.' });
+      return;
+    }
+    handleControllerError(error, res);
+  }
+};
+
 export const updateVendor = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const id = req.params.id as string;
@@ -154,6 +186,42 @@ export const deleteVendor = async (req: AuthRequest, res: Response): Promise<voi
       res.status(409).json({ message: 'Cannot delete vendor — it is referenced by existing equipment or purchase orders.' });
       return;
     }
+    handleControllerError(error, res);
+  }
+};
+
+/**
+ * Approve a pending vendor request — makes it visible in the general vendor list.
+ */
+export const approveVendorRequest = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const id = req.params.id as string;
+    const existing = await prisma.vendors.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundError('Vendor not found');
+    const item = await prisma.vendors.update({ where: { id }, data: { pendingApproval: false } });
+    res.json(item);
+  } catch (error) {
+    handleControllerError(error, res);
+  }
+};
+
+/**
+ * Reject a pending vendor request. Hard-deletes the record — a rejected request was
+ * never a real vendor, so nothing else can reference it yet. Only allowed while still
+ * pending, to prevent this endpoint from being used to delete an approved vendor.
+ */
+export const rejectVendorRequest = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const id = req.params.id as string;
+    const existing = await prisma.vendors.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundError('Vendor not found');
+    if (!existing.pendingApproval) {
+      res.status(400).json({ message: 'Only pending vendor requests can be rejected.' });
+      return;
+    }
+    await prisma.vendors.delete({ where: { id } });
+    res.json({ message: 'Vendor request rejected' });
+  } catch (error) {
     handleControllerError(error, res);
   }
 };

@@ -28,6 +28,9 @@ export interface Vendor {
   fax?: string | null;
   website?: string | null;
   isActive: boolean;
+  pendingApproval: boolean;
+  requestedByName?: string | null;
+  requestedByEmail?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -91,16 +94,22 @@ export const brandsService = {
 
 // ─── Vendors ────────────────────────────────────────────────────────────────
 
+export type VendorRequestInput = Omit<
+  Vendor,
+  'id' | 'isActive' | 'pendingApproval' | 'requestedByName' | 'requestedByEmail' | 'createdAt' | 'updatedAt'
+>;
+
 export const vendorsService = {
-  getAll: async (params?: { search?: string; isActive?: boolean; limit?: number }) => {
+  getAll: async (params?: { search?: string; isActive?: boolean; pendingApproval?: boolean; limit?: number }) => {
     const q = new URLSearchParams();
     if (params?.search) q.append('search', params.search);
     if (params?.isActive !== undefined) q.append('isActive', String(params.isActive));
+    if (params?.pendingApproval !== undefined) q.append('pendingApproval', String(params.pendingApproval));
     if (params?.limit !== undefined) q.append('limit', String(params.limit));
     const res = await api.get<RefDataListResponse<Vendor>>(`/vendors?${q}`);
     return res.data;
   },
-  create: async (data: Omit<Vendor, 'id' | 'isActive' | 'createdAt' | 'updatedAt'>) => {
+  create: async (data: VendorRequestInput) => {
     const res = await api.post<Vendor>('/vendors', data);
     return res.data;
   },
@@ -110,6 +119,20 @@ export const vendorsService = {
   },
   deactivate: async (id: string) => {
     const res = await api.delete<{ message: string; item: Vendor }>(`/vendors/${id}`);
+    return res.data;
+  },
+  /** Requisition submitters (no TECHNOLOGY access) request a new vendor — created immediately
+   *  but hidden from the general vendor list until an admin approves it. */
+  requestNew: async (data: VendorRequestInput) => {
+    const res = await api.post<Vendor>('/vendors/request-new', data);
+    return res.data;
+  },
+  approve: async (id: string) => {
+    const res = await api.post<Vendor>(`/vendors/${id}/approve`, {});
+    return res.data;
+  },
+  reject: async (id: string) => {
+    const res = await api.post<{ message: string }>(`/vendors/${id}/reject`, {});
     return res.data;
   },
 };

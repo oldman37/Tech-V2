@@ -293,6 +293,11 @@ function VendorsTab() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Vendor | null>(null);
 
+  // Pending vendor requests — submitted via the PO wizard, awaiting admin approval
+  const [pendingItems, setPendingItems] = useState<Vendor[]>([]);
+  const [pendingError, setPendingError] = useState<string | null>(null);
+  const [pendingActionId, setPendingActionId] = useState<string | null>(null);
+
   // form fields
   const [fName, setFName] = useState('');
   const [fContact, setFContact] = useState('');
@@ -317,6 +322,31 @@ function VendorsTab() {
   }, [search]);
 
   useEffect(() => { load(); }, [load]);
+
+  const loadPending = useCallback(async () => {
+    setPendingError(null);
+    try {
+      const r = await vendorsService.getAll({ pendingApproval: true, limit: 5000 });
+      setPendingItems(r.items);
+    } catch (e: any) { setPendingError(e.response?.data?.message ?? e.message); }
+  }, []);
+
+  useEffect(() => { loadPending(); }, [loadPending]);
+
+  const handleApprove = async (v: Vendor) => {
+    setPendingActionId(v.id);
+    try { await vendorsService.approve(v.id); await Promise.all([loadPending(), load()]); }
+    catch (e: any) { alert(e.response?.data?.message ?? e.message); }
+    finally { setPendingActionId(null); }
+  };
+
+  const handleReject = async (v: Vendor) => {
+    if (!window.confirm(`Reject the vendor request for "${v.name}"? This cannot be undone.`)) return;
+    setPendingActionId(v.id);
+    try { await vendorsService.reject(v.id); await loadPending(); }
+    catch (e: any) { alert(e.response?.data?.message ?? e.message); }
+    finally { setPendingActionId(null); }
+  };
 
   const openCreate = () => {
     setEditing(null); setFName(''); setFContact(''); setFEmail(''); setFPhone('');
@@ -357,6 +387,40 @@ function VendorsTab() {
 
   return (
     <>
+      {pendingError && <div className="badge badge-error" style={{ padding: '0.75rem', display: 'block', marginBottom: '1rem' }}>{pendingError}</div>}
+      {pendingItems.length > 0 && (
+        <div className="card mb-4" style={{ borderLeft: '4px solid var(--red-800, #C62828)' }}>
+          <h4 style={{ margin: '0 0 0.75rem', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            Pending Vendor Requests <span className="badge badge-error">{pendingItems.length}</span>
+          </h4>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            {pendingItems.map((v) => (
+              <div key={v.id} style={{ border: '1px solid var(--slate-200)', borderRadius: '0.5rem', padding: '0.75rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.5rem' }}>
+                  <div>
+                    <div style={{ fontWeight: 600 }}>{v.name}</div>
+                    <div style={{ fontSize: '0.813rem', color: 'var(--slate-600)' }}>
+                      Requested by {v.requestedByName ?? 'Unknown'}{v.requestedByEmail ? ` (${v.requestedByEmail})` : ''}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <button className="btn btn-sm btn-secondary" onClick={() => handleApprove(v)} disabled={pendingActionId === v.id}>Approve</button>
+                    <button className="btn btn-sm btn-danger" onClick={() => handleReject(v)} disabled={pendingActionId === v.id}>Reject</button>
+                  </div>
+                </div>
+                <div style={{ fontSize: '0.813rem', color: 'var(--slate-600)', display: 'flex', flexDirection: 'column', gap: '0.25rem', marginTop: '0.5rem' }}>
+                  {v.contactName && <div><strong>Contact:</strong> {v.contactName}</div>}
+                  {v.email && <div><strong>Email:</strong> {v.email}</div>}
+                  {v.phone && <div><strong>Phone:</strong> {v.phone}</div>}
+                  {(v.address || v.city || v.state || v.zip) && (
+                    <div><strong>Address:</strong> {[v.address, v.city, v.state, v.zip].filter(Boolean).join(', ')}</div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       <CrudTableShell
         title="Vendors" description="Suppliers and vendors for equipment purchases"
         loading={loading} error={error} searchValue={search} onSearchChange={setSearch}

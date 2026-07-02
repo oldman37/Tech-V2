@@ -817,19 +817,22 @@ model FieldTripTransportationRequest {
 }
 
 model vendors {
-  id              String            @id @default(uuid())
-  name            String            @unique
-  contactName     String?
-  email           String?
-  phone           String?
-  address         String?
-  city            String?
-  state           String?
-  zip             String?
-  fax             String?
-  website         String?
-  isActive        Boolean           @default(true)
-  createdAt       DateTime          @default(now())
+  id               String            @id @default(uuid())
+  name             String            @unique
+  contactName      String?
+  email            String?
+  phone            String?
+  address          String?
+  city             String?
+  state            String?
+  zip              String?
+  fax              String?
+  website          String?
+  isActive         Boolean           @default(true)
+  pendingApproval  Boolean           @default(false)
+  requestedByName  String?
+  requestedByEmail String?
+  createdAt        DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
   purchase_orders purchase_orders[]
   equipment       equipment[]

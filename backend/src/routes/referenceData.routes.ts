@@ -11,6 +11,7 @@ import { requireModule } from '../utils/groupAuth';
 import {
   getBrands, getBrand, createBrand, updateBrand, deleteBrand,
   getVendors, getVendor, createVendor, updateVendor, deleteVendor,
+  requestNewVendor, approveVendorRequest, rejectVendorRequest,
   getCategories, getCategory, createCategory, updateCategory, deleteCategory,
   getModels, getModel, createModel, updateModel, deleteModel,
 } from '../controllers/referenceData.controller';
@@ -35,6 +36,12 @@ router.get('/vendors/:id',   getVendor);
 router.post('/vendors',      requireModule('TECHNOLOGY', 2), createVendor);
 router.put('/vendors/:id',   requireModule('TECHNOLOGY', 2), updateVendor);
 router.delete('/vendors/:id', requireModule('TECHNOLOGY', 2), deleteVendor);
+
+// Any requisition submitter can request a new vendor (pending admin approval) —
+// same permission level as creating/editing a PO, not the TECHNOLOGY-gated vendor CRUD above.
+router.post('/vendors/request-new', requireModule('REQUISITIONS', 2), requestNewVendor);
+router.post('/vendors/:id/approve', requireModule('TECHNOLOGY', 2), approveVendorRequest);
+router.post('/vendors/:id/reject',  requireModule('TECHNOLOGY', 2), rejectVendorRequest);
 
 // ─── Categories ────────────────────────────────────────────────────────────
 router.get('/categories',       requireModule('TECHNOLOGY', 1), getCategories);

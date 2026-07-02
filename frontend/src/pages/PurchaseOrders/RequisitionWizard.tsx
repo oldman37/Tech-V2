@@ -53,7 +53,7 @@ import { getFieldError } from '../../utils/formHelpers';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { CreatePurchaseOrderSchema } from '@mgspe/shared-types';
 import type { CreatePurchaseOrderInput } from '@mgspe/shared-types';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { useAuthStore } from '@/store/authStore';
 import { useCreatePurchaseOrder, useSubmitPurchaseOrder } from '@/hooks/mutations/usePurchaseOrderMutations';
 import type { ShipToType } from '@/types/purchaseOrder.types';
@@ -127,6 +127,14 @@ export default function RequisitionWizard() {
   const [selectedVendor, setSelectedVendor] = useState<VendorOption | null>(null);
   const [selectedEntitySupervisor, setSelectedEntitySupervisor] = useState<EntitySupervisorInfo | null>(null);
 
+  // "Request a new vendor" dialog state
+  const [vendorRequestOpen, setVendorRequestOpen] = useState(false);
+  const [vendorRequestForm, setVendorRequestForm] = useState({
+    name: '', contactName: '', email: '', phone: '', fax: '', address: '', city: '', state: '', zip: '',
+  });
+  const [vendorRequestError, setVendorRequestError] = useState<string | null>(null);
+  const [vendorRequestSuccess, setVendorRequestSuccess] = useState(false);
+
   // ── React Hook Form ──
   const {
     control,
@@ -185,6 +193,49 @@ export default function RequisitionWizard() {
     staleTime: 10 * 60 * 1000,
   });
   const vendorOptions: VendorOption[] = vendorData ?? [];
+
+  // "Request a new vendor" — lets a requisitioner add a vendor that isn't in the list yet.
+  // The vendor is created immediately (usable on this PO right away) but hidden from
+  // everyone else's list until an admin reviews it in Reference Data.
+  const vendorRequestMutation = useMutation({
+    mutationFn: async (data: typeof vendorRequestForm) => {
+      const res = await api.post<VendorOption>('/vendors/request-new', {
+        name: data.name.trim(),
+        contactName: data.contactName || null,
+        email: data.email || null,
+        phone: data.phone || null,
+        fax: data.fax || null,
+        address: data.address || null,
+        city: data.city || null,
+        state: data.state || null,
+        zip: data.zip || null,
+      });
+      return res.data;
+    },
+    onSuccess: (vendor) => {
+      setSelectedVendor(vendor);
+      setValue('vendorId', vendor.id, { shouldValidate: true });
+      setValue('title', vendor.name);
+      setVendorRequestOpen(false);
+      setVendorRequestSuccess(true);
+    },
+    onError: (err: any) => {
+      setVendorRequestError(err.response?.data?.message ?? err.message ?? 'Failed to submit vendor request');
+    },
+  });
+
+  const openVendorRequest = () => {
+    setVendorRequestForm({ name: '', contactName: '', email: '', phone: '', fax: '', address: '', city: '', state: '', zip: '' });
+    setVendorRequestError(null);
+    vendorRequestMutation.reset();
+    setVendorRequestOpen(true);
+  };
+
+  const handleVendorRequestSubmit = () => {
+    if (!vendorRequestForm.name.trim()) { setVendorRequestError('Vendor name is required'); return; }
+    setVendorRequestError(null);
+    vendorRequestMutation.mutate(vendorRequestForm);
+  };
 
   // Entity locations (School / Department / Program only) — pulls from /api/locations?types=SCHOOL,DEPARTMENT,PROGRAM
   const { data: locationsData } = useQuery({
@@ -534,7 +585,7 @@ export default function RequisitionWizard() {
                 vendorsError
                   ? 'Failed to load vendors'
                   : vendorOptions.length === 0 && !vendorsLoading
-                  ? 'No vendors found — add them in Reference Data'
+                  ? 'No vendors found'
                   : 'No options'
               }
               renderInput={(params) => (
@@ -556,6 +607,22 @@ export default function RequisitionWizard() {
                 />
               )}
             />
+            <Button
+              fullWidth
+              variant="contained"
+              color="warning"
+              startIcon={<AddIcon />}
+              onClick={openVendorRequest}
+              sx={{ textTransform: 'none', fontWeight: 700, py: 1 }}
+            >
+              Vendor not listed? Request a new vendor
+            </Button>
+            {vendorRequestSuccess && (
+              <Alert severity="success" onClose={() => setVendorRequestSuccess(false)}>
+                Vendor request sent — an admin will review it. You can continue using{' '}
+                <strong>{selectedVendor?.name}</strong> on this purchase order now.
+              </Alert>
+            )}
             {selectedVendor && (
               <Box sx={{ bgcolor: 'grey.50', p: 2, borderRadius: 1 }}>
                 <Box sx={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 1.5 }}>
@@ -826,6 +893,36 @@ export default function RequisitionWizard() {
             <Box>
               <Typography variant="caption" color="text.secondary">Vendor</Typography>
               <Typography>{selectedVendor?.name ?? '—'}</Typography>
+              {selectedVendor?.address && (
+                <Typography variant="caption" color="text.secondary" display="block" sx={{ wordBreak: 'break-word' }}>
+                  {selectedVendor.address}
+                </Typography>
+              )}
+              {(selectedVendor?.city || selectedVendor?.state || selectedVendor?.zip) && (
+                <Typography variant="caption" color="text.secondary" display="block">
+                  {[selectedVendor?.city, selectedVendor?.state, selectedVendor?.zip].filter(Boolean).join(', ')}
+                </Typography>
+              )}
+              {selectedVendor?.phone && (
+                <Typography variant="caption" color="text.secondary" display="block">
+                  Ph: {selectedVendor.phone}
+                </Typography>
+              )}
+              {selectedVendor?.fax && (
+                <Typography variant="caption" color="text.secondary" display="block">
+                  Fax: {selectedVendor.fax}
+                </Typography>
+              )}
+              {selectedVendor?.contactName && (
+                <Typography variant="caption" color="text.secondary" display="block">
+                  Contact: {selectedVendor.contactName}
+                </Typography>
+              )}
+              {selectedVendor?.email && (
+                <Typography variant="caption" color="text.secondary" display="block" sx={{ wordBreak: 'break-word' }}>
+                  {selectedVendor.email}
+                </Typography>
+              )}
             </Box>
             <Box>
               <Typography variant="caption" color="text.secondary">Ship To</Typography>
@@ -993,6 +1090,110 @@ export default function RequisitionWizard() {
           <Button onClick={() => setDisregardDialogOpen(false)}>Cancel</Button>
           <Button onClick={handleDisregardConfirm} color="error" variant="contained" autoFocus>
             Disregard
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={vendorRequestOpen}
+        onClose={() => !vendorRequestMutation.isPending && setVendorRequestOpen(false)}
+        maxWidth="sm"
+        fullWidth
+        fullScreen={isMobile}
+        aria-labelledby="vendor-request-dialog-title"
+      >
+        <DialogTitle id="vendor-request-dialog-title">Request a New Vendor</DialogTitle>
+        <DialogContent dividers>
+          <DialogContentText sx={{ mb: 2 }}>
+            Enter what you know about the vendor. It will be usable on this purchase order right
+            away — an admin will review it and add the full vendor record afterward.
+          </DialogContentText>
+          {vendorRequestError && <Alert severity="error" sx={{ mb: 2 }}>{vendorRequestError}</Alert>}
+          <TextField
+            fullWidth
+            required
+            label="Vendor Name"
+            value={vendorRequestForm.name}
+            onChange={(e) => setVendorRequestForm((f) => ({ ...f, name: e.target.value }))}
+            disabled={vendorRequestMutation.isPending}
+            sx={{ mb: 2 }}
+          />
+          <TextField
+            fullWidth
+            label="Contact Name"
+            value={vendorRequestForm.contactName}
+            onChange={(e) => setVendorRequestForm((f) => ({ ...f, contactName: e.target.value }))}
+            disabled={vendorRequestMutation.isPending}
+            sx={{ mb: 2 }}
+          />
+          <TextField
+            fullWidth
+            label="Email"
+            type="email"
+            value={vendorRequestForm.email}
+            onChange={(e) => setVendorRequestForm((f) => ({ ...f, email: e.target.value }))}
+            disabled={vendorRequestMutation.isPending}
+            sx={{ mb: 2 }}
+          />
+          <TextField
+            fullWidth
+            label="Phone"
+            value={vendorRequestForm.phone}
+            onChange={(e) => setVendorRequestForm((f) => ({ ...f, phone: e.target.value }))}
+            disabled={vendorRequestMutation.isPending}
+            sx={{ mb: 2 }}
+          />
+          <TextField
+            fullWidth
+            label="Fax"
+            value={vendorRequestForm.fax}
+            onChange={(e) => setVendorRequestForm((f) => ({ ...f, fax: e.target.value }))}
+            disabled={vendorRequestMutation.isPending}
+            sx={{ mb: 2 }}
+          />
+          <TextField
+            fullWidth
+            label="Address"
+            value={vendorRequestForm.address}
+            onChange={(e) => setVendorRequestForm((f) => ({ ...f, address: e.target.value }))}
+            disabled={vendorRequestMutation.isPending}
+            sx={{ mb: 2 }}
+          />
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <TextField
+              fullWidth
+              label="City"
+              value={vendorRequestForm.city}
+              onChange={(e) => setVendorRequestForm((f) => ({ ...f, city: e.target.value }))}
+              disabled={vendorRequestMutation.isPending}
+            />
+            <TextField
+              label="State"
+              value={vendorRequestForm.state}
+              onChange={(e) => setVendorRequestForm((f) => ({ ...f, state: e.target.value }))}
+              disabled={vendorRequestMutation.isPending}
+              sx={{ width: 90, flexShrink: 0 }}
+            />
+            <TextField
+              label="ZIP"
+              value={vendorRequestForm.zip}
+              onChange={(e) => setVendorRequestForm((f) => ({ ...f, zip: e.target.value }))}
+              disabled={vendorRequestMutation.isPending}
+              sx={{ width: 110, flexShrink: 0 }}
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setVendorRequestOpen(false)} disabled={vendorRequestMutation.isPending}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleVendorRequestSubmit}
+            disabled={vendorRequestMutation.isPending}
+            startIcon={vendorRequestMutation.isPending ? <CircularProgress size={18} /> : undefined}
+          >
+            Submit Request
           </Button>
         </DialogActions>
       </Dialog>
