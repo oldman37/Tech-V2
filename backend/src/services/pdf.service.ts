@@ -78,7 +78,7 @@ const FONT_BLD  = 'Helvetica-Bold';
 const FONT_SIG  = path.join(__dirname, '..', 'assets', 'fonts', 'FreestyleScript.ttf');
 const PRIMARY   = '#1565C0';
 const LIGHT_BG  = '#F5F5F5';
-const BILL_TO_LINES = ['Obion County Schools', '1700 N Fifth St.', 'Union City, TN 38261'];
+const BILL_TO_LINES = ['Obion County Schools', '1700 N Fifth St.', 'Union City, TN 38261', 'Ph: 731-885-9743'];
 
 // ---------------------------------------------------------------------------
 // Helper: draw a horizontal rule
