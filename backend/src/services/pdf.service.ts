@@ -88,6 +88,24 @@ function hRule(doc: PDFKit.PDFDocument, y: number): void {
   doc.moveTo(MARGIN, y).lineTo(PAGE_W - MARGIN, y).strokeColor('#BDBDBD').lineWidth(0.5).stroke();
 }
 
+// Draws a bold label followed by a value at a fixed x offset, both pinned to
+// the same y with wrapping disabled — avoids PDFKit's `continued` chaining,
+// where a `width` on the first fragment constrains the whole label+value run
+// and causes unpredictable wraps (and therefore uneven row spacing).
+function drawLabelValue(
+  doc: PDFKit.PDFDocument,
+  label: string,
+  value: string,
+  x: number,
+  y: number,
+  labelW: number,
+): void {
+  doc.font(FONT_BLD).fontSize(10).fillColor('#212121')
+    .text(label, x, y, { lineBreak: false });
+  doc.font(FONT_REG).fontSize(10).fillColor('#212121')
+    .text(value, x + labelW, y, { lineBreak: false });
+}
+
 // ---------------------------------------------------------------------------
 // Main export
 // ---------------------------------------------------------------------------
@@ -123,40 +141,32 @@ export async function generatePurchaseOrderPdf(po: POForPdf): Promise<Buffer> {
       const poDate = po.issuedAt ?? po.createdAt;
       const hdrLeftX  = MARGIN;
       const hdrRightX = MARGIN + COL_W / 2 + 10;
-      const hdrLabelW = 110;
+      const hdrLabelW = 125;
+      const hdrRowGap = 16;
 
-      // Requisition Number (own row, directly above PO Number)
-      doc.font(FONT_BLD).fontSize(10)
-        .text('Requisition Number:', hdrLeftX, doc.y, { continued: true, width: hdrLabelW })
-        .font(FONT_REG)
-        .text(po.reqNumber ?? 'N/A', { continued: false });
-      doc.moveDown(0.3);
+      // Row 1: Requisition Number (left) | Date Requested (right)
+      let hdrY = doc.y;
+      drawLabelValue(doc, 'Requisition Number:', po.reqNumber ?? 'N/A', hdrLeftX, hdrY, hdrLabelW);
+      drawLabelValue(
+        doc, 'Date Requested:',
+        po.createdAt.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+        hdrRightX, hdrY, hdrLabelW,
+      );
 
-      // Row 1: PO Number (left) | Date Requested (right)
-      const row1Y = doc.y;
-      doc.font(FONT_BLD).fontSize(10)
-        .text('PO Number:', hdrLeftX, row1Y, { continued: true, width: hdrLabelW })
-        .font(FONT_REG)
-        .text(po.poNumber ?? 'PENDING', { continued: false });
+      // Row 2: PO Number (left) | Date Issued (right)
+      hdrY += hdrRowGap;
+      drawLabelValue(doc, 'PO Number:', po.poNumber ?? 'PENDING', hdrLeftX, hdrY, hdrLabelW);
+      drawLabelValue(
+        doc, 'Date Issued:',
+        poDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+        hdrRightX, hdrY, hdrLabelW,
+      );
 
-      doc.font(FONT_BLD).fontSize(10)
-        .text('Date Requested:', hdrRightX, row1Y, { continued: true, width: hdrLabelW })
-        .font(FONT_REG)
-        .text(po.createdAt.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }), { continued: false });
+      // Row 3: Account Number (left)
+      hdrY += hdrRowGap;
+      drawLabelValue(doc, 'Account Number:', po.accountCode || 'N/A', hdrLeftX, hdrY, hdrLabelW);
 
-      // Row 2: Account Number (left) | Date Issued (right)
-      doc.moveDown(0.3);
-      const row2Y = doc.y;
-      doc.font(FONT_BLD).fontSize(10)
-        .text('Account Number:', hdrLeftX, row2Y, { continued: true, width: hdrLabelW })
-        .font(FONT_REG)
-        .text(po.accountCode || 'N/A', { continued: false });
-
-      doc.font(FONT_BLD).fontSize(10)
-        .text('Date Issued:', hdrRightX, row2Y, { continued: true, width: hdrLabelW })
-        .font(FONT_REG)
-        .text(poDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }), { continued: false });
-
+      doc.y = hdrY + hdrRowGap;
       doc.moveDown(0.5);
       hRule(doc, doc.y);
       doc.moveDown(0.5);
@@ -213,7 +223,15 @@ export async function generatePurchaseOrderPdf(po: POForPdf): Promise<Buffer> {
         let rightEndY = btTop;
         if (po.shipTo) {
           doc.font(FONT_BLD).fontSize(10).fillColor(PRIMARY).text('SHIP TO', btRightX, btTop, { width: btColW });
-          doc.font(FONT_REG).fontSize(9).fillColor('#212121').text(po.shipTo, btRightX, doc.y, { width: btColW });
+          doc.font(FONT_REG).fontSize(9).fillColor('#212121');
+          // po.shipTo is "name\nstreet, city, state, zip" (see RequisitionWizard.tsx).
+          // Break the flattened address line into its own street / city-state-zip
+          // lines to match the BILL TO block's layout.
+          const shipToLines = po.shipTo.split('\n').flatMap((line) => {
+            const parts = line.split(', ');
+            return parts.length > 2 ? [parts[0], parts.slice(1).join(', ')] : [line];
+          });
+          for (const line of shipToLines) doc.text(line, btRightX, doc.y, { width: btColW });
           rightEndY = doc.y;
         }
 
