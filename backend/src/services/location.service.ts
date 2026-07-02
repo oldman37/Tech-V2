@@ -13,6 +13,7 @@ export interface CreateLocationDto {
   state?: string;
   zip?: string;
   phone?: string;
+  routeToFinanceDirector?: boolean;
 }
 
 /**
@@ -220,6 +221,7 @@ export class LocationService {
           zip: data.zip,
           phone: data.phone,
           isActive: true,
+          routeToFinanceDirector: data.routeToFinanceDirector ?? false,
         },
       });
     }
@@ -237,6 +239,7 @@ export class LocationService {
           zip: data.zip,
           phone: data.phone,
           isActive: true,
+          routeToFinanceDirector: data.routeToFinanceDirector ?? false,
         },
       });
     }
@@ -267,6 +270,7 @@ export class LocationService {
         state: data.state,
         zip: data.zip,
         phone: data.phone,
+        routeToFinanceDirector: data.routeToFinanceDirector ?? false,
       },
     });
   }
@@ -291,6 +295,7 @@ export class LocationService {
     if (data.zip !== undefined) updateData.zip = data.zip;
     if (data.phone !== undefined) updateData.phone = data.phone;
     if (data.isActive !== undefined) updateData.isActive = data.isActive;
+    if (data.routeToFinanceDirector !== undefined) updateData.routeToFinanceDirector = data.routeToFinanceDirector;
 
     try {
       return await this.prisma.officeLocation.update({

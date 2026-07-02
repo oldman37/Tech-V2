@@ -94,6 +94,7 @@ interface LocationOptionWithSupervisor {
   state?: string | null;
   zip?: string | null;
   supervisors?: EntitySupervisorInfo[];
+  routeToFinanceDirector?: boolean;
 }
 
 const STEPS = ['Details', 'Line Items', 'Review'];
@@ -111,6 +112,11 @@ export default function RequisitionWizard() {
   const isMobile = useIsMobile();
   const createMutation = useCreatePurchaseOrder();
   const submitMutation = useSubmitPurchaseOrder();
+
+  // Finance Directors submit POs that skip the finance_director_approved stage
+  // (they can't approve their own PO), so there's no later point to capture the
+  // GL account number — it must be entered up-front and is required to submit.
+  const isFinanceDirector = user?.permLevels?.isFinanceDirectorApprover ?? false;
 
   // Step / UI state
   const [activeStep, setActiveStep] = useState(0);
@@ -144,6 +150,7 @@ export default function RequisitionWizard() {
       officeLocationId: null,
       entityType: null,
       workflowType: 'standard',
+      accountCode: null,
       items: [{ description: '', quantity: 1, unitPrice: 0, model: '' }],
     },
   });
@@ -159,6 +166,12 @@ export default function RequisitionWizard() {
   const watchedWorkflowType = watch('workflowType');
   const watchedItems = watch('items');
   const watchedShippingCost = watch('shippingCost');
+  const watchedAccountCode = watch('accountCode');
+
+  // Standard (non food-service) PO submitted by a Finance Director requires the
+  // account code up-front, since the finance_director_approved stage is skipped.
+  const accountCodeRequired = isFinanceDirector && watchedWorkflowType !== 'food_service';
+  const accountCodeMissing = accountCodeRequired && !watchedAccountCode?.trim();
 
   // Vendor autocomplete — loads all active vendors, virtualized for performance
   const { data: vendorData, isLoading: vendorsLoading, isError: vendorsError } = useQuery({
@@ -185,6 +198,12 @@ export default function RequisitionWizard() {
     staleTime: 10 * 60 * 1000,
   });
   const locationOptions: LocationOptionWithSupervisor[] = locationsData ?? [];
+
+  // Selected location routes purchase orders directly to the Finance Director,
+  // skipping the supervisor stage (see OfficeLocation.routeToFinanceDirector).
+  const selectedLocationRoutesToFd =
+    watchedWorkflowType !== 'food_service' &&
+    (locationOptions.find((l) => l.id === watchedOfficeLocationId)?.routeToFinanceDirector ?? false);
 
   // Group locations by type for the grouped Select
   const groupedLocations = useMemo(() => {
@@ -218,14 +237,14 @@ export default function RequisitionWizard() {
     const shipToValue = addressParts ? `${loc.name}\n${addressParts}` : loc.name;
     setValue('shipTo', shipToValue);
     setValue('shipToType', 'entity');
-    // District Office POs route to Finance Director — no individual supervisor lookup
-    if (loc.type === 'DISTRICT_OFFICE') {
-      setValue('workflowType', 'standard');
+    const hasFsSupervisor = loc.supervisors?.some((s) => s.supervisorType === 'FOOD_SERVICES_SUPERVISOR') ?? false;
+    setValue('workflowType', hasFsSupervisor ? 'food_service' : 'standard');
+    // Locations routed directly to the Finance Director (see routeToFinanceDirector)
+    // skip the supervisor stage entirely — no individual supervisor lookup needed.
+    if (!hasFsSupervisor && loc.routeToFinanceDirector) {
       setSelectedEntitySupervisor(null);
       return;
     }
-    const hasFsSupervisor = loc.supervisors?.some((s) => s.supervisorType === 'FOOD_SERVICES_SUPERVISOR') ?? false;
-    setValue('workflowType', hasFsSupervisor ? 'food_service' : 'standard');
     const expectedType = hasFsSupervisor ? 'FOOD_SERVICES_SUPERVISOR' : loc.type === 'SCHOOL' ? 'PRINCIPAL' : undefined;
     const primarySup = hasFsSupervisor
       ? loc.supervisors?.find((s) => s.supervisorType === 'FOOD_SERVICES_SUPERVISOR') ?? null
@@ -619,7 +638,7 @@ export default function RequisitionWizard() {
                 <FormHelperText>{errors.officeLocationId.message}</FormHelperText>
               )}
             </FormControl>
-            {watchedEntityType === 'DISTRICT_OFFICE' && watchedOfficeLocationId && (
+            {selectedLocationRoutesToFd && watchedOfficeLocationId && (
               <Box sx={{ bgcolor: 'info.50', border: '1px solid', borderColor: 'info.200',
                          borderRadius: 1, p: 1.5, mt: -1 }}>
                 <Typography variant="caption" color="info.main" fontWeight={600}>
@@ -628,7 +647,7 @@ export default function RequisitionWizard() {
                 <Typography variant="body2">Finance Director</Typography>
               </Box>
             )}
-            {watchedEntityType !== 'DISTRICT_OFFICE' && selectedEntitySupervisor && (
+            {!selectedLocationRoutesToFd && selectedEntitySupervisor && (
               <Box sx={{ bgcolor: 'info.50', border: '1px solid', borderColor: 'info.200',
                          borderRadius: 1, p: 1.5, mt: -1 }}>
                 <Typography variant="caption" color="info.main" fontWeight={600}>
@@ -642,7 +661,7 @@ export default function RequisitionWizard() {
                 </Typography>
               </Box>
             )}
-            {watchedEntityType !== 'DISTRICT_OFFICE' && watchedOfficeLocationId && !selectedEntitySupervisor && (
+            {!selectedLocationRoutesToFd && watchedOfficeLocationId && !selectedEntitySupervisor && (
               <Alert severity="warning" sx={{ mt: -1 }}>
                 No primary supervisor is assigned to this location. The requisition will require manual routing.
               </Alert>
@@ -848,6 +867,32 @@ export default function RequisitionWizard() {
             </Alert>
           )}
 
+          {accountCodeRequired && (
+            <Box sx={{ mb: 2 }}>
+              <Controller
+                control={control}
+                name="accountCode"
+                render={({ field, fieldState }) => (
+                  <TextField
+                    {...field}
+                    value={field.value ?? ''}
+                    onChange={(e) => field.onChange(e.target.value || null)}
+                    label="Account Number *"
+                    fullWidth
+                    required
+                    error={!!fieldState.error || accountCodeMissing}
+                    helperText={
+                      fieldState.error?.message ??
+                      'As a Finance Director, this requisition skips Finance Director approval — enter the GL account number before submitting.'
+                    }
+                    inputProps={{ maxLength: 100 }}
+                    placeholder="e.g. 100-5500"
+                  />
+                )}
+              />
+            </Box>
+          )}
+
           <Divider sx={{ mb: 2 }} />
 
           {/* Items summary */}
@@ -927,7 +972,8 @@ export default function RequisitionWizard() {
                 variant="contained"
                 color="primary"
                 onClick={handleSaveAndSubmit}
-                disabled={isSaving}
+                disabled={isSaving || accountCodeMissing}
+                title={accountCodeMissing ? 'Enter the account number before submitting' : undefined}
               >
                 {isSaving ? <CircularProgress size={20} /> : 'Submit for Approval'}
               </Button>

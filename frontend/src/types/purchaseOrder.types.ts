@@ -81,6 +81,8 @@ export interface POOfficeLocation {
   name: string;
   code?: string | null;
   type?: string | null;
+  /** When true, POs for this location skip supervisor approval and route directly to the Finance Director. */
+  routeToFinanceDirector?: boolean;
   /** Primary supervisor for this location — included in detail view to gate the supervisor-stage approve button. */
   supervisors?: Array<{
     userId: string;

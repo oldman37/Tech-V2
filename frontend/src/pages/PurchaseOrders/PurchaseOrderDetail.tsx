@@ -93,7 +93,10 @@ const FOOD_SERVICE_WORKFLOW_STAGES: { status: POStatus; label: string }[] = [
   { status: 'po_issued',                   label: 'PO Issued' },
 ];
 
-const DISTRICT_OFFICE_WORKFLOW_STAGES: { status: POStatus; label: string }[] = [
+// Location flagged routeToFinanceDirector: the supervisor stage is skipped at
+// submit, so the Finance Director is the first approver (recorded as the
+// supervisor_approved transition).
+const ROUTE_TO_FD_WORKFLOW_STAGES: { status: POStatus; label: string }[] = [
   { status: 'draft',                       label: 'Draft Created' },
   { status: 'submitted',                   label: 'Submitted for Approval' },
   { status: 'supervisor_approved',         label: 'Finance Director Approved' },
@@ -167,15 +170,17 @@ export default function PurchaseOrderDetail() {
   // ── Permission-derived visibility ──
 
   const isFoodService = (po.workflowType as WorkflowType | undefined) === 'food_service';
-  const isDistrictOfficePO = (po.officeLocation as any)?.type === 'DISTRICT_OFFICE' || po.entityType === 'DISTRICT_OFFICE';
+  // Location routes purchase orders directly to the Finance Director, skipping
+  // the supervisor stage (see OfficeLocation.routeToFinanceDirector).
+  const isRouteToFdPO = po.officeLocation?.routeToFinanceDirector === true;
   // Requestor is themselves a Finance Director — finance_director_approved stage is skipped.
   const isFdSkip = !isFoodService && po.skipFinanceDirectorApproval === true;
   const WORKFLOW_STAGES = isFoodService
     ? FOOD_SERVICE_WORKFLOW_STAGES
-    : isDistrictOfficePO
-      ? DISTRICT_OFFICE_WORKFLOW_STAGES
-      : isFdSkip
-        ? FD_SKIP_WORKFLOW_STAGES
+    : isFdSkip
+      ? FD_SKIP_WORKFLOW_STAGES
+      : isRouteToFdPO
+        ? ROUTE_TO_FD_WORKFLOW_STAGES
         : STANDARD_WORKFLOW_STAGES;
 
   // Human-readable label for what's happening at each status
@@ -185,17 +190,21 @@ export default function PurchaseOrderDetail() {
         'supervisor_approved': 'Awaiting Director of Schools Approval',
         'dos_approved':        'Awaiting PO Issuance',
       }
-    : isDistrictOfficePO
+    : isFdSkip
       ? {
-          'submitted':                 'Awaiting Finance Director Approval',
-          'supervisor_approved':       'Awaiting Director of Schools Approval',
-          'dos_approved':              'Awaiting PO Issuance',
+          'submitted':           'Awaiting Supervisor Approval',
+          'supervisor_approved': 'Awaiting Director of Schools Approval',
+          'dos_approved':        'Awaiting PO Issuance',
         }
-      : isFdSkip
+      : isRouteToFdPO
         ? {
-            'submitted':           'Awaiting Supervisor Approval',
-            'supervisor_approved': 'Awaiting Director of Schools Approval',
-            'dos_approved':        'Awaiting PO Issuance',
+            // Supervisor stage is skipped at submit; the Finance Director is the
+            // first real approver at the finance_director_approved stage (same
+            // status-to-label mapping as the standard flow from here on).
+            'submitted':                 'Awaiting Finance Director Approval',
+            'supervisor_approved':       'Awaiting Finance Director Approval',
+            'finance_director_approved': 'Awaiting Director of Schools Approval',
+            'dos_approved':              'Awaiting PO Issuance',
           }
         : {
             'submitted':                 'Awaiting Supervisor Approval',
@@ -210,15 +219,19 @@ export default function PurchaseOrderDetail() {
         'submitted':           'Approve as Food Services Supervisor',
         'supervisor_approved': 'Approve as Director of Schools',
       }
-    : isDistrictOfficePO
+    : isFdSkip
       ? {
-          'submitted':                 'Approve as Finance Director',
-          'supervisor_approved':       'Approve as Director of Schools',
+          'submitted':           'Approve as Supervisor',
+          'supervisor_approved': 'Approve as Director of Schools',
         }
-      : isFdSkip
+      : isRouteToFdPO
         ? {
-            'submitted':           'Approve as Supervisor',
-            'supervisor_approved': 'Approve as Director of Schools',
+            // Supervisor stage is skipped at submit; the Finance Director approves
+            // at the finance_director_approved stage (same mapping as standard
+            // from here on).
+            'submitted':                 'Approve as Finance Director',
+            'supervisor_approved':       'Approve as Finance Director',
+            'finance_director_approved': 'Approve as Director of Schools',
           }
         : {
             'submitted':                 'Approve as Supervisor',
@@ -271,15 +284,16 @@ export default function PurchaseOrderDetail() {
     ? po.status === 'supervisor_approved' && permLevel >= 6 && isDosApprover
     : po.status === 'finance_director_approved' && permLevel >= 6 && isDosApprover;
   const isActiveDelegate = !!(po as any).isActiveDelegate;
+  // Locations flagged routeToFinanceDirector auto-advance past the supervisor
+  // stage at submit, so they never sit at 'submitted' — the Finance Director
+  // acts via canActAtFdStage once the PO reaches supervisor_approved.
   const canActAtSupStage = po.status === 'submitted' && (permLevel >= 3 || isActiveDelegate) && !isDosApprover && !isFinanceDirector && !isAdmin && !isPoEntryUser && !isFoodServicePoEntry;
-  // District Office POs: Finance Director approves at the supervisor stage
-  const canActAtDistrictOfficeSupStage = po.status === 'submitted' && isDistrictOfficePO && isFinanceDirector;
-  const effectiveCanAct  = canActAtFdStage || canActAtDosStage || canActAtSupStage || canActAtDistrictOfficeSupStage;
+  const effectiveCanAct  = canActAtFdStage || canActAtDosStage || canActAtSupStage;
 
-  const canApprove  = po.status === 'submitted' && assignedSupervisorId && !isDistrictOfficePO
+  const canApprove  = po.status === 'submitted' && assignedSupervisorId && !isRouteToFdPO
     ? user?.id === assignedSupervisorId || isActiveDelegate
     : effectiveCanAct;
-  const canReject   = po.status === 'submitted' && assignedSupervisorId && !isDistrictOfficePO
+  const canReject   = po.status === 'submitted' && assignedSupervisorId && !isRouteToFdPO
     ? user?.id === assignedSupervisorId || isActiveDelegate
     : effectiveCanAct;
   const canIssue    = isFoodService
@@ -359,9 +373,7 @@ export default function PurchaseOrderDetail() {
   const isDenied = po.status === 'denied';
   const activeStageIndex = isDenied
     ? -1
-    : isDistrictOfficePO && po.status === 'supervisor_approved'
-      ? WORKFLOW_STAGES.findIndex((s) => s.status === 'finance_director_approved')
-      : WORKFLOW_STAGES.findIndex((s) => s.status === po.status);
+    : WORKFLOW_STAGES.findIndex((s) => s.status === po.status);
 
   // ── Line items table columns ──
   const lineItemColumns: Column<PurchaseOrderItem>[] = [

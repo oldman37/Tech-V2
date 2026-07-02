@@ -83,6 +83,7 @@ export const CreateOfficeLocationSchema = z.object({
   state: z.string().length(2, 'State must be 2 characters').optional(),
   zip: z.string().max(10).optional(),
   phone: z.string().max(20).optional(),
+  routeToFinanceDirector: z.boolean().optional(),
 });
 
 /**
@@ -99,6 +100,7 @@ export const UpdateOfficeLocationSchema = z.object({
   zip: z.string().max(10).optional(),
   phone: z.string().max(20).optional(),
   isActive: z.boolean().optional(),
+  routeToFinanceDirector: z.boolean().optional(),
 });
 
 /**

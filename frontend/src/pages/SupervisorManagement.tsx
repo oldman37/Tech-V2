@@ -239,7 +239,7 @@ const LocationCard: React.FC<LocationCardProps> = ({ location, onEdit, onDelete 
             </div>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
+        <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
           <button
             onClick={() => onEdit(location)}
             className="btn btn-secondary btn-sm"
@@ -251,7 +251,7 @@ const LocationCard: React.FC<LocationCardProps> = ({ location, onEdit, onDelete 
           <button
             onClick={() => onDelete(location)}
             className="btn btn-sm"
-            style={{ 
+            style={{
               padding: '0.375rem 0.75rem',
               backgroundColor: 'var(--error)',
               color: 'white',
@@ -263,6 +263,16 @@ const LocationCard: React.FC<LocationCardProps> = ({ location, onEdit, onDelete 
           </button>
         </div>
       </div>
+
+      {location.routeToFinanceDirector && (
+        <span
+          className="badge"
+          style={{ fontSize: '0.7rem', display: 'inline-block', marginBottom: '0.75rem' }}
+          title="Purchase orders for this location skip supervisor approval and route directly to the Finance Director"
+        >
+          💰 Routes to Finance Director
+        </span>
+      )}
 
       {(location.address || location.city || location.phone) && (
         <div style={{ marginBottom: '1rem', fontSize: '0.875rem', color: 'var(--slate-600)', wordBreak: 'break-word' }}>
@@ -518,9 +528,10 @@ const AddLocationModal: React.FC<AddLocationModalProps> = ({ onClose, onSuccess 
     state: '',
     zip: '',
     phone: '',
+    routeToFinanceDirector: false,
   });
   const [error, setError] = useState<string | null>(null);
-  
+
   // Use TanStack Query mutation
   const createLocationMutation = useCreateLocation();
 
@@ -659,6 +670,19 @@ const AddLocationModal: React.FC<AddLocationModalProps> = ({ onClose, onSuccess 
               className="form-input"
               placeholder="555-1234"
             />
+          </div>
+
+          <div className="flex" style={{ alignItems: 'center' }}>
+            <input
+              type="checkbox"
+              id="routeToFinanceDirector"
+              checked={!!formData.routeToFinanceDirector}
+              onChange={(e) => setFormData({ ...formData, routeToFinanceDirector: e.target.checked })}
+              style={{ width: '1rem', height: '1rem', marginRight: '0.5rem' }}
+            />
+            <label htmlFor="routeToFinanceDirector" style={{ fontSize: '0.875rem', color: 'var(--slate-700)', cursor: 'pointer' }}>
+              Route straight to Finance Director (skip supervisor approval)
+            </label>
           </div>
 
           <div className="flex" style={{ justifyContent: 'flex-end', gap: '0.75rem', paddingTop: '1rem' }}>
@@ -1001,6 +1025,7 @@ const EditLocationModal: React.FC<EditLocationModalProps> = ({ location, users, 
     zip: location.zip || '',
     phone: location.phone || '',
     isActive: location.isActive,
+    routeToFinanceDirector: location.routeToFinanceDirector,
   });
   const [supervisors, setSupervisors] = useState(location.supervisors);
   const [showAddSupervisor, setShowAddSupervisor] = useState(false);
@@ -1089,6 +1114,7 @@ const EditLocationModal: React.FC<EditLocationModalProps> = ({ location, users, 
         zip: formData.zip || undefined,
         phone: formData.phone || undefined,
         isActive: formData.isActive,
+        routeToFinanceDirector: formData.routeToFinanceDirector,
       });
       // Invalidate location queries so the list refreshes with latest supervisors
       queryClient.invalidateQueries({ queryKey: queryKeys.locations.all });
@@ -1266,6 +1292,19 @@ const EditLocationModal: React.FC<EditLocationModalProps> = ({ location, users, 
             />
             <label htmlFor="isActive" style={{ fontSize: '0.875rem', color: 'var(--slate-700)', cursor: 'pointer' }}>
               Active (uncheck to deactivate this location)
+            </label>
+          </div>
+
+          <div className="flex" style={{ alignItems: 'center' }}>
+            <input
+              type="checkbox"
+              id="routeToFinanceDirector"
+              checked={formData.routeToFinanceDirector}
+              onChange={(e) => setFormData({ ...formData, routeToFinanceDirector: e.target.checked })}
+              style={{ width: '1rem', height: '1rem', marginRight: '0.5rem' }}
+            />
+            <label htmlFor="routeToFinanceDirector" style={{ fontSize: '0.875rem', color: 'var(--slate-700)', cursor: 'pointer' }}>
+              Route straight to Finance Director (skip supervisor approval)
             </label>
           </div>
 

@@ -99,6 +99,16 @@ export const CreatePurchaseOrderSchema = z.object({
     .enum(['standard', 'food_service'])
     .optional()
     .default('standard'),
+  // Optional GL account number. Captured up-front only when the requestor is a
+  // Finance Director (whose PO skips the FD approval stage where the account
+  // code is normally entered). Required at submit for that case — see backend
+  // submitPurchaseOrder gate.
+  accountCode: z
+    .string()
+    .trim()
+    .max(100, 'Account code must be 100 characters or less')
+    .optional()
+    .nullable(),
 });
 
 // ── Update schema (workflowType omitted — immutable after creation) ───────────

@@ -46,7 +46,7 @@ export const getOfficeLocation = async (req: Request, res: Response) => {
  */
 export const createOfficeLocation = async (req: Request, res: Response) => {
   try {
-    const { name, code, type, address, city, state, zip, phone } = req.body;
+    const { name, code, type, address, city, state, zip, phone, routeToFinanceDirector } = req.body;
 
     // Validate required fields
     if (!name || !type) {
@@ -62,6 +62,7 @@ export const createOfficeLocation = async (req: Request, res: Response) => {
       state,
       zip,
       phone,
+      routeToFinanceDirector,
     });
 
     res.status(201).json(location);

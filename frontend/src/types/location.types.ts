@@ -33,6 +33,11 @@ export interface OfficeLocation {
   zip: string | null;
   phone: string | null;
   isActive: boolean;
+  /**
+   * When true, purchase orders for this location skip the supervisor approval
+   * stage and route directly to the Finance Director approval stage.
+   */
+  routeToFinanceDirector: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -124,6 +129,7 @@ export interface CreateLocationRequest {
   state?: string;
   zip?: string;
   phone?: string;
+  routeToFinanceDirector?: boolean;
 }
 
 export interface UpdateLocationRequest {
@@ -136,6 +142,7 @@ export interface UpdateLocationRequest {
   zip?: string;
   phone?: string;
   isActive?: boolean;
+  routeToFinanceDirector?: boolean;
 }
 
 // Helper type guards

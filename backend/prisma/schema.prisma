@@ -305,6 +305,11 @@ model OfficeLocation {
   updatedAt   DateTime             @updatedAt
   city        String?
   state       String?
+  /// When true, purchase orders for this location skip the supervisor approval
+  /// stage and route directly to the Finance Director approval stage. Used for
+  /// locations whose supervisor IS the Finance Director (e.g. Finance Department,
+  /// District Office) so she never approves the same PO twice.
+  routeToFinanceDirector Boolean   @default(false)
   zip         String?
   supervisors             LocationSupervisor[]
   rooms                   Room[]

@@ -82,6 +82,11 @@ export interface OfficeLocation {
   zip: string | null;
   phone: string | null;
   isActive: boolean;
+  /**
+   * When true, purchase orders for this location skip the supervisor approval
+   * stage and route directly to the Finance Director approval stage.
+   */
+  routeToFinanceDirector: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
