@@ -129,9 +129,22 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
   );
   useEffect(() => {
     const mq = window.matchMedia('(min-width:769px)');
-    const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
-    mq.addEventListener('change', handler);
-    return () => mq.removeEventListener('change', handler);
+    const recheck = () => setIsDesktop(mq.matches);
+    mq.addEventListener('change', recheck);
+    window.addEventListener('resize', recheck);
+    window.addEventListener('orientationchange', recheck);
+    // On a PWA standalone relaunch/refresh, the initial synchronous read above
+    // can momentarily race the browser reconciling the viewport meta tag,
+    // reading a stale (desktop) value with no later 'change' event to correct
+    // it (the true viewport never "changes" — only that first read was wrong).
+    // Re-validate once after the first post-reload layout/paint pass.
+    const raf = requestAnimationFrame(recheck);
+    return () => {
+      mq.removeEventListener('change', recheck);
+      window.removeEventListener('resize', recheck);
+      window.removeEventListener('orientationchange', recheck);
+      cancelAnimationFrame(raf);
+    };
   }, []);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openGroup, setOpenGroup] = useState<string | null>(() => {
