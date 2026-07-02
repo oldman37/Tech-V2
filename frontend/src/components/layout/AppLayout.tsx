@@ -1,6 +1,6 @@
 // c:\Tech-V2\frontend\src\components\layout\AppLayout.tsx
 
-import { ReactNode, useState, useEffect } from 'react';
+import { ReactNode, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Drawer, IconButton, Collapse } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
@@ -121,31 +121,6 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
   const transportationLevel = isAdmin ? 6 : (user?.permLevels?.TRANSPORTATION ?? 0);
   const { canAccess: canAccessRoomAssignments } = useRoomAssignmentAccess();
 
-  // Synchronous initial read prevents flash-to-desktop on PWA refresh.
-  // useMediaQuery from MUI initializes to `false` before the real viewport
-  // is measured, causing a layout switch after first render.
-  const [isDesktop, setIsDesktop] = useState(
-    () => window.matchMedia('(min-width:769px)').matches
-  );
-  useEffect(() => {
-    const mq = window.matchMedia('(min-width:769px)');
-    const recheck = () => setIsDesktop(mq.matches);
-    mq.addEventListener('change', recheck);
-    window.addEventListener('resize', recheck);
-    window.addEventListener('orientationchange', recheck);
-    // On a PWA standalone relaunch/refresh, the initial synchronous read above
-    // can momentarily race the browser reconciling the viewport meta tag,
-    // reading a stale (desktop) value with no later 'change' event to correct
-    // it (the true viewport never "changes" — only that first read was wrong).
-    // Re-validate once after the first post-reload layout/paint pass.
-    const raf = requestAnimationFrame(recheck);
-    return () => {
-      mq.removeEventListener('change', recheck);
-      window.removeEventListener('resize', recheck);
-      window.removeEventListener('orientationchange', recheck);
-      cancelAnimationFrame(raf);
-    };
-  }, []);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openGroup, setOpenGroup] = useState<string | null>(() => {
     for (const section of NAV_SECTIONS) {
@@ -171,9 +146,7 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
 
   const handleNavClick = (path: string) => {
     navigate(path);
-    if (!isDesktop) {
-      setMobileOpen(false);
-    }
+    setMobileOpen(false);
   };
 
   const sidebarContent = (
@@ -259,17 +232,15 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
       {/* Top Header */}
       <header className="shell-header">
         <div className="shell-header-left">
-          {!isDesktop && (
-            <IconButton
-              color="inherit"
-              aria-label="open navigation menu"
-              edge="start"
-              onClick={() => setMobileOpen(true)}
-              className="hamburger-btn"
-            >
-              <MenuIcon />
-            </IconButton>
-          )}
+          <IconButton
+            color="inherit"
+            aria-label="open navigation menu"
+            edge="start"
+            onClick={() => setMobileOpen(true)}
+            className="hamburger-btn"
+          >
+            <MenuIcon />
+          </IconButton>
           <img src="/schoolworks_logo.png" alt="SchoolWorks" className="shell-logo-full" />
         </div>
         <div className="shell-header-right">
@@ -285,32 +256,29 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
 
       <div className="shell-body">
         {/* Desktop Sidebar */}
-        {isDesktop && (
-          <nav className="shell-sidebar">
-            {sidebarContent}
-          </nav>
-        )}
+        <nav className="shell-sidebar shell-sidebar--desktop">
+          {sidebarContent}
+        </nav>
 
         {/* Mobile Drawer */}
-        {!isDesktop && (
-          <Drawer
-            variant="temporary"
-            open={mobileOpen}
-            onClose={() => setMobileOpen(false)}
-            ModalProps={{ keepMounted: true }}
-            sx={{
-              '& .MuiDrawer-paper': {
-                width: 260,
-                top: '56px',
-                height: 'calc(100% - 56px)',
-              },
-            }}
-          >
-            <nav className="shell-sidebar shell-sidebar--mobile">
-              {sidebarContent}
-            </nav>
-          </Drawer>
-        )}
+        <Drawer
+          variant="temporary"
+          open={mobileOpen}
+          onClose={() => setMobileOpen(false)}
+          ModalProps={{ keepMounted: true }}
+          className="shell-drawer--mobile"
+          sx={{
+            '& .MuiDrawer-paper': {
+              width: 260,
+              top: '56px',
+              height: 'calc(100% - 56px)',
+            },
+          }}
+        >
+          <nav className="shell-sidebar shell-sidebar--mobile">
+            {sidebarContent}
+          </nav>
+        </Drawer>
 
         {/* Main Content */}
         <main className="shell-content">

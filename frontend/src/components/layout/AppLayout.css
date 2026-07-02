@@ -249,8 +249,16 @@
 }
 
 /* Responsive: mobile adjustments
-   Breakpoint: 768px here matches JS useMediaQuery('(min-width:769px)') in AppLayout.tsx */
+   Breakpoint: 768px/769px. The permanent sidebar, hamburger button, and
+   mobile drawer are always rendered (never JS-gated) so that which one is
+   visible depends only on this CSS being re-evaluated by the browser on
+   every paint, not on a one-time JS viewport read that can go stale across
+   a PWA reload. See .github/docs/subagent_docs/pwa_mobile_view_stuck_desktop_v2_spec.md */
 @media (max-width: 768px) {
+  .shell-sidebar--desktop {
+    display: none;
+  }
+
   .shell-sidebar--mobile {
     display: flex;
     flex-direction: column;
@@ -272,6 +280,16 @@
 
   .shell-content {
     padding: 0.75rem;
+  }
+}
+
+@media (min-width: 769px) {
+  .hamburger-btn {
+    display: none !important;
+  }
+
+  .shell-drawer--mobile {
+    display: none !important;
   }
 }
 
