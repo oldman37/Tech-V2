@@ -375,6 +375,14 @@ export default function PurchaseOrderDetail() {
     ? -1
     : WORKFLOW_STAGES.findIndex((s) => s.status === po.status);
 
+  // Approver-authored notes (supervisor/finance director/DOS), also surfaced in
+  // the Notes section in addition to the Status Timeline. Excludes the
+  // auto-generated "Routed to supervisor" note recorded on the submitted stage.
+  const APPROVAL_NOTE_STATUSES: POStatus[] = ['supervisor_approved', 'finance_director_approved', 'dos_approved'];
+  const approvalNoteEntries = (po.statusHistory ?? [])
+    .filter((h) => APPROVAL_NOTE_STATUSES.includes(h.toStatus as POStatus) && !!h.notes)
+    .sort((a, b) => new Date(a.changedAt).getTime() - new Date(b.changedAt).getTime());
+
   // ── Line items table columns ──
   const lineItemColumns: Column<PurchaseOrderItem>[] = [
     {
@@ -541,6 +549,24 @@ export default function PurchaseOrderDetail() {
                 <Divider sx={{ my: 2 }} />
                 <Typography variant="caption" color="text.secondary">Notes</Typography>
                 <Typography variant="body2" whiteSpace="pre-line" sx={{ wordBreak: 'break-word' }}>{po.notes}</Typography>
+              </>
+            )}
+
+            {approvalNoteEntries.length > 0 && (
+              <>
+                <Divider sx={{ my: 2 }} />
+                <Typography variant="caption" color="text.secondary">Approval Notes</Typography>
+                {approvalNoteEntries.map((h) => (
+                  <Box key={h.id} sx={{ mt: 1 }}>
+                    <Typography variant="caption" color="text.secondary" display="block">
+                      {WORKFLOW_STAGES.find((s) => s.status === h.toStatus)?.label ?? h.toStatus}
+                      {' — '}{h.changedBy.firstName} {h.changedBy.lastName}, {formatDate(h.changedAt)}
+                    </Typography>
+                    <Typography variant="body2" whiteSpace="pre-line" sx={{ wordBreak: 'break-word' }}>
+                      {h.notes}
+                    </Typography>
+                  </Box>
+                ))}
               </>
             )}
 

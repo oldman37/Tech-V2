@@ -61,9 +61,9 @@ interface POForPdf {
     phone:   string | null;
   } | null;
   // Approvals derived from status history
-  supervisorApproval?: { name: string; date: Date } | null;
-  financeApproval?:    { name: string; date: Date } | null;
-  dosApproval?:        { name: string; date: Date } | null;
+  supervisorApproval?: { name: string; date: Date; notes?: string | null } | null;
+  financeApproval?:    { name: string; date: Date; notes?: string | null } | null;
+  dosApproval?:        { name: string; date: Date; notes?: string | null } | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -316,6 +316,30 @@ export async function generatePurchaseOrderPdf(po: POForPdf): Promise<Buffer> {
       doc.moveDown(0.5);
       hRule(doc, doc.y);
       doc.moveDown(0.5);
+
+      // ---- Approval Notes (only rendered when at least one stage has a note) --
+      const approvalNotesList = [
+        { label: 'Supervisor',          approval: po.supervisorApproval },
+        { label: 'Finance Director',    approval: po.financeApproval },
+        { label: 'Director of Schools', approval: po.dosApproval },
+      ].filter((e) => e.approval?.notes);
+
+      if (approvalNotesList.length > 0) {
+        doc.font(FONT_BLD).fontSize(10).fillColor(PRIMARY)
+          .text('APPROVAL NOTES', MARGIN, doc.y, { align: 'left', width: COL_W });
+        doc.moveDown(0.2);
+        for (const { label, approval } of approvalNotesList) {
+          const dateStr = approval!.date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+          doc.font(FONT_BLD).fontSize(9).fillColor('#212121')
+            .text(`${label} (${approval!.name}, ${dateStr}):`, MARGIN, doc.y, { width: COL_W });
+          doc.font(FONT_REG).fontSize(9).fillColor('#212121')
+            .text(approval!.notes as string, MARGIN, doc.y, { width: COL_W });
+          doc.moveDown(0.3);
+        }
+        doc.moveDown(0.2);
+        hRule(doc, doc.y);
+        doc.moveDown(0.5);
+      }
 
       // ---- Signature Lines -----------------------------------------------
       // Layout: cursive name above the line, role label + date below

@@ -1567,8 +1567,9 @@ export class PurchaseOrderService {
       const entry = (po.statusHistory as any[]).find((h: any) => h.toStatus === toStatus);
       if (!entry) return null;
       return {
-        name: `${entry.changedBy.firstName} ${entry.changedBy.lastName}`,
-        date: entry.changedAt as Date,
+        name:  `${entry.changedBy.firstName} ${entry.changedBy.lastName}`,
+        date:  entry.changedAt as Date,
+        notes: (entry.notes as string | null) ?? null,
       };
     };
 
