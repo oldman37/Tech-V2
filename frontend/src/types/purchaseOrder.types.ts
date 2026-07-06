@@ -46,7 +46,7 @@ export const PO_STATUS_CHIP_COLOR: Record<POStatus, 'default' | 'info' | 'warnin
   denied:                      'error',
 };
 
-export type ShipToType = 'entity' | 'my_office' | 'custom';
+export type ShipToType = 'entity' | 'my_office' | 'custom' | 'school';
 
 export type WorkflowType = 'standard' | 'food_service';
 
@@ -217,7 +217,7 @@ export interface CreatePurchaseOrderInput {
   type?: string;
   vendorId?: string | null;
   shipTo?: string | null;
-  shipToType?: 'entity' | 'my_office' | 'custom' | null;
+  shipToType?: 'entity' | 'my_office' | 'custom' | 'school' | null;
   shippingCost?: number | null;
   notes?: string | null;
   program?: string | null;

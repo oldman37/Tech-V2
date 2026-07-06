@@ -64,7 +64,7 @@ export const CreatePurchaseOrderSchema = z.object({
     .max(500, 'Ship-to address must be 500 characters or less')
     .optional()
     .nullable(),
-  shipToType: z.enum(['entity', 'my_office', 'custom']).optional().nullable(),
+  shipToType: z.enum(['entity', 'my_office', 'custom', 'school']).optional().nullable(),
   shippingCost: z
     .number()
     .min(0, 'Shipping cost cannot be negative')

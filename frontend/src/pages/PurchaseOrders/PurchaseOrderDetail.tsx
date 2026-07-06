@@ -497,7 +497,7 @@ export default function PurchaseOrderDetail() {
                 {po.shipToType && po.shipToType !== 'custom' && (
                   <Chip
                     size="small"
-                    label={po.shipToType === 'entity' ? 'Entity Address' : 'My Office'}
+                    label={po.shipToType === 'entity' ? 'Entity Address' : po.shipToType === 'school' ? 'School Address' : 'My Office'}
                     variant="outlined"
                     sx={{ mt: 0.5 }}
                   />

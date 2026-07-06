@@ -126,6 +126,9 @@ export default function RequisitionWizard() {
   // Display-only state (vendor object and derived supervisor info — not form fields)
   const [selectedVendor, setSelectedVendor] = useState<VendorOption | null>(null);
   const [selectedEntitySupervisor, setSelectedEntitySupervisor] = useState<EntitySupervisorInfo | null>(null);
+  // Ship-to school (independent of the requesting entity/officeLocationId — a school
+  // delivery destination can differ from whichever department/program is requesting)
+  const [shipToSchoolId, setShipToSchoolId] = useState<string | null>(null);
 
   // "Request a new vendor" dialog state
   const [vendorRequestOpen, setVendorRequestOpen] = useState(false);
@@ -303,6 +306,44 @@ export default function RequisitionWizard() {
     setSelectedEntitySupervisor(primarySup ?? null);
   }, [locationOptions, setValue]);
 
+  // Selecting a delivery school fills the ship-to address; independent of officeLocationId.
+  const handleShipToSchoolChange = useCallback((schoolId: string | null) => {
+    setShipToSchoolId(schoolId);
+    if (!schoolId) {
+      setValue('shipTo', null);
+      return;
+    }
+    const school = groupedLocations.SCHOOL.find((l) => l.id === schoolId);
+    if (!school) return;
+    const addressParts = [school.address, school.city, school.state, school.zip].filter(Boolean).join(', ');
+    setValue('shipTo', addressParts ? `${school.name}\n${addressParts}` : school.name);
+  }, [groupedLocations, setValue]);
+
+  // Shared school picker + auto-filled address box, used by both Ship To branches below
+  const shipToSchoolPicker = (
+    <>
+      <FormControl fullWidth sx={{ mt: 1 }}>
+        <InputLabel id="ship-to-school-label">School</InputLabel>
+        <Select
+          labelId="ship-to-school-label"
+          value={shipToSchoolId ?? ''}
+          label="School"
+          onChange={(e) => handleShipToSchoolChange(e.target.value || null)}
+        >
+          <MenuItem value=""><em>None</em></MenuItem>
+          {groupedLocations.SCHOOL.map((loc) => (
+            <MenuItem key={loc.id} value={loc.id}>{loc.name}</MenuItem>
+          ))}
+        </Select>
+      </FormControl>
+      <Box sx={{ bgcolor: 'grey.50', p: 1.5, borderRadius: 1, mt: 1 }}>
+        <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>
+          {watchedShipTo || '(Select a school to fill in its address)'}
+        </Typography>
+      </Box>
+    </>
+  );
+
   const handleShipToTypeChange = (newType: ShipToType) => {
     setValue('shipToType', newType);
     if (newType === 'entity' && watchedOfficeLocationId) {
@@ -311,6 +352,9 @@ export default function RequisitionWizard() {
         const addressParts = [loc.address, loc.city, loc.state, loc.zip].filter(Boolean).join(', ');
         setValue('shipTo', addressParts ? `${loc.name}\n${addressParts}` : loc.name);
       }
+    } else if (newType === 'school') {
+      if (shipToSchoolId) handleShipToSchoolChange(shipToSchoolId);
+      else setValue('shipTo', null);
     } else if (newType === 'custom') {
       setValue('shipTo', null);
     }
@@ -752,6 +796,12 @@ export default function RequisitionWizard() {
                   />
 
                   <FormControlLabel
+                    value="school"
+                    control={<Radio />}
+                    label="Ship to a school"
+                  />
+
+                  <FormControlLabel
                     value="custom"
                     control={<Radio />}
                     label="Custom address"
@@ -763,6 +813,8 @@ export default function RequisitionWizard() {
                       {watchedShipTo || '(No address on file for this location)'}
                     </Typography>
                   </Box>
+                ) : watchedShipToType === 'school' ? (
+                  shipToSchoolPicker
                 ) : (
                   <Controller
                     control={control}
@@ -787,23 +839,49 @@ export default function RequisitionWizard() {
                 )}
               </FormControl>
             ) : (
-              <Controller
-                control={control}
-                name="shipTo"
-                render={({ field, fieldState }) => (
-                  <TextField
-                    {...field}
-                    value={field.value ?? ''}
-                    onChange={(e) => field.onChange(e.target.value || null)}
-                    label="Ship To"
-                    fullWidth
-                    placeholder="Delivery address"
-                    inputProps={{ maxLength: 500 }}
-                    error={!!fieldState.error}
-                    helperText={fieldState.error?.message ?? `${(field.value ?? '').length}/500`}
+              <FormControl component="fieldset">
+                <FormLabel component="legend" sx={{ mb: 1 }}>Ship To</FormLabel>
+                <RadioGroup
+                  value={watchedShipToType === 'school' ? 'school' : 'custom'}
+                  onChange={(e) => handleShipToTypeChange(e.target.value as ShipToType)}
+                >
+                  <FormControlLabel
+                    value="school"
+                    control={<Radio />}
+                    label="Ship to a school"
+                  />
+
+                  <FormControlLabel
+                    value="custom"
+                    control={<Radio />}
+                    label="Custom address"
+                  />
+                </RadioGroup>
+                {watchedShipToType === 'school' ? (
+                  shipToSchoolPicker
+                ) : (
+                  <Controller
+                    control={control}
+                    name="shipTo"
+                    render={({ field, fieldState }) => (
+                      <TextField
+                        {...field}
+                        value={field.value ?? ''}
+                        onChange={(e) => field.onChange(e.target.value || null)}
+                        label="Custom Address"
+                        fullWidth
+                        multiline
+                        minRows={2}
+                        placeholder="Enter delivery address"
+                        inputProps={{ maxLength: 500 }}
+                        sx={{ mt: 1 }}
+                        error={!!fieldState.error}
+                        helperText={fieldState.error?.message ?? `${(field.value ?? '').length}/500`}
+                      />
+                    )}
                   />
                 )}
-              />
+              </FormControl>
             )}
             <Controller
               control={control}
@@ -931,8 +1009,8 @@ export default function RequisitionWizard() {
                 <Chip
                   size="small"
                   variant="outlined"
-                  label={watchedShipToType === 'entity' ? 'Entity Address' : 'Custom'}
-                  color={watchedShipToType === 'entity' ? 'primary' : 'default'}
+                  label={watchedShipToType === 'entity' ? 'Entity Address' : watchedShipToType === 'school' ? 'School Address' : 'Custom'}
+                  color={watchedShipToType === 'entity' || watchedShipToType === 'school' ? 'primary' : 'default'}
                   sx={{ mt: 0.5 }}
                 />
               )}
