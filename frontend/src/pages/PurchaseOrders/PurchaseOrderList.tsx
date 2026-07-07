@@ -110,7 +110,10 @@ export default function PurchaseOrderList() {
   }, [settings?.fiscalYearEnd]);
 
   // Filter / pagination state
-  const [tab, setTab] = useState<TabKey>('mine');
+  // Director of Schools approvers default to the "Pending My Approval" tab
+  // instead of "My Requests" — this is also what they land on when navigating
+  // back from a PO detail page, since that remounts this component fresh.
+  const [tab, setTab] = useState<TabKey>(isDosApprover ? 'pending' : 'mine');
   const [statusFilter, setStatusFilter] = useState<POStatus | ''>('');
   const [search, setSearch] = useState('');
   const [dateFrom, setDateFrom] = useState('');

@@ -11,6 +11,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       'Added priority change history to Work Orders',
       'Replaced supervisor/worker/delegate dropdowns with a staff-only searchable picker on Edit Location',
       'Work Orders list now defaults to Technology or Maintenance based on your role',
+      'Purchase Orders list now defaults to "Pending My Approval" for Director of Schools approvers',
     ],
   },
   {
