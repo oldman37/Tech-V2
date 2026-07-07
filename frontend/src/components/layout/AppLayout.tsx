@@ -2,7 +2,7 @@
 
 import { ReactNode, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Drawer, IconButton, Collapse, Tooltip } from '@mui/material';
+import { Drawer, IconButton, Collapse, Tooltip, ClickAwayListener } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { useAuthStore, selectCanAccessDeviceManagement } from '../../store/authStore';
@@ -125,6 +125,7 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
   const { canAccess: canAccessRoomAssignments } = useRoomAssignmentAccess();
 
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [changelogOpen, setChangelogOpen] = useState(false);
   const [openGroup, setOpenGroup] = useState<string | null>(() => {
     for (const section of NAV_SECTIONS) {
       if (!section.title) continue;
@@ -225,21 +226,32 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
           </div>
         );
       })}
-      <Tooltip
-        title={
-          CURRENT_VERSION_CHANGES ? (
-            <ul className="shell-sidebar-footer-changelog">
-              {CURRENT_VERSION_CHANGES.map((change) => (
-                <li key={change}>{change}</li>
-              ))}
-            </ul>
-          ) : (
-            'No changes recorded for this version'
-          )
-        }
-      >
-        <div className="shell-sidebar-footer">v{__APP_VERSION__}</div>
-      </Tooltip>
+      <ClickAwayListener onClickAway={() => setChangelogOpen(false)}>
+        <Tooltip
+          open={changelogOpen}
+          onOpen={() => setChangelogOpen(true)}
+          onClose={() => setChangelogOpen(false)}
+          disableTouchListener
+          title={
+            CURRENT_VERSION_CHANGES ? (
+              <ul className="shell-sidebar-footer-changelog">
+                {CURRENT_VERSION_CHANGES.map((change) => (
+                  <li key={change}>{change}</li>
+                ))}
+              </ul>
+            ) : (
+              'No changes recorded for this version'
+            )
+          }
+        >
+          <div
+            className="shell-sidebar-footer"
+            onClick={() => setChangelogOpen((prev) => !prev)}
+          >
+            v{__APP_VERSION__}
+          </div>
+        </Tooltip>
+      </ClickAwayListener>
     </>
   );
 
