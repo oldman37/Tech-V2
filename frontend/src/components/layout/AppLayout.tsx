@@ -2,7 +2,7 @@
 
 import { ReactNode, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Drawer, IconButton, Collapse } from '@mui/material';
+import { Drawer, IconButton, Collapse, Tooltip } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { useAuthStore, selectCanAccessDeviceManagement } from '../../store/authStore';
@@ -10,7 +10,10 @@ import { authApi } from '../../services/authService';
 import { cancelProactiveRefresh } from '../../services/api';
 import { useRoomAssignmentAccess } from '../../hooks/useRoomAssignmentAccess';
 import { OfflineIndicator } from '../responsive/OfflineIndicator';
+import { CHANGELOG } from '../../changelog';
 import './AppLayout.css';
+
+const CURRENT_VERSION_CHANGES = CHANGELOG.find((entry) => entry.version === __APP_VERSION__)?.changes;
 
 interface NavItem {
   label: string;
@@ -222,7 +225,21 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
           </div>
         );
       })}
-      <div className="shell-sidebar-footer">v{__APP_VERSION__}</div>
+      <Tooltip
+        title={
+          CURRENT_VERSION_CHANGES ? (
+            <ul className="shell-sidebar-footer-changelog">
+              {CURRENT_VERSION_CHANGES.map((change) => (
+                <li key={change}>{change}</li>
+              ))}
+            </ul>
+          ) : (
+            'No changes recorded for this version'
+          )
+        }
+      >
+        <div className="shell-sidebar-footer">v{__APP_VERSION__}</div>
+      </Tooltip>
     </>
   );
 

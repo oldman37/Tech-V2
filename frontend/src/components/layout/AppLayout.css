@@ -105,6 +105,11 @@
   color: var(--slate-400, #94a3b8);
 }
 
+.shell-sidebar-footer-changelog {
+  margin: 0;
+  padding-left: 1.1rem;
+}
+
 .shell-sidebar::-webkit-scrollbar {
   width: 6px;
 }
