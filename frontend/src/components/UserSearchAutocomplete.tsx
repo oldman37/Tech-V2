@@ -19,6 +19,8 @@ interface UserSearchAutocompleteProps {
   helperText?: string;
   /** Pre-populate the option list when opening in edit mode */
   initialUser?: UserSearchResult | null;
+  /** Restrict results to staff accounts (excludes student emails) */
+  staffOnly?: boolean;
 }
 
 export const UserSearchAutocomplete = ({
@@ -29,6 +31,7 @@ export const UserSearchAutocomplete = ({
   error,
   helperText,
   initialUser = null,
+  staffOnly = false,
 }: UserSearchAutocompleteProps) => {
   const [options, setOptions] = useState<UserSearchResult[]>(
     initialUser ? [initialUser] : []
@@ -47,7 +50,7 @@ export const UserSearchAutocomplete = ({
     let active = true;
     setLoading(true);
     userService
-      .searchUsers('', 20)
+      .searchUsers('', 20, undefined, staffOnly)
       .then((results) => {
         if (active) {
           setOptions((prevOptions) => {
@@ -69,7 +72,7 @@ export const UserSearchAutocomplete = ({
     return () => {
       active = false;
     };
-  }, [open, inputValue, value]);
+  }, [open, inputValue, value, staffOnly]);
 
   // Debounced search on input change (300 ms, min 2 chars)
   useEffect(() => {
@@ -79,7 +82,7 @@ export const UserSearchAutocomplete = ({
     const timer = setTimeout(() => {
       setLoading(true);
       userService
-        .searchUsers(inputValue, 20)
+        .searchUsers(inputValue, 20, undefined, staffOnly)
         .then((results) => {
           if (active) {
             setOptions((prevOptions) => {
@@ -103,7 +106,7 @@ export const UserSearchAutocomplete = ({
       active = false;
       clearTimeout(timer);
     };
-  }, [inputValue, open, value]);
+  }, [inputValue, open, value, staffOnly]);
 
   const getOptionLabel = (option: UserSearchResult): string => {
     const name =

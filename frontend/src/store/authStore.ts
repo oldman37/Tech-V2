@@ -33,6 +33,7 @@ interface User {
     isFoodServiceSupervisor: boolean;
     isFoodServicePoEntry: boolean;
     isTransportationSecretary: boolean;
+    canChangeWorkOrderPriority?: boolean;
   };
 }
 

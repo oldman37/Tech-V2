@@ -82,6 +82,15 @@ export interface WorkOrderStatusHistoryEntry {
   changedBy: WorkOrderUser;
 }
 
+export interface WorkOrderPriorityHistoryEntry {
+  id: string;
+  fromPriority: WorkOrderPriority | null;
+  toPriority: WorkOrderPriority;
+  changedAt: string;
+  notes: string | null;
+  changedBy: WorkOrderUser;
+}
+
 export interface WorkOrderDetail extends WorkOrderSummary {
   description: string;
   equipmentId: string | null;
@@ -93,6 +102,7 @@ export interface WorkOrderDetail extends WorkOrderSummary {
   closedAt: string | null;
   comments: WorkOrderComment[];
   statusHistory: WorkOrderStatusHistoryEntry[];
+  priorityHistory: WorkOrderPriorityHistoryEntry[];
 }
 
 export interface CreateWorkOrderDto {
@@ -112,7 +122,6 @@ export interface CreateWorkOrderDto {
 
 export interface UpdateWorkOrderDto {
   description?: string;
-  priority?: WorkOrderPriority;
   category?: string | null;
   categoryId?: string | null;
   equipmentId?: string | null;
@@ -121,6 +130,11 @@ export interface UpdateWorkOrderDto {
   equipmentSerial?: string | null;
   roomId?: string | null;
   officeLocationId?: string | null;
+}
+
+export interface UpdatePriorityDto {
+  priority: WorkOrderPriority;
+  notes?: string;
 }
 
 export interface WorkOrderQuery {

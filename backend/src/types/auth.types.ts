@@ -88,6 +88,8 @@ export interface AuthUserInfo {
     isFoodServicePoEntry: boolean;
     /** True if user is in the Transportation Secretary group — can approve standalone transportation requests */
     isTransportationSecretary: boolean;
+    /** True if user is in one of the 6 groups permitted to change work order (ticket) priority */
+    canChangeWorkOrderPriority?: boolean;
   };
   /** True if user belongs to at least ALL_STAFF or ALL_STUDENTS base groups */
   hasBaseAccess: boolean;

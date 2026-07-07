@@ -16,6 +16,7 @@ import type {
   WorkOrderQuery,
   CreateWorkOrderDto,
   UpdateWorkOrderDto,
+  WorkOrderPriority,
 } from '../types/work-order.types';
 
 const BASE = '/work-orders';
@@ -79,6 +80,15 @@ const workOrderService = {
 
   updateStatus: async (id: string, status: string, notes?: string): Promise<WorkOrderDetail> => {
     const res = await api.put<WorkOrderDetail>(`${BASE}/${id}/status`, { status, notes });
+    return res.data;
+  },
+
+  // -------------------------------------------------------------------------
+  // Priority Change
+  // -------------------------------------------------------------------------
+
+  updatePriority: async (id: string, priority: WorkOrderPriority, notes?: string): Promise<WorkOrderDetail> => {
+    const res = await api.put<WorkOrderDetail>(`${BASE}/${id}/priority`, { priority, notes });
     return res.data;
   },
 

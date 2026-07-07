@@ -110,7 +110,6 @@ export const CreateWorkOrderSchema = z
 
 export const UpdateWorkOrderSchema = z.object({
   description:     z.string().min(10).max(5000).optional(),
-  priority:        TicketPriorityEnum.optional(),
   category:        z.string().max(100).optional().nullable(),
   categoryId:      z.string().uuid('Invalid category ID').optional().nullable(),
   equipmentId:     z.string().uuid().optional().nullable(),
@@ -139,6 +138,15 @@ export const AssignWorkOrderSchema = z.object({
 });
 
 // ---------------------------------------------------------------------------
+// PUT /work-orders/:id/priority — priority change
+// ---------------------------------------------------------------------------
+
+export const UpdatePrioritySchema = z.object({
+  priority: TicketPriorityEnum,
+  notes:    z.string().max(1000).optional(),
+});
+
+// ---------------------------------------------------------------------------
 // POST /work-orders/:id/comments — add comment
 // ---------------------------------------------------------------------------
 
@@ -157,3 +165,4 @@ export type UpdateWorkOrderDto  = z.infer<typeof UpdateWorkOrderSchema>;
 export type UpdateStatusDto     = z.infer<typeof UpdateStatusSchema>;
 export type AssignWorkOrderDto  = z.infer<typeof AssignWorkOrderSchema>;
 export type AddCommentDto       = z.infer<typeof AddCommentSchema>;
+export type UpdatePriorityDto   = z.infer<typeof UpdatePrioritySchema>;

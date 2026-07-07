@@ -549,7 +549,8 @@ model User {
   reportedTickets                                           Ticket[]               @relation("TicketReporter")
   assignedTickets                                           Ticket[]               @relation("TicketAssignee")
   ticketComments                                            TicketComment[]        @relation("TicketCommentAuthor")
-  ticketStatusHistory                                       TicketStatusHistory[]  @relation("TicketStatusChangedBy")
+  ticketStatusHistory                                       TicketStatusHistory[]    @relation("TicketStatusChangedBy")
+  ticketPriorityHistory                                     TicketPriorityHistory[]  @relation("TicketPriorityChangedBy")
   primaryRoomId                                             String?
   primaryRoom                                               Room?                  @relation("UserPrimaryRoom", fields: [primaryRoomId], references: [id])
   roomAssignments                                           UserRoomAssignment[]   @relation("UserRoomAssignments")
@@ -1067,6 +1068,7 @@ model Ticket {
   // Relations
   comments         TicketComment[]
   statusHistory    TicketStatusHistory[]
+  priorityHistory  TicketPriorityHistory[]
 
   @@index([department])
   @@index([status])
@@ -1114,6 +1116,23 @@ model TicketStatusHistory {
   @@index([ticketId])
   @@index([changedAt])
   @@map("ticket_status_history")
+}
+
+model TicketPriorityHistory {
+  id           String          @id @default(uuid())
+  ticketId     String
+  fromPriority TicketPriority?
+  toPriority   TicketPriority
+  changedById  String
+  changedAt    DateTime        @default(now())
+  notes        String?
+
+  ticket       Ticket          @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  changedBy    User            @relation("TicketPriorityChangedBy", fields: [changedById], references: [id])
+
+  @@index([ticketId])
+  @@index([changedAt])
+  @@map("ticket_priority_history")
 }
 
 // ============================================

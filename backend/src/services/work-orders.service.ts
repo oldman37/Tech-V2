@@ -13,6 +13,7 @@ import { NotFoundError, ValidationError, AuthorizationError } from '../utils/err
 import { loggers } from '../lib/logger';
 import { SettingsService } from './settings.service';
 import { sendWorkOrderAssigned } from './email.service';
+import { canChangeTicketPriority } from '../utils/groupAuth';
 import type {
   CreateWorkOrderDto,
   UpdateWorkOrderDto,
@@ -20,6 +21,7 @@ import type {
   AssignWorkOrderDto,
   AddCommentDto,
   WorkOrderQueryDto,
+  UpdatePriorityDto,
 } from '../validators/work-orders.validators';
 
 // ---------------------------------------------------------------------------
@@ -86,6 +88,10 @@ const WORK_ORDER_DETAIL_INCLUDE = {
     include: { author: { select: { id: true, displayName: true, email: true } } },
   },
   statusHistory: {
+    orderBy: { changedAt: 'asc' as const },
+    include: { changedBy: { select: { id: true, displayName: true, email: true } } },
+  },
+  priorityHistory: {
     orderBy: { changedAt: 'asc' as const },
     include: { changedBy: { select: { id: true, displayName: true, email: true } } },
   },
@@ -544,7 +550,6 @@ export class WorkOrderService {
       where: { id },
       data: {
         description:     data.description,
-        priority:        data.priority as any,
         category:        data.category,
         categoryId:      data.categoryId,
         equipmentId:     data.equipmentId,
@@ -622,6 +627,61 @@ export class WorkOrderService {
       from: ticket.status,
       to: data.status,
       userId,
+    });
+
+    return updated;
+  }
+
+  // -------------------------------------------------------------------------
+  // updatePriority
+  // -------------------------------------------------------------------------
+
+  async updatePriority(
+    id: string,
+    data: UpdatePriorityDto,
+    userId: string,
+    permLevel: number,
+    groups: string[],
+    maintenanceRole?: MaintenanceRole,
+  ) {
+    const ticket = await this.prisma.ticket.findUnique({ where: { id } });
+    if (!ticket) throw new NotFoundError('Work order', id);
+
+    // Must already have (scoped) access to this ticket at all.
+    await this.assertTicketAccess(ticket, userId, permLevel, maintenanceRole);
+
+    // Then the specific 6-group priority-change permission.
+    if (!canChangeTicketPriority(groups)) {
+      throw new AuthorizationError('You do not have permission to change ticket priority');
+    }
+
+    if (data.priority === ticket.priority) {
+      // No-op: return current state, no history noise.
+      return this.prisma.ticket.findUnique({ where: { id }, include: WORK_ORDER_DETAIL_INCLUDE });
+    }
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const result = await tx.ticket.update({
+        where: { id },
+        data:  { priority: data.priority as any },
+        include: WORK_ORDER_DETAIL_INCLUDE,
+      });
+
+      await tx.ticketPriorityHistory.create({
+        data: {
+          ticketId:     id,
+          fromPriority: ticket.priority,
+          toPriority:   data.priority as any,
+          changedById:  userId,
+          notes:        data.notes ?? null,
+        },
+      });
+
+      return result;
+    });
+
+    loggers.workOrders.info('Work order priority updated', {
+      ticketId: id, from: ticket.priority, to: data.priority, userId,
     });
 
     return updated;

@@ -5,6 +5,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.3.1',
+    changes: [
+      'Added priority permissions for Technology and Maintenance Work Orders (Admin, Tech Assistants, County-Wide Maintenance, School Maintenance, Maintenance Director, Technology Director)',
+      'Added priority change history to Work Orders',
+      'Replaced supervisor/worker/delegate dropdowns with a staff-only searchable picker on Edit Location',
+    ],
+  },
+  {
     version: '1.3.0',
     changes: [
       'Added a changelog tooltip to the sidebar version number',

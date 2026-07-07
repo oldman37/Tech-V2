@@ -21,6 +21,7 @@ import {
   UpdateStatusSchema,
   AssignWorkOrderSchema,
   AddCommentSchema,
+  UpdatePrioritySchema,
 } from '../validators/work-orders.validators';
 
 // ---------------------------------------------------------------------------
@@ -182,6 +183,24 @@ export const updateStatus = async (req: AuthRequest, res: Response): Promise<voi
     const maintenanceRole = getMaintenanceRole(req.user!.groups ?? []);
 
     const ticket = await service.updateStatus(req.params.id as string, data, userId, permLevel, maintenanceRole);
+    res.json(mapTicket(ticket));
+  } catch (error) {
+    handleControllerError(error, res);
+  }
+};
+
+/**
+ * PUT /api/work-orders/:id/priority
+ */
+export const updatePriority = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const data      = UpdatePrioritySchema.parse(req.body);
+    const userId    = req.user!.id;
+    const permLevel = req.user!.permLevel ?? 1;
+    const groups    = req.user!.groups ?? [];
+    const maintenanceRole = getMaintenanceRole(groups);
+
+    const ticket = await service.updatePriority(req.params.id as string, data, userId, permLevel, groups, maintenanceRole);
     res.json(mapTicket(ticket));
   } catch (error) {
     handleControllerError(error, res);

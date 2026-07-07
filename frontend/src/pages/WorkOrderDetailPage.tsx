@@ -44,18 +44,26 @@ import AssignmentIndIcon from '@mui/icons-material/AssignmentInd';
 import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
 import ReplayIcon from '@mui/icons-material/Replay';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
+import PriorityHighIcon from '@mui/icons-material/PriorityHigh';
 import { useWorkOrder } from '@/hooks/queries/useWorkOrders';
 import { useAuthStore } from '@/store/authStore';
 import {
   useUpdateWorkOrderStatus,
+  useUpdateWorkOrderPriority,
   useAssignWorkOrder,
   useAddWorkOrderComment,
 } from '@/hooks/mutations/useWorkOrderMutations';
 import { WorkOrderStatusChip } from '@/components/work-orders/WorkOrderStatusChip';
 import { WorkOrderPriorityChip } from '@/components/work-orders/WorkOrderPriorityChip';
 import { UserSearchAutocomplete } from '@/components/UserSearchAutocomplete';
-import type { WorkOrderStatus, WorkOrderComment, WorkOrderStatusHistoryEntry } from '@/types/work-order.types';
-import { WORK_ORDER_STATUS_LABELS } from '@/types/work-order.types';
+import type {
+  WorkOrderStatus,
+  WorkOrderPriority,
+  WorkOrderComment,
+  WorkOrderStatusHistoryEntry,
+  WorkOrderPriorityHistoryEntry,
+} from '@/types/work-order.types';
+import { WORK_ORDER_STATUS_LABELS, WORK_ORDER_PRIORITY_LABELS } from '@/types/work-order.types';
 import { useIsMobile } from '@/hooks/useResponsive';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -86,6 +94,13 @@ const ALLOWED_NEXT_STATUSES: Record<string, string[]> = {
   RESOLVED:    ['CLOSED', 'IN_PROGRESS', 'OPEN'],
   CLOSED:      ['OPEN'],
 };
+
+const PRIORITIES: { value: WorkOrderPriority; label: string }[] = [
+  { value: 'LOW',    label: 'Low' },
+  { value: 'MEDIUM', label: 'Medium' },
+  { value: 'HIGH',   label: 'High' },
+  { value: 'URGENT', label: 'Urgent' },
+];
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -167,6 +182,42 @@ function StatusHistoryCard({ entry }: { entry: WorkOrderStatusHistoryEntry }) {
   );
 }
 
+function PriorityHistoryCard({ entry }: { entry: WorkOrderPriorityHistoryEntry }) {
+  const initials = (entry.changedBy.displayName ?? entry.changedBy.email)
+    .split(' ')
+    .map((p) => p[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+
+  const fromLabel = entry.fromPriority ? WORK_ORDER_PRIORITY_LABELS[entry.fromPriority] : null;
+  const toLabel   = WORK_ORDER_PRIORITY_LABELS[entry.toPriority];
+
+  return (
+    <Box sx={{ display: 'flex', gap: 1.5, py: 1.5 }}>
+      <Avatar sx={{ width: 32, height: 32, fontSize: 13, bgcolor: 'info.main' }}>{initials}</Avatar>
+      <Box sx={{ flex: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5, flexWrap: 'wrap' }}>
+          <Typography variant="body2" fontWeight={600}>
+            {entry.changedBy.displayName ?? entry.changedBy.email}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {fromLabel ? `changed priority from ${fromLabel} → ${toLabel}` : `set priority to ${toLabel}`}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            {formatDate(entry.changedAt)}
+          </Typography>
+        </Box>
+        {entry.notes && (
+          <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', color: 'text.secondary', fontStyle: 'italic' }}>
+            {entry.notes}
+          </Typography>
+        )}
+      </Box>
+    </Box>
+  );
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function WorkOrderDetailPage() {
@@ -177,9 +228,11 @@ export default function WorkOrderDetailPage() {
   const { data: workOrder, isLoading, error } = useWorkOrder(id);
   const { user } = useAuthStore();
   const canAssign = (user?.permLevels?.WORK_ORDERS ?? 0) >= 4;
+  const canChangePriority = user?.permLevels?.canChangeWorkOrderPriority ?? false;
 
   // Mutations
-  const updateStatus  = useUpdateWorkOrderStatus();
+  const updateStatus   = useUpdateWorkOrderStatus();
+  const updatePriority = useUpdateWorkOrderPriority();
   const assignWorkOrder  = useAssignWorkOrder();
   const addComment    = useAddWorkOrderComment();
 
@@ -188,6 +241,12 @@ export default function WorkOrderDetailPage() {
   const [newStatus, setNewStatus]     = useState<WorkOrderStatus>('OPEN');
   const [statusNote, setStatusNote]   = useState('');
   const [statusError, setStatusError] = useState<string | null>(null);
+
+  // Priority dialog
+  const [priorityOpen, setPriorityOpen]   = useState(false);
+  const [newPriority, setNewPriority]     = useState<WorkOrderPriority>('MEDIUM');
+  const [priorityNote, setPriorityNote]   = useState('');
+  const [priorityError, setPriorityError] = useState<string | null>(null);
 
   // Assign dialog
   const [assignOpen, setAssignOpen]   = useState(false);
@@ -231,6 +290,26 @@ export default function WorkOrderDetailPage() {
     } catch (err: unknown) {
       const apiMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
       setStatusError(apiMessage ?? 'Unable to reopen the work order. Please try again or contact your supervisor.');
+    }
+  };
+
+  // ── Priority dialog ────────────────────────────────────────────────────────
+  const openPriorityDialog = () => {
+    if (workOrder) setNewPriority(workOrder.priority);
+    setPriorityNote('');
+    setPriorityError(null);
+    setPriorityOpen(true);
+  };
+
+  const handlePrioritySubmit = async () => {
+    if (!id) return;
+    setPriorityError(null);
+    try {
+      await updatePriority.mutateAsync({ id, priority: newPriority, notes: priorityNote || undefined });
+      setPriorityOpen(false);
+    } catch (err: unknown) {
+      const apiMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setPriorityError(apiMessage ?? 'Unable to update the work order priority. Please try again or contact your supervisor.');
     }
   };
 
@@ -343,6 +422,16 @@ export default function WorkOrderDetailPage() {
           >
             Update Status
           </Button>
+          {canChangePriority && (
+          <Button
+            variant="outlined"
+            startIcon={<PriorityHighIcon />}
+            onClick={openPriorityDialog}
+            size="small"
+          >
+            Change Priority
+          </Button>
+          )}
           {canAssign && (
           <Button
             variant="outlined"
@@ -383,17 +472,19 @@ export default function WorkOrderDetailPage() {
               <Typography variant="subtitle1" fontWeight={600}>
                 Comments & Activity
               </Typography>
-              <Chip label={workOrder.comments.length + (workOrder.statusHistory?.length ?? 0)} size="small" />
+              <Chip label={workOrder.comments.length + (workOrder.statusHistory?.length ?? 0) + (workOrder.priorityHistory?.length ?? 0)} size="small" />
             </Box>
 
             {(() => {
               type ActivityItem =
-                | { kind: 'comment'; ts: string; item: WorkOrderComment }
-                | { kind: 'status';  ts: string; item: WorkOrderStatusHistoryEntry };
+                | { kind: 'comment';  ts: string; item: WorkOrderComment }
+                | { kind: 'status';   ts: string; item: WorkOrderStatusHistoryEntry }
+                | { kind: 'priority'; ts: string; item: WorkOrderPriorityHistoryEntry };
 
               const items: ActivityItem[] = [
                 ...workOrder.comments.map((c) => ({ kind: 'comment' as const, ts: c.createdAt, item: c })),
                 ...(workOrder.statusHistory ?? []).map((s) => ({ kind: 'status' as const, ts: s.changedAt, item: s })),
+                ...(workOrder.priorityHistory ?? []).map((p) => ({ kind: 'priority' as const, ts: p.changedAt, item: p })),
               ].sort((a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime());
 
               if (items.length === 0) {
@@ -405,10 +496,12 @@ export default function WorkOrderDetailPage() {
               }
 
               return items.map((entry, idx) => (
-                <Box key={entry.kind === 'comment' ? entry.item.id : `sh-${entry.item.id}`}>
+                <Box key={entry.kind === 'comment' ? entry.item.id : `${entry.kind}-${entry.item.id}`}>
                   {entry.kind === 'comment'
                     ? <CommentCard comment={entry.item} />
-                    : <StatusHistoryCard entry={entry.item} />}
+                    : entry.kind === 'status'
+                      ? <StatusHistoryCard entry={entry.item} />
+                      : <PriorityHistoryCard entry={entry.item} />}
                   {idx < items.length - 1 && <Divider sx={{ my: 1 }} />}
                 </Box>
               ));
@@ -606,6 +699,48 @@ export default function WorkOrderDetailPage() {
             startIcon={assignWorkOrder.isPending ? <CircularProgress size={14} /> : undefined}
           >
             {assignWorkOrder.isPending ? 'Saving…' : 'Assign'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ── Change Priority Dialog ────────────────────────────────────────── */}
+      <Dialog open={priorityOpen} onClose={() => setPriorityOpen(false)} maxWidth="xs" fullWidth fullScreen={isMobile}>
+        <DialogTitle>Change Work Order Priority</DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 3 }}>
+          <FormControl size="small" fullWidth sx={{ mt: 1 }}>
+            <InputLabel>New Priority</InputLabel>
+            <Select
+              label="New Priority"
+              value={newPriority}
+              onChange={(e) => setNewPriority(e.target.value as WorkOrderPriority)}
+            >
+              {PRIORITIES.map((p) => (
+                <MenuItem key={p.value} value={p.value}>
+                  {p.label}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <TextField
+            label="Note (optional)"
+            multiline
+            minRows={2}
+            size="small"
+            fullWidth
+            value={priorityNote}
+            onChange={(e) => setPriorityNote(e.target.value)}
+          />
+          {priorityError && <Alert severity="error" onClose={() => setPriorityError(null)}>{priorityError}</Alert>}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPriorityOpen(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            onClick={handlePrioritySubmit}
+            disabled={updatePriority.isPending}
+            startIcon={updatePriority.isPending ? <CircularProgress size={14} /> : undefined}
+          >
+            {updatePriority.isPending ? 'Saving…' : 'Save'}
           </Button>
         </DialogActions>
       </Dialog>

@@ -71,7 +71,6 @@ export const SupervisorManagement: React.FC = () => {
   } = useLocations();
 
   const {
-    data: users = [],
     isLoading: usersLoading,
   } = useSupervisorsList();
 
@@ -146,7 +145,6 @@ export const SupervisorManagement: React.FC = () => {
       {showEditLocation && editingLocation && (
         <EditLocationModal
           location={editingLocation}
-          users={users}
           onClose={() => {
             setShowEditLocation(false);
             setEditingLocation(null);
@@ -563,7 +561,7 @@ const AddLocationModal: React.FC<AddLocationModalProps> = ({ onClose, onSuccess 
       justifyContent: 'center',
       zIndex: 50
     }}>
-      <div className="card" style={{ maxWidth: '28rem', width: '100%', margin: '1rem' }}>
+      <div className="card" style={{ maxWidth: 'min(90vw, 44rem)', width: '100%', margin: '1rem' }}>
         <div style={{ marginBottom: '1.5rem', paddingBottom: '1rem', borderBottom: '2px solid var(--slate-200)' }}>
           <h2 className="card-title">Add New Location</h2>
         </div>
@@ -989,6 +987,7 @@ const WorkerAssignmentSection: React.FC<WorkerAssignmentSectionProps> = ({
             value={selectedUserId}
             onChange={setSelectedUserId}
             label={`Search for ${label}...`}
+            staffOnly
           />
         </div>
         <button
@@ -1008,12 +1007,11 @@ const WorkerAssignmentSection: React.FC<WorkerAssignmentSectionProps> = ({
 // Edit Location Modal
 interface EditLocationModalProps {
   location: OfficeLocationWithSupervisors;
-  users: User[];
   onClose: () => void;
   onSuccess: () => void;
 }
 
-const EditLocationModal: React.FC<EditLocationModalProps> = ({ location, users, onClose, onSuccess }) => {
+const EditLocationModal: React.FC<EditLocationModalProps> = ({ location, onClose, onSuccess }) => {
   const queryClient = useQueryClient();
   const [formData, setFormData] = useState({
     name: location.name,
@@ -1169,7 +1167,7 @@ const EditLocationModal: React.FC<EditLocationModalProps> = ({ location, users, 
       justifyContent: 'center',
       zIndex: 50
     }}>
-      <div className="card" style={{ maxWidth: '42rem', width: '100%', margin: '1rem', maxHeight: '90vh', overflow: 'auto' }}>
+      <div className="card" style={{ maxWidth: 'min(94vw, 64rem)', width: '100%', margin: '1rem', maxHeight: '90vh', overflow: 'auto' }}>
         <div style={{ marginBottom: '1.5rem', paddingBottom: '1rem', borderBottom: '2px solid var(--slate-200)' }}>
           <h2 className="card-title">Edit Location</h2>
         </div>
@@ -1390,19 +1388,12 @@ const EditLocationModal: React.FC<EditLocationModalProps> = ({ location, users, 
                     marginBottom: '1rem'
                   }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                      <select
-                        value={newSupervisor.userId}
-                        onChange={(e) => setNewSupervisor({ ...newSupervisor, userId: e.target.value })}
-                        className="form-select"
-                        style={{ fontSize: '0.875rem' }}
-                      >
-                        <option value="">Select a user...</option>
-                        {users.map((user) => (
-                          <option key={user.id} value={user.id}>
-                            {user.displayName || `${user.firstName} ${user.lastName}`} - {user.jobTitle || user.email}
-                          </option>
-                        ))}
-                      </select>
+                      <UserSearchAutocomplete
+                        value={newSupervisor.userId || null}
+                        onChange={(id) => setNewSupervisor({ ...newSupervisor, userId: id || '' })}
+                        label="Search for a supervisor..."
+                        staffOnly
+                      />
 
                       <select
                         value={newSupervisor.supervisorType}
@@ -1551,6 +1542,7 @@ const EditLocationModal: React.FC<EditLocationModalProps> = ({ location, users, 
                       value={newDelegate.delegateUserId}
                       onChange={(id) => setNewDelegate({ ...newDelegate, delegateUserId: id })}
                       label="Temporary delegate..."
+                      staffOnly
                     />
 
                     <div>

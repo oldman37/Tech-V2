@@ -9,7 +9,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import workOrderService from '@/services/work-order.service';
 import { queryKeys } from '@/lib/queryKeys';
-import type { CreateWorkOrderDto, UpdateWorkOrderDto } from '@/types/work-order.types';
+import type { CreateWorkOrderDto, UpdateWorkOrderDto, WorkOrderPriority } from '@/types/work-order.types';
 
 // ---------------------------------------------------------------------------
 // useCreateWorkOrder
@@ -53,6 +53,23 @@ export function useUpdateWorkOrderStatus() {
   return useMutation({
     mutationFn: ({ id, status, notes }: { id: string; status: string; notes?: string }) =>
       workOrderService.updateStatus(id, status, notes),
+    onSuccess: (_, { id }) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.workOrders.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.workOrders.detail(id) });
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// useUpdateWorkOrderPriority
+// ---------------------------------------------------------------------------
+
+export function useUpdateWorkOrderPriority() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, priority, notes }: { id: string; priority: WorkOrderPriority; notes?: string }) =>
+      workOrderService.updatePriority(id, priority, notes),
     onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.workOrders.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.workOrders.detail(id) });

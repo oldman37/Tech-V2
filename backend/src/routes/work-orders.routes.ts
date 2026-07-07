@@ -26,6 +26,7 @@ import {
   UpdateStatusSchema,
   AssignWorkOrderSchema,
   AddCommentSchema,
+  UpdatePrioritySchema,
 } from '../validators/work-orders.validators';
 import * as workOrdersController from '../controllers/work-orders.controller';
 
@@ -114,6 +115,22 @@ router.put(
   validateRequest(UpdateStatusSchema, 'body'),
   requireModule('WORK_ORDERS', 3),
   workOrdersController.updateStatus,
+);
+
+/**
+ * PUT /api/work-orders/:id/priority
+ * Change ticket priority. Restricted to Admin, Tech Assistants, County-Wide
+ * Maintenance, School Maintenance, Maintenance Director, Technology Director
+ * (enforced in the service via canChangeTicketPriority — not level-based,
+ * since Principals/VPs share level 3 with School/County Maintenance but must
+ * NOT get this permission).
+ */
+router.put(
+  '/:id/priority',
+  validateRequest(WorkOrderIdParamSchema, 'params'),
+  validateRequest(UpdatePrioritySchema, 'body'),
+  requireModule('WORK_ORDERS', 1),
+  workOrdersController.updatePriority,
 );
 
 /**
