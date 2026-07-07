@@ -1,6 +1,6 @@
 // c:\Tech-V2\frontend\src\components\layout\AppLayout.tsx
 
-import { ReactNode, useState } from 'react';
+import { ReactNode, useState, Dispatch, SetStateAction } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Drawer, IconButton, Collapse, Tooltip, ClickAwayListener } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
@@ -125,7 +125,8 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
   const { canAccess: canAccessRoomAssignments } = useRoomAssignmentAccess();
 
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [changelogOpen, setChangelogOpen] = useState(false);
+  const [desktopChangelogOpen, setDesktopChangelogOpen] = useState(false);
+  const [mobileChangelogOpen, setMobileChangelogOpen] = useState(false);
   const [openGroup, setOpenGroup] = useState<string | null>(() => {
     for (const section of NAV_SECTIONS) {
       if (!section.title) continue;
@@ -153,7 +154,10 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
     setMobileOpen(false);
   };
 
-  const sidebarContent = (
+  const renderSidebarContent = (
+    changelogOpen: boolean,
+    setChangelogOpen: Dispatch<SetStateAction<boolean>>
+  ) => (
     <>
       {NAV_SECTIONS.map((section, si) => {
         const visibleItems = section.items.filter((item) =>
@@ -286,7 +290,7 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
       <div className="shell-body">
         {/* Desktop Sidebar */}
         <nav className="shell-sidebar shell-sidebar--desktop">
-          {sidebarContent}
+          {renderSidebarContent(desktopChangelogOpen, setDesktopChangelogOpen)}
         </nav>
 
         {/* Mobile Drawer */}
@@ -305,7 +309,7 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
           }}
         >
           <nav className="shell-sidebar shell-sidebar--mobile">
-            {sidebarContent}
+            {renderSidebarContent(mobileChangelogOpen, setMobileChangelogOpen)}
           </nav>
         </Drawer>
 
