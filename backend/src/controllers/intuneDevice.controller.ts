@@ -13,6 +13,8 @@ import type {
   DeviceListActionSchema,
   ActionLogsQuerySchema,
   AddToInventoryFromReconciliationSchema,
+  RenamePreviewSchema,
+  RenameExecuteSchema,
 } from '../validators/intuneDevice.validators';
 import type { IntuneAction } from '@mgspe/shared-types';
 
@@ -231,6 +233,52 @@ export const getActionLogs = async (
       limit:  query.limit as number | undefined,
       action: query.action as IntuneAction | undefined,
     });
+    res.json(result);
+  } catch (error) {
+    handleControllerError(error, res);
+  }
+};
+
+// ---------------------------------------------------------------------------
+// Rename devices (single lookup + bulk Excel/CSV upload)
+// ---------------------------------------------------------------------------
+
+export const previewRename = async (
+  req: AuthRequest,
+  res: Response,
+): Promise<void> => {
+  try {
+    const body = req.body as z.infer<typeof RenamePreviewSchema>;
+    const result = await service.previewRenameItems(body.items);
+    res.json(result);
+  } catch (error) {
+    handleControllerError(error, res);
+  }
+};
+
+export const previewRenameFile = async (
+  req: AuthRequest,
+  res: Response,
+): Promise<void> => {
+  try {
+    if (!req.file) {
+      res.status(400).json({ error: 'No file uploaded' });
+      return;
+    }
+    const result = await service.previewRenameFromFile(req.file.buffer, req.file.originalname);
+    res.json(result);
+  } catch (error) {
+    handleControllerError(error, res);
+  }
+};
+
+export const executeRename = async (
+  req: AuthRequest,
+  res: Response,
+): Promise<void> => {
+  try {
+    const body = req.body as z.infer<typeof RenameExecuteSchema>;
+    const result = await service.executeRenameDevices(body.items, req.user!.id);
     res.json(result);
   } catch (error) {
     handleControllerError(error, res);

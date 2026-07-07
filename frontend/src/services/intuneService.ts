@@ -15,6 +15,10 @@ import type {
   BitLockerKeyResponse,
   ReconciliationAddToInventoryRequest,
   ReconciliationAddToInventoryResponse,
+  RenamePreviewRequest,
+  RenamePreviewResponse,
+  RenameDevicesRequest,
+  RenameDevicesResponse,
 } from '@mgspe/shared-types';
 
 const BASE = '/intune';
@@ -58,4 +62,20 @@ export const intuneService = {
 
   addToInventory: (data: ReconciliationAddToInventoryRequest): Promise<ReconciliationAddToInventoryResponse> =>
     api.post(`${BASE}/reconciliation/add-to-inventory`, data).then((r) => r.data),
+
+  previewRename: (data: RenamePreviewRequest): Promise<RenamePreviewResponse> =>
+    api.post(`${BASE}/devices/rename/preview`, data).then((r) => r.data),
+
+  previewRenameFile: (file: File): Promise<RenamePreviewResponse> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api
+      .post(`${BASE}/devices/rename/preview-file`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      .then((r) => r.data);
+  },
+
+  executeRename: (data: RenameDevicesRequest): Promise<RenameDevicesResponse> =>
+    api.post(`${BASE}/actions/rename`, data).then((r) => r.data),
 };

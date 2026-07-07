@@ -2,6 +2,8 @@ import { createGraphClient } from '../utils/graphClient';
 import { prisma } from '../lib/prisma';
 import { createLogger } from '../lib/logger';
 import { AppError } from '../utils/errors';
+import ExcelJS from 'exceljs';
+import { parse as parseCSV } from 'csv-parse/sync';
 import type {
   IntuneDevice,
   AutopilotDevice,
@@ -30,7 +32,13 @@ import type {
   BitLockerKeyResponse,
   ReconciliationAddToInventoryRequest,
   ReconciliationAddToInventoryResponse,
+  RenamePreviewItem,
+  RenamePreviewResponse,
+  RenameDeviceRequestItem,
+  RenameDeviceResult,
+  RenameDevicesResponse,
 } from '@mgspe/shared-types';
+import { validateIntuneDeviceName } from '@mgspe/shared-types';
 
 const log = createLogger('IntuneDeviceService');
 
@@ -1596,5 +1604,348 @@ export async function getActionLogs(params: {
       totalCount,
       totalPages: Math.ceil(totalCount / limit),
     },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Rename devices (single lookup + bulk Excel/CSV upload)
+// ---------------------------------------------------------------------------
+
+const RENAME_CONCURRENCY = 5;
+const SERIAL_HEADER_ALIASES = ['serial number', 'serial'];
+const TAG_HEADER_ALIASES = ['tag number', 'tag#', 'tag', 'asset tag'];
+
+/** Builds the fleet's `OCS-<tag>` naming convention, stripping a redundant existing prefix. */
+function buildProposedDeviceName(tag: string): string {
+  const cleaned = tag.trim().replace(/^OCS-/i, '').trim();
+  return `OCS-${cleaned}`;
+}
+
+function findColumnKey(sampleKeys: string[], aliases: string[]): string | undefined {
+  for (const alias of aliases) {
+    const found = sampleKeys.find((k) => k.trim().toLowerCase() === alias);
+    if (found) return found;
+  }
+  return undefined;
+}
+
+/** Parses an uploaded Excel/CSV file into serial/tag row pairs for the rename preview. */
+async function parseRenameExcelRows(
+  fileBuffer: Buffer,
+  fileName: string,
+): Promise<{
+  rows: Array<{ rowNumber: number; serialNumber: string; tagNumber: string | null }>;
+  parseErrors: Array<{ rowNumber: number; message: string }>;
+}> {
+  const ext = fileName.split('.').pop()?.toLowerCase();
+  let rawRows: Record<string, unknown>[] = [];
+
+  if (ext === 'csv') {
+    try {
+      rawRows = parseCSV(fileBuffer, {
+        columns: true,
+        skip_empty_lines: true,
+        trim: true,
+      }) as Record<string, unknown>[];
+    } catch {
+      throw new AppError(
+        'Failed to parse file. Please ensure it is a valid .xlsx, .xls, or .csv file.',
+        400,
+        'VALIDATION_ERROR',
+      );
+    }
+  } else {
+    try {
+      const workbook = new ExcelJS.Workbook();
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-expect-error TS2345: ExcelJS Buffer typedef mismatch with Node 20+ Buffer<ArrayBufferLike>
+      await workbook.xlsx.load(fileBuffer);
+      const worksheet = workbook.worksheets[0];
+      if (!worksheet) {
+        throw new AppError('No worksheets found in the uploaded file.', 400, 'VALIDATION_ERROR');
+      }
+
+      const headerRow = worksheet.getRow(1);
+      const headers: string[] = [];
+      headerRow.eachCell((cell, colNumber) => {
+        headers[colNumber] = cell.value?.toString() ?? '';
+      });
+
+      worksheet.eachRow((row, rowNumber) => {
+        if (rowNumber === 1) return;
+        const rowData: Record<string, unknown> = {};
+        row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+          const header = headers[colNumber];
+          if (!header) return;
+          let value: unknown = null;
+          if (cell.value !== null && cell.value !== undefined) {
+            if (cell.value instanceof Date) {
+              value = cell.value;
+            } else if (typeof cell.value === 'object' && 'richText' in (cell.value as object)) {
+              value = (cell.value as ExcelJS.CellRichTextValue).richText.map((r) => r.text).join('');
+            } else if (typeof cell.value === 'object' && 'result' in (cell.value as object)) {
+              value = (cell.value as ExcelJS.CellFormulaValue).result as number | string | null;
+            } else {
+              value = cell.value;
+            }
+          }
+          rowData[header] = value;
+        });
+        rawRows.push(rowData);
+      });
+    } catch (err) {
+      if (err instanceof AppError) throw err;
+      throw new AppError(
+        'Failed to parse file. Please ensure it is a valid .xlsx, .xls, or .csv file.',
+        400,
+        'VALIDATION_ERROR',
+      );
+    }
+  }
+
+  if (rawRows.length === 0) {
+    throw new AppError('The uploaded file has no data rows.', 400, 'VALIDATION_ERROR');
+  }
+
+  const sampleKeys = Object.keys(rawRows[0] ?? {});
+  const serialKey = findColumnKey(sampleKeys, SERIAL_HEADER_ALIASES);
+  const tagKey = findColumnKey(sampleKeys, TAG_HEADER_ALIASES);
+
+  if (!serialKey) {
+    throw new AppError(
+      'Could not find a "Serial Number" column in the uploaded file.',
+      400,
+      'VALIDATION_ERROR',
+    );
+  }
+
+  const rows: Array<{ rowNumber: number; serialNumber: string; tagNumber: string | null }> = [];
+  const parseErrors: Array<{ rowNumber: number; message: string }> = [];
+
+  rawRows.forEach((row, i) => {
+    const rowNumber = i + 2; // header occupies row 1
+    const serialNumber = row[serialKey]?.toString().trim();
+    if (!serialNumber) {
+      parseErrors.push({ rowNumber, message: 'Missing serial number' });
+      return;
+    }
+    const tagRaw = tagKey ? row[tagKey] : null;
+    const tagNumber = tagRaw !== null && tagRaw !== undefined ? tagRaw.toString().trim() || null : null;
+    rows.push({ rowNumber, serialNumber, tagNumber });
+  });
+
+  return { rows, parseErrors };
+}
+
+export async function previewRenameItems(
+  items: Array<{ serialNumber?: string; tagNumber?: string; rowNumber?: number }>,
+): Promise<RenamePreviewResponse> {
+  const previewItems: RenamePreviewItem[] = [];
+
+  for (let i = 0; i < items.length; i += RENAME_CONCURRENCY) {
+    const batch = items.slice(i, i + RENAME_CONCURRENCY);
+    // eslint-disable-next-line no-await-in-loop
+    const batchResults = await Promise.all(
+      batch.map(async ({ serialNumber, tagNumber, rowNumber }): Promise<RenamePreviewItem> => {
+        let intuneDevice: IntuneDevice | null = null;
+        let resolvedSerial = serialNumber?.trim() || '';
+        const trimmedTag = tagNumber?.trim() || '';
+
+        try {
+          if (resolvedSerial) {
+            // Serial given (or resolved from a file row) — the authoritative, direct lookup.
+            intuneDevice = await getDeviceBySerial(resolvedSerial);
+          } else if (trimmedTag) {
+            // Tag-only lookup: try the fleet's OCS-<tag> naming convention directly against
+            // Intune first — no inventory required. Only fall back to inventory's tag→serial
+            // mapping if that direct name match misses (e.g. device not yet renamed to convention).
+            intuneDevice = await getDeviceByName(buildProposedDeviceName(trimmedTag));
+            if (!intuneDevice) {
+              const eq = await prisma.equipment.findFirst({
+                where:  { assetTag: trimmedTag },
+                select: { serialNumber: true },
+              });
+              if (eq?.serialNumber) {
+                resolvedSerial = eq.serialNumber;
+                intuneDevice = await getDeviceBySerial(resolvedSerial);
+              }
+            }
+          }
+        } catch (err) {
+          log.warn('previewRenameItems: Graph lookup failed', { serialNumber, tagNumber, error: err });
+        }
+
+        if (!resolvedSerial && intuneDevice?.serialNumber) {
+          resolvedSerial = intuneDevice.serialNumber;
+        }
+
+        let resolvedTag = trimmedTag || null;
+        let tagSource: RenamePreviewItem['tagSource'] = resolvedTag ? 'input' : null;
+
+        if (!resolvedTag && resolvedSerial) {
+          const eq = await prisma.equipment.findFirst({
+            where:  { serialNumber: resolvedSerial },
+            select: { assetTag: true },
+          });
+          if (eq?.assetTag) {
+            resolvedTag = eq.assetTag;
+            tagSource = 'inventory';
+          }
+        }
+
+        const proposedDeviceName = resolvedTag ? buildProposedDeviceName(resolvedTag) : null;
+
+        // "No tag" is informational, not a hard blocker — the device doesn't need to exist in
+        // inventory to be renamed; the caller can type a name manually before executing.
+        let issue: string | null;
+        if (!intuneDevice) {
+          issue = 'Not enrolled in Intune';
+        } else if (!proposedDeviceName) {
+          issue = 'No tag number found — enter a new name manually';
+        } else {
+          issue = validateIntuneDeviceName(proposedDeviceName);
+        }
+
+        return {
+          rowNumber,
+          serialNumber: resolvedSerial,
+          tagNumber: resolvedTag,
+          tagSource,
+          intuneDeviceId: intuneDevice?.id ?? null,
+          currentDeviceName: intuneDevice?.deviceName ?? null,
+          proposedDeviceName,
+          enrollmentStatus: intuneDevice ? 'enrolled' : 'not_enrolled',
+          valid: !issue,
+          issue,
+        };
+      }),
+    );
+    previewItems.push(...batchResults);
+  }
+
+  return {
+    total: previewItems.length,
+    validCount: previewItems.filter((i) => i.valid).length,
+    invalidCount: previewItems.filter((i) => !i.valid).length,
+    items: previewItems,
+  };
+}
+
+export async function previewRenameFromFile(
+  fileBuffer: Buffer,
+  fileName: string,
+): Promise<RenamePreviewResponse> {
+  const { rows, parseErrors } = await parseRenameExcelRows(fileBuffer, fileName);
+  const preview = await previewRenameItems(
+    rows.map((r) => ({
+      serialNumber: r.serialNumber,
+      tagNumber:    r.tagNumber ?? undefined,
+      rowNumber:    r.rowNumber,
+    })),
+  );
+
+  return {
+    ...preview,
+    parseErrors: parseErrors.length > 0 ? parseErrors : undefined,
+  };
+}
+
+export async function executeRenameDevices(
+  items: RenameDeviceRequestItem[],
+  performedBy: string,
+): Promise<RenameDevicesResponse> {
+  const client = await createGraphClient();
+
+  const serials = items.map((i) => i.serialNumber);
+  const equipmentRows = await prisma.equipment.findMany({
+    where:  { serialNumber: { in: serials } },
+    select: { serialNumber: true, assetTag: true },
+  });
+  const assetTagMap = new Map<string, string>();
+  for (const row of equipmentRows) {
+    if (row.serialNumber) assetTagMap.set(row.serialNumber, row.assetTag);
+  }
+
+  const results: RenameDeviceResult[] = [];
+
+  for (const item of items) {
+    // Defense-in-depth: the frontend now allows typing a name manually for devices with no
+    // resolvable tag (e.g. not in inventory), so re-validate here rather than trusting the
+    // client — never send an unvalidated name to Graph.
+    const nameIssue = validateIntuneDeviceName(item.newDeviceName);
+    if (nameIssue) {
+      results.push({
+        serialNumber:       item.serialNumber,
+        assetTag:           assetTagMap.get(item.serialNumber) ?? null,
+        intuneDeviceId:     item.intuneDeviceId,
+        previousDeviceName: item.previousDeviceName ?? null,
+        newDeviceName:      item.newDeviceName,
+        status:             'failed',
+        error:              nameIssue,
+      });
+      continue;
+    }
+
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      await withRetry(() =>
+        client
+          .api(`/deviceManagement/managedDevices/${item.intuneDeviceId}/setDeviceName`)
+          .version('beta')
+          .post({ deviceName: item.newDeviceName }),
+      );
+      results.push({
+        serialNumber:       item.serialNumber,
+        assetTag:           assetTagMap.get(item.serialNumber) ?? null,
+        intuneDeviceId:     item.intuneDeviceId,
+        previousDeviceName: item.previousDeviceName ?? null,
+        newDeviceName:      item.newDeviceName,
+        status:             'success',
+      });
+    } catch (err: unknown) {
+      const message = (err as { message?: string })?.message ?? 'Rename failed';
+      log.error(`setDeviceName failed for device ${item.intuneDeviceId}`, { error: err });
+      results.push({
+        serialNumber:       item.serialNumber,
+        assetTag:           assetTagMap.get(item.serialNumber) ?? null,
+        intuneDeviceId:     item.intuneDeviceId,
+        previousDeviceName: item.previousDeviceName ?? null,
+        newDeviceName:      item.newDeviceName,
+        status:             'failed',
+        error:              `Rename failed: ${message}`,
+      });
+    }
+  }
+
+  const succeeded = results.filter((r) => r.status === 'success').length;
+  const failed    = results.filter((r) => r.status === 'failed').length;
+
+  const logRecord = await prisma.intuneActionLog.create({
+    data: {
+      performedBy,
+      action:           'setDeviceName' satisfies IntuneAction,
+      modelId:          null,
+      modelName:        null,
+      totalDevices:     results.length,
+      successCount:     succeeded,
+      failedCount:      failed,
+      notEnrolledCount: 0,
+      results:          results as unknown as object,
+    },
+  });
+
+  log.info('Rename devices action complete', {
+    total: results.length,
+    succeeded,
+    failed,
+    logId: logRecord.id,
+  });
+
+  return {
+    total:     results.length,
+    succeeded,
+    failed,
+    results,
+    logId:     logRecord.id,
   };
 }

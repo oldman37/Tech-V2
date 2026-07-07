@@ -12,7 +12,8 @@ export type IntuneAction =
   | 'deleteDevice'
   | 'removeAutopilot'
   | 'removeEntra'
-  | 'fullDecommission';
+  | 'fullDecommission'
+  | 'setDeviceName';
 
 export type ActionRiskLevel = 'low' | 'medium' | 'high' | 'critical';
 
@@ -37,6 +38,7 @@ export const INTUNE_ACTION_RISK: Record<IntuneAction, ActionRiskLevel> = {
   removeAutopilot:    'critical',
   removeEntra:        'critical',
   fullDecommission:   'critical',
+  setDeviceName:      'low',
 };
 
 /**
@@ -52,7 +54,31 @@ export const INTUNE_ACTION_LABELS: Record<IntuneAction, string> = {
   removeAutopilot:    'Remove from Autopilot',
   removeEntra:        'Remove from Entra ID',
   fullDecommission:   'Full Decommission',
+  setDeviceName:      'Rename Device',
 };
+
+/**
+ * Server-enforced cap on rows per rename preview/execute request — bounds
+ * Graph call volume and worst-case request time for the bulk rename workflow.
+ */
+export const INTUNE_RENAME_MAX_ROWS = 300;
+
+const INTUNE_DEVICE_NAME_RE = /^[A-Za-z0-9-]+$/;
+
+/**
+ * Validates a proposed device name against Intune's Windows rename rules (a safe subset
+ * also valid for iOS/macOS/Android). Shared by frontend (live validation of user-edited
+ * names) and backend (preview + defense-in-depth re-check before calling Graph) so the two
+ * never drift apart. Returns an issue string, or null if the name is valid.
+ */
+export function validateIntuneDeviceName(name: string): string | null {
+  if (!name) return 'Name is empty';
+  if (name.length > 63) return 'Name exceeds 63 characters';
+  if (/\s/.test(name)) return 'Name cannot contain spaces';
+  if (!INTUNE_DEVICE_NAME_RE.test(name)) return 'Name contains invalid characters (letters, numbers, and hyphens only)';
+  if (/^\d+$/.test(name)) return 'Name cannot be only numbers';
+  return null;
+}
 
 /**
  * Per-device result for a single action execution.
@@ -408,4 +434,84 @@ export interface BitLockerKeyResponse {
   intuneDeviceId: string | null;
   entraObjectId: string | null;
   keys: BitLockerKeyEntry[];
+}
+
+// ---------------------------------------------------------------------------
+// Rename devices (single lookup + bulk Excel upload)
+// ---------------------------------------------------------------------------
+
+/** One row in a rename preview — either from a manual single lookup or a parsed file row. */
+export interface RenamePreviewItem {
+  /** Present only for file-parsed rows (1-based, matching the spreadsheet). */
+  rowNumber?: number;
+  /** Resolved serial number — may be an empty string if the device was found by tag/name lookup and Intune has no serial on record for it. */
+  serialNumber: string;
+  /** Tag number used to build the proposed name; null if resolved from inventory instead. */
+  tagNumber: string | null;
+  /** Where the tag number came from — explicit input/file column, or an inventory DB fallback lookup. */
+  tagSource: 'input' | 'inventory' | null;
+  intuneDeviceId: string | null;
+  currentDeviceName: string | null;
+  /** null if no tag number could be resolved from either the input or inventory. */
+  proposedDeviceName: string | null;
+  enrollmentStatus: 'enrolled' | 'not_enrolled';
+  /** Whether this row is safe to execute as-is. */
+  valid: boolean;
+  /** Reason `valid` is false, e.g. "Not enrolled in Intune", "No tag number available". */
+  issue: string | null;
+}
+
+/**
+ * Request body for POST /api/intune/devices/rename/preview (single/manual entry mode).
+ * At least one of serialNumber/tagNumber is required per item — a tag-only lookup resolves
+ * the device directly in Intune via the fleet's OCS-<tag> naming convention (falling back to
+ * an inventory tag→serial lookup), so the device does not need a serial number on hand.
+ */
+export interface RenamePreviewRequest {
+  items: Array<{ serialNumber?: string; tagNumber?: string }>;
+}
+
+/** Response shared by both preview endpoints (manual entry and file upload). */
+export interface RenamePreviewResponse {
+  total: number;
+  validCount: number;
+  invalidCount: number;
+  items: RenamePreviewItem[];
+  /** File-parsed rows that couldn't be read at all (e.g. missing serial number). */
+  parseErrors?: Array<{ rowNumber: number; message: string }>;
+}
+
+/** One device to rename — the frontend sends back exactly what was shown/edited in the preview. */
+export interface RenameDeviceRequestItem {
+  intuneDeviceId: string;
+  serialNumber: string;
+  newDeviceName: string;
+  /** The device's name as captured during preview — passed through for the audit log, not re-fetched. */
+  previousDeviceName?: string | null;
+}
+
+/** Request body for POST /api/intune/actions/rename. */
+export interface RenameDevicesRequest {
+  items: RenameDeviceRequestItem[];
+}
+
+/** Per-device result of a rename execution. */
+export interface RenameDeviceResult {
+  serialNumber: string;
+  assetTag: string | null;
+  intuneDeviceId: string | null;
+  previousDeviceName: string | null;
+  newDeviceName: string;
+  status: 'success' | 'failed';
+  error?: string;
+}
+
+/** Response from POST /api/intune/actions/rename. */
+export interface RenameDevicesResponse {
+  total: number;
+  succeeded: number;
+  failed: number;
+  results: RenameDeviceResult[];
+  /** ID of the IntuneActionLog record written to the database. */
+  logId: string;
 }

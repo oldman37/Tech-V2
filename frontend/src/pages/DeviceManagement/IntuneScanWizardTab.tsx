@@ -74,7 +74,7 @@ export function loadHistory(): IntuneHistoryEntry[] {
   }
 }
 
-function saveToHistory(entry: Omit<IntuneHistoryEntry, 'triggeredBy'>): void {
+export function saveToHistory(entry: Omit<IntuneHistoryEntry, 'triggeredBy'>): void {
   const user = useAuthStore.getState().user;
   const triggeredBy =
     user?.name ||

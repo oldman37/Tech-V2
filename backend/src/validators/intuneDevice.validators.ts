@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { INTUNE_DEVICE_ACTION_BATCH_SIZE } from '@mgspe/shared-types';
+import { INTUNE_DEVICE_ACTION_BATCH_SIZE, INTUNE_RENAME_MAX_ROWS } from '@mgspe/shared-types';
 
 const IntuneActionSchema = z.enum([
   'syncDevice',
@@ -11,6 +11,7 @@ const IntuneActionSchema = z.enum([
   'removeAutopilot',
   'removeEntra',
   'fullDecommission',
+  'setDeviceName',
 ]);
 
 export const ModelIdParamSchema = z.object({
@@ -96,6 +97,36 @@ export const AddToInventoryFromReconciliationSchema = z.object({
   purchasePrice:    z.number().optional().nullable(),
   condition:        z.string().max(50).optional().nullable(),
   notes:            z.string().max(2000).optional().nullable(),
+});
+
+const RenamePreviewInputItemSchema = z
+  .object({
+    serialNumber: z.string().max(200).optional(),
+    tagNumber:    z.string().max(50).optional(),
+  })
+  .refine((d) => !!(d.serialNumber?.trim() || d.tagNumber?.trim()), {
+    message: 'Either serialNumber or tagNumber is required',
+  });
+
+export const RenamePreviewSchema = z.object({
+  items: z
+    .array(RenamePreviewInputItemSchema)
+    .min(1, 'At least one item is required')
+    .max(INTUNE_RENAME_MAX_ROWS, `Maximum ${INTUNE_RENAME_MAX_ROWS} rows per request`),
+});
+
+export const RenameExecuteSchema = z.object({
+  items: z
+    .array(
+      z.object({
+        intuneDeviceId:     z.string().min(1).max(300),
+        serialNumber:       z.string().max(200),
+        newDeviceName:      z.string().min(1).max(63),
+        previousDeviceName: z.string().max(300).nullable().optional(),
+      }),
+    )
+    .min(1, 'At least one item is required')
+    .max(INTUNE_RENAME_MAX_ROWS, `Maximum ${INTUNE_RENAME_MAX_ROWS} rows per request`),
 });
 
 export const ActionLogsQuerySchema = z.object({

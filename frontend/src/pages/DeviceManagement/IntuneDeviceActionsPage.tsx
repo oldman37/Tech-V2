@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+﻿import { useState, useRef } from 'react';
 import {
   Alert,
   Box,
@@ -7,6 +7,10 @@ import {
   Chip,
   CircularProgress,
   Collapse,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Divider,
   FormControlLabel,
   InputAdornment,
@@ -27,20 +31,25 @@ import ExpandMoreIcon  from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon  from '@mui/icons-material/ExpandLess';
 import VisibilityIcon  from '@mui/icons-material/Visibility';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import UploadFileIcon  from '@mui/icons-material/UploadFile';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import {
   INTUNE_ACTION_LABELS,
   INTUNE_ACTION_RISK,
   INTUNE_DEVICE_ACTION_BATCH_SIZE,
+  INTUNE_RENAME_MAX_ROWS,
+  validateIntuneDeviceName,
   type IntuneAction,
   type BulkDeviceActionResponse,
   type IntuneDevicePreview,
   type BitLockerKeyResponse,
+  type RenamePreviewItem,
+  type RenameDeviceRequestItem,
 } from '@mgspe/shared-types';
 import { intuneService } from '../../services/intuneService';
 import DeviceActionConfirmDialog from '../../components/DeviceActionConfirmDialog';
 import IntuneToInventoryDialog from '../../components/IntuneToInventoryDialog';
-import IntuneScanWizardTab, { type IntuneHistoryEntry, loadHistory, buildDryRunResult } from './IntuneScanWizardTab';
+import IntuneScanWizardTab, { type IntuneHistoryEntry, loadHistory, saveToHistory, buildDryRunResult } from './IntuneScanWizardTab';
 import type { IntuneOnlyDevice } from '@mgspe/shared-types';
 import { useIsMobile } from '../../hooks/useResponsive';
 import { ResponsiveTable } from '../../components/responsive';
@@ -64,7 +73,13 @@ const STATUS_CHIP_COLOUR: Record<string, 'success' | 'error' | 'warning' | 'defa
 
 /** Destructive actions that remove devices entirely — recorded in history but cannot be re-run */
 const DESTRUCTIVE_ACTIONS = new Set<IntuneAction>(['fullDecommission', 'deleteDevice', 'removeEntra']);
-const ACTIONS = Object.keys(INTUNE_ACTION_LABELS) as IntuneAction[];
+/**
+ * setDeviceName is excluded from the generic dropdown: it needs a per-device new name
+ * (from the dedicated Rename Devices tab), which the generic By-Model/Scan dispatch can't collect.
+ */
+const ACTIONS = (Object.keys(INTUNE_ACTION_LABELS) as IntuneAction[]).filter(
+  (a) => a !== 'setDeviceName',
+);
 
 /** Split an array into chunks of at most `size`. */
 function chunk<T>(arr: T[], size: number): T[][] {
@@ -207,7 +222,7 @@ function ActionSelector({
 
 export default function IntuneDeviceActionsPage() {
   const isMobile = useIsMobile();
-  const [tab, setTab] = useState<0 | 1 | 2 | 3 | 4>(0);
+  const [tab, setTab] = useState<0 | 1 | 2 | 3 | 4 | 5>(0);
   const [historyEntries,   setHistoryEntries]   = useState<IntuneHistoryEntry[]>(() => loadHistory());
   const [reloadKey,        setReloadKey]        = useState(0);
   const [preloadedDevices, setPreloadedDevices] = useState<{
@@ -373,6 +388,124 @@ export default function IntuneDeviceActionsPage() {
     bitlockerMutation.mutate(name);
   };
 
+  // ── Tab 5: Rename Devices ──────────────────────────────────────────────────
+  const [renameSerialInput,  setRenameSerialInput]  = useState('');
+  const [renameTagInput,     setRenameTagInput]     = useState('');
+  const [renameRows,         setRenameRows]         = useState<RenamePreviewItem[]>([]);
+  const [renameEditedNames,  setRenameEditedNames]  = useState<Record<string, string>>({});
+  const [renameExcludedKeys, setRenameExcludedKeys] = useState<Set<string>>(new Set());
+  const [renameConfirmOpen,  setRenameConfirmOpen]  = useState(false);
+  const renameFileInputRef = useRef<HTMLInputElement>(null);
+
+  const getRenameRowKey = (r: RenamePreviewItem) =>
+    `${r.rowNumber ?? ''}:${r.serialNumber || r.tagNumber || r.intuneDeviceId || ''}`;
+
+  /**
+   * The device does not need to exist in inventory to be renamed — a tag/name resolved from
+   * inventory is just a convenience default. This resolves the name that will actually be sent:
+   * whatever the user typed in the preview table, falling back to the server-proposed name.
+   */
+  const getEffectiveRenameName = (r: RenamePreviewItem): string | null => {
+    const edited = renameEditedNames[getRenameRowKey(r)]?.trim();
+    return edited || r.proposedDeviceName;
+  };
+
+  /**
+   * A row is ready to execute if the device is enrolled in Intune (a hard Graph requirement —
+   * you cannot rename what Intune doesn't know about) and a valid name is available, whether
+   * that name came from inventory, an uploaded tag, or a manually typed override.
+   */
+  const isRenameRowReady = (r: RenamePreviewItem): boolean => {
+    if (!r.intuneDeviceId) return false;
+    const name = getEffectiveRenameName(r);
+    return !!name && !validateIntuneDeviceName(name);
+  };
+
+  const getRenameRowIssue = (r: RenamePreviewItem): string | null => {
+    if (!r.intuneDeviceId) return 'Not enrolled in Intune';
+    const name = getEffectiveRenameName(r);
+    if (!name) return 'Enter a new name';
+    return validateIntuneDeviceName(name);
+  };
+
+  const renamePreviewMutation = useMutation({
+    mutationFn: (vars: { serialNumber?: string; tagNumber?: string }) =>
+      intuneService.previewRename({ items: [vars] }),
+    onSuccess: (data) => {
+      setRenameRows(data.items);
+      setRenameEditedNames({});
+      setRenameExcludedKeys(new Set());
+    },
+  });
+
+  const renamePreviewFileMutation = useMutation({
+    mutationFn: (file: File) => intuneService.previewRenameFile(file),
+    onSuccess: (data) => {
+      setRenameRows(data.items);
+      setRenameEditedNames({});
+      setRenameExcludedKeys(new Set());
+    },
+  });
+
+  const renameExecuteMutation = useMutation({
+    mutationFn: (items: RenameDeviceRequestItem[]) => intuneService.executeRename({ items }),
+    onSuccess: (data) => {
+      // Record who ran it in the same history the Scan wizard already uses, then clear the
+      // tab and surface it in the "Recent Renames" panel below, rather than a long inline
+      // results table or navigating away to the History tab.
+      saveToHistory({
+        id:          data.logId,
+        timestamp:   new Date().toISOString(),
+        action:      'setDeviceName',
+        actionLabel: INTUNE_ACTION_LABELS.setDeviceName,
+        deviceCount: data.total,
+        succeeded:   data.succeeded,
+        failed:      data.failed,
+        partial:     0,
+        devices: data.results.map((r) => ({
+          intuneDeviceId:  r.intuneDeviceId ?? '',
+          displayName:     r.newDeviceName,
+          serialNumber:    r.serialNumber,
+          assetTag:        r.assetTag,
+          operatingSystem: null,
+        })),
+      });
+      setRenameConfirmOpen(false);
+      setRenameRows([]);
+      setRenameEditedNames({});
+      setRenameExcludedKeys(new Set());
+      setRenameSerialInput('');
+      setRenameTagInput('');
+      setHistoryEntries(loadHistory());
+    },
+  });
+
+  const activeRenameRows = renameRows.filter((r) => !renameExcludedKeys.has(getRenameRowKey(r)));
+  const renameReadyCount = activeRenameRows.filter(isRenameRowReady).length;
+
+  const handleRenameFileSelect = (file: File) => {
+    renamePreviewFileMutation.mutate(file);
+  };
+
+  const handleRenameSingleLookup = () => {
+    const serial = renameSerialInput.trim();
+    const tag = renameTagInput.trim();
+    if (!serial && !tag) return;
+    renamePreviewMutation.mutate({ serialNumber: serial || undefined, tagNumber: tag || undefined });
+  };
+
+  const handleExecuteRename = () => {
+    const items: RenameDeviceRequestItem[] = activeRenameRows
+      .filter(isRenameRowReady)
+      .map((r) => ({
+        intuneDeviceId:     r.intuneDeviceId as string,
+        serialNumber:       r.serialNumber,
+        newDeviceName:      getEffectiveRenameName(r) as string,
+        previousDeviceName: r.currentDeviceName,
+      }));
+    renameExecuteMutation.mutate(items);
+  };
+
   // ── Results table derived state ──────────────────────────────────────────────
   const filteredResults = results
     ? results.results.filter((r) => {
@@ -407,8 +540,8 @@ export default function IntuneDeviceActionsPage() {
           <select
             value={tab}
             onChange={(e) => {
-              const v = Number(e.target.value) as 0 | 1 | 2 | 3 | 4;
-              if (v === 1 || v === 2) setHistoryEntries(loadHistory());
+              const v = Number(e.target.value) as 0 | 1 | 2 | 3 | 4 | 5;
+              if (v === 1 || v === 2 || v === 5) setHistoryEntries(loadHistory());
               setTab(v);
               setResults(null);
               setIsDryRun(true);
@@ -421,6 +554,7 @@ export default function IntuneDeviceActionsPage() {
             <option value={2}>History</option>
             <option value={3}>Reconciliation</option>
             <option value={4}>BitLocker</option>
+            <option value={5}>Rename Devices</option>
           </select>
         </Box>
       ) : (
@@ -428,7 +562,7 @@ export default function IntuneDeviceActionsPage() {
           value={tab}
           onChange={(_, v) => {
             if (v === 1 || v === 2) setHistoryEntries(loadHistory());
-            setTab(v as 0 | 1 | 2 | 3 | 4);
+            setTab(v as 0 | 1 | 2 | 3 | 4 | 5);
             setResults(null);
             setIsDryRun(true);
           }}
@@ -439,6 +573,7 @@ export default function IntuneDeviceActionsPage() {
           <Tab label="History" />
           <Tab label="Reconciliation" />
           <Tab label="BitLocker" />
+          <Tab label="Rename Devices" />
         </Tabs>
       )}
 
@@ -1406,6 +1541,285 @@ export default function IntuneDeviceActionsPage() {
               )}
             </Paper>
           )}
+        </Box>
+      )}
+
+      {/* ── TAB 5: RENAME DEVICES ────────────────────────────────────────────── */}
+      {tab === 5 && (
+        <Box>
+          {/* Single device lookup */}
+          <Paper sx={{ p: 2, mb: 2 }}>
+            <Typography variant="h6" gutterBottom>Single Device — Look Up by Serial or Tag Number</Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Enter a serial number, a tag number, or both. A tag-only lookup searches Intune
+              directly using the fleet's OCS-&lt;tag&gt; naming convention — the device does not
+              need to exist in inventory. If neither resolves a name automatically, type it
+              directly in the preview table below.
+            </Typography>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="flex-start">
+              <TextField
+                label="Serial Number"
+                size="small"
+                sx={{ minWidth: 280 }}
+                value={renameSerialInput}
+                onChange={(e) => setRenameSerialInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleRenameSingleLookup(); }}
+                placeholder="e.g. 5CD1234ABC"
+              />
+              <TextField
+                label="Tag Number"
+                size="small"
+                sx={{ minWidth: 200 }}
+                value={renameTagInput}
+                onChange={(e) => setRenameTagInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleRenameSingleLookup(); }}
+                placeholder="e.g. 56538"
+              />
+              <Button
+                variant="contained"
+                startIcon={
+                  renamePreviewMutation.isPending
+                    ? <CircularProgress size={16} color="inherit" />
+                    : <SearchIcon />
+                }
+                disabled={
+                  (!renameSerialInput.trim() && !renameTagInput.trim()) ||
+                  renamePreviewMutation.isPending
+                }
+                onClick={handleRenameSingleLookup}
+              >
+                Look Up
+              </Button>
+            </Stack>
+            {renamePreviewMutation.isError && (
+              <Alert severity="error" sx={{ mt: 2 }}>
+                {(renamePreviewMutation.error as Error)?.message ?? 'Failed to look up device.'}
+              </Alert>
+            )}
+          </Paper>
+
+          {/* Bulk upload */}
+          <Paper sx={{ p: 2, mb: 2 }}>
+            <Typography variant="h6" gutterBottom>Bulk Upload — Excel / CSV</Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Upload a spreadsheet with a "Serial Number" column and a "Tag Number" column
+              (up to {INTUNE_RENAME_MAX_ROWS} rows per file). New device names are built as
+              OCS-&lt;tag&gt;.
+            </Typography>
+            <input
+              ref={renameFileInputRef}
+              type="file"
+              accept=".xlsx,.xls,.csv"
+              style={{ display: 'none' }}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleRenameFileSelect(file);
+                e.target.value = '';
+              }}
+            />
+            <Button
+              variant="contained"
+              startIcon={
+                renamePreviewFileMutation.isPending
+                  ? <CircularProgress size={16} color="inherit" />
+                  : <UploadFileIcon />
+              }
+              disabled={renamePreviewFileMutation.isPending}
+              onClick={() => renameFileInputRef.current?.click()}
+            >
+              Upload File
+            </Button>
+            {renamePreviewFileMutation.isError && (
+              <Alert severity="error" sx={{ mt: 2 }}>
+                {(renamePreviewFileMutation.error as unknown as { response?: { data?: { error?: string } } })
+                  ?.response?.data?.error
+                  ?? (renamePreviewFileMutation.error as Error)?.message
+                  ?? 'Failed to parse file.'}
+              </Alert>
+            )}
+            {renamePreviewFileMutation.data?.parseErrors && renamePreviewFileMutation.data.parseErrors.length > 0 && (
+              <Alert severity="warning" sx={{ mt: 2 }}>
+                {renamePreviewFileMutation.data.parseErrors.length} row(s) could not be read:{' '}
+                {renamePreviewFileMutation.data.parseErrors
+                  .map((e) => `Row ${e.rowNumber}: ${e.message}`)
+                  .join('; ')}
+              </Alert>
+            )}
+          </Paper>
+
+          {/* Preview table */}
+          {renameRows.length > 0 && (
+            <Paper sx={{ p: 2, mb: 2 }}>
+              <Typography variant="h6" gutterBottom>Preview ({renameRows.length})</Typography>
+              <Stack direction="row" spacing={2} sx={{ mb: 1.5 }} flexWrap="wrap">
+                <Chip label={`Ready: ${activeRenameRows.filter(isRenameRowReady).length}`} size="small" color="success" />
+                <Chip
+                  label={`Issues: ${activeRenameRows.filter((r) => !isRenameRowReady(r)).length}`}
+                  size="small"
+                  color={activeRenameRows.some((r) => !isRenameRowReady(r)) ? 'error' : 'default'}
+                />
+                {renameExcludedKeys.size > 0 && (
+                  <Chip
+                    label={`${renameExcludedKeys.size} excluded`}
+                    size="small"
+                    color="warning"
+                    onDelete={() => setRenameExcludedKeys(new Set())}
+                  />
+                )}
+              </Stack>
+              <ResponsiveTable<RenamePreviewItem & { _key: string }>
+                columns={[
+                  {
+                    key: 'serialNumber',
+                    label: 'Serial',
+                    isPrimary: true,
+                    render: (r) => r.serialNumber || '—',
+                  },
+                  {
+                    key: 'currentDeviceName',
+                    label: 'Current Name',
+                    render: (r) => r.currentDeviceName ?? '—',
+                  },
+                  {
+                    key: 'proposedDeviceName',
+                    label: 'New Name',
+                    isSecondary: true,
+                    render: (r) => (
+                      <TextField
+                        size="small"
+                        variant="standard"
+                        value={renameEditedNames[r._key] ?? r.proposedDeviceName ?? ''}
+                        onChange={(e) =>
+                          setRenameEditedNames((prev) => ({ ...prev, [r._key]: e.target.value }))
+                        }
+                        disabled={!r.intuneDeviceId}
+                        sx={{ minWidth: 140 }}
+                      />
+                    ),
+                  },
+                  {
+                    key: 'status',
+                    label: 'Status',
+                    render: (r) => (
+                      <Chip
+                        label={isRenameRowReady(r) ? 'Ready' : (getRenameRowIssue(r) ?? 'Issue')}
+                        size="small"
+                        color={isRenameRowReady(r) ? 'success' : 'error'}
+                      />
+                    ),
+                  },
+                  {
+                    key: 'exclude',
+                    label: 'Exclude',
+                    render: (r) => (
+                      <Checkbox
+                        size="small"
+                        checked={renameExcludedKeys.has(r._key)}
+                        onChange={(e) => {
+                          setRenameExcludedKeys((prev) => {
+                            const next = new Set(prev);
+                            if (e.target.checked) next.add(r._key); else next.delete(r._key);
+                            return next;
+                          });
+                        }}
+                      />
+                    ),
+                  },
+                ]}
+                rows={renameRows.map((r) => ({ ...r, _key: getRenameRowKey(r) }))}
+                getRowKey={(r) => r._key}
+              />
+              <Button
+                variant="contained"
+                color="primary"
+                sx={{ mt: 2 }}
+                startIcon={
+                  renameExecuteMutation.isPending
+                    ? <CircularProgress size={16} color="inherit" />
+                    : <PlayArrowIcon />
+                }
+                disabled={renameReadyCount === 0 || renameExecuteMutation.isPending}
+                onClick={() => setRenameConfirmOpen(true)}
+              >
+                Rename {renameReadyCount} Device{renameReadyCount !== 1 ? 's' : ''}
+              </Button>
+              {renameExecuteMutation.isError && (
+                <Alert severity="error" sx={{ mt: 2 }}>
+                  {(renameExecuteMutation.error as Error)?.message ?? 'Rename failed.'}
+                </Alert>
+              )}
+            </Paper>
+          )}
+
+          {/* Recent renames — stays on this tab; does not navigate to History */}
+          {historyEntries.filter((e) => e.action === 'setDeviceName').length > 0 && (
+            <Box sx={{ mt: 3 }}>
+              <Divider sx={{ mb: 2 }} />
+              <Typography variant="subtitle1" fontWeight={600} gutterBottom>
+                Recent Renames
+              </Typography>
+              <Stack spacing={1}>
+                {historyEntries
+                  .filter((e) => e.action === 'setDeviceName')
+                  .slice(0, 5)
+                  .map((entry) => (
+                    <Paper key={entry.id} variant="outlined" sx={{ p: 1.5 }}>
+                      <Stack
+                        direction={{ xs: 'column', sm: 'row' }}
+                        justifyContent="space-between"
+                        alignItems={{ xs: 'flex-start', sm: 'center' }}
+                        spacing={1}
+                      >
+                        <Box>
+                          <Typography variant="body2" fontWeight={600}>
+                            {entry.actionLabel}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {new Date(entry.timestamp).toLocaleString()}
+                            {' · '}
+                            {entry.triggeredBy ?? '—'}
+                          </Typography>
+                        </Box>
+                        <Stack direction="row" spacing={0.5} flexWrap="wrap">
+                          <Chip
+                            label={`${entry.deviceCount} device${entry.deviceCount !== 1 ? 's' : ''}`}
+                            size="small"
+                            variant="outlined"
+                          />
+                          <Chip label={`✓ ${entry.succeeded}`} size="small" color="success" />
+                          {entry.failed > 0 && (
+                            <Chip label={`✗ ${entry.failed}`} size="small" color="error" />
+                          )}
+                        </Stack>
+                      </Stack>
+                    </Paper>
+                  ))}
+              </Stack>
+            </Box>
+          )}
+
+          {/* Confirm dialog */}
+          <Dialog open={renameConfirmOpen} onClose={() => setRenameConfirmOpen(false)}>
+            <DialogTitle>Confirm Rename</DialogTitle>
+            <DialogContent>
+              <Typography variant="body2">
+                You are about to rename {renameReadyCount} device{renameReadyCount !== 1 ? 's' : ''} in
+                Intune. This takes effect immediately.
+              </Typography>
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={() => setRenameConfirmOpen(false)}>Cancel</Button>
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={handleExecuteRename}
+                disabled={renameExecuteMutation.isPending}
+                startIcon={renameExecuteMutation.isPending ? <CircularProgress size={16} color="inherit" /> : undefined}
+              >
+                Confirm Rename
+              </Button>
+            </DialogActions>
+          </Dialog>
         </Box>
       )}
 
