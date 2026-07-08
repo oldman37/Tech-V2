@@ -44,20 +44,20 @@ function DetailRow({ label, value }: { label: string; value: string | number | n
   return (
     <Grid size={{ xs: 12, sm: 6 }}>
       <Typography variant="caption" color="text.secondary">{label}</Typography>
-      <Typography variant="body1" sx={{ wordBreak: 'break-word' }}>{value ?? 'â€”'}</Typography>
+      <Typography variant="body1" sx={{ wordBreak: 'break-word' }}>{value ?? '—'}</Typography>
     </Grid>
   );
 }
 
 function formatDate(dt: string | null | undefined): string {
-  if (!dt) return 'â€”';
+  if (!dt) return '—';
   return new Date(dt).toLocaleDateString('en-US', {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
   });
 }
 
 function formatDateTime(dt: string | null | undefined): string {
-  if (!dt) return 'â€”';
+  if (!dt) return '—';
   return new Date(dt).toLocaleString('en-US', {
     month: 'short', day: 'numeric', year: 'numeric',
     hour: 'numeric', minute: '2-digit',
@@ -193,14 +193,14 @@ export function TransportationRequestDetailPage() {
 
   const status = request.status as TransportationRequestStatus;
 
-  // Determine permissions â€” use server-computed flag set at login
+  // Determine permissions — use server-computed flag set at login
   const isSecretary = user?.roles?.includes('ADMIN') || user?.permLevels?.isTransportationSecretary === true;
   const isOwner = request.submittedById === user?.id;  // Supervisor can act if status is PENDING_SUPERVISOR_APPROVAL (actual auth is checked server-side)
   const isSupervisor = status === 'PENDING_SUPERVISOR_APPROVAL' && user?.id !== request.submittedById;
   const isAdmin = user?.roles?.includes('ADMIN') === true;
   const submitterName = request.submittedBy
     ? (request.submittedBy.displayName ?? `${request.submittedBy.firstName} ${request.submittedBy.lastName}`)
-    : 'â€”';
+    : '—';
 
   return (
     <Box sx={{ p: { xs: 1, sm: 3 }, maxWidth: 960, mx: 'auto' }}>

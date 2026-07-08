@@ -273,7 +273,7 @@ export function FieldTripDetailPage() {
 
       {actionError && <Alert severity="error" sx={{ mb: 2 }}>{actionError}</Alert>}
 
-      {/* Transportation CTA â€” shown only to the trip owner once approved but before Part A is submitted */}
+      {/* Transportation CTA — shown only to the trip owner once approved but before Part A is submitted */}
       {isOwner && trip.status === 'APPROVED' && trip.transportationNeeded && !trip.transportationRequest && (
         <Alert
           severity="info"
@@ -456,7 +456,7 @@ export function FieldTripDetailPage() {
             {trip.plansForNonParticipants && (
               <DetailField label="Plans for Non-Participating Students" value={trip.plansForNonParticipants} xs={12} multiline />
             )}
-            {/* Chaperones â€” structured list */}
+            {/* Chaperones — structured list */}
             {Array.isArray(trip.chaperones) && (trip.chaperones as ChaperoneEntry[]).length > 0 && (
               <Grid size={12}>
                 <Typography variant="caption" color="text.secondary" display="block">Chaperones</Typography>
@@ -688,7 +688,7 @@ function DetailField({ label, value, xs = 6, multiline }: DetailFieldProps) {
         variant="body1"
         sx={{ wordBreak: 'break-word', overflowWrap: 'break-word', ...(multiline ? { whiteSpace: 'pre-wrap' } : {}) }}
       >
-        {value || <span style={{ color: '#9e9e9e' }}>â€”</span>}
+        {value || <span style={{ color: '#9e9e9e' }}>—</span>}
       </Typography>
     </Grid>
   );

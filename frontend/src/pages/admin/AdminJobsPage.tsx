@@ -520,9 +520,9 @@ function AdminJobsInner() {
         <Grid size={{ xs: 12, md: 6 }}>
           <ScheduledJobCard
             title="Update Locations"
-            description="Creates or verifies office location records from the canonical location mapping. Safe to run multiple times â€” existing locations are never deleted."
+            description="Creates or verifies office location records from the canonical location mapping. Safe to run multiple times — existing locations are never deleted."
             icon={<LocationOnIcon />}
-            statusLine={`Active locations: ${jobStatus?.locationSync.currentCount ?? 'â€”'}`}
+            statusLine={`Active locations: ${jobStatus?.locationSync.currentCount ?? '—'}`}
             schedule={getSchedule('sync-locations')}
             isRunningNow={
               runJobNowMutation.isPending && runJobNowMutation.variables === 'sync-locations'
@@ -565,7 +565,7 @@ function AdminJobsInner() {
             description="Rebuilds supervisor-location assignments from Entra group membership."
             icon={<SupervisorAccountIcon />}
             warningText="Rebuilds Entra-synced supervisor assignments only. Manually assigned Technology Assistants and Maintenance Workers are preserved."
-            statusLine={`Last rebuild: ${lastSupervisorSync} Â· ${jobStatus?.supervisorSync.currentCount ?? 'â€”'} active assignments`}
+            statusLine={`Last rebuild: ${lastSupervisorSync} · ${jobStatus?.supervisorSync.currentCount ?? '—'} active assignments`}
             schedule={getSchedule('sync-supervisors')}
             isRunningNow={
               runJobNowMutation.isPending && runJobNowMutation.variables === 'sync-supervisors'
