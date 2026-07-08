@@ -24,16 +24,8 @@ export const Step2Schema = z.object({
   }),
 });
 
-export const Step3aRepairSchema = z.object({
-  vendorId:           z.string().uuid().optional(),
-  vendorName:         z.string().optional(),
-  expectedReturnDate: z.string().optional(),
-  repairNotes:        z.string().max(2000).optional(),
-});
-
 export type Step1Values  = z.infer<typeof Step1Schema>;
 export type Step2Values  = z.infer<typeof Step2Schema>;
-export type Step3aValues = z.infer<typeof Step3aRepairSchema>;
 
 // ─── Step 4: Device Exchange ──────────────────────────────────────────────────
 

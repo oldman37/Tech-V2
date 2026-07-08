@@ -23,7 +23,6 @@ import { useIsMobile } from '../../hooks/useResponsive';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import WizardStep1LinkAndDate from '../../pages/DeviceManagement/wizard/WizardStep1LinkAndDate';
 import WizardStep2DamageDetails from '../../pages/DeviceManagement/wizard/WizardStep2DamageDetails';
-import WizardStep3aRepair from '../../pages/DeviceManagement/wizard/WizardStep3aRepair';
 import WizardStep4DeviceExchange from '../../pages/DeviceManagement/wizard/WizardStep4DeviceExchange';
 import CreateInvoiceDialog from '../DeviceManagement/CreateInvoiceDialog';
 import { damageIncidentService } from '../../services/damageIncident.service';
@@ -32,12 +31,10 @@ import { userService } from '../../services/userService';
 import {
   Step1Schema,
   Step2Schema,
-  Step3aRepairSchema,
 } from '../../pages/DeviceManagement/wizard/wizardSchemas';
 import type {
   Step1Values,
   Step2Values,
-  Step3aValues,
 } from '../../pages/DeviceManagement/wizard/wizardSchemas';
 import type { DamageIncident } from '../../types/damageIncident.types';
 
@@ -48,20 +45,16 @@ import type { DamageIncident } from '../../types/damageIncident.types';
 interface WizardState {
   step1:          Partial<Step1Values>;
   step2:          Partial<Step2Values>;
-  step3a:         Partial<Step3aValues>;
   errors1:        Partial<Record<keyof Step1Values, string>>;
   errors2:        Partial<Record<keyof Step2Values, string>>;
-  errors3a:       Partial<Record<keyof Step3aValues, string>>;
   createdIncident: DamageIncident | null;
 }
 
 type WizardAction =
   | { type: 'PATCH_STEP1';    payload: Partial<Step1Values> }
   | { type: 'PATCH_STEP2';    payload: Partial<Step2Values> }
-  | { type: 'PATCH_STEP3A';   payload: Partial<Step3aValues> }
   | { type: 'SET_ERRORS1';    payload: Partial<Record<keyof Step1Values, string>> }
   | { type: 'SET_ERRORS2';    payload: Partial<Record<keyof Step2Values, string>> }
-  | { type: 'SET_ERRORS3A';   payload: Partial<Record<keyof Step3aValues, string>> }
   | { type: 'SET_INCIDENT';   payload: DamageIncident }
   | { type: 'RESET' }
   | { type: 'RESET_WITH';     payload: WizardState };
@@ -69,21 +62,17 @@ type WizardAction =
 const INITIAL_STATE: WizardState = {
   step1:           { linkedTo: 'device' },
   step2:           { damageType: 'other', severity: 'minor' },
-  step3a:          {},
   errors1:         {},
   errors2:         {},
-  errors3a:        {},
   createdIncident: null,
 };
 
 function reducer(state: WizardState, action: WizardAction): WizardState {
   switch (action.type) {
-    case 'PATCH_STEP1':  return { ...state, step1:  { ...state.step1,  ...action.payload }, errors1: {} };
-    case 'PATCH_STEP2':  return { ...state, step2:  { ...state.step2,  ...action.payload }, errors2: {} };
-    case 'PATCH_STEP3A': return { ...state, step3a: { ...state.step3a, ...action.payload }, errors3a: {} };
-    case 'SET_ERRORS1':  return { ...state, errors1:  action.payload };
-    case 'SET_ERRORS2':  return { ...state, errors2:  action.payload };
-    case 'SET_ERRORS3A': return { ...state, errors3a: action.payload };
+    case 'PATCH_STEP1':  return { ...state, step1: { ...state.step1, ...action.payload }, errors1: {} };
+    case 'PATCH_STEP2':  return { ...state, step2: { ...state.step2, ...action.payload }, errors2: {} };
+    case 'SET_ERRORS1':  return { ...state, errors1: action.payload };
+    case 'SET_ERRORS2':  return { ...state, errors2: action.payload };
     case 'SET_INCIDENT':  return { ...state, createdIncident: action.payload };
     case 'RESET':         return INITIAL_STATE;
     case 'RESET_WITH':    return action.payload;
@@ -97,13 +86,17 @@ function reducer(state: WizardState, action: WizardAction): WizardState {
 
 function getInitialStep(inc: DamageIncident | undefined): number {
   if (!inc?.workflowStep) return 0;
+  // Device Exchange is the last step: index 2 for accidental (no repair-detail
+  // step), index 3 for intentional (has the Create Invoice step before it).
+  const deviceExchangeStep = inc.intent === 'intentional' ? 3 : 2;
   switch (inc.workflowStep) {
-    case 'DAMAGE_REPORTED':                              return 1;
-    case 'PENDING_REPAIR': case 'IN_REPAIR':             return 2;
-    case 'REPAIR_COMPLETE':                              return 3;
-    case 'INVOICED':                                     return 3;
-    case 'DEVICE_EXCHANGE':                              return 3;
-    default:                                             return 0;
+    case 'DAMAGE_REPORTED':  return 1;
+    case 'PENDING_REPAIR':
+    case 'IN_REPAIR':
+    case 'REPAIR_COMPLETE':
+    case 'INVOICED':
+    case 'DEVICE_EXCHANGE':  return deviceExchangeStep;
+    default:                 return 0;
   }
 }
 
@@ -128,7 +121,7 @@ function buildInitialState(inc: DamageIncident | undefined): WizardState {
 function getStepLabels(intent: string | undefined): string[] {
   return intent === 'intentional'
     ? ['Link & Date', 'Damage Details', 'Create Invoice', 'Device Exchange']
-    : ['Link & Date', 'Damage Details', 'Send to Repair', 'Device Exchange'];
+    : ['Link & Date', 'Damage Details', 'Device Exchange'];
 }
 
 // ---------------------------------------------------------------------------
@@ -208,7 +201,6 @@ export default function IncidentWizard({ open, onClose, onCreated, initialIncide
     mutationFn: async () => {
       const s1 = state.step1 as Step1Values;
       const s2 = state.step2 as Step2Values;
-      const s3 = state.step3a;
 
       // Resume path: incident already exists — skip creation
       const inc = state.createdIncident ?? await damageIncidentService.create({
@@ -226,14 +218,12 @@ export default function IncidentWizard({ open, onClose, onCreated, initialIncide
       });
 
       if (inc.equipmentId) {
-        const repairTicket = await repairTicketService.create({
-          equipmentId:         inc.equipmentId,
-          damageIncidentId:    inc.id,
-          vendorId:            s3.vendorId,
-          expectedReturnDate:  s3.expectedReturnDate ? new Date(s3.expectedReturnDate).toISOString() : undefined,
-          repairNotes:         s3.repairNotes,
+        // Vendor assignment and sending to a vendor happen later, on the repair
+        // ticket detail page — the tech creating the incident doesn't decide that.
+        await repairTicketService.create({
+          equipmentId:      inc.equipmentId,
+          damageIncidentId: inc.id,
         });
-        await repairTicketService.updateStatus(repairTicket.id, { status: 'sent_to_vendor' });
       }
       await damageIncidentService.updateWorkflowStep(inc.id, { workflowStep: 'PENDING_REPAIR' });
 
@@ -244,7 +234,7 @@ export default function IncidentWizard({ open, onClose, onCreated, initialIncide
       queryClient.invalidateQueries({ queryKey: ['damage-incidents'] });
       queryClient.invalidateQueries({ queryKey: ['repair-tickets'] });
       onCreated?.(incident);
-      setActiveStep(3);
+      setActiveStep(2);
     },
     onError: () => setApiError('Failed to submit incident. Please try again.'),
   });
@@ -329,22 +319,12 @@ export default function IncidentWizard({ open, onClose, onCreated, initialIncide
     if (initialIncident) {
       dispatch({ type: 'SET_INCIDENT', payload: initialIncident });
     }
-    setActiveStep(2);
-  }, [state.step2, initialIncident]);
-
-  const handleAccidentalSubmit = useCallback(() => {
-    const result = Step3aRepairSchema.safeParse(state.step3a);
-    if (!result.success) {
-      const errs: Partial<Record<keyof Step3aValues, string>> = {};
-      result.error.issues.forEach((e) => {
-        const key = e.path[0] as keyof Step3aValues;
-        if (key) errs[key] = e.message;
-      });
-      dispatch({ type: 'SET_ERRORS3A', payload: errs });
-      return;
+    if (state.step2.intent === 'intentional') {
+      setActiveStep(2);
+    } else {
+      accidentalSubmitMutation.mutate();
     }
-    accidentalSubmitMutation.mutate();
-  }, [state.step3a, accidentalSubmitMutation]);
+  }, [state.step2, initialIncident, accidentalSubmitMutation]);
 
   const handleInvoiceCreated = useCallback(
     (_invoiceId: string) => {
@@ -366,7 +346,6 @@ export default function IncidentWizard({ open, onClose, onCreated, initialIncide
   const intent        = state.step2.intent;
   const stepLabels    = getStepLabels(intent);
   const incident      = state.createdIncident;
-  const vendorInfo    = incident?.equipment?.vendor ?? null;
   const isIntentional = intent === 'intentional';
 
   const isBusy =
@@ -375,6 +354,56 @@ export default function IncidentWizard({ open, onClose, onCreated, initialIncide
     workflowMutation.isPending;
 
   const requiresAdminNotify = (incidentSummary?.totalCount ?? 0) >= 3 && (!adminNotified || !consultationVerified);
+
+  const thresholdWarning = incidentSummary && incidentSummary.totalCount >= 3 ? (
+    <Alert severity="error" sx={{ mb: 3 }}>
+      <AlertTitle>Consultation Required</AlertTitle>
+      This user has <strong>{incidentSummary.totalCount} recorded incidents</strong>.{' '}
+      A consultation with the building admin is required before issuing another device.
+      Complete both steps below before proceeding.
+      <Box sx={{ mt: 1 }}>
+        {incidentSummary.recentIncidents.slice(0, 3).map((inc) => (
+          <Typography key={inc.id} variant="caption" display="block">
+            👤 {new Date(inc.reportedAt).toLocaleDateString()} — {String(inc.damageType).replace(/_/g, ' ')} ({inc.severity})
+          </Typography>
+        ))}
+      </Box>
+      <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5, fontStyle: 'italic' }}>
+        Only user incidents (👤) count toward this threshold — device incidents (💻) are excluded.
+      </Typography>
+      <Box sx={{ mt: 2, display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+        {/* Step 1: Notify admin */}
+        {!adminNotified ? (
+          <Button
+            variant="outlined"
+            color="error"
+            size="small"
+            onClick={() => notifyAdminMutation.mutate()}
+            disabled={notifyAdminMutation.isPending}
+            startIcon={notifyAdminMutation.isPending ? <CircularProgress size={14} /> : undefined}
+          >
+            {notifyAdminMutation.isPending ? 'Sending...' : 'Step 1: Notify Building Admin'}
+          </Button>
+        ) : (
+          <Chip label="Step 1: Admin Notified ✓" color="success" size="small" />
+        )}
+        {/* Step 2: Verify consultation — only shown after admin has been notified */}
+        {adminNotified && !consultationVerified && (
+          <Button
+            variant="contained"
+            color="warning"
+            size="small"
+            onClick={() => setConsultationVerified(true)}
+          >
+            Step 2: Verify Consultation Has Taken Place
+          </Button>
+        )}
+        {consultationVerified && (
+          <Chip label="Step 2: Consultation Verified ✓" color="success" size="small" />
+        )}
+      </Box>
+    </Alert>
+  ) : null;
 
   // ---------------------------------------------------------------------------
   // Render helpers
@@ -393,64 +422,17 @@ export default function IncidentWizard({ open, onClose, onCreated, initialIncide
 
       case 1:
         return (
-          <WizardStep2DamageDetails
-            values={state.step2 as Step2Values}
-            onChange={(patch) => dispatch({ type: 'PATCH_STEP2', payload: patch })}
-            errors={state.errors2}
-          />
+          <>
+            <WizardStep2DamageDetails
+              values={state.step2 as Step2Values}
+              onChange={(patch) => dispatch({ type: 'PATCH_STEP2', payload: patch })}
+              errors={state.errors2}
+            />
+            {!isIntentional && thresholdWarning}
+          </>
         );
 
       case 2: {
-        const thresholdWarning = incidentSummary && incidentSummary.totalCount >= 3 ? (
-          <Alert severity="error" sx={{ mb: 3 }}>
-            <AlertTitle>Consultation Required</AlertTitle>
-            This user has <strong>{incidentSummary.totalCount} recorded incidents</strong>.{' '}
-            A consultation with the building admin is required before issuing another device.
-            Complete both steps below before proceeding.
-            <Box sx={{ mt: 1 }}>
-              {incidentSummary.recentIncidents.slice(0, 3).map((inc) => (
-                <Typography key={inc.id} variant="caption" display="block">
-                  👤 {new Date(inc.reportedAt).toLocaleDateString()} — {String(inc.damageType).replace(/_/g, ' ')} ({inc.severity})
-                </Typography>
-              ))}
-            </Box>
-            <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5, fontStyle: 'italic' }}>
-              Only user incidents (👤) count toward this threshold — device incidents (💻) are excluded.
-            </Typography>
-            <Box sx={{ mt: 2, display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
-              {/* Step 1: Notify admin */}
-              {!adminNotified ? (
-                <Button
-                  variant="outlined"
-                  color="error"
-                  size="small"
-                  onClick={() => notifyAdminMutation.mutate()}
-                  disabled={notifyAdminMutation.isPending}
-                  startIcon={notifyAdminMutation.isPending ? <CircularProgress size={14} /> : undefined}
-                >
-                  {notifyAdminMutation.isPending ? 'Sending...' : 'Step 1: Notify Building Admin'}
-                </Button>
-              ) : (
-                <Chip label="Step 1: Admin Notified ✓" color="success" size="small" />
-              )}
-              {/* Step 2: Verify consultation — only shown after admin has been notified */}
-              {adminNotified && !consultationVerified && (
-                <Button
-                  variant="contained"
-                  color="warning"
-                  size="small"
-                  onClick={() => setConsultationVerified(true)}
-                >
-                  Step 2: Verify Consultation Has Taken Place
-                </Button>
-              )}
-              {consultationVerified && (
-                <Chip label="Step 2: Consultation Verified ✓" color="success" size="small" />
-              )}
-            </Box>
-          </Alert>
-        ) : null;
-
         if (isIntentional) {
           const hasInvoice =
             (incident?.invoices?.length ?? 0) > 0 ||
@@ -493,28 +475,21 @@ export default function IncidentWizard({ open, onClose, onCreated, initialIncide
             </Box>
           );
         }
+
+        // Accidental flow: Device Exchange is the final step.
+        if (!incident) return null;
         return (
-          <>
-            {thresholdWarning}
-            <WizardStep3aRepair
-              values={state.step3a as Step3aValues}
-              onChange={(patch) => dispatch({ type: 'PATCH_STEP3A', payload: patch })}
-              errors={state.errors3a}
-              vendorInfo={vendorInfo
-                ? {
-                    id:          vendorInfo.id,
-                    name:        vendorInfo.name,
-                    contactName: vendorInfo.contactName ?? null,
-                    email:       vendorInfo.email ?? null,
-                    phone:       vendorInfo.phone ?? null,
-                  }
-                : null}
-            />
-          </>
+          <WizardStep4DeviceExchange
+            step1={state.step1}
+            createdIncident={incident}
+            onBack={() => setActiveStep(1)}
+            onFinish={(inc) => { onCreated?.(inc); handleClose(); }}
+          />
         );
       }
 
       case 3:
+        // Intentional flow only: Device Exchange after Create Invoice.
         if (!incident) return null;
         return (
           <WizardStep4DeviceExchange
@@ -531,7 +506,8 @@ export default function IncidentWizard({ open, onClose, onCreated, initialIncide
   }
 
   function renderActions() {
-    if (activeStep === 3) {
+    const deviceExchangeStep = isIntentional ? 3 : 2;
+    if (activeStep === deviceExchangeStep) {
       // WizardStep4DeviceExchange renders its own Back and Complete Exchange buttons
       return null;
     }
@@ -545,24 +521,6 @@ export default function IncidentWizard({ open, onClose, onCreated, initialIncide
       );
     }
 
-    if (activeStep === 2 && !isIntentional) {
-      return (
-        <>
-          <Button variant="outlined" onClick={() => setActiveStep(1)} disabled={isBusy}>
-            Back
-          </Button>
-          <Button
-            variant="contained"
-            onClick={handleAccidentalSubmit}
-            disabled={isBusy || requiresAdminNotify}
-            startIcon={isBusy ? <CircularProgress size={16} /> : undefined}
-          >
-            {isBusy ? 'Submitting...' : 'Submit'}
-          </Button>
-        </>
-      );
-    }
-
     if (activeStep === 1) {
       return (
         <>
@@ -572,10 +530,12 @@ export default function IncidentWizard({ open, onClose, onCreated, initialIncide
           <Button
             variant="contained"
             onClick={handleNextStep1}
-            disabled={isBusy}
+            disabled={isBusy || (!isIntentional && requiresAdminNotify)}
             startIcon={isBusy ? <CircularProgress size={16} /> : undefined}
           >
-            {isBusy ? 'Creating...' : 'Next'}
+            {isBusy
+              ? (isIntentional ? 'Creating...' : 'Submitting...')
+              : (isIntentional ? 'Next' : 'Submit')}
           </Button>
         </>
       );
