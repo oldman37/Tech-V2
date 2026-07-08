@@ -28,7 +28,7 @@ import type {
 // Types
 // ---------------------------------------------------------------------------
 
-type MaintenanceRole = 'county_wide' | 'school_only' | undefined;
+type MaintenanceRole = 'county_wide' | 'school_only' | 'director' | undefined;
 
 // ---------------------------------------------------------------------------
 // Valid status transitions (state machine)
@@ -248,6 +248,12 @@ export class WorkOrderService {
     }
 
     // permLevel === 4
+    if (maintenanceRole === 'director') {
+      // Maintenance Director sees every MAINTENANCE-department ticket district-wide,
+      // regardless of supervised locations — mirrors the county_wide check above.
+      if (ticket.department === 'MAINTENANCE') return;
+      throw new AuthorizationError('You do not have access to this work order');
+    }
     const locationIds = await this.getSupervisedLocationIds(userId);
     if (locationIds.length === 0) return; // no location assignments → unrestricted (mirrors getWorkOrders)
     if (ticket.officeLocationId && locationIds.includes(ticket.officeLocationId)) return;
@@ -295,8 +301,9 @@ export class WorkOrderService {
 
     // Build base where clause from explicit query params
     const baseWhere: Prisma.TicketWhereInput = {};
-    // County-wide maintenance workers are restricted to MAINTENANCE tickets regardless of query param
-    if (maintenanceRole === 'county_wide') {
+    // County-wide maintenance workers and Maintenance Directors are restricted to
+    // MAINTENANCE tickets regardless of query param
+    if (maintenanceRole === 'county_wide' || maintenanceRole === 'director') {
       baseWhere.department = 'MAINTENANCE' as any;
     } else if (query.department) {
       baseWhere.department = query.department;
@@ -348,12 +355,16 @@ export class WorkOrderService {
         }
       }
     } else if (permLevel === 4) {
-      // Supervisor scope — all supervised locations
-      const locationIds = await this.getSupervisedLocationIds(userId);
-      if (locationIds.length > 0) {
-        scopeWhere = { officeLocationId: { in: locationIds } };
+      if (maintenanceRole === 'director') {
+        // No location restriction — department already forced to MAINTENANCE in baseWhere
+      } else {
+        // Supervisor scope — all supervised locations
+        const locationIds = await this.getSupervisedLocationIds(userId);
+        if (locationIds.length > 0) {
+          scopeWhere = { officeLocationId: { in: locationIds } };
+        }
+        // If no locations, admin can still fall through to no extra scope
       }
-      // If no locations, admin can still fall through to no extra scope
     }
     // permLevel >= 5: no additional scope restriction
 

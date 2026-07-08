@@ -35,7 +35,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Host '==> Preflight 3/3: backend integration tests (vitest run inside Docker)'
-docker compose -f docker-compose.dev.yml --profile test run --rm backend-test
+docker compose -f docker-compose.dev.yml --profile test run --build --rm backend-test
 $testResult = $LASTEXITCODE
 
 Write-Host '==> Cleaning up test containers'

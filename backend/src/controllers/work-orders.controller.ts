@@ -13,7 +13,7 @@ import { AuthRequest } from '../middleware/auth';
 import { WorkOrderService, WorkOrderListResponse } from '../services/work-orders.service';
 import { handleControllerError } from '../utils/errorHandler';
 import { prisma } from '../lib/prisma';
-import { isCountyWideMaintenance, isSchoolMaintenanceWorker } from '../utils/groupAuth';
+import { isCountyWideMaintenance, isSchoolMaintenanceWorker, isMaintenanceDirector } from '../utils/groupAuth';
 import {
   WorkOrderQuerySchema,
   CreateWorkOrderSchema,
@@ -46,9 +46,10 @@ function mapTicket<T extends { ticketNumber: string }>(ticket: T | null): (Omit<
 // Helpers
 // ---------------------------------------------------------------------------
 
-function getMaintenanceRole(groups: string[]): 'county_wide' | 'school_only' | undefined {
+function getMaintenanceRole(groups: string[]): 'county_wide' | 'school_only' | 'director' | undefined {
   if (isCountyWideMaintenance(groups)) return 'county_wide';
   if (isSchoolMaintenanceWorker(groups)) return 'school_only';
+  if (isMaintenanceDirector(groups)) return 'director';
   return undefined;
 }
 

@@ -252,6 +252,11 @@ export function isSchoolMaintenanceWorker(groups: string[]): boolean {
   return Boolean(gid && groups.includes(gid));
 }
 
+export function isMaintenanceDirector(groups: string[]): boolean {
+  const gid = process.env.ENTRA_MAINTENANCE_DIRECTOR_GROUP_ID;
+  return Boolean(gid && groups.includes(gid));
+}
+
 const TICKET_PRIORITY_CHANGE_GROUP_ENV_VARS = [
   'ENTRA_ADMIN_GROUP_ID',
   'ENTRA_TECH_ASSISTANTS_GROUP_ID',
@@ -309,4 +314,49 @@ export function requireDeviceManagementAccess() {
 
     next();
   };
+}
+
+/**
+ * Ordered highest-priority-first: the first matching group's label is the user's
+ * displayed role. Director/leadership groups are listed before ENTRA_ALL_STAFF_GROUP_ID
+ * so that a Director (who is typically also in All Staff) shows their specific title
+ * rather than the generic "Staff" fallback.
+ */
+const ROLE_LABEL_PRIORITY: Array<[string, string]> = [
+  ['ENTRA_ADMIN_GROUP_ID', 'Admin'],
+  ['ENTRA_DIRECTOR_OF_SCHOOLS_GROUP_ID', 'Director of Schools'],
+  ['ENTRA_ASST_DIRECTOR_OF_SCHOOLS_GROUP_ID', 'Assistant Director of Schools'],
+  ['ENTRA_FINANCE_DIRECTOR_GROUP_ID', 'Finance Director'],
+  ['ENTRA_TECHNOLOGY_DIRECTOR_GROUP_ID', 'Technology Director'],
+  ['ENTRA_MAINTENANCE_DIRECTOR_GROUP_ID', 'Maintenance Director'],
+  ['ENTRA_TRANSPORTATION_DIRECTOR_GROUP_ID', 'Transportation Director'],
+  ['ENTRA_SPED_DIRECTOR_GROUP_ID', 'SPED Director'],
+  ['ENTRA_AFTERSCHOOL_DIRECTOR_GROUP_ID', 'Afterschool Director'],
+  ['ENTRA_NURSE_DIRECTOR_GROUP_ID', 'Nurse Director'],
+  ['ENTRA_PRE_K_DIRECTOR_GROUP_ID', 'Pre-K Director'],
+  ['ENTRA_CTE_DIRECTOR_GROUP_ID', 'CTE Director'],
+  ['ENTRA_FOOD_SERVICES_SUPERVISOR_GROUP_ID', 'Food Services Supervisor'],
+  ['ENTRA_PRINCIPALS_GROUP_ID', 'Principal'],
+  ['ENTRA_VICE_PRINCIPALS_GROUP_ID', 'Vice Principal'],
+  ['ENTRA_FINANCE_PO_ENTRY_GROUP_ID', 'Finance PO Entry'],
+  ['ENTRA_FOOD_SERVICES_PO_ENTRY_GROUP_ID', 'Food Services PO Entry'],
+  ['ENTRA_TRANSPORTATION_SECRETARY_GROUP_ID', 'Transportation Secretary'],
+  ['ENTRA_TECH_ASSISTANTS_GROUP_ID', 'Tech Assistant'],
+  ['ENTRA_OCBOE_LIBRARIANS_GROUP_ID', 'Librarian'],
+  ['ENTRA_COUNTY_WIDE_MAINTENANCE_GROUP_ID', 'County-Wide Maintenance'],
+  ['ENTRA_SCHOOL_MAINTENANCE_GROUP_ID', 'School Maintenance'],
+  ['ENTRA_ALL_STAFF_GROUP_ID', 'Staff'],
+  ['ENTRA_ALL_STUDENTS_GROUP_ID', 'Student'],
+];
+
+/**
+ * Derives the single display label for a user's role badge from their highest-priority
+ * matching Entra group. Returns null if the user is in no recognised group.
+ */
+export function getPrimaryRoleLabel(groupIds: string[]): string | null {
+  for (const [envVar, label] of ROLE_LABEL_PRIORITY) {
+    const gid = process.env[envVar];
+    if (gid && groupIds.includes(gid)) return label;
+  }
+  return null;
 }

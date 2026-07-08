@@ -14,6 +14,8 @@ interface User {
   officeLocation?: string | null;
   groups: string[];
   roles?: string[];
+  /** Display label for the user's highest-priority Entra group (e.g. "Staff", "Maintenance Director") */
+  roleLabel?: string | null;
   hasBaseAccess?: boolean;
   canAccessDeviceManagement?: boolean;
   canSeeAllLocations?: boolean;

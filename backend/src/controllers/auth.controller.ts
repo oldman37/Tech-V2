@@ -9,7 +9,7 @@ import { getCookieConfig } from '../config/cookies';
 import { rotateCsrfToken, clearCsrfToken } from '../middleware/csrf';
 import { loggers } from '../lib/logger';
 import { redactEmail, redactEntraId } from '../utils/redact';
-import { derivePermLevelFromGroups, hasDeviceManagementAccess, canSeeAllLocations, isPrincipalOrVP, canChangeTicketPriority, getDefaultWorkOrderDepartment } from '../utils/groupAuth';
+import { derivePermLevelFromGroups, hasDeviceManagementAccess, canSeeAllLocations, isPrincipalOrVP, canChangeTicketPriority, getDefaultWorkOrderDepartment, getPrimaryRoleLabel } from '../utils/groupAuth';
 import { 
   GraphUser, 
   isGraphUser,
@@ -396,6 +396,7 @@ export const callback = async (
         canAccessDeviceManagement,
         canSeeAllLocations: canSeeAllLocations(groupIds),
         isPrincipalOrVP: isPrincipalOrVP(groupIds),
+        roleLabel: getPrimaryRoleLabel(groupIds),
       },
     };
 
@@ -776,6 +777,7 @@ export const getMe = async (
       canAccessDeviceManagement: hasDeviceManagementAccess(groupIds),
       canSeeAllLocations: canSeeAllLocations(groupIds),
       isPrincipalOrVP: isPrincipalOrVP(groupIds),
+      roleLabel: getPrimaryRoleLabel(groupIds),
     },
   });
 };

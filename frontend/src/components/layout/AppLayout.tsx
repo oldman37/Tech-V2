@@ -279,6 +279,7 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
         <div className="shell-header-right">
           <div className="shell-user-info">
             <strong>{user?.name}</strong>
+            {user?.roleLabel && <span>{user.roleLabel}</span>}
             <span>{user?.email}</span>
           </div>
           <button onClick={handleLogout} className="btn btn-ghost btn-sm">

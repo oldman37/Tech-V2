@@ -111,13 +111,14 @@ export async function createTestWorkOrder(params: {
   reportedById: string;
   officeLocationId: string;
   assignedToId?: string;
+  department?: 'TECHNOLOGY' | 'MAINTENANCE';
 }): Promise<{ id: string }> {
   const prisma = getTestPrisma();
   const uid = crypto.randomUUID().slice(0, 8);
   return prisma.ticket.create({
     data: {
       ticketNumber: `TEST-${Date.now()}-${uid}`,
-      department: 'TECHNOLOGY',
+      department: params.department ?? 'TECHNOLOGY',
       description: 'Test work order',
       priority: 'LOW',
       status: 'OPEN',
