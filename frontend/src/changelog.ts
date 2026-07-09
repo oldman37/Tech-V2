@@ -15,7 +15,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       'Tech Assistants now only see their own Purchase Order requests, not all requests at their location',
       'Added when a Category that does not require an asset tag is selected, the Asset Tag field is hidden on the Work Order form',
       'Fixed Maintenance Work Orders not showing up in the list for Maintenance Director and County-Wide Maintenance roles',
-      'Added assigned role to header to clarify which role is currently being used for the logged-in user',
+      'Added assigned role to header desktop mode and in PWA under the user info to clarify which role is currently being used for the logged-in user',
     ],
   },
   {

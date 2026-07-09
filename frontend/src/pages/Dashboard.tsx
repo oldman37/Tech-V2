@@ -64,6 +64,7 @@ export const Dashboard = () => {
     <Box sx={{ p: { xs: 2, sm: 3 } }}>
       <div className="page-header">
         <h2 className="page-title">Welcome, {user?.firstName || user?.name}</h2>
+        {user?.roleLabel && <p className="page-role-label">{user.roleLabel}</p>}
         <p className="page-description">School Works Management Portal</p>
       </div>
 

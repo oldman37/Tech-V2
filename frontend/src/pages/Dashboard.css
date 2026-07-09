@@ -93,6 +93,17 @@
   font-weight: 400;
 }
 
+/* Hidden on desktop — the role label is already shown in the header there.
+   Revealed only on mobile/PWA (see @media (max-width: 768px) below), where
+   the header's .shell-user-info block is hidden. */
+.page-role-label {
+  display: none;
+  color: var(--slate-600);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  margin: -0.25rem 0 0.5rem;
+}
+
 /* Button Modernization */
 .btn-primary {
   background: linear-gradient(135deg, var(--primary-blue) 0%, var(--primary-blue-dark) 100%);
@@ -149,6 +160,7 @@
   .grid-cols-4 { grid-template-columns: repeat(2, 1fr); }
   .grid-cols-3 { grid-template-columns: repeat(2, 1fr); }
   .page-title { font-size: 1.75rem; }
+  .page-role-label { display: block; }
   .page-description { font-size: 0.9375rem; }
   .card { padding: 1.25rem; }
 }
