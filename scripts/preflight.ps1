@@ -38,8 +38,13 @@ Write-Host '==> Preflight 3/3: backend integration tests (vitest run inside Dock
 docker compose -f docker-compose.dev.yml --profile test run --build --rm backend-test
 $testResult = $LASTEXITCODE
 
-Write-Host '==> Cleaning up test containers'
-docker compose -f docker-compose.dev.yml --profile test down
+# Only remove the test-scoped db-test container. backend-test already cleans
+# itself up via `run --rm` above. Deliberately scoped to just this one
+# service (not `--profile test down`) — `down` also matches default-profile
+# services with no `profiles:` key, which would stop/remove the persistent
+# dev backend/frontend/db containers too.
+Write-Host '==> Cleaning up test-only containers (db-test)'
+docker compose -f docker-compose.dev.yml --profile test rm -f -s db-test
 
 if ($testResult -ne 0) {
     Write-Host 'PREFLIGHT FAILED: backend integration tests returned a non-zero exit code.'

@@ -140,6 +140,24 @@ None. No env vars, Prisma schema, or MSAL/Graph scope changes.
   **Mitigation**: Grep for remaining references before deleting the file and the now-unused Zod
   schema/type in `wizardSchemas.ts`.
 
+## Addendum: pre-existing `onCreated` premature-navigation bug
+
+Discovered during live testing of this change (dev server): `IncidentWizardPage.tsx:23` wires
+`onCreated={(incident) => navigate('/incidents/${incident.id}')}`. `accidentalSubmitMutation`'s
+`onSuccess` in `IncidentWizard.tsx` called `onCreated?.(incident)` immediately after creating the
+incident — before the wizard advances to Device Exchange. For the full-page route (the only place
+`IncidentWizard` is used to *create* a new incident), that navigation unmounts the wizard, so
+Device Exchange never renders for the accidental branch. This call existed at the same relative
+point in the pre-change code too (right after the old "Send to Repair" step submitted), so it is
+not something this refactor introduced — it was simply never reached/noticed before, since it
+required completing the full accidental flow through to what used to be step 4.
+
+**Fix**: removed the `onCreated?.(incident)` call from `accidentalSubmitMutation`'s `onSuccess`.
+`onCreated` now fires exactly once for both branches — from `WizardStep4DeviceExchange`'s
+`onFinish`, which is the actual end of the flow — matching how the intentional branch already
+behaved. Query-cache invalidation (`damage-incidents`, `repair-tickets`) in that same `onSuccess`
+handler is untouched, so list views still refresh immediately on incident creation.
+
 ## Build/Validation Commands (approved for Phase 3 / Phase 6)
 
 - `docker compose -f docker-compose.dev.yml build frontend` (frontend `tsc` + `vite build` —

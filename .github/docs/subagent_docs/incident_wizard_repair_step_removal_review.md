@@ -83,6 +83,47 @@ pre-existing and unrelated to this change).
 
 **Overall Grade: A (100%)**
 
-## Result
+## Result (initial)
 
-**PASS** — proceeding to Phase 6 Preflight.
+**PASS** — proceeded to Phase 6 Preflight.
+
+## Addendum: live-testing bug found and fixed
+
+During live dev-server testing (post-preflight), the accidental branch was found to skip Device
+Exchange entirely: `accidentalSubmitMutation`'s `onSuccess` called `onCreated?.(incident)`
+immediately after creating the incident, and `IncidentWizardPage.tsx` wires `onCreated` to
+`navigate('/incidents/${incident.id}')` — unmounting the wizard before Device Exchange ever
+rendered. This call existed at the same point in the pre-change code too (not introduced by this
+refactor), but was never reached/noticed because it required completing the accidental flow all
+the way through what used to be a 4th step.
+
+**Fix**: removed the premature `onCreated?.(incident)` call from `accidentalSubmitMutation`'s
+`onSuccess` (`IncidentWizard.tsx`). `onCreated` now fires exactly once, from
+`WizardStep4DeviceExchange`'s `onFinish` — matching the intentional branch's existing behavior.
+Query-cache invalidation in that same handler is untouched.
+
+Verified live by the user after redeploying the frontend container: creating an accidental
+incident now correctly lands on Device Exchange (check-in/check-out panels, device search) instead
+of navigating away.
+
+**Separately fixed** (infrastructure, discovered during this investigation, not part of the
+original spec but blocking safe re-validation): `scripts/preflight.ps1`'s cleanup step ran
+`docker compose --profile test down`, which — because `down` also matches default-profile
+services — stopped and removed the persistent `backend`/`frontend`/`db` dev containers alongside
+the test-only ones, on every preflight run. Named volumes were preserved (`down` without `-v`
+doesn't touch them), so no data was lost, but it repeatedly disrupted live testing. Fixed by
+scoping cleanup to `docker compose --profile test rm -f -s db-test` (`backend-test` already
+self-removes via `run --rm`). Verified: persistent container start timestamps were identical
+before and after a subsequent preflight run.
+
+## Final Build Validation
+
+- `docker compose -f docker-compose.dev.yml build frontend` — SUCCESS (validates the `onCreated`
+  fix compiles cleanly).
+- `scripts/preflight.ps1` (corrected) — SUCCESS: backend image build, frontend image build, and 38
+  backend tests across 6 files all passed, exit code 0. Persistent dev containers confirmed
+  untouched.
+
+## Result (final)
+
+**PASS** — ready for Phase 7.

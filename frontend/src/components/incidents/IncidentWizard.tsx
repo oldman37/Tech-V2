@@ -233,7 +233,9 @@ export default function IncidentWizard({ open, onClose, onCreated, initialIncide
       dispatch({ type: 'SET_INCIDENT', payload: incident });
       queryClient.invalidateQueries({ queryKey: ['damage-incidents'] });
       queryClient.invalidateQueries({ queryKey: ['repair-tickets'] });
-      onCreated?.(incident);
+      // Don't call onCreated here — the incident record exists but the wizard
+      // isn't finished yet (Device Exchange is next). onCreated fires once,
+      // from WizardStep4DeviceExchange's onFinish, when the flow truly ends.
       setActiveStep(2);
     },
     onError: () => setApiError('Failed to submit incident. Please try again.'),
