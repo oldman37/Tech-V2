@@ -229,6 +229,12 @@ export interface CreatePurchaseOrderInput {
 
 export type UpdatePurchaseOrderInput = Partial<CreatePurchaseOrderInput>;
 
+/** Admin-only correction of vendor and/or ship-to address, regardless of PO status. */
+export interface AdminEditPurchaseOrderInput {
+  vendorId?: string;
+  shipTo?: string | null;
+}
+
 export interface ApprovePOInput {
   notes?: string | null;
   accountCode?: string | null;   // Finance Director can optionally set this during their approval

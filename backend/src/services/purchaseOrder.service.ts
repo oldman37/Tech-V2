@@ -20,6 +20,7 @@ import {
   AssignAccountDto,
   IssuePODto,
   PurchaseOrderQueryDto,
+  AdminEditPurchaseOrderDto,
   POStatus,
 } from '../validators/purchaseOrder.validators';
 import { generatePurchaseOrderPdf } from './pdf.service';
@@ -739,6 +740,40 @@ export class PurchaseOrderService {
       deletedBy: adminUserId,
       deletedAt: new Date().toISOString(),
     });
+  }
+
+  /**
+   * Admin-only correction of vendor and/or ship-to address. Bypasses status
+   * restrictions entirely (unlike updatePurchaseOrder) so a mistake caught
+   * after submission/approval/issuance can still be fixed.
+   */
+  async adminEditVendorAndShipTo(id: string, data: AdminEditPurchaseOrderDto, adminUserId: string) {
+    const po = await this.prisma.purchase_orders.findUnique({ where: { id } });
+    if (!po) throw new NotFoundError('PurchaseOrder', id);
+
+    const changedFields = Object.keys(data).filter(
+      (k) => data[k as keyof AdminEditPurchaseOrderDto] !== undefined,
+    );
+
+    const updated = await this.prisma.purchase_orders.update({
+      where: { id },
+      data: {
+        ...(data.vendorId !== undefined && { vendorId: data.vendorId }),
+        ...(data.shipTo   !== undefined && { shipTo: data.shipTo != null ? sanitizeText(data.shipTo) : null }),
+      },
+      include: {
+        po_items:       { orderBy: { lineNumber: 'asc' } },
+        User:           { select: { id: true, firstName: true, lastName: true, email: true } },
+        vendors:        true,
+        officeLocation: true,
+      },
+    });
+
+    loggers.purchaseOrder.info('Admin edited PO vendor/ship-to', {
+      id, adminUserId, changedFields, previousStatus: po.status,
+    });
+
+    return { updated, changedFields, previousStatus: po.status, previousVendorId: po.vendorId };
   }
 
   // -------------------------------------------------------------------------

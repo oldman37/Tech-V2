@@ -24,6 +24,7 @@ import {
   RejectSchema,
   AssignAccountSchema,
   IssuePOSchema,
+  AdminEditPurchaseOrderSchema,
 } from '../validators/purchaseOrder.validators';
 import {
   sendRequisitionSubmitted,
@@ -113,7 +114,36 @@ export const updatePurchaseOrder = async (req: AuthRequest, res: Response): Prom
     const userGroups = req.user!.groups ?? [];
 
     const po = await service.updatePurchaseOrder(req.params.id as string, data, userId, permLvl, userGroups);
+
+    await writeAuditLog(userId, 'PO_UPDATED', 'purchase_order', req.params.id as string, {
+      changedFields: Object.keys(data).filter((k) => data[k as keyof typeof data] !== undefined),
+      status: po.status,
+    });
+
     res.json(po);
+  } catch (error) {
+    handleControllerError(error, res);
+  }
+};
+
+/**
+ * PATCH /api/purchase-orders/:id/admin-edit
+ * Admin-only: correct vendor and/or ship-to address regardless of PO status.
+ */
+export const adminEditPurchaseOrder = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const data = AdminEditPurchaseOrderSchema.parse(req.body);
+    const adminUserId = req.user!.id;
+    const id = req.params.id as string;
+
+    const { updated, changedFields, previousStatus, previousVendorId } =
+      await service.adminEditVendorAndShipTo(id, data, adminUserId);
+
+    await writeAuditLog(adminUserId, 'PO_ADMIN_EDIT', 'purchase_order', id, {
+      changedFields, previousStatus, previousVendorId, newVendorId: updated.vendorId,
+    });
+
+    res.json(updated);
   } catch (error) {
     handleControllerError(error, res);
   }

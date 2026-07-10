@@ -18,6 +18,7 @@ import type {
   PurchaseOrderFilters,
   CreatePurchaseOrderInput,
   UpdatePurchaseOrderInput,
+  AdminEditPurchaseOrderInput,
   ApprovePOInput,
   RejectPOInput,
   AssignAccountCodeInput,
@@ -110,6 +111,15 @@ const purchaseOrderService = {
 
   adminDelete: async (id: string): Promise<void> => {
     await api.delete(`${BASE}/${id}/admin-delete`);
+  },
+
+  /**
+   * PATCH /api/purchase-orders/:id/admin-edit
+   * Admin-only: correct vendor and/or ship-to address, regardless of PO status.
+   */
+  adminEdit: async (id: string, data: AdminEditPurchaseOrderInput): Promise<PurchaseOrder> => {
+    const res = await api.patch<PurchaseOrder>(`${BASE}/${id}/admin-edit`, data);
+    return res.data;
   },
 
   // -------------------------------------------------------------------------

@@ -14,6 +14,7 @@ import { queryKeys } from '@/lib/queryKeys';
 import type {
   CreatePurchaseOrderInput,
   UpdatePurchaseOrderInput,
+  AdminEditPurchaseOrderInput,
   ApprovePOInput,
   RejectPOInput,
   AssignAccountCodeInput,
@@ -83,6 +84,24 @@ export function useAdminDeletePurchaseOrder() {
 
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.all });
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// useAdminEditPurchaseOrder
+// ---------------------------------------------------------------------------
+
+export function useAdminEditPurchaseOrder() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: AdminEditPurchaseOrderInput }) =>
+      purchaseOrderService.adminEdit(id, data),
+
+    onSuccess: (_, { id }) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.detail(id) });
     },
   });
 }

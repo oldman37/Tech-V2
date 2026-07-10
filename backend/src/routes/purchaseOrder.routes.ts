@@ -28,6 +28,7 @@ import {
   RejectSchema,
   AssignAccountSchema,
   IssuePOSchema,
+  AdminEditPurchaseOrderSchema,
 } from '../validators/purchaseOrder.validators';
 import * as purchaseOrderController from '../controllers/purchaseOrder.controller';
 
@@ -209,6 +210,18 @@ router.delete(
   validateRequest(PurchaseOrderIdParamSchema, 'params'),
   requireAdmin,
   purchaseOrderController.adminDeletePurchaseOrder,
+);
+
+/**
+ * PATCH /api/purchase-orders/:id/admin-edit
+ * Admin-only: correct vendor and/or ship-to address, regardless of PO status.
+ */
+router.patch(
+  '/:id/admin-edit',
+  validateRequest(PurchaseOrderIdParamSchema, 'params'),
+  validateRequest(AdminEditPurchaseOrderSchema, 'body'),
+  requireAdmin,
+  purchaseOrderController.adminEditPurchaseOrder,
 );
 
 export default router;

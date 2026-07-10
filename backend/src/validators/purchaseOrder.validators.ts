@@ -13,6 +13,7 @@ import { z } from 'zod';
 import {
   CreatePurchaseOrderSchema,
   UpdatePurchaseOrderSchema,
+  AdminEditPurchaseOrderSchema,
 } from '@mgspe/shared-types';
 
 // ---------------------------------------------------------------------------
@@ -32,7 +33,7 @@ export const PO_VALID_STATUSES = [
 export type POStatus = (typeof PO_VALID_STATUSES)[number];
 
 // Re-export shared Create/Update schemas so existing route imports still work
-export { CreatePurchaseOrderSchema, UpdatePurchaseOrderSchema };
+export { CreatePurchaseOrderSchema, UpdatePurchaseOrderSchema, AdminEditPurchaseOrderSchema };
 
 // ---------------------------------------------------------------------------
 // ID param schema
@@ -149,6 +150,7 @@ export const IssuePOSchema = z.object({
 
 export type CreatePurchaseOrderDto = z.infer<typeof CreatePurchaseOrderSchema>;
 export type UpdatePurchaseOrderDto = z.infer<typeof UpdatePurchaseOrderSchema>;
+export type AdminEditPurchaseOrderDto = z.infer<typeof AdminEditPurchaseOrderSchema>;
 export type ApproveDto = z.infer<typeof ApproveSchema>;
 export type RejectDto = z.infer<typeof RejectSchema>;
 export type AssignAccountDto = z.infer<typeof AssignAccountSchema>;

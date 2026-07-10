@@ -116,7 +116,23 @@ export const UpdatePurchaseOrderSchema = CreatePurchaseOrderSchema
   .partial()
   .omit({ workflowType: true });
 
+// ── Admin edit schema — site admins may correct vendor / ship-to address on a
+//    PO regardless of its current status, but only these two fields. ─────────
+export const AdminEditPurchaseOrderSchema = z.object({
+  vendorId: z.string().uuid('Invalid vendor ID format').optional(),
+  shipTo: z
+    .string()
+    .trim()
+    .max(500, 'Ship-to address must be 500 characters or less')
+    .optional()
+    .nullable(),
+}).refine(
+  (data) => data.vendorId !== undefined || data.shipTo !== undefined,
+  { message: 'At least one field (vendorId or shipTo) must be provided' },
+);
+
 // ── Inferred TypeScript types ─────────────────────────────────────────────────
 export type PurchaseOrderItem = z.infer<typeof PurchaseOrderItemSchema>;
 export type CreatePurchaseOrderInput = z.infer<typeof CreatePurchaseOrderSchema>;
 export type UpdatePurchaseOrderInput = z.infer<typeof UpdatePurchaseOrderSchema>;
+export type AdminEditPurchaseOrderInput = z.infer<typeof AdminEditPurchaseOrderSchema>;

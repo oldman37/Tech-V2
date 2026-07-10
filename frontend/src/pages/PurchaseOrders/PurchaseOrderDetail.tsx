@@ -15,9 +15,11 @@
 
 import { useState } from 'react';
 import { useNavigate, useParams, Link as RouterLink } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { PageBackButton } from '@/components/layout/PageBackButton';
 import {
   Alert,
+  Autocomplete,
   Box,
   Breadcrumbs,
   Button,
@@ -44,6 +46,7 @@ import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import { useAuthStore } from '@/store/authStore';
 import { usePurchaseOrder } from '@/hooks/queries/usePurchaseOrders';
 import { useRequisitionsPermLevel } from '@/hooks/queries/useRequisitionsPermLevel';
+import { vendorsService } from '@/services/referenceDataService';
 import {
   useSubmitPurchaseOrder,
   useApprovePurchaseOrder,
@@ -51,6 +54,7 @@ import {
   useIssuePurchaseOrder,
   useDownloadPOPdf,
   useAdminDeletePurchaseOrder,
+  useAdminEditPurchaseOrder,
 } from '@/hooks/mutations/usePurchaseOrderMutations';
 import {
   PO_STATUS_LABELS,
@@ -61,6 +65,12 @@ import {
 } from '@/types/purchaseOrder.types';
 import { useIsMobile } from '@/hooks/useResponsive';
 import { ResponsiveTable, Column } from '@/components/responsive';
+
+// Minimal vendor shape used by the admin edit dialog's vendor picker
+interface VendorPickerOption {
+  id: string;
+  name: string;
+}
 
 const formatCurrency = (val: string | number | null | undefined) =>
   val != null
@@ -132,6 +142,7 @@ export default function PurchaseOrderDetail() {
   const issueMutation   = useIssuePurchaseOrder();
   const pdfMutation     = useDownloadPOPdf();
   const adminDeleteMutation = useAdminDeletePurchaseOrder();
+  const adminEditMutation = useAdminEditPurchaseOrder();
 
   // Dialog states
   const [approveDialogOpen, setApproveDialogOpen]   = useState(false);
@@ -143,6 +154,18 @@ export default function PurchaseOrderDetail() {
   const [issuePoNumber, setIssuePoNumber]           = useState('');
   const [actionError, setActionError]               = useState<string | null>(null);
   const [adminDeleteDialogOpen, setAdminDeleteDialogOpen] = useState(false);
+  const [adminEditDialogOpen, setAdminEditDialogOpen] = useState(false);
+  const [adminEditVendor, setAdminEditVendor]       = useState<VendorPickerOption | null>(null);
+  const [adminEditShipTo, setAdminEditShipTo]       = useState('');
+
+  // Vendor list for the admin edit dialog's vendor picker
+  const { data: adminEditVendorData } = useQuery({
+    queryKey: ['referenceData', 'vendors', 'active'],
+    queryFn: async () => (await vendorsService.getAll({ isActive: true, limit: 5000 })).items,
+    staleTime: 10 * 60 * 1000,
+    enabled: adminEditDialogOpen,
+  });
+  const adminEditVendorOptions: VendorPickerOption[] = adminEditVendorData ?? [];
 
   if (isLoading) {
     return (
@@ -797,6 +820,24 @@ export default function PurchaseOrderDetail() {
                 </Button>
               )}
 
+              {/* Admin: correct vendor / ship-to address (any status) */}
+              {isAdmin && (
+                <>
+                  <Divider />
+                  <Button
+                    variant="outlined"
+                    fullWidth
+                    onClick={() => {
+                      setAdminEditVendor(po.vendors ? { id: po.vendors.id, name: po.vendors.name } : null);
+                      setAdminEditShipTo(po.shipTo ?? '');
+                      setAdminEditDialogOpen(true);
+                    }}
+                  >
+                    Edit Vendor / Ship-To (Admin)
+                  </Button>
+                </>
+              )}
+
               {/* Admin hard-delete */}
               {isAdmin && (
                 <>
@@ -1005,6 +1046,70 @@ export default function PurchaseOrderDetail() {
             startIcon={adminDeleteMutation.isPending ? <CircularProgress size={18} /> : undefined}
           >
             Delete Permanently
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ── Admin Edit Vendor/Ship-To Dialog ── */}
+      <Dialog open={adminEditDialogOpen} onClose={() => setAdminEditDialogOpen(false)} maxWidth="sm" fullWidth fullScreen={isMobile}>
+        <DialogTitle>Edit Vendor / Ship-To (Admin)</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" gutterBottom>
+            Corrects the vendor and/or ship-to address on this PO regardless of its current status.
+            All other fields are unaffected.
+          </Typography>
+          <Autocomplete
+            options={adminEditVendorOptions}
+            getOptionLabel={(opt) => opt.name}
+            isOptionEqualToValue={(opt, val) => opt.id === val.id}
+            value={adminEditVendor ?? undefined}
+            onChange={(_, val) => setAdminEditVendor(val)}
+            disableClearable
+            sx={{ mt: 2 }}
+            renderInput={(params) => <TextField {...params} label="Vendor" />}
+          />
+          <TextField
+            label="Ship-To Address"
+            value={adminEditShipTo}
+            onChange={(e) => setAdminEditShipTo(e.target.value)}
+            multiline
+            minRows={3}
+            fullWidth
+            sx={{ mt: 2 }}
+            slotProps={{ htmlInput: { maxLength: 500 } }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setAdminEditDialogOpen(false)} disabled={adminEditMutation.isPending}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={() =>
+              adminEditMutation.mutate(
+                {
+                  id: po.id,
+                  data: {
+                    ...(adminEditVendor?.id !== po.vendors?.id ? { vendorId: adminEditVendor?.id } : {}),
+                    ...(adminEditShipTo !== (po.shipTo ?? '') ? { shipTo: adminEditShipTo || null } : {}),
+                  },
+                },
+                {
+                  onSuccess: () => setAdminEditDialogOpen(false),
+                  onError: (err: unknown) => {
+                    const e = err as { response?: { data?: { message?: string } } };
+                    setActionError(e?.response?.data?.message ?? 'Failed to update purchase order');
+                    setAdminEditDialogOpen(false);
+                  },
+                },
+              )
+            }
+            disabled={
+              adminEditMutation.isPending ||
+              (adminEditVendor?.id === po.vendors?.id && adminEditShipTo === (po.shipTo ?? ''))
+            }
+          >
+            {adminEditMutation.isPending ? <CircularProgress size={20} /> : 'Save Changes'}
           </Button>
         </DialogActions>
       </Dialog>
