@@ -246,7 +246,7 @@ Physical room-by-room checklist replacing `inventory.php`. Flag missing items, r
 | `DeviceAssignment` | Checkout / check-in record; one active per device |
 | `DamageIncident` | Damage reports with type, severity, status progression |
 | `DamageIncidentPhoto` | Up to 5 photos per incident (multer, 5 MB max) |
-| `RepairTicket` | Repair workflow: pending → sent_to_vendor → in_repair → returned |
+| `RepairTicket` | Repair workflow: pending → sent_to_vendor → returned |
 | `DamageInvoice` | Invoice lifecycle: draft → sent → paid / waived / collections |
 | `InvoicePayment` | Payment records; auto-set invoice to paid when fully collected |
 
@@ -561,7 +561,7 @@ TRACK D — Infrastructure & Quality (ongoing / post-launch)
 
 **Status flows:**
 - Damage: `reported → invoiced → in_repair → resolved` (or `waived`)
-- Repair: `pending → sent_to_vendor → in_repair → returned` (or `unrepairable` / `cancelled`)
+- Repair: `pending → sent_to_vendor → returned` (or `unrepairable` / `cancelled`)
 
 #### Sprint 1to1-4 — Invoicing *(~1 week)*
 - Install backend deps: `npm install nodemailer pdfkit html-to-text` + types

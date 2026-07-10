@@ -33,11 +33,11 @@ export async function getDashboard(): Promise<DashboardData> {
     prisma.deviceAssignment.count({ where: { returnedAt: null } }),
 
     // 2. Devices in repair count
-    prisma.repairTicket.count({ where: { status: { in: ['sent_to_vendor', 'in_repair'] } } }),
+    prisma.repairTicket.count({ where: { status: { in: ['sent_to_vendor'] } } }),
 
     // 3. Active repairs for avg days
     prisma.repairTicket.findMany({
-      where: { status: { in: ['sent_to_vendor', 'in_repair'] }, sentForRepairAt: { not: null } },
+      where: { status: { in: ['sent_to_vendor'] }, sentForRepairAt: { not: null } },
       select: { sentForRepairAt: true },
     }),
 

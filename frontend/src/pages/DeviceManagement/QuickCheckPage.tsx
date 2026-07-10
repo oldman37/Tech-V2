@@ -27,9 +27,11 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import QrCodeScannerIcon from '@mui/icons-material/QrCodeScanner';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { deviceAssignmentService } from '../../services/deviceAssignment.service';
+import { repairTicketService } from '../../services/repairTicket.service';
 import { DeviceManagementUserSearch, type UserOption } from '../../components/DeviceManagement/UserSearchAutocomplete';
+import { DeviceOutForRepairDialog } from '../../components/DeviceManagement/DeviceOutForRepairDialog';
 import { DeviceStatusChip } from '../../components/DeviceManagement/DeviceStatusChip';
 import { ConditionChip } from '../../components/DeviceManagement/ConditionChip';
 import type { ScanResult, CheckinFormData, CheckoutFormData } from '../../types/deviceAssignment.types';
@@ -104,6 +106,9 @@ export default function QuickCheckPage() {
   // Submit error
   const [submitError, setSubmitError] = useState<string | null>(null);
 
+  // Whether the currently scanned device's open repair ticket has been marked returned
+  const [repairResolved, setRepairResolved] = useState(false);
+
   // Refs
   const barcodeInputRef = useRef<HTMLInputElement>(null);
 
@@ -126,6 +131,7 @@ export default function QuickCheckPage() {
     setCheckoutNotes('');
     setUserError(null);
     setSubmitError(null);
+    setRepairResolved(false);
     setPageState({ phase: 'idle' });
     setTimeout(() => barcodeInputRef.current?.focus(), 50);
   }, []);
@@ -152,6 +158,7 @@ export default function QuickCheckPage() {
     try {
       const result = await deviceAssignmentService.scan({ barcode: code });
       setBarcodeInput('');
+      setRepairResolved(false);
       setPageState({ phase: 'ready', result });
     } catch (err: unknown) {
       setScanError(getScanErrorByStatus(err));
@@ -282,6 +289,21 @@ export default function QuickCheckPage() {
   const isSubmitting = pageState.phase === 'submitting';
   const isDisabled = isScanning || isSubmitting;
   const scanResultData = pageState.phase === 'ready' ? pageState.result : null;
+
+  // Block checkout while the device is still out for repair and hasn't been marked returned
+  const needsRepairCheck = mode === 'checkout' && !!scanResultData && !scanResultData.activeAssignment;
+
+  const { data: fetchedRepairTicket } = useQuery({
+    queryKey: ['active-repair-ticket', scanResultData?.equipment.id],
+    queryFn:  () =>
+      repairTicketService
+        .getAll({ equipmentId: scanResultData!.equipment.id, status: 'sent_to_vendor', limit: 1 })
+        .then((r) => r.items[0] ?? null),
+    enabled: needsRepairCheck && !repairResolved,
+  });
+  // `enabled: false` stops refetching but leaves the last-fetched ticket cached,
+  // so once resolved we must explicitly stop treating it as still active.
+  const activeRepairTicket = repairResolved ? null : fetchedRepairTicket;
 
   const checkinAssigneeName =
     scanResultData?.activeAssignment
@@ -626,6 +648,15 @@ export default function QuickCheckPage() {
                       .join(' ') || 'someone'}
                     .
                   </Alert>
+                ) : activeRepairTicket ? (
+                  <DeviceOutForRepairDialog
+                    open
+                    equipmentLabel={`${scanResultData.equipment.assetTag} — ${scanResultData.equipment.name}`}
+                    ticketNumber={activeRepairTicket.ticketNumber}
+                    repairTicketId={activeRepairTicket.id}
+                    onResolved={() => setRepairResolved(true)}
+                    onCancel={resetForm}
+                  />
                 ) : (
                   <>
                     <Divider sx={{ my: 1.5 }} />
@@ -709,7 +740,7 @@ export default function QuickCheckPage() {
                   {isSubmitting ? 'Checking In…' : 'Check In'}
                 </Button>
               )}
-              {mode === 'checkout' && !scanResultData.activeAssignment && (
+              {mode === 'checkout' && !scanResultData.activeAssignment && !activeRepairTicket && (
                 <Button
                   variant="contained"
                   color="primary"

@@ -29,7 +29,9 @@ import ErrorIcon from '@mui/icons-material/Error';
 import { useQuery } from '@tanstack/react-query';
 import { locationService } from '../../services/location.service';
 import { deviceAssignmentService } from '../../services/deviceAssignment.service';
+import { repairTicketService } from '../../services/repairTicket.service';
 import { DeviceManagementUserSearch, type UserOption } from '../../components/DeviceManagement/UserSearchAutocomplete';
+import { DeviceOutForRepairDialog } from '../../components/DeviceManagement/DeviceOutForRepairDialog';
 import { useIsMobile } from '../../hooks/useResponsive';
 import type { OfficeLocationWithSupervisors } from '../../types/location.types';
 import type { AssigneeType, CheckoutCondition } from '@mgspe/shared-types';
@@ -43,6 +45,14 @@ interface AssignedDevice {
   success: boolean;
   error?: string;
   assignedTo?: string;
+}
+
+interface PendingRepairScan {
+  equipmentId:  string;
+  assetTag:     string;
+  name:         string;
+  ticketId:     string;
+  ticketNumber: string;
 }
 
 export default function BulkCheckoutPage() {
@@ -69,6 +79,7 @@ export default function BulkCheckoutPage() {
   const [assignedDevices, setAssignedDevices] = useState<AssignedDevice[]>([]);
   const [scanError, setScanError] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
+  const [pendingRepair, setPendingRepair] = useState<PendingRepairScan | null>(null);
   const barcodeRef = useRef<HTMLInputElement>(null);
 
   // Fetch locations
@@ -117,6 +128,54 @@ export default function BulkCheckoutPage() {
     setActiveStep(1);
   };
 
+  // Complete the checkout for a device already known to be free of an active
+  // assignment and repair ticket — used both by the normal scan flow and by
+  // the "mark returned" dialog's resume path.
+  const runCheckout = useCallback(async (equipment: { id: string; assetTag: string; name: string }) => {
+    if (!selectedUser || !selectedLocation) return;
+    try {
+      const checkoutData = {
+        equipmentId: equipment.id,
+        userId: selectedUser.id,
+        assigneeType,
+        checkoutCondition,
+        locationId: selectedLocation.id,
+      };
+
+      await deviceAssignmentService.checkout(checkoutData);
+
+      setAssignedDevices((prev) => [
+        {
+          equipmentId: equipment.id,
+          assetTag: equipment.assetTag,
+          name: equipment.name,
+          success: true,
+          assignedTo: selectedUser.label,
+        },
+        ...prev,
+      ]);
+      setScanError(null);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to assign device';
+      const apiMsg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      const errorMsg = apiMsg || msg;
+      setScanError(errorMsg);
+      setAssignedDevices((prev) => [
+        {
+          equipmentId: equipment.id,
+          assetTag: equipment.assetTag,
+          name: equipment.name,
+          success: false,
+          error: errorMsg,
+        },
+        ...prev,
+      ]);
+    } finally {
+      setScanning(false);
+      barcodeRef.current?.focus();
+    }
+  }, [selectedUser, selectedLocation, assigneeType, checkoutCondition]);
+
   // Step 3: handle barcode scan submission
   const handleBarcodeScan = useCallback(async () => {
     const barcode = barcodeInput.trim();
@@ -139,31 +198,27 @@ export default function BulkCheckoutPage() {
         return;
       }
 
-      // Device is available — checkout
-      const checkoutData = {
-        equipmentId: scanResult.equipment.id,
-        userId: selectedUser.id,
-        assigneeType,
-        checkoutCondition,
-        locationId: selectedLocation.id,
-      };
+      // Block if the device is still out for repair and hasn't been marked returned
+      const activeTicket = await repairTicketService
+        .getAll({ equipmentId: scanResult.equipment.id, status: 'sent_to_vendor', limit: 1 })
+        .then((r) => r.items[0] ?? null);
 
-      await deviceAssignmentService.checkout(checkoutData);
+      if (activeTicket) {
+        setPendingRepair({
+          equipmentId:  scanResult.equipment.id,
+          assetTag:     scanResult.equipment.assetTag,
+          name:         scanResult.equipment.name,
+          ticketId:     activeTicket.id,
+          ticketNumber: activeTicket.ticketNumber,
+        });
+        setScanning(false);
+        return;
+      }
 
-      setAssignedDevices((prev) => [
-        {
-          equipmentId: scanResult.equipment.id,
-          assetTag: scanResult.equipment.assetTag,
-          name: scanResult.equipment.name,
-          success: true,
-          assignedTo: selectedUser.label,
-        },
-        ...prev,
-      ]);
-      setScanError(null);
+      await runCheckout(scanResult.equipment);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to assign device';
-      const apiMsg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
+      const apiMsg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
       const errorMsg = apiMsg || msg;
       setScanError(errorMsg);
       setAssignedDevices((prev) => [
@@ -176,11 +231,24 @@ export default function BulkCheckoutPage() {
         },
         ...prev,
       ]);
-    } finally {
       setScanning(false);
       barcodeRef.current?.focus();
     }
-  }, [barcodeInput, selectedUser, selectedLocation, assigneeType, checkoutCondition]);
+  }, [barcodeInput, selectedUser, selectedLocation, runCheckout]);
+
+  const handleRepairResolved = () => {
+    if (!pendingRepair) return;
+    const { equipmentId, assetTag, name } = pendingRepair;
+    setPendingRepair(null);
+    setScanning(true);
+    runCheckout({ id: equipmentId, assetTag, name });
+  };
+
+  const handleRepairCancel = () => {
+    setPendingRepair(null);
+    setScanning(false);
+    barcodeRef.current?.focus();
+  };
 
   const handleBarcodeKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
@@ -330,6 +398,17 @@ export default function BulkCheckoutPage() {
             <Alert severity="error" sx={{ mb: 2 }} onClose={() => setScanError(null)}>
               {scanError}
             </Alert>
+          )}
+
+          {pendingRepair && (
+            <DeviceOutForRepairDialog
+              open
+              equipmentLabel={`${pendingRepair.assetTag} — ${pendingRepair.name}`}
+              ticketNumber={pendingRepair.ticketNumber}
+              repairTicketId={pendingRepair.ticketId}
+              onResolved={handleRepairResolved}
+              onCancel={handleRepairCancel}
+            />
           )}
 
           {assignedDevices.length > 0 && (

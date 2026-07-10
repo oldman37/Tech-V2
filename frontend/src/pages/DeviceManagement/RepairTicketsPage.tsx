@@ -31,7 +31,7 @@ import { RepairStatusStepper } from '../../components/DeviceManagement/RepairSta
 import type { RepairTicket, CreateRepairTicketData } from '../../types/repairTicket.types';
 import type { RepairTicketStatus } from '@mgspe/shared-types';
 
-const STATUSES: RepairTicketStatus[] = ['pending', 'sent_to_vendor', 'in_repair', 'returned', 'unrepairable', 'cancelled'];
+const STATUSES: RepairTicketStatus[] = ['pending', 'sent_to_vendor', 'returned', 'unrepairable', 'cancelled'];
 
 const emptyForm: CreateRepairTicketData = {
   equipmentId:        '',
@@ -58,12 +58,13 @@ export default function RepairTicketsPage() {
   const [formError,       setFormError]       = useState<string | null>(null);
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['repair-tickets', { page, pageSize, statusFilter }],
+    queryKey: ['repair-tickets', { page, pageSize, statusFilter, search }],
     queryFn:  () =>
       repairTicketService.getAll({
         page:   page + 1,
         limit:  pageSize,
         status: statusFilter || undefined,
+        search: search || undefined,
       }),
   });
 
@@ -152,17 +153,7 @@ export default function RepairTicketsPage() {
   ];
 
   const activeFilterCount = statusFilter ? 1 : 0;
-
-  const filteredRows = (data?.items ?? []).filter((r) => {
-    if (!search) return true;
-    const q = search.toLowerCase();
-    return (
-      (r.ticketNumber ?? '').toLowerCase().includes(q) ||
-      (r.equipment?.assetTag ?? '').toLowerCase().includes(q) ||
-      (r.equipment?.name ?? '').toLowerCase().includes(q) ||
-      (r.vendor?.name ?? '').toLowerCase().includes(q)
-    );
-  });
+  const rows = data?.items ?? [];
 
   return (
     <Box sx={{ p: { xs: 1, sm: 3 } }}>
@@ -236,7 +227,7 @@ export default function RepairTicketsPage() {
 
       <ResponsiveTable
         columns={columns}
-        rows={filteredRows}
+        rows={rows}
         getRowKey={(t) => t.id}
         onRowClick={(t) => navigate(`/device-management/repair-tickets/${t.id}`)}
         loading={isLoading}

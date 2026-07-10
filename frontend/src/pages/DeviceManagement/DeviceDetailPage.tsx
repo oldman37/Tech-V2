@@ -150,7 +150,7 @@ export default function DeviceDetailPage() {
     enabled:  !!id,
   });
   const latestIncident = latestIncidentData?.items?.find(
-    (i) => i.status !== 'resolved' && i.status !== 'waived',
+    (i) => i.workflowStep !== 'CLOSED' && i.status !== 'resolved' && i.status !== 'waived',
   ) ?? null;
 
   // ── Mutations ─────────────────────────────────────────────────────────
@@ -370,7 +370,7 @@ export default function DeviceDetailPage() {
                     label: 'Status',
                     render: (incident) => (
                       <Chip
-                        label={incident.status.replace(/_/g, ' ')}
+                        label={(incident.workflowStep ?? incident.status).replace(/_/g, ' ')}
                         size="small"
                         variant="outlined"
                         sx={{ textTransform: 'capitalize' }}
@@ -399,7 +399,7 @@ export default function DeviceDetailPage() {
                 ] as Column<NonNullable<typeof incidentsData>['items'][number]>[]}
                 rows={incidentsData?.items ?? []}
                 getRowKey={(incident) => incident.id}
-                onRowClick={(incident) => navigate(`/device-management/incidents/${incident.id}`)}
+                onRowClick={(incident) => navigate(`/incidents/${incident.id}`)}
                 emptyMessage="No damage reports found for this device."
               />
             </Paper>
@@ -479,7 +479,7 @@ export default function DeviceDetailPage() {
                             color="warning"
                             variant="outlined"
                             clickable
-                            onClick={() => navigate(`/device-management/incidents/${ticket.damageIncidentId}`)}
+                            onClick={() => navigate(`/incidents/${ticket.damageIncidentId}`)}
                           />
                         )
                       : <Typography variant="caption" color="text.disabled">—</Typography>,

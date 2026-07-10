@@ -1,6 +1,6 @@
 import { prisma } from '../lib/prisma';
 import { createLogger } from '../lib/logger';
-import { NotFoundError, AppError } from '../utils/errors';
+import { NotFoundError, AppError, ConflictError } from '../utils/errors';
 import type { Prisma } from '@prisma/client';
 import type { z } from 'zod';
 import type {
@@ -127,6 +127,20 @@ export async function checkout(data: CheckoutData, performedByUserId: string) {
       if (!equipment) throw new NotFoundError('Equipment', data.equipmentId);
       if (equipment.isDisposed) {
         throw new AppError('Equipment is disposed and cannot be checked out', 409, 'CONFLICT');
+      }
+
+      // Block checkout while the device is still out for repair and hasn't
+      // been marked returned — otherwise it could be handed to a student
+      // while sitting at the vendor.
+      const activeRepairTicket = await tx.repairTicket.findFirst({
+        where:  { equipmentId: data.equipmentId, status: 'sent_to_vendor' },
+        select: { id: true, ticketNumber: true },
+      });
+      if (activeRepairTicket) {
+        throw new ConflictError(
+          `This device is still out for repair (ticket ${activeRepairTicket.ticketNumber}) and must be marked returned before it can be checked out.`,
+          { code: 'DEVICE_IN_REPAIR', repairTicketId: activeRepairTicket.id, ticketNumber: activeRepairTicket.ticketNumber },
+        );
       }
 
       // Check for existing active assignment

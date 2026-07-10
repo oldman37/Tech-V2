@@ -376,7 +376,7 @@ export default function UserCheckoutHistoryPage() {
                     label: 'Status',
                     render: (inc) => (
                       <Chip
-                        label={inc.status.replace(/_/g, ' ')}
+                        label={(inc.workflowStep ?? inc.status).replace(/_/g, ' ')}
                         size="small"
                         variant="outlined"
                         sx={{ textTransform: 'capitalize' }}
@@ -386,7 +386,7 @@ export default function UserCheckoutHistoryPage() {
                 ] as Column<NonNullable<typeof incidentsData>['items'][number]>[]}
                 rows={incidentsData?.items ?? []}
                 getRowKey={(inc) => inc.id}
-                onRowClick={(inc) => navigate(`/device-management/incidents/${inc.id}`)}
+                onRowClick={(inc) => navigate(`/incidents/${inc.id}`)}
               />
             </Paper>
           )}

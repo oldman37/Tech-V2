@@ -209,7 +209,7 @@ export type DamageType          =
 export type DamageSeverity      = 'minor' | 'moderate' | 'severe' | 'total_loss';
 export type DamageIncidentStatus = 'reported' | 'invoiced' | 'in_repair' | 'resolved' | 'waived';
 export type RepairTicketStatus  =
-  | 'pending' | 'sent_to_vendor' | 'in_repair'
+  | 'pending' | 'sent_to_vendor'
   | 'returned' | 'unrepairable'  | 'cancelled';
 export type InvoiceStatus       = 'draft' | 'sent' | 'paid' | 'waived' | 'collections';
 

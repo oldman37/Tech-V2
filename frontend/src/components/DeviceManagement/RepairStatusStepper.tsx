@@ -10,15 +10,18 @@ import type { RepairTicketStatus } from '@mgspe/shared-types';
 const STEPS: { key: RepairTicketStatus; label: string }[] = [
   { key: 'pending',        label: 'Pending' },
   { key: 'sent_to_vendor', label: 'Sent to Vendor' },
-  { key: 'in_repair',      label: 'In Repair' },
   { key: 'returned',       label: 'Returned' },
 ];
 
 function getActiveStep(status: RepairTicketStatus): number {
+  // Returned is terminal — push activeStep past the last index so every
+  // step (including "Returned" itself) renders as completed, not just
+  // "current".
+  if (status === 'returned') return STEPS.length;
   const idx = STEPS.findIndex((s) => s.key === status);
   if (idx !== -1) return idx;
-  // unrepairable is after "in_repair" (step 2)
-  if (status === 'unrepairable') return 2;
+  // unrepairable is after "sent_to_vendor" (step 1)
+  if (status === 'unrepairable') return 1;
   return 0;
 }
 

@@ -28,9 +28,6 @@ export const damageIncidentService = {
   update: (id: string, data: Partial<CreateDamageIncidentData>): Promise<DamageIncident> =>
     api.put(`${BASE}/${id}`, data).then((r) => r.data),
 
-  updateStatus: (id: string, data: { status: string; resolutionNotes?: string }): Promise<DamageIncident> =>
-    api.patch(`${BASE}/${id}/status`, data).then((r) => r.data),
-
   updateWorkflowStep: (id: string, data: UpdateWorkflowStepData): Promise<DamageIncident> =>
     api.patch(`${BASE}/${id}/workflow-step`, data).then((r) => r.data),
 

@@ -3,7 +3,7 @@ import path from 'path';
 import { randomUUID } from 'crypto';
 import { prisma } from '../lib/prisma';
 import { createLogger } from '../lib/logger';
-import { NotFoundError, ValidationError, AppError } from '../utils/errors';
+import { NotFoundError, ValidationError, AppError, ConflictError } from '../utils/errors';
 import { Prisma } from '@prisma/client';
 import type { z } from 'zod';
 import type {
@@ -505,7 +505,7 @@ export async function deviceExchange(
       activeRepairFromCheckin = await tx.repairTicket.findFirst({
         where: {
           equipmentId: existingAssignment.equipmentId,
-          status: { in: ['pending', 'sent_to_vendor', 'in_repair'] },
+          status: { in: ['pending', 'sent_to_vendor'] },
         },
         select: { id: true },
       });
@@ -526,6 +526,17 @@ export async function deviceExchange(
       if (!equipmentForCheckout) throw new NotFoundError('Equipment', data.checkout.equipmentId);
       if (equipmentForCheckout.isDisposed) {
         throw new AppError('Equipment is disposed and cannot be checked out', 409, 'CONFLICT');
+      }
+
+      const activeRepairTicketForCheckout = await tx.repairTicket.findFirst({
+        where:  { equipmentId: data.checkout.equipmentId, status: 'sent_to_vendor' },
+        select: { id: true, ticketNumber: true },
+      });
+      if (activeRepairTicketForCheckout) {
+        throw new ConflictError(
+          `This device is still out for repair (ticket ${activeRepairTicketForCheckout.ticketNumber}) and must be marked returned before it can be checked out.`,
+          { code: 'DEVICE_IN_REPAIR', repairTicketId: activeRepairTicketForCheckout.id, ticketNumber: activeRepairTicketForCheckout.ticketNumber },
+        );
       }
 
       const existingActive = await tx.deviceAssignment.findFirst({
@@ -582,7 +593,7 @@ export async function deviceExchange(
         : !!(await tx.repairTicket.findFirst({
             where: {
               equipmentId: incident.equipmentId,
-              status: { in: ['pending', 'sent_to_vendor', 'in_repair'] },
+              status: { in: ['pending', 'sent_to_vendor'] },
             },
             select: { id: true },
           }))

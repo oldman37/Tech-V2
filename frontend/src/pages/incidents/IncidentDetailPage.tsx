@@ -17,59 +17,75 @@ import {
   Typography,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import { useQuery } from '@tanstack/react-query';
+import AddIcon from '@mui/icons-material/Add';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { incidentService } from '../../services/incident.service';
 import { InvoiceStatusChip } from '../../components/DeviceManagement/InvoiceStatusChip';
+import { PhotoUploadGrid } from '../../components/DeviceManagement/PhotoUploadGrid';
+import CreateInvoiceDialog from '../../components/DeviceManagement/CreateInvoiceDialog';
 import IncidentWizard from '../../components/incidents/IncidentWizard';
 import type { DamageIncident } from '../../types/damageIncident.types';
-import type { IncidentWorkflowStep, IncidentIntent, InvoiceStatus } from '@mgspe/shared-types';
+import type { IncidentIntent, InvoiceStatus } from '@mgspe/shared-types';
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-const WORKFLOW_STEPS: IncidentWorkflowStep[] = [
-  'DAMAGE_REPORTED',
-  'PENDING_REPAIR',
-  'IN_REPAIR',
-  'REPAIR_COMPLETE',
-  'INVOICED',
-  'CLOSED',
-];
-
-const INTENTIONAL_STEPS: IncidentWorkflowStep[] = [
-  'DAMAGE_REPORTED',
-  'INVOICED',
-  'CLOSED',
-];
-
-function getActiveStepIndex(
-  workflowStep: IncidentWorkflowStep | null | undefined,
-  intent: IncidentIntent | null | undefined,
-): number {
-  const steps = intent === 'intentional' ? INTENTIONAL_STEPS : WORKFLOW_STEPS;
-  if (!workflowStep) return 0;
-  const idx = steps.indexOf(workflowStep);
-  return idx >= 0 ? idx : 0;
+interface DisplayStep {
+  key:       string;
+  label:     string;
+  completed: boolean;
 }
 
-function stepLabel(step: IncidentWorkflowStep): string {
-  const MAP: Record<IncidentWorkflowStep, string> = {
-    DAMAGE_REPORTED: 'Damage Reported',
-    PENDING_REPAIR:  'Pending Repair',
-    IN_REPAIR:       'In Repair',
-    REPAIR_COMPLETE: 'Repair Complete',
-    INVOICED:        'Invoiced',
-    DEVICE_EXCHANGE: 'Device Exchange',
-    CLOSED:          'Closed',
-  };
-  return MAP[step] ?? step;
+// The incident's own workflowStep isn't a strictly linear timeline — Device
+// Exchange typically happens right after creation, well before the repair
+// ticket itself progresses or finishes. So each step here is derived from
+// its own underlying fact (repair ticket status, invoice existence, etc.)
+// instead of a single ordinal position in workflowStep.
+function buildDisplaySteps(incident: DamageIncident): DisplayStep[] {
+  const isIntentional   = incident.intent === 'intentional';
+  const deviceExchanged = incident.workflowStep === 'DEVICE_EXCHANGE' || incident.workflowStep === 'CLOSED';
+  const latestTicket    = incident.repairTickets?.[0];
+  const sentToRepair    = !!latestTicket && ['sent_to_vendor', 'returned', 'unrepairable'].includes(latestTicket.status);
+  const repairCompleted = latestTicket?.status === 'returned';
+  const hasInvoice      = (incident.invoices?.length ?? 0) > 0;
+  const isClosed        = incident.workflowStep === 'CLOSED';
+
+  const steps: DisplayStep[] = [
+    { key: 'DAMAGE_REPORTED', label: 'Damage Reported',   completed: true },
+    { key: 'DEVICE_EXCHANGE', label: 'Device Exchanged',  completed: deviceExchanged },
+  ];
+
+  if (!isIntentional) {
+    steps.push(
+      { key: 'SENT_TO_REPAIR',  label: 'Sent to Repair',   completed: sentToRepair },
+      { key: 'REPAIR_COMPLETE', label: 'Repair Completed', completed: repairCompleted },
+    );
+  }
+
+  steps.push(
+    { key: 'INVOICED', label: 'Invoice', completed: hasInvoice },
+    { key: 'CLOSED',   label: 'Closed',  completed: isClosed },
+  );
+
+  return steps;
 }
 
 const INTENT_COLORS: Record<IncidentIntent, 'info' | 'error'> = {
   accidental:  'info',
   intentional: 'error',
 };
+
+function getNextActionLabel(incident: DamageIncident): string | null {
+  if (incident.workflowStep === 'CLOSED') return null;
+  // Device Exchange already ran — the incident closes automatically once
+  // the linked repair ticket resolves, so there's nothing left to do here.
+  if (incident.workflowStep === 'DEVICE_EXCHANGE') return null;
+  if (incident.intent === 'intentional' && (incident.invoices?.length ?? 0) === 0) {
+    return 'Create Invoice';
+  }
+  return 'Complete Device Exchange';
+}
 
 // ---------------------------------------------------------------------------
 // Page
@@ -78,8 +94,10 @@ const INTENT_COLORS: Record<IncidentIntent, 'info' | 'error'> = {
 export default function IncidentDetailPage() {
   const { id }   = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const [wizardOpen, setWizardOpen] = useState(false);
+  const [createInvoiceOpen, setCreateInvoiceOpen] = useState(false);
 
   const { data: incident, isLoading, isError } = useQuery<DamageIncident>({
     queryKey: ['damage-incidents', id],
@@ -102,10 +120,11 @@ export default function IncidentDetailPage() {
     );
   }
 
-  const isIntentional = incident.intent === 'intentional';
-  const displaySteps  = isIntentional ? INTENTIONAL_STEPS : WORKFLOW_STEPS;
-  const activeStep    = getActiveStepIndex(incident.workflowStep, incident.intent);
-  const isClosed      = incident.workflowStep === 'CLOSED';
+  const displaySteps = buildDisplaySteps(incident);
+  const firstIncompleteIdx = displaySteps.findIndex((s) => !s.completed);
+  const activeStep = firstIncompleteIdx === -1 ? displaySteps.length : firstIncompleteIdx;
+  const isWaitingOnRepair = incident.workflowStep === 'DEVICE_EXCHANGE';
+  const nextActionLabel  = getNextActionLabel(incident);
 
   return (
     <Box sx={{ p: { xs: 1.5, sm: 3 }, maxWidth: 1100, mx: 'auto' }}>
@@ -119,12 +138,27 @@ export default function IncidentDetailPage() {
         <Typography variant="h5" fontWeight={700}>
           {incident.incidentNumber ?? `Incident ${incident.id.slice(0, 8)}`}
         </Typography>
-        {!isClosed && (
-          <Button variant="contained" onClick={() => setWizardOpen(true)}>
-            Continue Workflow
+        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+          <Button
+            variant="outlined"
+            startIcon={<AddIcon />}
+            onClick={() => setCreateInvoiceOpen(true)}
+          >
+            Create Invoice
           </Button>
-        )}
+          {nextActionLabel && (
+            <Button variant="contained" onClick={() => setWizardOpen(true)}>
+              {nextActionLabel}
+            </Button>
+          )}
+        </Box>
       </Box>
+
+      {isWaitingOnRepair && (
+        <Alert severity="info" sx={{ mb: 3 }}>
+          Device exchange is complete. This incident will close automatically once the linked repair ticket is resolved — no further action needed here.
+        </Alert>
+      )}
 
       <Grid container spacing={3}>
         {/* ── Left column: info card ── */}
@@ -209,8 +243,8 @@ export default function IncidentDetailPage() {
             <CardContent>
               <Stepper activeStep={activeStep} orientation="vertical">
                 {displaySteps.map((step) => (
-                  <Step key={step} completed={displaySteps.indexOf(step) < activeStep}>
-                    <StepLabel>{stepLabel(step)}</StepLabel>
+                  <Step key={step.key} completed={step.completed}>
+                    <StepLabel>{step.label}</StepLabel>
                   </Step>
                 ))}
               </Stepper>
@@ -218,40 +252,20 @@ export default function IncidentDetailPage() {
           </Card>
         </Grid>
 
-        {/* ── Repair Tickets section ── */}
-        {incident.repairTickets && incident.repairTickets.length > 0 && (
-          <Grid size={12}>
-            <Card variant="outlined">
-              <CardHeader title="Repair Tickets" titleTypographyProps={{ variant: 'subtitle1', fontWeight: 600 }} />
-              <Divider />
-              <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                {incident.repairTickets.map((rt) => (
-                  <Box
-                    key={rt.id}
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      p: 1,
-                      border: '1px solid',
-                      borderColor: 'divider',
-                      borderRadius: 1,
-                    }}
-                  >
-                    <Typography variant="body2" fontWeight={600}>{rt.ticketNumber}</Typography>
-                    <Chip size="small" label={rt.status.replace(/_/g, ' ')} />
-                    <Button
-                      size="small"
-                      onClick={() => navigate(`/device-management/repair-tickets/${rt.id}`)}
-                    >
-                      View
-                    </Button>
-                  </Box>
-                ))}
-              </CardContent>
-            </Card>
-          </Grid>
-        )}
+        {/* ── Photos section ── */}
+        <Grid size={12}>
+          <Card variant="outlined">
+            <CardHeader title="Photos" titleTypographyProps={{ variant: 'subtitle1', fontWeight: 600 }} />
+            <Divider />
+            <CardContent>
+              <PhotoUploadGrid
+                incidentId={incident.id}
+                photos={incident.photos ?? []}
+                onPhotosChange={() => queryClient.invalidateQueries({ queryKey: ['damage-incidents', id] })}
+              />
+            </CardContent>
+          </Card>
+        </Grid>
 
         {/* ── Invoices section ── */}
         {incident.invoices && incident.invoices.length > 0 && (
@@ -297,6 +311,13 @@ export default function IncidentDetailPage() {
         open={wizardOpen}
         onClose={() => setWizardOpen(false)}
         initialIncident={incident}
+      />
+
+      <CreateInvoiceDialog
+        open={createInvoiceOpen}
+        onClose={() => setCreateInvoiceOpen(false)}
+        onCreated={() => queryClient.invalidateQueries({ queryKey: ['damage-incidents', id] })}
+        prefillIncidentId={incident.id}
       />
     </Box>
   );

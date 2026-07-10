@@ -11,10 +11,13 @@ import {
   Typography,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import { useQuery } from '@tanstack/react-query';
 import { deviceAssignmentService } from '../../services/deviceAssignment.service';
+import { repairTicketService } from '../../services/repairTicket.service';
 import { ScannerModal } from '../../components/DeviceManagement/ScannerModal';
 import { CheckoutForm } from '../../components/DeviceManagement/CheckoutForm';
 import { CheckinForm } from '../../components/DeviceManagement/CheckinForm';
+import { DeviceOutForRepairDialog } from '../../components/DeviceManagement/DeviceOutForRepairDialog';
 import { DeviceStatusChip } from '../../components/DeviceManagement/DeviceStatusChip';
 import { ConditionChip } from '../../components/DeviceManagement/ConditionChip';
 import type { ScanResult, DeviceAssignmentUser } from '../../types/deviceAssignment.types';
@@ -33,6 +36,21 @@ export default function CheckoutScanPage() {
   const [notFound, setNotFound]       = useState(false);
   const [fetchError, setFetchError]   = useState<string | null>(null);
   const [done, setDone]               = useState(false);
+  const [repairResolved, setRepairResolved] = useState(false);
+
+  const needsRepairCheck = !!scanResult && !scanResult.activeAssignment;
+
+  const { data: fetchedRepairTicket } = useQuery({
+    queryKey: ['active-repair-ticket', scanResult?.equipment.id],
+    queryFn:  () =>
+      repairTicketService
+        .getAll({ equipmentId: scanResult!.equipment.id, status: 'sent_to_vendor', limit: 1 })
+        .then((r) => r.items[0] ?? null),
+    enabled: needsRepairCheck && !repairResolved,
+  });
+  // `enabled: false` stops refetching but leaves the last-fetched ticket cached,
+  // so once resolved we must explicitly stop treating it as still active.
+  const activeRepairTicket = repairResolved ? null : fetchedRepairTicket;
 
   // Scanner modal shown when no code is in URL
   const [scannerOpen, setScannerOpen] = useState(!code && !qrCode && !assetTag);
@@ -54,6 +72,7 @@ export default function CheckoutScanPage() {
     setFetchError(null);
     setScanResult(null);
     setDone(false);
+    setRepairResolved(false);
 
     try {
       const query = buildQuery(rawCode);
@@ -195,12 +214,21 @@ export default function CheckoutScanPage() {
 
           <Divider sx={{ mb: 3 }} />
 
-          {/* Checkin or checkout form */}
+          {/* Checkin, checkout, or "still out for repair" form */}
           {scanResult.activeAssignment && scanResult.activeAssignment.user ? (
             <CheckinForm
               assignmentId={scanResult.activeAssignment.id}
               assignee={scanResult.activeAssignment.user as DeviceAssignmentUser}
               onSuccess={() => setDone(true)}
+              onCancel={() => setScanResult(null)}
+            />
+          ) : activeRepairTicket ? (
+            <DeviceOutForRepairDialog
+              open
+              equipmentLabel={`${scanResult.equipment.assetTag} — ${scanResult.equipment.name}`}
+              ticketNumber={activeRepairTicket.ticketNumber}
+              repairTicketId={activeRepairTicket.id}
+              onResolved={() => setRepairResolved(true)}
               onCancel={() => setScanResult(null)}
             />
           ) : (

@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import {
   Alert,
+  Button,
   CircularProgress,
   Dialog,
   DialogContent,
@@ -113,16 +114,26 @@ export function PhotoUploadGrid({
 
         {/* Upload slot */}
         {!readOnly && remaining > 0 && (
-          <label className="flex flex-col items-center justify-center h-28 border-2 border-dashed border-gray-300 rounded cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-colors">
-            {uploading ? (
-              <CircularProgress size={24} />
-            ) : (
-              <>
-                <AddPhotoAlternateIcon color="action" />
-                <Typography variant="caption" color="text.secondary" mt={0.5}>
-                  Add photo ({remaining} left)
-                </Typography>
-              </>
+          <Button
+            component="label"
+            variant="outlined"
+            disabled={uploading}
+            startIcon={uploading ? <CircularProgress size={16} /> : <AddPhotoAlternateIcon />}
+            sx={{
+              height: 112,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 0.5,
+              borderStyle: 'dashed',
+              borderWidth: 2,
+              '&:hover': { borderStyle: 'dashed', borderWidth: 2 },
+            }}
+          >
+            {uploading ? 'Uploading…' : 'Upload Photo'}
+            {!uploading && (
+              <Typography variant="caption" color="text.secondary">
+                {remaining} left
+              </Typography>
             )}
             <input
               ref={fileInputRef}
@@ -133,7 +144,7 @@ export function PhotoUploadGrid({
               disabled={uploading}
               onChange={handleUpload}
             />
-          </label>
+          </Button>
         )}
       </div>
 

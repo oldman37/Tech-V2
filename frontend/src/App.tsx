@@ -45,8 +45,6 @@ import BulkCheckinPage from './pages/DeviceManagement/BulkCheckinPage'
 import CartAssignmentWizardPage from './pages/DeviceManagement/CartAssignmentWizardPage'
 import CheckedOutCartsPage from './pages/DeviceManagement/CheckedOutCartsPage'
 import QuickCheckPage from './pages/DeviceManagement/QuickCheckPage'
-import DamageIncidentsPage from './pages/DeviceManagement/DamageIncidentsPage'
-import DamageIncidentDetailPage from './pages/DeviceManagement/DamageIncidentDetailPage'
 import RepairTicketsPage from './pages/DeviceManagement/RepairTicketsPage'
 import RepairTicketDetailPage from './pages/DeviceManagement/RepairTicketDetailPage'
 import InvoicesPage from './pages/DeviceManagement/InvoicesPage'
@@ -477,26 +475,6 @@ function App() {
             <ProtectedRoute requireDeviceManagement>
               <AppLayout>
                 <QuickCheckPage />
-              </AppLayout>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/device-management/incidents"
-          element={
-            <ProtectedRoute requireDeviceManagement>
-              <AppLayout>
-                <DamageIncidentsPage />
-              </AppLayout>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/device-management/incidents/:id"
-          element={
-            <ProtectedRoute requireDeviceManagement>
-              <AppLayout>
-                <DamageIncidentDetailPage />
               </AppLayout>
             </ProtectedRoute>
           }

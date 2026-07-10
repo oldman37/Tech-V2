@@ -1438,7 +1438,7 @@ model RepairTicket {
   damageIncidentId   String?   // Optional — routine repairs have no incident
   vendorId           String?   // FK → vendors
   createdBy          String    // User.id
-  status             String    @default("pending") // "pending"|"sent_to_vendor"|"in_repair"|"returned"|"unrepairable"|"cancelled"
+  status             String    @default("pending") // "pending"|"sent_to_vendor"|"returned"|"unrepairable"|"cancelled"
   sentForRepairAt    DateTime?
   expectedReturnDate DateTime?
   returnedAt         DateTime?

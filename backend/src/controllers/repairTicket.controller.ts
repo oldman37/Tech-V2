@@ -75,7 +75,7 @@ export const updateStatus = async (req: AuthRequest, res: Response): Promise<voi
   try {
     const id     = req.params['id'] as string;
     const data   = req.body as z.infer<typeof UpdateRepairStatusSchema>;
-    const ticket = await service.updateStatus(id, data);
+    const ticket = await service.updateStatus(id, data, req.user!.id);
     res.json(ticket);
   } catch (error) {
     handleControllerError(error, res);
@@ -89,7 +89,7 @@ export const updateStatus = async (req: AuthRequest, res: Response): Promise<voi
 export const remove = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const id = req.params['id'] as string;
-    await service.cancel(id);
+    await service.cancel(id, req.user!.id);
     res.status(204).send();
   } catch (error) {
     handleControllerError(error, res);

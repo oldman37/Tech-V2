@@ -170,15 +170,6 @@ export default function RepairTicketDetailPage() {
               </Button>
             )}
             {status === 'sent_to_vendor' && (
-              <Button
-                variant="contained"
-                disabled={statusMutation.isPending}
-                onClick={() => statusMutation.mutate('in_repair')}
-              >
-                Mark In Repair
-              </Button>
-            )}
-            {status === 'in_repair' && (
               <>
                 <Button
                   variant="contained"
@@ -229,7 +220,7 @@ export default function RepairTicketDetailPage() {
               </div>
               <Button
                 size="small"
-                onClick={() => navigate(`/device-management/incidents/${ticket.damageIncident!.id}`)}
+                onClick={() => navigate(`/incidents/${ticket.damageIncident!.id}`)}
               >
                 View Incident
               </Button>

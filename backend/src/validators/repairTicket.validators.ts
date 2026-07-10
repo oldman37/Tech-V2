@@ -19,7 +19,7 @@ export const UpdateRepairTicketSchema = z.object({
 });
 
 export const UpdateRepairStatusSchema = z.object({
-  status:             z.enum(['pending', 'sent_to_vendor', 'in_repair', 'returned', 'unrepairable', 'cancelled']),
+  status:             z.enum(['pending', 'sent_to_vendor', 'returned', 'unrepairable', 'cancelled']),
   sentForRepairAt:    z.string().datetime().optional(),
   expectedReturnDate: z.string().datetime().optional(),
   returnedAt:         z.string().datetime().optional(),
@@ -35,6 +35,7 @@ export const ListRepairTicketsQuerySchema = z.object({
   vendorId:         z.string().uuid().optional(),
   equipmentId:      z.string().uuid().optional(),
   damageIncidentId: z.string().uuid().optional(),
+  search:           z.string().optional(), // matches ticket number or equipment asset tag
   sortBy:           z.enum(['createdAt', 'updatedAt', 'status', 'sentForRepairAt', 'expectedReturnDate', 'returnedAt', 'repairCost', 'ticketNumber']).default('createdAt'),
   sortOrder:        z.enum(['asc', 'desc']).default('desc'),
 });

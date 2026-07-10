@@ -73,6 +73,7 @@ const NAV_SECTIONS: NavSection[] = [
       { label: 'Cart Assignment', icon: '🗂️', path: '/device-management/carts/assign',             requireDeviceManagement: true },
       { label: 'Checked-Out Carts', icon: '🛒', path: '/device-management/carts',                    requireDeviceManagement: true },
       { label: 'Incidents',      icon: '⚠️', path: '/incidents',                       requireDeviceManagement: true },
+      { label: 'Repair Tickets', icon: '🛠️', path: '/device-management/repair-tickets', requireDeviceManagement: true },
       { label: 'Invoices',       icon: '💰', path: '/device-management/invoices',       requireDeviceManagement: true },
       { label: 'Component Prices', icon: '🏷️', path: '/device-management/component-prices', requireDeviceManagement: true },
       { label: 'DM Reports',     icon: '📊', path: '/device-management/reports',        requireDeviceManagement: true },
