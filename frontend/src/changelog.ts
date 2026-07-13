@@ -9,7 +9,9 @@ export const CHANGELOG: ChangelogEntry[] = [
     changes: [
       'Fixed the Trip Date on Transportation Requests showing one day earlier than what was submitted',
       'Fixed the inventory search so that all users except certain roles (e.g., ALL_Students) can find items correctly',
-      'Fixed email notifications for transportation requests to correctly display the trip date in UTC'
+      'Fixed email notifications for transportation requests to correctly display the trip date in UTC',
+      'Fixed Maintenance Director not being correctly identified as an approver for purchase orders',
+      'Made it so all supervisors default to pending approval tab first',
     ],
   },
   {

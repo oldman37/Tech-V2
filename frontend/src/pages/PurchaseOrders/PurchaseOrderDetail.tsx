@@ -114,6 +114,12 @@ const ROUTE_TO_FD_WORKFLOW_STAGES: { status: POStatus; label: string }[] = [
   { status: 'po_issued',                   label: 'PO Issued' },
 ];
 
+// Supervisor types that never act as the PO approver for a location, even when
+// marked as a primary supervisor — mirrors the backend's own exclusion filter
+// in purchaseOrder.service.ts (submitPurchaseOrder / approvePurchaseOrder), so
+// button visibility here matches what the backend will actually authorize.
+const NON_APPROVER_SUPERVISOR_TYPES = ['TECHNOLOGY_ASSISTANT', 'MAINTENANCE_WORKER'];
+
 // Requestor is themselves a Finance Director — finance_director_approved stage is skipped.
 const FD_SKIP_WORKFLOW_STAGES: { status: POStatus; label: string }[] = [
   { status: 'draft',                       label: 'Draft Created' },
@@ -300,7 +306,11 @@ export default function PurchaseOrderDetail() {
       const match = supervisors.find((s: any) => s.supervisorType === expectedType);
       return match?.userId ?? supervisors[0]?.userId ?? null;
     }
-    return supervisors[0]?.userId ?? null;
+    // A location can have multiple primary supervisors of different types (e.g. a
+    // Maintenance Director alongside a Maintenance Worker and a Technology Assistant).
+    // Postgres does not guarantee row order without an ORDER BY, so pick the first
+    // non-excluded type rather than assuming supervisors[0] is the approver.
+    return supervisors.find((s: any) => !NON_APPROVER_SUPERVISOR_TYPES.includes(s.supervisorType))?.userId ?? null;
   })();
   const canActAtFdStage  = !isFoodService && !isFdSkip && po.status === 'supervisor_approved' && permLevel >= 5 && isFinanceDirector;
   const canActAtDosStage = (isFoodService || isFdSkip)
