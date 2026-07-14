@@ -358,9 +358,16 @@ export class PurchaseOrderService {
       const schoolLocationIds = supervisedLocations
         .filter((ls) => ls.location.type === 'SCHOOL' && ls.supervisorType === 'PRINCIPAL')
         .map((ls) => ls.locationId);
-      // Non-school locations that don't skip the supervisor stage: any primary supervisor type is valid
+      // Non-school locations that don't skip the supervisor stage: any primary supervisor type is
+      // valid EXCEPT the two types that submitPurchaseOrder/approvePurchaseOrder themselves exclude
+      // (TECHNOLOGY_ASSISTANT, MAINTENANCE_WORKER) — keeps this list query in sync with the actual
+      // approval-authorization check for the same 'submitted' stage.
       const otherLocationIds = supervisedLocations
-        .filter((ls) => ls.location.type !== 'SCHOOL' && !ls.location.routeToFinanceDirector)
+        .filter((ls) =>
+          ls.location.type !== 'SCHOOL' &&
+          !ls.location.routeToFinanceDirector &&
+          !['TECHNOLOGY_ASSISTANT', 'MAINTENANCE_WORKER'].includes(ls.supervisorType),
+        )
         .map((ls) => ls.locationId);
       if (schoolLocationIds.length > 0) {
         pendingOrClauses.push({
