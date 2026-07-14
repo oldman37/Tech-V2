@@ -12,7 +12,8 @@ export const CHANGELOG: ChangelogEntry[] = [
       'Fixed email notifications for transportation requests to correctly display the trip date in UTC',
       'Fixed Maintenance Director not being correctly identified as an approver for purchase orders',
       'Made it so all supervisors default to pending approval tab first',
-      'Fixed Pending My Approval showing incorrect POs for supervisors'
+      'Fixed Pending My Approval showing incorrect POs for supervisors',
+      'Added support for marking items as "Not in Inventory" for Technology work orders',
     ],
   },
   {

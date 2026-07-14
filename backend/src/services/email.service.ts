@@ -324,6 +324,7 @@ export async function sendWorkOrderAssigned(
     priority: string;
     locationName?: string | null;
     workOrderId?: string;
+    notInInventory?: boolean;
   },
   assigneeEmail: string,
   reportedByName: string,
@@ -339,6 +340,7 @@ export async function sendWorkOrderAssigned(
     html: `
       <h2 style="color:${deptColor};">A ${escapeHtml(deptLabel)} Work Order Has Been Assigned to You</h2>
       <p>You have been assigned a new work order that requires your attention.</p>
+      ${workOrder.notInInventory ? `<div style="margin:12px 0;padding:12px;background-color:#FFF3E0;border-left:4px solid #E65100;"><strong>⚠ Equipment not found in inventory.</strong> The reporter indicated this equipment is not currently recorded in the inventory system. Please investigate and add/link the item once identified.</div>` : ''}
       ${workOrder.workOrderId ? `<p style="margin-top:16px;"><a href="${escapeHtml(process.env.APP_URL ?? '')}/work-orders/${escapeHtml(workOrder.workOrderId)}" style="display:inline-block;padding:10px 20px;background-color:${deptColor};color:#ffffff;text-decoration:none;border-radius:4px;font-weight:bold;">View Work Order</a></p>` : ''}
       <table style="border-collapse:collapse;width:100%;margin-top:16px;">
         <tr><td style="padding:4px 8px;font-weight:bold;">Work Order #:</td>

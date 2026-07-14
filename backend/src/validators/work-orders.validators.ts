@@ -82,6 +82,7 @@ export const CreateWorkOrderSchema = z
     // Technology-specific
     equipmentId:     z.string().uuid('Invalid equipment ID').optional().nullable(),
     assetTag:        z.string().max(100, 'Asset tag too long').optional().nullable(),
+    notInInventory:  z.boolean().optional().default(false),
     // Maintenance-specific
     equipmentMfg:    z.string().max(200).optional().nullable(),
     equipmentModel:  z.string().max(200).optional().nullable(),
@@ -100,6 +101,27 @@ export const CreateWorkOrderSchema = z
         code: z.ZodIssueCode.custom,
         message: 'Equipment ID is not valid for Maintenance work orders',
         path: ['equipmentId'],
+      });
+    }
+    if (data.department === 'MAINTENANCE' && data.notInInventory) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'notInInventory is not valid for Maintenance work orders',
+        path: ['notInInventory'],
+      });
+    }
+    if (data.notInInventory && data.equipmentId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Cannot link existing equipment and flag it as not in inventory',
+        path: ['equipmentId'],
+      });
+    }
+    if (data.notInInventory && data.assetTag) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Cannot link existing equipment and flag it as not in inventory',
+        path: ['assetTag'],
       });
     }
   });

@@ -17,9 +17,11 @@ import {
   Autocomplete,
   Box,
   Button,
+  Checkbox,
   CircularProgress,
   Divider,
   FormControl,
+  FormControlLabel,
   FormHelperText,
   InputLabel,
   MenuItem,
@@ -58,6 +60,7 @@ interface FormState {
   roomId: string;
   // TECHNOLOGY
   inventoryId: string;       // equipment.id (resolved UUID) — used in DTO
+  notInInventory: boolean;  // equipment isn't recorded in inventory yet
 }
 
 const INITIAL: FormState = {
@@ -69,6 +72,7 @@ const INITIAL: FormState = {
   officeLocationId: '',
   roomId: '',
   inventoryId: '',
+  notInInventory: false,
 };
 
 // ─── Validation ───────────────────────────────────────────────────────────────
@@ -86,7 +90,7 @@ function validate(form: FormState, assetTagRequired: boolean): FormErrors {
   } else if (form.description.trim().length < 10) {
     errors.description = 'Description must be at least 10 characters.';
   }
-  if (assetTagRequired && !form.inventoryId.trim()) {
+  if (assetTagRequired && !form.notInInventory && !form.inventoryId.trim()) {
     errors.inventoryId = 'Select an equipment item from the search results.';
   }
   return errors;
@@ -201,7 +205,7 @@ export default function NewWorkOrderPage() {
     setTouched((prev) => ({ ...prev, [key]: true }));
 
   const handleDepartmentChange = (dept: WorkOrderDepartment) => {
-    setForm((prev) => ({ ...prev, department: dept, category: '', categoryId: '' }));
+    setForm((prev) => ({ ...prev, department: dept, category: '', categoryId: '', notInInventory: false }));
   };
 
   const handleSubmit = async () => {
@@ -217,7 +221,8 @@ export default function NewWorkOrderPage() {
       ...(form.officeLocationId && { officeLocationId: form.officeLocationId }),
       ...(form.roomId && { roomId: form.roomId }),
       ...(form.department === 'TECHNOLOGY' && {
-        equipmentId: form.inventoryId || null,
+        equipmentId: form.notInInventory ? null : (form.inventoryId || null),
+        notInInventory: form.notInInventory,
       }),
 
     };
@@ -280,6 +285,7 @@ export default function NewWorkOrderPage() {
                     setSelectedEquipment(null);
                     setInventorySearch('');
                     set('inventoryId', '');
+                    set('notInInventory', false);
                   }
                 }}
                 disabled={createWorkOrder.isPending || categoriesLoading}
@@ -395,72 +401,94 @@ export default function NewWorkOrderPage() {
                 <Typography variant="subtitle2" color="text.secondary">
                   Equipment Details
                 </Typography>
-                <Autocomplete<InventorySearchResult>
-                  options={inventoryOptions}
-                  loading={inventoryFetching}
-                  value={selectedEquipment}
-                  inputValue={inventorySearch}
-                  clearOnBlur={false}
-                  onInputChange={(_, value, reason) => {
-                    if (prefilledAssetTag.current && reason === 'reset') {
-                      return;
-                    }
-                    setInventorySearch(value);
-                    if (!value) {
-                      setSelectedEquipment(null);
-                      set('inventoryId', '');
-                    }
-                  }}
-                  onChange={(_, newValue) => {
-                    setSelectedEquipment(newValue);
-                    set('inventoryId', newValue?.id ?? '');
-                    touch('inventoryId');
-                  }}
-                  getOptionLabel={(opt) => opt.assetTag}
-                  renderOption={(props, opt) => (
-                    <li {...props} key={opt.id}>
-                      <Box>
-                        <Typography variant="body2" fontWeight={600}>{opt.assetTag}</Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {opt.name}
-                          {opt.serialNumber ? ` · SN: ${opt.serialNumber}` : ''}
-                          {opt.location ? ` · ${opt.location.name}` : ''}
-                        </Typography>
-                      </Box>
-                    </li>
-                  )}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      label="Asset Tag / Inventory ID"
-                      size="small"
-                      required={assetTagRequired}
-                      error={touched.inventoryId && !!errors.inventoryId}
-                      helperText={
-                        touched.inventoryId && errors.inventoryId
-                          ? errors.inventoryId
-                          : inventorySearch.length < 2
-                            ? 'Type at least 2 characters to search'
-                            : undefined
-                      }
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={form.notInInventory}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        set('notInInventory', checked);
+                        if (checked) {
+                          setSelectedEquipment(null);
+                          setInventorySearch('');
+                          set('inventoryId', '');
+                        }
+                      }}
                       disabled={createWorkOrder.isPending}
                     />
-                  )}
-                  noOptionsText={
-                    inventorySearch.length < 2
-                      ? 'Type to search…'
-                      : inventoryFetching
-                        ? 'Searching…'
-                        : 'No matching equipment found'
                   }
-                  isOptionEqualToValue={(opt, val) => opt.id === val.id}
-                  filterOptions={(x) => x}
-                  disabled={createWorkOrder.isPending}
+                  label="This equipment is not in my inventory"
                 />
-                {selectedEquipment && (
-                  <Typography variant="caption" color="success.main">
-                    ✓ Linked to: {selectedEquipment.name} ({selectedEquipment.status})
-                  </Typography>
+                {!form.notInInventory && (
+                  <>
+                    <Autocomplete<InventorySearchResult>
+                      options={inventoryOptions}
+                      loading={inventoryFetching}
+                      value={selectedEquipment}
+                      inputValue={inventorySearch}
+                      clearOnBlur={false}
+                      onInputChange={(_, value, reason) => {
+                        if (prefilledAssetTag.current && reason === 'reset') {
+                          return;
+                        }
+                        setInventorySearch(value);
+                        if (!value) {
+                          setSelectedEquipment(null);
+                          set('inventoryId', '');
+                        }
+                      }}
+                      onChange={(_, newValue) => {
+                        setSelectedEquipment(newValue);
+                        set('inventoryId', newValue?.id ?? '');
+                        touch('inventoryId');
+                      }}
+                      getOptionLabel={(opt) => opt.assetTag}
+                      renderOption={(props, opt) => (
+                        <li {...props} key={opt.id}>
+                          <Box>
+                            <Typography variant="body2" fontWeight={600}>{opt.assetTag}</Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              {opt.name}
+                              {opt.serialNumber ? ` · SN: ${opt.serialNumber}` : ''}
+                              {opt.location ? ` · ${opt.location.name}` : ''}
+                            </Typography>
+                          </Box>
+                        </li>
+                      )}
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          label="Asset Tag / Inventory ID"
+                          size="small"
+                          required={assetTagRequired}
+                          error={touched.inventoryId && !!errors.inventoryId}
+                          helperText={
+                            touched.inventoryId && errors.inventoryId
+                              ? errors.inventoryId
+                              : inventorySearch.length < 2
+                                ? 'Type at least 2 characters to search'
+                                : undefined
+                          }
+                          disabled={createWorkOrder.isPending}
+                        />
+                      )}
+                      noOptionsText={
+                        inventorySearch.length < 2
+                          ? 'Type to search…'
+                          : inventoryFetching
+                            ? 'Searching…'
+                            : 'No matching equipment found'
+                      }
+                      isOptionEqualToValue={(opt, val) => opt.id === val.id}
+                      filterOptions={(x) => x}
+                      disabled={createWorkOrder.isPending}
+                    />
+                    {selectedEquipment && (
+                      <Typography variant="caption" color="success.main">
+                        ✓ Linked to: {selectedEquipment.name} ({selectedEquipment.status})
+                      </Typography>
+                    )}
+                  </>
                 )}
               </>
             )}

@@ -398,6 +398,9 @@ export default function WorkOrderDetailPage() {
               color={workOrder.department === 'TECHNOLOGY' ? 'primary' : 'secondary'}
               variant="outlined"
             />
+            {workOrder.notInInventory && (
+              <Chip label="Not in Inventory" size="medium" color="warning" />
+            )}
           </Box>
         </Box>
 

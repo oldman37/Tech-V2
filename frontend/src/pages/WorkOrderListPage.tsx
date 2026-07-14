@@ -122,7 +122,12 @@ export default function WorkOrderListPage() {
       label: 'Work Order #',
       isPrimary: true,
       render: (wo) => (
-        <span style={{ fontWeight: 600, color: 'var(--primary)' }}>{wo.workOrderNumber}</span>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
+          <span style={{ fontWeight: 600, color: 'var(--primary)' }}>{wo.workOrderNumber}</span>
+          {wo.notInInventory && (
+            <Chip label="Not in Inventory" size="small" color="warning" sx={{ whiteSpace: 'nowrap' }} />
+          )}
+        </Box>
       ),
     },
     {

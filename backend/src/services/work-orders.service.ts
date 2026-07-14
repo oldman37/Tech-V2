@@ -183,6 +183,7 @@ export class WorkOrderService {
     officeLocationId: string | null,
     assigneeId: string,
     reportedById: string,
+    notInInventory?: boolean,
   ): Promise<void> {
     const [assignee, reporter, location] = await Promise.all([
       this.prisma.user.findUnique({ where: { id: assigneeId }, select: { email: true } }),
@@ -197,7 +198,7 @@ export class WorkOrderService {
       || 'Unknown';
 
     await sendWorkOrderAssigned(
-      { workOrderNumber, department, priority, locationName: location?.name, workOrderId },
+      { workOrderNumber, department, priority, locationName: location?.name, workOrderId, notInInventory },
       assignee.email,
       reporterName,
     );
@@ -461,7 +462,7 @@ export class WorkOrderService {
 
     // Resolve equipment ID from assetTag if provided (and no explicit equipmentId)
     let resolvedEquipmentId = data.equipmentId ?? null;
-    if (!resolvedEquipmentId && data.assetTag && data.department === 'TECHNOLOGY') {
+    if (!resolvedEquipmentId && data.assetTag && data.department === 'TECHNOLOGY' && !data.notInInventory) {
       const equipment = await this.prisma.equipment.findFirst({
         where: { assetTag: data.assetTag },
         select: { id: true },
@@ -471,8 +472,9 @@ export class WorkOrderService {
 
     // Enforce the selected category's asset-tag requirement (Technology only).
     // Fails closed: an asset tag is required unless a resolvable Technology
-    // category explicitly waives it via requiresAssetTag = false.
-    if (data.department === 'TECHNOLOGY' && !resolvedEquipmentId) {
+    // category explicitly waives it via requiresAssetTag = false, or the
+    // reporter flagged the equipment as not in inventory.
+    if (data.department === 'TECHNOLOGY' && !resolvedEquipmentId && !data.notInInventory) {
       let requiresAssetTag = true;
       if (data.categoryId) {
         const category = await this.prisma.workOrderCategory.findUnique({
@@ -514,6 +516,7 @@ export class WorkOrderService {
           category:        data.category ?? null,
           categoryId:      data.categoryId ?? null,
           equipmentId:     data.department === 'TECHNOLOGY' ? resolvedEquipmentId : null,
+          notInInventory:  data.department === 'TECHNOLOGY' ? (data.notInInventory ?? false) : false,
           equipmentMfg:    data.department === 'MAINTENANCE' ? (data.equipmentMfg ?? null) : null,
           equipmentModel:  data.department === 'MAINTENANCE' ? (data.equipmentModel ?? null) : null,
           equipmentSerial: data.department === 'MAINTENANCE' ? (data.equipmentSerial ?? null) : null,
@@ -538,7 +541,7 @@ export class WorkOrderService {
 
     // Send email notification to auto-assigned worker (fire-and-forget)
     if (autoAssigneeId) {
-      this.sendAssignmentEmail(ticket.id, ticket.ticketNumber, data.department, data.priority ?? 'MEDIUM', data.officeLocationId ?? null, autoAssigneeId, reportedById).catch(() => {});
+      this.sendAssignmentEmail(ticket.id, ticket.ticketNumber, data.department, data.priority ?? 'MEDIUM', data.officeLocationId ?? null, autoAssigneeId, reportedById, ticket.notInInventory).catch(() => {});
     }
 
     return this.prisma.ticket.findUnique({
@@ -564,6 +567,8 @@ export class WorkOrderService {
         category:        data.category,
         categoryId:      data.categoryId,
         equipmentId:     data.equipmentId,
+        // Equipment has now been found/added — clear the flag
+        notInInventory:  data.equipmentId ? false : undefined,
         equipmentMfg:    data.equipmentMfg,
         equipmentModel:  data.equipmentModel,
         equipmentSerial: data.equipmentSerial,
@@ -749,7 +754,7 @@ export class WorkOrderService {
 
     // Send email notification to newly assigned user (fire-and-forget)
     if (data.assignedToId) {
-      this.sendAssignmentEmail(id, ticket.ticketNumber, ticket.department, ticket.priority, ticket.officeLocationId, data.assignedToId, userId).catch(() => {});
+      this.sendAssignmentEmail(id, ticket.ticketNumber, ticket.department, ticket.priority, ticket.officeLocationId, data.assignedToId, userId, ticket.notInInventory).catch(() => {});
     }
 
     return updated;

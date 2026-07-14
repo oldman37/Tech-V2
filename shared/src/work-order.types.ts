@@ -121,6 +121,7 @@ export interface WorkOrderSummary {
   room: WorkOrderRoom | null;
   createdAt: string;
   updatedAt: string;
+  notInInventory: boolean;
   _count?: { comments: number };
 }
 
@@ -148,6 +149,7 @@ export interface CreateWorkOrderDto {
   category?: string;
   // Technology
   equipmentId?: string | null;
+  notInInventory?: boolean;
   // Maintenance
   equipmentMfg?: string | null;
   equipmentModel?: string | null;
