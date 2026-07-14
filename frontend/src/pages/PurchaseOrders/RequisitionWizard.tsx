@@ -102,6 +102,13 @@ const STEPS = ['Details', 'Line Items', 'Review'];
 const OFFICE_LOCATION_REQUIRED_MESSAGE =
   'Please select a Department / Program / School / District Office before continuing.';
 
+// Sentinel Select value for "the requesting entity isn't in the location list" —
+// never a real officeLocationId (those are UUIDs), so it can't collide.
+const NOT_LISTED_VALUE = '__not_listed__';
+
+const NOT_LISTED_INCOMPLETE_MESSAGE =
+  'Enter a department, program, or funding source, and a ship-to address or school, before continuing.';
+
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 const formatCurrency = (n: number) =>
@@ -136,6 +143,12 @@ export default function RequisitionWizard() {
   // Department field is optional on draft but required to move past Step 1.
   // Used to scroll the field into view when the Next button is blocked.
   const officeLocationRef = useRef<HTMLDivElement>(null);
+
+  // "Not Listed" — the requesting entity isn't a real OfficeLocation, so the user types
+  // a name into `program` instead and must supply their own ship-to (no address to prefill).
+  const [isNotListed, setIsNotListed] = useState(false);
+  const programFieldRef = useRef<HTMLDivElement>(null);
+  const shipToRef = useRef<HTMLFieldSetElement>(null);
 
   // "Request a new vendor" dialog state
   const [vendorRequestOpen, setVendorRequestOpen] = useState(false);
@@ -187,6 +200,7 @@ export default function RequisitionWizard() {
   const watchedItems = watch('items');
   const watchedShippingCost = watch('shippingCost');
   const watchedAccountCode = watch('accountCode');
+  const watchedProgram = watch('program');
 
   // Standard (non food-service) PO submitted by a Finance Director requires the
   // account code up-front, since the finance_director_approved stage is skipped.
@@ -282,13 +296,36 @@ export default function RequisitionWizard() {
     return groups;
   }, [locationOptions]);
 
-  // Handle entity location selection: default to 'entity' ship-to type and fill address
-  const handleEntityLocationChange = useCallback((locId: string | null) => {
-    setValue('officeLocationId', locId ?? null);
-    if (locId) {
-      clearErrors('officeLocationId');
-      setSubmitError((prev) => (prev === OFFICE_LOCATION_REQUIRED_MESSAGE ? null : prev));
+  // Dismisses whichever department-related banner (missing selection, or Not Listed
+  // missing program/ship-to) is currently showing — leaves any other error alone.
+  const clearDepartmentBanner = useCallback(() => {
+    setSubmitError((prev) =>
+      prev === OFFICE_LOCATION_REQUIRED_MESSAGE || prev === NOT_LISTED_INCOMPLETE_MESSAGE ? null : prev,
+    );
+  }, []);
+
+  // Handle entity location selection: default to 'entity' ship-to type and fill address.
+  // rawValue is '' (none), NOT_LISTED_VALUE, or a real officeLocationId.
+  const handleEntityLocationChange = useCallback((rawValue: string) => {
+    clearErrors(['officeLocationId', 'program', 'shipTo']);
+    clearDepartmentBanner();
+
+    if (rawValue === NOT_LISTED_VALUE) {
+      setIsNotListed(true);
+      setValue('officeLocationId', null);
+      setValue('entityType', null);
+      setValue('shipToType', 'custom');
+      setValue('shipTo', null);
+      setValue('workflowType', 'standard');
+      setSelectedEntitySupervisor(null);
+      return;
     }
+
+    setIsNotListed(false);
+    setValue('program', null);
+
+    const locId = rawValue || null;
+    setValue('officeLocationId', locId);
     if (!locId) {
       setValue('shipToType', 'custom');
       setValue('shipTo', null);
@@ -317,7 +354,7 @@ export default function RequisitionWizard() {
       ? loc.supervisors?.find((s) => s.supervisorType === 'FOOD_SERVICES_SUPERVISOR') ?? null
       : loc.supervisors?.find((s) => s.isPrimary && (!expectedType || s.supervisorType === expectedType)) ?? null;
     setSelectedEntitySupervisor(primarySup ?? null);
-  }, [locationOptions, setValue, clearErrors]);
+  }, [locationOptions, setValue, clearErrors, clearDepartmentBanner]);
 
   // Selecting a delivery school fills the ship-to address; independent of officeLocationId.
   const handleShipToSchoolChange = useCallback((schoolId: string | null) => {
@@ -328,9 +365,11 @@ export default function RequisitionWizard() {
     }
     const school = groupedLocations.SCHOOL.find((l) => l.id === schoolId);
     if (!school) return;
+    clearErrors('shipTo');
+    clearDepartmentBanner();
     const addressParts = [school.address, school.city, school.state, school.zip].filter(Boolean).join(', ');
     setValue('shipTo', addressParts ? `${school.name}\n${addressParts}` : school.name);
-  }, [groupedLocations, setValue]);
+  }, [groupedLocations, setValue, clearErrors, clearDepartmentBanner]);
 
   // Shared school picker + auto-filled address box, used by both Ship To branches below
   const shipToSchoolPicker = (
@@ -376,7 +415,8 @@ export default function RequisitionWizard() {
   // ── Step navigation with trigger-based validation ──
   const handleStep1Next = async () => {
     const vendorValid = await trigger(['vendorId']);
-    if (!watchedOfficeLocationId) {
+
+    if (!isNotListed && !watchedOfficeLocationId) {
       setError('officeLocationId', {
         type: 'manual',
         message: 'Select a Department / Program / School / District Office to continue',
@@ -385,7 +425,27 @@ export default function RequisitionWizard() {
       officeLocationRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
-    if (vendorValid) setActiveStep((s) => s + 1);
+
+    if (isNotListed) {
+      const programMissing = !watchedProgram?.trim();
+      const shipToMissing = !watchedShipTo?.trim();
+      if (programMissing || shipToMissing) {
+        if (programMissing) {
+          setError('program', { type: 'manual', message: 'Enter a department, program, or funding source' });
+        }
+        if (shipToMissing) {
+          setError('shipTo', { type: 'manual', message: 'Enter a custom address or select a school' });
+        }
+        setSubmitError(NOT_LISTED_INCOMPLETE_MESSAGE);
+        (programMissing ? programFieldRef : shipToRef).current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+      }
+    }
+
+    if (vendorValid) {
+      setSubmitError(null);
+      setActiveStep((s) => s + 1);
+    }
   };
 
   const handleStep2Next = async () => {
@@ -737,9 +797,9 @@ export default function RequisitionWizard() {
               <InputLabel id="entity-location-label">Department / Program / School / District Office</InputLabel>
               <Select
                 labelId="entity-location-label"
-                value={watchedOfficeLocationId ?? ''}
+                value={isNotListed ? NOT_LISTED_VALUE : (watchedOfficeLocationId ?? '')}
                 label="Department / Program / School / District Office"
-                onChange={(e) => handleEntityLocationChange(e.target.value || null)}
+                onChange={(e) => handleEntityLocationChange(e.target.value)}
               >
                 <MenuItem value=""><em>None</em></MenuItem>
                 {groupedLocations.SCHOOL.length > 0 && (
@@ -766,11 +826,41 @@ export default function RequisitionWizard() {
                 {groupedLocations.DISTRICT_OFFICE.map((loc) => (
                   <MenuItem key={loc.id} value={loc.id}>{loc.name}</MenuItem>
                 ))}
+                <ListSubheader>Other</ListSubheader>
+                <MenuItem value={NOT_LISTED_VALUE}>Not Listed — enter manually</MenuItem>
               </Select>
               {errors.officeLocationId && (
                 <FormHelperText>{errors.officeLocationId.message}</FormHelperText>
               )}
             </FormControl>
+            {isNotListed && (
+              <Box ref={programFieldRef}>
+                <Controller
+                  control={control}
+                  name="program"
+                  render={({ field, fieldState }) => (
+                    <TextField
+                      {...field}
+                      value={field.value ?? ''}
+                      onChange={(e) => {
+                        const v = e.target.value || null;
+                        field.onChange(v);
+                        if (v) { clearErrors('program'); clearDepartmentBanner(); }
+                      }}
+                      label="Department / Program / Funding Source *"
+                      fullWidth
+                      required
+                      inputProps={{ maxLength: 200 }}
+                      error={!!fieldState.error}
+                      helperText={
+                        fieldState.error?.message ??
+                        'Not saved to the location list — enter the department, program, or funding source name.'
+                      }
+                    />
+                  )}
+                />
+              </Box>
+            )}
             {selectedLocationRoutesToFd && watchedOfficeLocationId && (
               <Box sx={{ bgcolor: 'info.50', border: '1px solid', borderColor: 'info.200',
                          borderRadius: 1, p: 1.5, mt: -1 }}>
@@ -861,7 +951,7 @@ export default function RequisitionWizard() {
                 )}
               </FormControl>
             ) : (
-              <FormControl component="fieldset">
+              <FormControl component="fieldset" ref={shipToRef}>
                 <FormLabel component="legend" sx={{ mb: 1 }}>Ship To</FormLabel>
                 <RadioGroup
                   value={watchedShipToType === 'school' ? 'school' : 'custom'}
@@ -889,7 +979,11 @@ export default function RequisitionWizard() {
                       <TextField
                         {...field}
                         value={field.value ?? ''}
-                        onChange={(e) => field.onChange(e.target.value || null)}
+                        onChange={(e) => {
+                          const v = e.target.value || null;
+                          field.onChange(v);
+                          if (v) { clearErrors('shipTo'); clearDepartmentBanner(); }
+                        }}
                         label="Custom Address"
                         fullWidth
                         multiline
@@ -1040,8 +1134,14 @@ export default function RequisitionWizard() {
             <Box>
               <Typography variant="caption" color="text.secondary">Department / School / Program</Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Typography>{locationOptions.find((l) => l.id === watchedOfficeLocationId)?.name ?? '—'}</Typography>
-                {watchedEntityType && (
+                <Typography>
+                  {isNotListed
+                    ? watchedProgram || '—'
+                    : locationOptions.find((l) => l.id === watchedOfficeLocationId)?.name ?? '—'}
+                </Typography>
+                {isNotListed ? (
+                  <Chip label="Not Listed" size="small" />
+                ) : watchedEntityType && (
                   <Chip
                     label={watchedEntityType.charAt(0) + watchedEntityType.slice(1).toLowerCase()}
                     size="small"

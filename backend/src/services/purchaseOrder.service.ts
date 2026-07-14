@@ -824,12 +824,23 @@ export class PurchaseOrderService {
     }
 
     // A Department / Program / School / District Office is optional while in draft,
-    // but required to submit — see RequisitionWizard's officeLocationId gate.
+    // but required to submit — either from the entity-location list, or (when the
+    // requestor picked "Not Listed" in RequisitionWizard) a manually entered
+    // department/program/funding source name plus a ship-to address, since there's
+    // no location record to route by or pull an address from.
     if (!po.officeLocationId) {
-      throw new ValidationError(
-        'A Department / Program / School / District Office is required before submitting this requisition',
-        'officeLocationId',
-      );
+      if (!po.program?.trim()) {
+        throw new ValidationError(
+          'A Department / Program / School / District Office is required before submitting this requisition',
+          'officeLocationId',
+        );
+      }
+      if (!po.shipTo?.trim()) {
+        throw new ValidationError(
+          'A ship-to address or school is required when no department/program is on file',
+          'shipTo',
+        );
+      }
     }
 
     // Look up the entity location once (type + routeToFinanceDirector). The type
