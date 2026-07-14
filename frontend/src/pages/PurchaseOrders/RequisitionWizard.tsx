@@ -11,7 +11,7 @@
  * On success: navigates to /purchase-orders/:newId
  */
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Alert,
@@ -99,6 +99,9 @@ interface LocationOptionWithSupervisor {
 
 const STEPS = ['Details', 'Line Items', 'Review'];
 
+const OFFICE_LOCATION_REQUIRED_MESSAGE =
+  'Please select a Department / Program / School / District Office before continuing.';
+
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 const formatCurrency = (n: number) =>
@@ -130,6 +133,10 @@ export default function RequisitionWizard() {
   // delivery destination can differ from whichever department/program is requesting)
   const [shipToSchoolId, setShipToSchoolId] = useState<string | null>(null);
 
+  // Department field is optional on draft but required to move past Step 1.
+  // Used to scroll the field into view when the Next button is blocked.
+  const officeLocationRef = useRef<HTMLDivElement>(null);
+
   // "Request a new vendor" dialog state
   const [vendorRequestOpen, setVendorRequestOpen] = useState(false);
   const [vendorRequestForm, setVendorRequestForm] = useState({
@@ -146,6 +153,8 @@ export default function RequisitionWizard() {
     watch,
     setValue,
     trigger,
+    setError,
+    clearErrors,
     formState: { errors },
   } = useForm<z.input<typeof CreatePurchaseOrderSchema>, unknown, CreatePurchaseOrderInput>({
     resolver: zodResolver(CreatePurchaseOrderSchema),
@@ -276,6 +285,10 @@ export default function RequisitionWizard() {
   // Handle entity location selection: default to 'entity' ship-to type and fill address
   const handleEntityLocationChange = useCallback((locId: string | null) => {
     setValue('officeLocationId', locId ?? null);
+    if (locId) {
+      clearErrors('officeLocationId');
+      setSubmitError((prev) => (prev === OFFICE_LOCATION_REQUIRED_MESSAGE ? null : prev));
+    }
     if (!locId) {
       setValue('shipToType', 'custom');
       setValue('shipTo', null);
@@ -304,7 +317,7 @@ export default function RequisitionWizard() {
       ? loc.supervisors?.find((s) => s.supervisorType === 'FOOD_SERVICES_SUPERVISOR') ?? null
       : loc.supervisors?.find((s) => s.isPrimary && (!expectedType || s.supervisorType === expectedType)) ?? null;
     setSelectedEntitySupervisor(primarySup ?? null);
-  }, [locationOptions, setValue]);
+  }, [locationOptions, setValue, clearErrors]);
 
   // Selecting a delivery school fills the ship-to address; independent of officeLocationId.
   const handleShipToSchoolChange = useCallback((schoolId: string | null) => {
@@ -362,8 +375,17 @@ export default function RequisitionWizard() {
 
   // ── Step navigation with trigger-based validation ──
   const handleStep1Next = async () => {
-    const valid = await trigger(['vendorId']);
-    if (valid) setActiveStep((s) => s + 1);
+    const vendorValid = await trigger(['vendorId']);
+    if (!watchedOfficeLocationId) {
+      setError('officeLocationId', {
+        type: 'manual',
+        message: 'Select a Department / Program / School / District Office to continue',
+      });
+      setSubmitError(OFFICE_LOCATION_REQUIRED_MESSAGE);
+      officeLocationRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+    if (vendorValid) setActiveStep((s) => s + 1);
   };
 
   const handleStep2Next = async () => {
@@ -711,7 +733,7 @@ export default function RequisitionWizard() {
                 </Box>
               </Box>
             )}
-            <FormControl fullWidth error={!!errors.officeLocationId}>
+            <FormControl fullWidth error={!!errors.officeLocationId} ref={officeLocationRef}>
               <InputLabel id="entity-location-label">Department / Program / School / District Office</InputLabel>
               <Select
                 labelId="entity-location-label"

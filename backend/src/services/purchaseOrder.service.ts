@@ -823,6 +823,15 @@ export class PurchaseOrderService {
       );
     }
 
+    // A Department / Program / School / District Office is optional while in draft,
+    // but required to submit — see RequisitionWizard's officeLocationId gate.
+    if (!po.officeLocationId) {
+      throw new ValidationError(
+        'A Department / Program / School / District Office is required before submitting this requisition',
+        'officeLocationId',
+      );
+    }
+
     // Look up the entity location once (type + routeToFinanceDirector). The type
     // determines the expected supervisor type below; routeToFinanceDirector decides
     // whether the SUPERVISOR stage is skipped entirely so the PO auto-advances to
