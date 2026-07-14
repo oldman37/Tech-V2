@@ -93,7 +93,10 @@ export default function WorkOrderListPage() {
     staleTime: 5 * 60 * 1000,
   });
 
+  const isAdmin = user?.roles?.includes('ADMIN') ?? false;
+
   useEffect(() => {
+    if (isAdmin) return;
     if (supervisedLocations.length > 0 && !defaultLocationApplied.current) {
       defaultLocationApplied.current = true;
       const techAssignments = supervisedLocations.filter((a) => a.supervisorType === 'TECHNOLOGY_ASSISTANT');
@@ -102,7 +105,7 @@ export default function WorkOrderListPage() {
         setLocationFilter(match.locationId);
       }
     }
-  }, [supervisedLocations]);
+  }, [supervisedLocations, isAdmin]);
 
   // Fetch distinct work order fiscal years for dropdown
   const { data: workOrderFiscalYears = [] } = useQuery({
