@@ -674,6 +674,23 @@ export class FieldTripService {
   }
 
   // -------------------------------------------------------------------------
+  // List requests the current user has personally acted on (any stage)
+  // -------------------------------------------------------------------------
+
+  /**
+   * Trips remain visible here after the approval chain moves past the
+   * caller's stage, unlike getPendingApprovals which only shows trips
+   * currently awaiting the caller's action.
+   */
+  async getMyApprovalHistory(userId: string) {
+    return prisma.fieldTripRequest.findMany({
+      where:   { approvals: { some: { actedById: userId } } },
+      orderBy: { updatedAt: 'desc' },
+      include: TRIP_LIST_INCLUDE,
+    });
+  }
+
+  // -------------------------------------------------------------------------
   // Get date counts (for calendar availability)
   // -------------------------------------------------------------------------
 

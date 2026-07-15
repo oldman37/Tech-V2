@@ -37,6 +37,11 @@ export const fieldTripService = {
     return res.data;
   },
 
+  getApprovalHistory: async (): Promise<FieldTripRequest[]> => {
+    const res = await api.get<FieldTripRequest[]>(`${BASE}/approval-history`);
+    return res.data;
+  },
+
   // ---------------------------------------------------------------------------
   // Single record
   // ---------------------------------------------------------------------------

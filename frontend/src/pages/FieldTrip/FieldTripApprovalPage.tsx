@@ -62,6 +62,16 @@ export function FieldTripApprovalPage() {
     refetchInterval: 60_000,
   });
 
+  const {
+    data: approvalHistory,
+    isLoading: historyLoading,
+    error: historyError,
+  } = useQuery<FieldTripRequest[]>({
+    queryKey: ['field-trips', 'approval-history'],
+    queryFn:  fieldTripService.getApprovalHistory,
+    enabled:  activeTab === 2,
+  });
+
   return (
     <Box sx={{ p: { xs: 2, sm: 3 } }}>
       <Typography variant="h5" fontWeight={600} sx={{ mb: 1 }}>
@@ -81,6 +91,7 @@ export function FieldTripApprovalPage() {
           >
             <option value={0}>Field Trip Approvals</option>
             <option value={1}>Transportation Pending</option>
+            <option value={2}>My Approval History</option>
           </select>
         </Box>
       ) : (
@@ -94,6 +105,7 @@ export function FieldTripApprovalPage() {
         >
           <Tab label="Field Trip Approvals" />
           <Tab label="Transportation Pending" icon={<DirectionsBusIcon fontSize="small" />} iconPosition="start" />
+          <Tab label="My Approval History" />
         </Tabs>
       )}
 
@@ -148,6 +160,36 @@ export function FieldTripApprovalPage() {
                   size="small"
                   variant="outlined"
                   onClick={() => navigate(`/field-trips/${row.fieldTripRequestId}/transportation/view`)}
+                >
+                  View
+                </Button>
+              )}
+            />
+          </Paper>
+        </>
+      )}
+
+      {/* ── Tab 2: My Approval History ── */}
+      {activeTab === 2 && (
+        <>
+          {historyError && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              Failed to load approval history. Please refresh the page.
+            </Alert>
+          )}
+          <Paper variant="outlined">
+            <ResponsiveTable<FieldTripRequest>
+              columns={approvalColumns}
+              rows={approvalHistory ?? []}
+              getRowKey={(row) => row.id}
+              onRowClick={(row) => navigate(`/field-trips/${row.id}`)}
+              loading={historyLoading}
+              emptyMessage="You have not yet acted on any field trip requests."
+              rowActions={(row) => (
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={() => navigate(`/field-trips/${row.id}`)}
                 >
                   View
                 </Button>

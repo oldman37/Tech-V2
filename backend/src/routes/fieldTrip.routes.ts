@@ -79,6 +79,17 @@ router.get(
 );
 
 /**
+ * GET /api/field-trips/approval-history
+ * List field trip requests the current user has personally approved, denied,
+ * or sent back, regardless of the trip's current status.
+ */
+router.get(
+  '/approval-history',
+  requireModule('FIELD_TRIPS', 3),
+  fieldTripController.getMyApprovalHistory,
+);
+
+/**
  * POST /api/field-trips
  * Create a new field trip request in DRAFT status.
  */

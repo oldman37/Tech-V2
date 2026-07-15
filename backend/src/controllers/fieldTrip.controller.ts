@@ -90,6 +90,19 @@ export const getPendingApprovals = async (req: AuthRequest, res: Response): Prom
 };
 
 // ---------------------------------------------------------------------------
+// GET /api/field-trips/approval-history
+// ---------------------------------------------------------------------------
+
+export const getMyApprovalHistory = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const result = await fieldTripService.getMyApprovalHistory(req.user!.id);
+    res.json(result);
+  } catch (error) {
+    handleControllerError(error, res);
+  }
+};
+
+// ---------------------------------------------------------------------------
 // GET /api/field-trips/:id
 // ---------------------------------------------------------------------------
 
