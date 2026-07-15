@@ -143,3 +143,53 @@
     font-size: 24px;
   }
 }
+
+/* Dark mode — Login.css predates the shared --slate-* token set, so its
+   colors are overridden directly rather than through variables. */
+:root.dark .login-container {
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 40%, #3b82f6 100%);
+}
+
+:root.dark .login-card {
+  background: #1e293b;
+}
+
+:root.dark .login-header h1 {
+  color: #f1f5f9;
+}
+
+:root.dark .login-header p,
+:root.dark .login-info,
+:root.dark .login-spinner p {
+  color: #94a3b8;
+}
+
+:root.dark .error-message {
+  background-color: rgba(239, 68, 68, 0.16);
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #fca5a5;
+}
+
+:root.dark .microsoft-login-button {
+  background-color: #334155;
+  border-color: #475569;
+  color: #f1f5f9;
+}
+
+:root.dark .microsoft-login-button:hover:not(:disabled) {
+  background-color: #475569;
+  border-color: #64748b;
+}
+
+:root.dark .login-footer {
+  border-top-color: #334155;
+}
+
+:root.dark .login-footer p {
+  color: #64748b;
+}
+
+:root.dark .spinner {
+  border-color: #334155;
+  border-top-color: #60a5fa;
+}

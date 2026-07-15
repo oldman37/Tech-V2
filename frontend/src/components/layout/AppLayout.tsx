@@ -3,8 +3,11 @@
 import { ReactNode, useState, Dispatch, SetStateAction } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Drawer, IconButton, Collapse, Tooltip, ClickAwayListener } from '@mui/material';
+import { useColorScheme } from '@mui/material/styles';
 import MenuIcon from '@mui/icons-material/Menu';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import LightModeIcon from '@mui/icons-material/LightMode';
+import DarkModeIcon from '@mui/icons-material/DarkMode';
 import { useAuthStore, selectCanAccessDeviceManagement } from '../../store/authStore';
 import { authApi } from '../../services/authService';
 import { cancelProactiveRefresh } from '../../services/api';
@@ -116,6 +119,8 @@ interface AppLayoutProps {
 }
 
 export const AppLayout = ({ children }: AppLayoutProps) => {
+  const { mode, systemMode, setMode } = useColorScheme();
+  const resolvedMode = mode === 'system' ? systemMode : mode;
   const { user, clearAuth } = useAuthStore();
   const canAccessDeviceManagement = useAuthStore(selectCanAccessDeviceManagement);
   const navigate = useNavigate();
@@ -282,6 +287,17 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
           <img src="/schoolworks_logo.png" alt="SchoolWorks" className="shell-logo-full" />
         </div>
         <div className="shell-header-right">
+          {mode && (
+            <Tooltip title={resolvedMode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>
+              <IconButton
+                color="inherit"
+                aria-label="toggle dark mode"
+                onClick={() => setMode(resolvedMode === 'dark' ? 'light' : 'dark')}
+              >
+                {resolvedMode === 'dark' ? <LightModeIcon /> : <DarkModeIcon />}
+              </IconButton>
+            </Tooltip>
+          )}
           <div className="shell-user-info">
             <strong>{user?.name}</strong>
             {user?.roleLabel && <span>{user.roleLabel}</span>}

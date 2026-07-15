@@ -14,6 +14,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       'Added support for reporting tag numbers for items not in inventory, allowing users to manually enter a tag or serial number when the item is not found in the inventory.',
       'Add Approval History tab to the Field Trip Approvals page, allowing users to view their past approvals.',
       'Fixed the back button on the Field Trip Detail page to correctly navigate to the previous page instead of always going to the field trips list.',
+      'Added support for dark mode throughout the application, allowing users to switch between light and dark themes based on their preference or system settings.'
     ],
   },
   {

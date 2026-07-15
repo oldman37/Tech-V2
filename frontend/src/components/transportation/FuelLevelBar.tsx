@@ -42,7 +42,7 @@ export function FuelLevelBar({ percentFull, threshold, gallonsCurrent, gallonsCa
         variant="determinate"
         value={pct}
         barColor={barColor}
-        sx={{ backgroundColor: '#e0e0e0' }}
+        sx={{ backgroundColor: 'action.disabledBackground' }}
       />
       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25 }}>
         {pct.toFixed(1)}% ({gallonsCurrent.toFixed(0)} / {gallonsCapacity.toFixed(0)} gal)
