@@ -148,6 +148,7 @@ interface FormState {
   instructionalTimeMissed:     string;
   reimbursementExpenses:       string[];
   overnightSafetyPrecautions:  string;
+  busQuotaAcknowledged:        boolean;
 }
 
 const EMPTY_FORM: FormState = {
@@ -195,6 +196,7 @@ const EMPTY_FORM: FormState = {
   instructionalTimeMissed:     '',
   reimbursementExpenses:       [],
   overnightSafetyPrecautions:  '',
+  busQuotaAcknowledged:        false,
 };
 
 function tripToFormState(trip: FieldTripRequest): FormState {
@@ -243,6 +245,7 @@ function tripToFormState(trip: FieldTripRequest): FormState {
     instructionalTimeMissed:    trip.instructionalTimeMissed ?? '',
     reimbursementExpenses:      trip.reimbursementExpenses ?? [],
     overnightSafetyPrecautions: trip.overnightSafetyPrecautions ?? '',
+    busQuotaAcknowledged:       trip.busQuotaAcknowledged ?? false,
   };
 }
 
@@ -286,6 +289,7 @@ function formToDto(form: FormState): CreateFieldTripDto {
     overnightSafetyPrecautions: form.isOvernightTrip
                                   ? (form.overnightSafetyPrecautions.trim() || null)
                                   : null,
+    busQuotaAcknowledged:       form.busQuotaAcknowledged,
   };
 }
 
@@ -295,7 +299,7 @@ function formToDto(form: FormState): CreateFieldTripDto {
 
 type FieldErrors = Partial<Record<keyof FormState, string>>;
 
-function validateStep(step: number, form: FormState, isRevision = false): FieldErrors {
+function validateStep(step: number, form: FormState, isRevision = false, isBusQuotaFull = false): FieldErrors {
   const errors: FieldErrors = {};
 
   if (step === 0) {
@@ -328,6 +332,8 @@ function validateStep(step: number, form: FormState, isRevision = false): FieldE
     if (!form.transportationNeeded && !form.returnTime.trim())    errors.returnTime    = 'Return time is required';
     if (!form.transportationNeeded && !form.alternateTransportation.trim())
       errors.alternateTransportation = 'Please describe how students will be transported';
+    if (!form.transportationNeeded && isBusQuotaFull && !form.busQuotaAcknowledged)
+      errors.busQuotaAcknowledged = 'Please acknowledge that you are arranging your own transportation';
   }
 
   if (step === 1 && form.transportationNeeded) {
@@ -434,6 +440,27 @@ export function FieldTripRequestPage() {
     }
   }, [existingTrip]);
 
+  // Bus/driver daily quota check for the selected trip date(s)
+  const busQuotaRangeEnd = form.isOvernightTrip && form.returnDate ? form.returnDate : form.tripDate;
+  const { data: busDateCounts } = useQuery<Record<string, number>>({
+    queryKey: ['field-trip-date-counts', form.tripDate, busQuotaRangeEnd],
+    queryFn:  () => fieldTripService.getDateCounts(form.tripDate, busQuotaRangeEnd),
+    enabled:  !!form.tripDate,
+    staleTime: 60_000,
+  });
+  const isBusQuotaFull = !!form.tripDate &&
+    Object.values(busDateCounts ?? {}).some((count) => count >= 8);
+
+  useEffect(() => {
+    if (isBusQuotaFull && form.transportationNeeded) {
+      setForm((f) => ({ ...f, transportationNeeded: false }));
+    }
+    if (!isBusQuotaFull && form.busQuotaAcknowledged) {
+      setForm((f) => ({ ...f, busQuotaAcknowledged: false }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isBusQuotaFull]);
+
   // ---------------------------------------------------------------------------
   // Mutations
   // ---------------------------------------------------------------------------
@@ -532,7 +559,7 @@ export function FieldTripRequestPage() {
 
   const handleNext = () => {
     const isRevision = existingTrip?.status === 'NEEDS_REVISION';
-    const stepErrors = validateStep(activeStep, form, isRevision);
+    const stepErrors = validateStep(activeStep, form, isRevision, isBusQuotaFull);
     if (Object.keys(stepErrors).length > 0) { setErrors(stepErrors); return; }
     setErrors({});
     // Skip the Transportation step when transportation is not needed
@@ -556,7 +583,7 @@ export function FieldTripRequestPage() {
   const handleSubmit = async () => {
     const isRevision = existingTrip?.status === 'NEEDS_REVISION';
     const allErrors: FieldErrors = {};
-    for (let s = 0; s < STEPS.length; s++) Object.assign(allErrors, validateStep(s, form, isRevision));
+    for (let s = 0; s < STEPS.length; s++) Object.assign(allErrors, validateStep(s, form, isRevision, isBusQuotaFull));
     if (Object.keys(allErrors).length > 0) {
       setErrors(allErrors);
       setSaveError('Please fix the errors above before submitting.');
@@ -875,9 +902,14 @@ export function FieldTripRequestPage() {
                     if (needed) handleChange('alternateTransportation', '');
                   }}
                 >
-                  <FormControlLabel value="yes" control={<Radio />} label="Yes" />
+                  <FormControlLabel value="yes" control={<Radio />} label="Yes" disabled={isReadOnly || isBusQuotaFull} />
                   <FormControlLabel value="no"  control={<Radio />} label="No"  />
                 </RadioGroup>
+                {isBusQuotaFull && (
+                  <FormHelperText sx={{ color: 'warning.dark' }}>
+                    District bus quota (8/day) is full for this date — buses are not available. You must arrange your own transportation.
+                  </FormHelperText>
+                )}
               </FormControl>
             </Grid>
 
@@ -894,6 +926,26 @@ export function FieldTripRequestPage() {
                   disabled={isReadOnly}
                   required
                 />
+              </Grid>
+            )}
+
+            {/* Bus quota acknowledgment — only when buses not needed and the date is at quota */}
+            {!form.transportationNeeded && isBusQuotaFull && (
+              <Grid size={12}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={form.busQuotaAcknowledged}
+                      onChange={(e) => handleChange('busQuotaAcknowledged', e.target.checked)}
+                      color="warning"
+                      disabled={isReadOnly}
+                    />
+                  }
+                  label="I acknowledge the district bus quota for this date is full and I am arranging my own transportation."
+                />
+                {errors.busQuotaAcknowledged && (
+                  <FormHelperText error>{errors.busQuotaAcknowledged}</FormHelperText>
+                )}
               </Grid>
             )}
 

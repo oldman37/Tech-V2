@@ -2,9 +2,11 @@
  * DashboardFieldTripCalendar
  *
  * Read-only month calendar shown on the Dashboard for staff, so they can see
- * field-trip date availability before starting a new request.
- * - Fetches trip counts per date from /api/field-trips/date-counts
+ * field-trip bus/driver quota availability before starting a new request.
+ * - Fetches district-bus trip counts per date from /api/field-trips/date-counts
+ *   (counts only trips with transportationNeeded=true — the bus/driver daily quota)
  * - Clicking a present/future date navigates to /field-trips/new?date=YYYY-MM-DD
+ *   (dates at the quota stay clickable — alternate transportation is still possible)
  * - Past dates are dimmed and non-interactive
  */
 
@@ -194,16 +196,16 @@ export function DashboardFieldTripCalendar() {
                     let textColor = 'text.primary';
 
                     if (isFull) {
-                      bgColor   = 'error.light';
-                      textColor = 'text.disabled';
+                      bgColor   = 'warning.light';
+                      textColor = 'text.primary';
                     } else if (isPast) {
                       textColor = 'text.disabled';
                     }
 
                     const tooltipTitle = isFull
-                      ? `${count}/${MAX_TRIPS_PER_DAY} — Fully booked`
+                      ? `${count}/${MAX_TRIPS_PER_DAY} buses booked — quota full, but you can still book this date with your own transportation`
                       : count > 0
-                      ? `${count}/${MAX_TRIPS_PER_DAY} trips booked`
+                      ? `${count}/${MAX_TRIPS_PER_DAY} buses booked`
                       : '';
 
                     return (
@@ -235,7 +237,7 @@ export function DashboardFieldTripCalendar() {
                               flexDirection: 'column',
                               alignItems:   'center',
                               justifyContent: 'center',
-                              '&:hover': !isPast ? { bgcolor: isFull ? 'error.light' : 'action.hover' } : {},
+                              '&:hover': !isPast ? { bgcolor: isFull ? 'warning.light' : 'action.hover' } : {},
                             }}
                           >
                             <Typography variant="caption" lineHeight={1}>
@@ -247,7 +249,7 @@ export function DashboardFieldTripCalendar() {
                                 sx={{
                                   fontSize:   '0.6rem',
                                   lineHeight: 1,
-                                  color: isFull ? 'error.main' : 'text.secondary',
+                                  color: isFull ? 'warning.dark' : 'text.secondary',
                                   fontWeight: isFull ? 'bold' : 'normal',
                                 }}
                               >
@@ -267,8 +269,8 @@ export function DashboardFieldTripCalendar() {
           {/* Legend */}
           <Box sx={{ display: 'flex', gap: 2, mt: 1, flexWrap: 'wrap' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: 'error.light' }} />
-              <Typography variant="caption" color="text.secondary">Fully booked (8/8)</Typography>
+              <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: 'warning.light' }} />
+              <Typography variant="caption" color="text.secondary">Bus quota full (8/8) — car/alternate transportation only</Typography>
             </Box>
           </Box>
         </Box>

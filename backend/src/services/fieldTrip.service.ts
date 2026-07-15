@@ -48,6 +48,9 @@ const STAGE_MIN_LEVEL: Record<string, number> = {
 /** Statuses that are considered "active" (can be approved or denied). */
 const PENDING_STATUSES = Object.keys(APPROVAL_CHAIN);
 
+/** Maximum number of trips needing a district bus/driver allowed on a single calendar day. */
+const BUS_QUOTA_PER_DAY = 8;
+
 // ---------------------------------------------------------------------------
 // Prisma include shapes
 // ---------------------------------------------------------------------------
@@ -84,6 +87,29 @@ function resolveDisplayName(user: {
   lastName: string;
 }): string {
   return user.displayName ?? `${user.firstName} ${user.lastName}`;
+}
+
+/**
+ * Accumulates a { 'YYYY-MM-DD': count } map from a set of trips, incrementing every day
+ * of each trip's [tripDate, returnDate ?? tripDate] span that falls within [from, to].
+ */
+function accumulateDateCounts(
+  trips: { tripDate: Date; returnDate: Date | null }[],
+  from: Date,
+  to: Date,
+): Record<string, number> {
+  const counts: Record<string, number> = {};
+  const fromTime = from.getTime();
+  const toTime   = to.getTime();
+  for (const t of trips) {
+    const start = Math.max(t.tripDate.getTime(), fromTime);
+    const end   = Math.min((t.returnDate ?? t.tripDate).getTime(), toTime);
+    for (let day = start; day <= end; day += 86_400_000) {
+      const key = new Date(day).toISOString().slice(0, 10);
+      counts[key] = (counts[key] ?? 0) + 1;
+    }
+  }
+  return counts;
 }
 
 // ---------------------------------------------------------------------------
@@ -135,6 +161,7 @@ export class FieldTripService {
         instructionalTimeMissed:     data.instructionalTimeMissed ?? null,
         reimbursementExpenses:       data.reimbursementExpenses ?? [],
         overnightSafetyPrecautions:  data.isOvernightTrip ? (data.overnightSafetyPrecautions ?? null) : null,
+        busQuotaAcknowledged:        data.busQuotaAcknowledged ?? false,
         status:               'DRAFT',
       },
       include: TRIP_LIST_INCLUDE,
@@ -191,6 +218,7 @@ export class FieldTripService {
     if (data.instructionalTimeMissed    !== undefined) updateData.instructionalTimeMissed    = data.instructionalTimeMissed ?? null;
     if (data.reimbursementExpenses      !== undefined) updateData.reimbursementExpenses      = data.reimbursementExpenses ?? [];
     if (data.overnightSafetyPrecautions !== undefined) updateData.overnightSafetyPrecautions = data.overnightSafetyPrecautions ?? null;
+    if (data.busQuotaAcknowledged       !== undefined) updateData.busQuotaAcknowledged       = data.busQuotaAcknowledged;
 
     return prisma.fieldTripRequest.update({
       where: { id },
@@ -222,6 +250,8 @@ export class FieldTripService {
     if (trip.status !== 'DRAFT') {
       throw new ValidationError('Only draft requests can be submitted');
     }
+
+    await this.checkBusQuota(trip.transportationNeeded, trip.busQuotaAcknowledged, trip.tripDate, trip.returnDate);
 
     const firstStatus =
       snapshot.supervisorEmails.length > 0 ? 'PENDING_SUPERVISOR' : 'PENDING_ASST_DIRECTOR';
@@ -553,6 +583,10 @@ export class FieldTripService {
       throw new AuthorizationError('You can only resubmit your own field trip requests');
     }
 
+    // Exclude this trip's own id: it's still in NEEDS_REVISION, which already counts
+    // toward the day's bus quota, so it must not be counted as competing against itself.
+    await this.checkBusQuota(trip.transportationNeeded, trip.busQuotaAcknowledged, trip.tripDate, trip.returnDate, trip.id);
+
     const firstStatus =
       snapshot.supervisorEmails.length > 0 ? 'PENDING_SUPERVISOR' : 'PENDING_ASST_DIRECTOR';
 
@@ -704,13 +738,15 @@ export class FieldTripService {
 
   /**
    * Returns a map of { 'YYYY-MM-DD': count } for submitted (non-DRAFT, non-DENIED)
-   * field trip requests within the given date range. Multi-day trips (returnDate set)
-   * increment every day of their span that falls within [from, to], not just tripDate.
+   * field trip requests that need a district bus, within the given date range.
+   * Multi-day trips (returnDate set) increment every day of their span that falls
+   * within [from, to], not just tripDate. This backs the bus/driver daily quota.
    */
   async getDateCounts(from: Date, to: Date): Promise<Record<string, number>> {
     const trips = await prisma.fieldTripRequest.findMany({
       where: {
         status: { notIn: ['DRAFT', 'DENIED'] },
+        transportationNeeded: true,
         tripDate: { lte: to },
         OR: [
           { returnDate: null, tripDate: { gte: from } },
@@ -720,18 +756,68 @@ export class FieldTripService {
       select: { tripDate: true, returnDate: true },
     });
 
-    const counts: Record<string, number> = {};
-    const fromTime = from.getTime();
-    const toTime   = to.getTime();
-    for (const t of trips) {
-      const start = Math.max(t.tripDate.getTime(), fromTime);
-      const end   = Math.min((t.returnDate ?? t.tripDate).getTime(), toTime);
-      for (let day = start; day <= end; day += 86_400_000) {
-        const key = new Date(day).toISOString().slice(0, 10);
-        counts[key] = (counts[key] ?? 0) + 1;
+    return accumulateDateCounts(trips, from, to);
+  }
+
+  // -------------------------------------------------------------------------
+  // Bus/driver daily quota check
+  // -------------------------------------------------------------------------
+
+  /**
+   * Returns true if any day in [tripDate, returnDate ?? tripDate] already has
+   * BUS_QUOTA_PER_DAY (or more) other bus-needing trips booked. Pass excludeId when
+   * re-checking a trip that may already be counted under its current status (e.g.
+   * NEEDS_REVISION on resubmit), so it isn't counted against itself.
+   */
+  private async isBusQuotaFull(
+    tripDate: Date,
+    returnDate: Date | null,
+    excludeId?: string,
+  ): Promise<boolean> {
+    const rangeEnd = returnDate ?? tripDate;
+    const trips = await prisma.fieldTripRequest.findMany({
+      where: {
+        status: { notIn: ['DRAFT', 'DENIED'] },
+        transportationNeeded: true,
+        ...(excludeId ? { id: { not: excludeId } } : {}),
+        tripDate: { lte: rangeEnd },
+        OR: [
+          { returnDate: null, tripDate: { gte: tripDate } },
+          { returnDate: { gte: tripDate } },
+        ],
+      },
+      select: { tripDate: true, returnDate: true },
+    });
+
+    const counts = accumulateDateCounts(trips, tripDate, rangeEnd);
+    return Object.values(counts).some((count) => count >= BUS_QUOTA_PER_DAY);
+  }
+
+  /**
+   * Hard-blocks submission when the bus quota is full: a bus-needing trip cannot be
+   * submitted for a full date, and a no-bus trip on a full date requires the
+   * requester to have acknowledged they're arranging their own transportation.
+   */
+  private async checkBusQuota(
+    transportationNeeded: boolean,
+    busQuotaAcknowledged: boolean,
+    tripDate: Date,
+    returnDate: Date | null,
+    excludeId?: string,
+  ): Promise<void> {
+    if (transportationNeeded) {
+      if (await this.isBusQuotaFull(tripDate, returnDate, excludeId)) {
+        throw new ValidationError(
+          'The district bus quota (8 per day) is full for the selected date(s). ' +
+          'Please arrange alternate transportation to submit this request.',
+        );
       }
+    } else if (!busQuotaAcknowledged && await this.isBusQuotaFull(tripDate, returnDate, excludeId)) {
+      throw new ValidationError(
+        'The bus quota is full for this date. You must acknowledge that you are arranging your ' +
+        'own transportation before submitting.',
+      );
     }
-    return counts;
   }
 
   // -------------------------------------------------------------------------

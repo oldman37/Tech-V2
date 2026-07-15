@@ -696,6 +696,7 @@ model FieldTripRequest {
   instructionalTimeMissed      String?                 @db.VarChar(200)
   reimbursementExpenses        String[]                @default([])
   overnightSafetyPrecautions   String?                 @db.Text
+  busQuotaAcknowledged         Boolean                 @default(false)
 
   // Workflow State
   status                String                  @default("DRAFT")

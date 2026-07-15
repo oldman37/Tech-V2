@@ -2,9 +2,11 @@
  * FieldTripDatePicker
  *
  * Inline month calendar for selecting a field trip date.
- * - Fetches trip counts per date from /api/field-trips/date-counts
- * - Disables past dates and dates with 8+ submitted trips
- * - Shows a badge (count/8) on each day that has bookings
+ * - Fetches district-bus trip counts per date from /api/field-trips/date-counts
+ *   (counts only trips with transportationNeeded=true — the bus/driver daily quota)
+ * - Disables past dates only; dates at the bus quota stay selectable since a trip
+ *   can still be booked there with alternate (non-bus) transportation
+ * - Shows a badge (count/8) on each day that has bus bookings
  * - Highlights the selected date
  */
 
@@ -131,8 +133,9 @@ export function FieldTripDatePicker({ value, onChange, disabled, error }: FieldT
     if (disabled) return;
     const iso = toLocalISO(date);
     if (iso < todayISO) return;  // past
-    const count = dateCounts?.[iso] ?? 0;
-    if (count >= MAX_TRIPS_PER_DAY) return;  // full
+    // Note: a date at the bus quota stays selectable — the requester can still book
+    // it with alternate (non-bus) transportation. The request form enforces the
+    // quota against the "buses needed?" choice, not against the date itself.
     onChange(iso);
   };
 
@@ -216,7 +219,7 @@ export function FieldTripDatePicker({ value, onChange, disabled, error }: FieldT
                   const isFull = count >= MAX_TRIPS_PER_DAY;
                   const isPast = iso < todayISO;
                   const isSelected = iso === value;
-                  const isUnavailable = isFull || isPast;
+                  const isUnavailable = isPast;
 
                   let bgColor   = 'transparent';
                   let textColor = 'text.primary';
@@ -226,18 +229,17 @@ export function FieldTripDatePicker({ value, onChange, disabled, error }: FieldT
                     bgColor   = 'primary.main';
                     textColor = 'primary.contrastText';
                   } else if (isFull) {
-                    bgColor   = 'error.light';
-                    textColor = 'text.disabled';
-                    cursor    = 'not-allowed';
+                    bgColor   = 'warning.light';
+                    textColor = 'text.primary';
                   } else if (isPast) {
                     textColor = 'text.disabled';
                     cursor    = 'default';
                   }
 
                   const tooltipTitle = isFull
-                    ? `${count}/${MAX_TRIPS_PER_DAY} — Fully booked`
+                    ? `${count}/${MAX_TRIPS_PER_DAY} buses booked — quota full, but you can still book this date with your own transportation`
                     : count > 0
-                    ? `${count}/${MAX_TRIPS_PER_DAY} trips booked`
+                    ? `${count}/${MAX_TRIPS_PER_DAY} buses booked`
                     : '';
 
                   return (
@@ -284,7 +286,7 @@ export function FieldTripDatePicker({ value, onChange, disabled, error }: FieldT
                               sx={{
                                 fontSize:   '0.6rem',
                                 lineHeight: 1,
-                                color: isSelected ? 'primary.contrastText' : isFull ? 'error.main' : 'text.secondary',
+                                color: isSelected ? 'primary.contrastText' : isFull ? 'warning.dark' : 'text.secondary',
                                 fontWeight: isFull ? 'bold' : 'normal',
                               }}
                             >
@@ -308,8 +310,8 @@ export function FieldTripDatePicker({ value, onChange, disabled, error }: FieldT
             <Typography variant="caption" color="text.secondary">Selected</Typography>
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: 'error.light' }} />
-            <Typography variant="caption" color="text.secondary">Fully booked (8/8)</Typography>
+            <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: 'warning.light' }} />
+            <Typography variant="caption" color="text.secondary">Bus quota full (8/8) — car/alternate transportation only</Typography>
           </Box>
         </Box>
       </Paper>

@@ -5,6 +5,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.4.3',
+    changes: [
+      'Assistant Directors approving an overnight field trip now see an on-screen reminder (and receive an email) that the trip requires Board approval and must be submitted for the next Board meeting.',
+      'The Director of Schools must now acknowledge that an overnight field trip request has Board approval before they can approve it.',
+      'Added a daily limit of 8 field trips requiring a district bus/driver, due to the ongoing driver shortage. Dates at the limit remain bookable if the requester acknowledges they are arranging their own transportation.',
+    ],
+  },
+  {
     version: '1.4.2',
     changes: [
       'Field trips can now span multiple days without being marked "overnight" — Trip End Date is now independent of the overnight safety-precautions requirement, and the dashboard availability calendar, list/detail/approval views, PDF export, and email notifications all show the full date range',

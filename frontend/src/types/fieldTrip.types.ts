@@ -110,6 +110,7 @@ export interface FieldTripRequest {
   instructionalTimeMissed?:    string | null;
   reimbursementExpenses?:      string[];
   overnightSafetyPrecautions?: string | null;
+  busQuotaAcknowledged?:       boolean;
 
   // Workflow
   status:        FieldTripStatus;
@@ -174,6 +175,7 @@ export interface CreateFieldTripDto {
   instructionalTimeMissed:     string;
   reimbursementExpenses?:      string[];
   overnightSafetyPrecautions?: string | null;
+  busQuotaAcknowledged?:       boolean;
 }
 
 export type UpdateFieldTripDto = Partial<CreateFieldTripDto>;

@@ -237,6 +237,7 @@ const FieldTripBodyShape = {
     .max(3000, 'Overnight safety precautions must be 3000 characters or less')
     .nullable()
     .optional(),
+  busQuotaAcknowledged: z.boolean().optional(),
 };
 
 // ---------------------------------------------------------------------------
@@ -346,6 +347,7 @@ export const UpdateFieldTripSchema = z
       .optional()
       .default([]),
     overnightSafetyPrecautions: z.string().max(3000).nullable().optional(),
+    busQuotaAcknowledged: z.boolean().optional(),
   })
   .refine(
     (data) =>
