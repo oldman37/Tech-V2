@@ -91,7 +91,7 @@ export function FieldTripApprovalPage() {
           >
             <option value={0}>Field Trip Approvals</option>
             <option value={1}>Transportation Pending</option>
-            <option value={2}>My Approval History</option>
+            <option value={2}>Approval History</option>
           </select>
         </Box>
       ) : (
@@ -105,7 +105,7 @@ export function FieldTripApprovalPage() {
         >
           <Tab label="Field Trip Approvals" />
           <Tab label="Transportation Pending" icon={<DirectionsBusIcon fontSize="small" />} iconPosition="start" />
-          <Tab label="My Approval History" />
+          <Tab label="Approval History" />
         </Tabs>
       )}
 
@@ -169,7 +169,7 @@ export function FieldTripApprovalPage() {
         </>
       )}
 
-      {/* ── Tab 2: My Approval History ── */}
+      {/* ── Tab 2: Approval History ── */}
       {activeTab === 2 && (
         <>
           {historyError && (

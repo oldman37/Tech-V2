@@ -12,6 +12,8 @@ export const CHANGELOG: ChangelogEntry[] = [
       'Added support for "Not Listed" departments, allowing users to manually enter a department, program, or funding source along with a ship-to address if the desired location is not in the list.',
       'Set the default location for Technology Assistants based on their supervised locations, if available',
       'Added support for reporting tag numbers for items not in inventory, allowing users to manually enter a tag or serial number when the item is not found in the inventory.',
+      'Add Approval History tab to the Field Trip Approvals page, allowing users to view their past approvals.',
+      'Fixed the back button on the Field Trip Detail page to correctly navigate to the previous page instead of always going to the field trips list.',
     ],
   },
   {
