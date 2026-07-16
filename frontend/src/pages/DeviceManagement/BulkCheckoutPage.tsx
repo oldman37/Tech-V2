@@ -263,7 +263,7 @@ export default function BulkCheckoutPage() {
 
   return (
     <Box sx={{ p: { xs: 2, sm: 3 } }}>
-      <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/device-management')} sx={{ mb: 2 }}>
+      <Button startIcon={<ArrowBackIcon />} onClick={() => navigate(-1)} sx={{ mb: 2 }}>
         Back
       </Button>
       <Typography variant="h5" fontWeight={600} sx={{ mb: 3 }}>

@@ -129,7 +129,7 @@ export default function IncidentDetailPage() {
   return (
     <Box sx={{ p: { xs: 1.5, sm: 3 }, maxWidth: 1100, mx: 'auto' }}>
       {/* Back */}
-      <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/incidents')} sx={{ mb: 2 }}>
+      <Button startIcon={<ArrowBackIcon />} onClick={() => navigate(-1)} sx={{ mb: 2 }}>
         Back to Incidents
       </Button>
 

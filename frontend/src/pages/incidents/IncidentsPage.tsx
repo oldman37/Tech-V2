@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
+import { useFilterParams } from '@/hooks/useFilterParams';
 import {
   Alert,
   Box,
@@ -68,9 +69,16 @@ export default function IncidentsPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
-  const [search,   setSearch]   = useState('');
-  const [page,     setPage]     = useState(0);
-  const [pageSize, setPageSize] = useState(25);
+  // Filter state — lives in the URL so Back from an incident returns to this view
+  const [filters, setFilters] = useFilterParams({
+    search: '',
+    page:   '0',
+    rows:   '25',
+  });
+
+  const search   = filters.search;
+  const page     = Number(filters.page) || 0;
+  const pageSize = Number(filters.rows) || 25;
 
   // If arriving with prefill params (e.g. from Checkout page), redirect straight to wizard
   useEffect(() => {
@@ -189,7 +197,7 @@ export default function IncidentsPage() {
           size="small"
           placeholder="Search by incident #, asset tag, or user…"
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => setFilters({ search: e.target.value })}
           sx={{ width: { xs: '100%', sm: 360 } }}
           InputProps={{
             startAdornment: (
@@ -218,9 +226,9 @@ export default function IncidentsPage() {
             component="div"
             count={data?.total ?? 0}
             page={page}
-            onPageChange={(_e, p) => setPage(p)}
+            onPageChange={(_e, p) => setFilters({ page: String(p) })}
             rowsPerPage={pageSize}
-            onRowsPerPageChange={(e) => { setPageSize(parseInt(e.target.value, 10)); setPage(0); }}
+            onRowsPerPageChange={(e) => { setFilters({ rows: e.target.value, page: '0' }); }}
             rowsPerPageOptions={[10, 25, 50, 100]}
           />
         </>

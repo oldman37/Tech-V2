@@ -632,7 +632,7 @@ export default function FuelStationsPage() {
         gap={1}
         mb={3}
       >
-        <PageBackButton to="/transportation" />
+        <PageBackButton />
         <Typography variant="h5" fontWeight="bold">
           Fuel Stations
         </Typography>

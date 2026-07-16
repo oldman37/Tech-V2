@@ -124,7 +124,7 @@ export default function CheckoutScanPage() {
 
   return (
     <Box sx={{ maxWidth: 700, mx: 'auto', mt: 3, px: { xs: 2, sm: 0 } }}>
-      <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/device-management/checkouts')} sx={{ mb: 2 }}>
+      <Button startIcon={<ArrowBackIcon />} onClick={() => navigate(-1)} sx={{ mb: 2 }}>
         Back
       </Button>
       <Typography variant="h5" fontWeight={600} gutterBottom>

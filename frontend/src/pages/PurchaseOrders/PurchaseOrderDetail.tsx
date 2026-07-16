@@ -189,8 +189,8 @@ export default function PurchaseOrderDetail() {
         <Alert severity="error">
           {(error as { response?: { data?: { message?: string } } })?.response?.data?.message ?? 'Purchase order not found.'}
         </Alert>
-        <Button onClick={() => navigate('/purchase-orders')} sx={{ mt: 2 }}>
-          Back to List
+        <Button onClick={() => navigate(-1)} sx={{ mt: 2 }}>
+          Back
         </Button>
       </Box>
     );
@@ -458,7 +458,7 @@ export default function PurchaseOrderDetail() {
   return (
     <Box sx={{ p: { xs: 1, sm: 3 } }}>
       {/* ── Back Button ── */}
-      <PageBackButton to="/purchase-orders" />
+      <PageBackButton />
 
       {/* ── Breadcrumbs ── */}
       <Breadcrumbs sx={{ mb: 2 }}>

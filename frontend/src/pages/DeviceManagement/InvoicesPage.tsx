@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useFilterParams } from '@/hooks/useFilterParams';
 import {
   Alert,
   Box,
@@ -61,23 +62,32 @@ export default function InvoicesPage() {
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
 
-  const [statusFilter, setStatusFilter]     = useState('');
-  const [overdueOnly,  setOverdueOnly]       = useState(false);
-  const [search,       setSearch]           = useState('');
-  const [page,         setPage]             = useState(0);
-  const [pageSize,     setPageSize]         = useState(25);
+  // Filter state — lives in the URL so Back from an invoice returns to this view
+  const [filters, setFilters] = useFilterParams({
+    status:  '',
+    overdue: '0',
+    search:  '',
+    page:    '0',
+    rows:    '25',
+  });
+
+  const statusFilter = filters.status;
+  const overdueOnly  = filters.overdue === '1';
+  const search       = filters.search;
+  const page         = Number(filters.page) || 0;
+  const pageSize     = Number(filters.rows) || 25;
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
   const [createOpen,   setCreateOpen]        = useState(false);
   const [actionError,  setActionError]       = useState<string | null>(null);
 
-  const filters = {
+  const query = {
     ...(statusFilter && { status: statusFilter }),
     ...(overdueOnly  && { overdueOnly: true }),
   };
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['invoices', filters],
-    queryFn:  () => invoiceService.getAll(filters),
+    queryKey: ['invoices', query],
+    queryFn:  () => invoiceService.getAll(query),
   });
 
   const sendMutation = useMutation({
@@ -192,7 +202,7 @@ export default function InvoicesPage() {
 
   return (
     <Box sx={{ p: { xs: 1, sm: 3 } }}>
-      <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/device-management')} sx={{ mb: 2 }}>
+      <Button startIcon={<ArrowBackIcon />} onClick={() => navigate(-1)} sx={{ mb: 2 }}>
         Back
       </Button>
       {/* Header */}
@@ -213,7 +223,7 @@ export default function InvoicesPage() {
         <Box sx={{ mb: 2 }}>
           <MobileFilterBar
             searchValue={search}
-            onSearchChange={(v) => { setSearch(v); setPage(0); }}
+            onSearchChange={(v) => { setFilters({ search: v, page: '0' }); }}
             filterCount={activeFilterCount}
             onOpenFilters={() => setFilterDrawerOpen(!filterDrawerOpen)}
             searchPlaceholder="Search invoices…"
@@ -222,7 +232,7 @@ export default function InvoicesPage() {
             <Paper sx={{ p: 2, mt: 1 }}>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                 <Select size="small" displayEmpty value={statusFilter}
-                  onChange={(e) => { setStatusFilter(e.target.value); setPage(0); }} fullWidth>
+                  onChange={(e) => { setFilters({ status: e.target.value, page: '0' }); }} fullWidth>
                   <MenuItem value="">All Statuses</MenuItem>
                   <MenuItem value="draft">Draft</MenuItem>
                   <MenuItem value="sent">Sent</MenuItem>
@@ -231,10 +241,10 @@ export default function InvoicesPage() {
                   <MenuItem value="collections">Collections</MenuItem>
                 </Select>
                 <FormControlLabel
-                  control={<Checkbox checked={overdueOnly} onChange={(e) => { setOverdueOnly(e.target.checked); setPage(0); }} size="small" />}
+                  control={<Checkbox checked={overdueOnly} onChange={(e) => { setFilters({ overdue: e.target.checked ? '1' : '0', page: '0' }); }} size="small" />}
                   label="Overdue only"
                 />
-                <Button size="small" variant="text" onClick={() => { setStatusFilter(''); setOverdueOnly(false); setPage(0); }}>
+                <Button size="small" variant="text" onClick={() => { setFilters({ status: '', overdue: '0', page: '0' }); }}>
                   Clear Filters
                 </Button>
               </Box>
@@ -247,11 +257,11 @@ export default function InvoicesPage() {
             size="small"
             placeholder="Search invoices…"
             value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(0); }}
+            onChange={(e) => { setFilters({ search: e.target.value, page: '0' }); }}
             InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> }}
             sx={{ minWidth: 220 }}
           />
-          <Select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(0); }}
+          <Select value={statusFilter} onChange={(e) => { setFilters({ status: e.target.value, page: '0' }); }}
             displayEmpty size="small" sx={{ minWidth: 160 }}>
             <MenuItem value="">All statuses</MenuItem>
             <MenuItem value="draft">Draft</MenuItem>
@@ -261,7 +271,7 @@ export default function InvoicesPage() {
             <MenuItem value="collections">Collections</MenuItem>
           </Select>
           <FormControlLabel
-            control={<Checkbox checked={overdueOnly} onChange={(e) => { setOverdueOnly(e.target.checked); setPage(0); }} />}
+            control={<Checkbox checked={overdueOnly} onChange={(e) => { setFilters({ overdue: e.target.checked ? '1' : '0', page: '0' }); }} />}
             label="Overdue only"
           />
         </Box>
@@ -286,9 +296,9 @@ export default function InvoicesPage() {
         component="div"
         count={data?.total ?? 0}
         page={page}
-        onPageChange={(_, p) => setPage(p)}
+        onPageChange={(_, p) => setFilters({ page: String(p) })}
         rowsPerPage={pageSize}
-        onRowsPerPageChange={(e) => { setPageSize(Number(e.target.value)); setPage(0); }}
+        onRowsPerPageChange={(e) => { setFilters({ rows: e.target.value, page: '0' }); }}
         rowsPerPageOptions={[10, 25, 50]}
       />
 

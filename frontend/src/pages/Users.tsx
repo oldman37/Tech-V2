@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { useFilterParams } from '@/hooks/useFilterParams';
 import { User } from '../services/userService';
 import { Supervisor } from '../services/supervisorService';
 import { SyncResultDetail } from '../services/adminService';
@@ -44,12 +45,26 @@ const Users: React.FC = () => {
   // UI state (not data state - that's handled by queries)
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [showSupervisorModal, setShowSupervisorModal] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+  // Filter state — lives in the URL so Back returns to this view
+  const [filters, setFilters] = useFilterParams({
+    search:      '',
+    accountType: 'all',
+    location:    '',
+    grade:       '',
+    page:        '1',
+    rows:        '50',
+  });
+
+  const searchTerm       = filters.search;
+  const accountType      = filters.accountType as 'all' | 'staff' | 'student';
+  const locationFilter   = filters.location;
+  const gradeLevelFilter = filters.grade;
+  const currentPage      = Number(filters.page) || 1;
+  const itemsPerPage     = Number(filters.rows) || 50;
+
+  // Seeded from the URL so a restored search does not re-trigger the debounce
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState(searchTerm);
   const [showSyncPanel, setShowSyncPanel] = useState(false);
-  const [accountType, setAccountType] = useState<'all' | 'staff' | 'student'>('all');
-  const [locationFilter, setLocationFilter] = useState<string>('');
-  const [gradeLevelFilter, setGradeLevelFilter] = useState<string>('');
   const [syncDialogOpen, setSyncDialogOpen] = useState(false);
   const [syncResult, setSyncResult] = useState<SyncResultDetail | null>(null);
   const [activeSyncType, setActiveSyncType] = useState<'all' | 'staff' | 'students'>('all');
@@ -57,21 +72,25 @@ const Users: React.FC = () => {
   const [syncSummaryMessage, setSyncSummaryMessage] = useState<string | null>(null);
   const [syncAttempted, setSyncAttempted] = useState(false);
   
-  // Pagination state
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(50);
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
   
   const isMobile = useIsMobile();
 
-  // Debounce search term
+  // Debounce search term. The first run is skipped: on mount (including a Back that
+  // restores ?search= and ?page=) the debounced value already matches the URL, and
+  // resetting the page here would discard the restored page.
+  const searchDebounceMounted = useRef(false);
   useEffect(() => {
+    if (!searchDebounceMounted.current) {
+      searchDebounceMounted.current = true;
+      return;
+    }
     const timer = setTimeout(() => {
       setDebouncedSearchTerm(searchTerm);
-      setCurrentPage(1); // Reset to first page when search changes
+      setFilters({ page: '1' }); // Reset to first page when search changes
     }, 500);
     return () => clearTimeout(timer);
-  }, [searchTerm]);
+  }, [searchTerm, setFilters]);
 
   // ========== TANSTACK QUERY HOOKS ==========
   
@@ -148,35 +167,32 @@ const Users: React.FC = () => {
   };
 
   const handleSearchChange = (value: string) => {
-    setSearchTerm(value);
+    setFilters({ search: value });
   };
 
   const handleAccountTypeChange = (value: 'all' | 'staff' | 'student') => {
-    setAccountType(value);
-    if (value === 'staff') {
-      setGradeLevelFilter('');
-    }
-    setCurrentPage(1);
+    setFilters({
+      accountType: value,
+      ...(value === 'staff' && { grade: '' }),
+      page: '1',
+    });
   };
 
   const handleLocationFilterChange = (value: string) => {
-    setLocationFilter(value);
-    setCurrentPage(1);
+    setFilters({ location: value, page: '1' });
   };
 
   const handleGradeLevelFilterChange = (value: string) => {
-    setGradeLevelFilter(value);
-    setCurrentPage(1);
+    setFilters({ grade: value, page: '1' });
   };
 
   const handlePageChange = (page: number) => {
-    setCurrentPage(page);
+    setFilters({ page: String(page) });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleItemsPerPageChange = (value: number) => {
-    setItemsPerPage(value);
-    setCurrentPage(1);
+    setFilters({ rows: String(value), page: '1' });
   };
 
   // ========== DERIVED STATE ==========

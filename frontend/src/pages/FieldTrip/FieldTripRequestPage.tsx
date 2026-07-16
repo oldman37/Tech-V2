@@ -631,7 +631,7 @@ export function FieldTripRequestPage() {
     <Box sx={{ p: { xs: 1.5, sm: 3 }, maxWidth: 900, mx: 'auto' }}>
       {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
-        <PageBackButton to="/field-trips" sx={{ mr: 1 }} />
+        <PageBackButton sx={{ mr: 1 }} />
         <Typography variant="h4" component="h1">
           {id ? 'Edit Field Trip Request' : 'New Field Trip Request'}
         </Typography>

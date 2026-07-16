@@ -5,7 +5,7 @@
  * Level 2+: all entries with filters (unit, user, station, date range, month).
  */
 
-import { useState } from 'react';
+import { useFilterParams } from '@/hooks/useFilterParams';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Alert,
@@ -44,15 +44,24 @@ export default function MyFuelHistoryPage() {
   const permLevel = isAdmin ? 6 : (user?.permLevels?.TRANSPORTATION ?? 1);
   const isMobile = useIsMobile();
 
-  const [page, setPage]         = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(25);
+  // Filter state - lives in the URL so Back returns to this view
+  const [filters, setFilters] = useFilterParams({
+    unit:    '',
+    station: '',
+    month:   '',
+    from:    '',
+    to:      '',
+    page:    '0',
+    rows:    '25',
+  });
 
-  // Level 2+ filters
-  const [unitIdFilter, setUnitIdFilter]         = useState('');
-  const [stationIdFilter, setStationIdFilter]   = useState('');
-  const [monthFilter, setMonthFilter]           = useState('');
-  const [fromFilter, setFromFilter]             = useState('');
-  const [toFilter, setToFilter]                 = useState('');
+  const page            = Number(filters.page) || 0;
+  const rowsPerPage     = Number(filters.rows) || 25;
+  const unitIdFilter    = filters.unit;
+  const stationIdFilter = filters.station;
+  const monthFilter     = filters.month;
+  const fromFilter      = filters.from;
+  const toFilter        = filters.to;
 
   const { data: stationsData = [] } = useQuery({
     queryKey: ['fuel-stations'],
@@ -154,7 +163,7 @@ export default function MyFuelHistoryPage() {
   return (
     <Box sx={{ p: { xs: 2, sm: 3 } }}>
       <Box display="flex" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={1} mb={3}>
-        <PageBackButton to="/transportation" />
+        <PageBackButton />
         <Typography variant="h5" fontWeight="bold">
           {permLevel >= 2 ? 'Fuel Entry History' : 'My Fuel History'}
         </Typography>
@@ -178,7 +187,7 @@ export default function MyFuelHistoryPage() {
                 <Select
                   label="Unit"
                   value={unitIdFilter}
-                  onChange={(e) => { setUnitIdFilter(e.target.value); setPage(0); }}
+                  onChange={(e) => { setFilters({ unit: e.target.value, page: '0' }); }}
                 >
                   <MenuItem value="">All Units</MenuItem>
                   {(unitsData?.items ?? []).map((u) => (
@@ -193,7 +202,7 @@ export default function MyFuelHistoryPage() {
                 <Select
                   label="Fuel Station"
                   value={stationIdFilter}
-                  onChange={(e) => { setStationIdFilter(e.target.value); setPage(0); }}
+                  onChange={(e) => { setFilters({ station: e.target.value, page: '0' }); }}
                 >
                   <MenuItem value="">All Stations</MenuItem>
                   {stationsData.map((s) => (
@@ -208,7 +217,7 @@ export default function MyFuelHistoryPage() {
                 size="small"
                 fullWidth
                 value={monthFilter}
-                onChange={(e) => { setMonthFilter(e.target.value); setPage(0); }}
+                onChange={(e) => { setFilters({ month: e.target.value, page: '0' }); }}
                 placeholder="2026-06"
               />
             </Grid>
@@ -219,7 +228,7 @@ export default function MyFuelHistoryPage() {
                 fullWidth
                 type="date"
                 value={fromFilter}
-                onChange={(e) => { setFromFilter(e.target.value); setPage(0); }}
+                onChange={(e) => { setFilters({ from: e.target.value, page: '0' }); }}
                 InputLabelProps={{ shrink: true }}
               />
             </Grid>
@@ -230,7 +239,7 @@ export default function MyFuelHistoryPage() {
                 fullWidth
                 type="date"
                 value={toFilter}
-                onChange={(e) => { setToFilter(e.target.value); setPage(0); }}
+                onChange={(e) => { setFilters({ to: e.target.value, page: '0' }); }}
                 InputLabelProps={{ shrink: true }}
               />
             </Grid>
@@ -275,8 +284,8 @@ export default function MyFuelHistoryPage() {
             count={total}
             page={page}
             rowsPerPage={rowsPerPage}
-            onPageChange={(_, p) => setPage(p)}
-            onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
+            onPageChange={(_, p) => setFilters({ page: String(p) })}
+            onRowsPerPageChange={(e) => { setFilters({ rows: e.target.value, page: '0' }); }}
             rowsPerPageOptions={[25, 50, 100]}
           />
         </Paper>

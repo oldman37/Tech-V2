@@ -6,6 +6,7 @@
  */
 
 import { useState, useMemo } from 'react';
+import { useFilterParams } from '@/hooks/useFilterParams';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -83,10 +84,19 @@ export function FieldTripListPage() {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
 
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<FieldTripStatus | ''>('');
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(25);
+  // Filter state — lives in the URL so Back from a trip returns to this view
+  const [filters, setFilters] = useFilterParams({
+    search: '',
+    status: '',
+    page:   '0',
+    rows:   '25',
+  });
+
+  const search       = filters.search;
+  const statusFilter = filters.status as FieldTripStatus | '';
+  const page         = Number(filters.page) || 0;
+  const rowsPerPage  = Number(filters.rows) || 25;
+
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
 
   const { data: trips, isLoading, error } = useQuery<FieldTripRequest[]>({
@@ -142,7 +152,7 @@ export function FieldTripListPage() {
         <Box sx={{ mb: 2 }}>
           <MobileFilterBar
             searchValue={search}
-            onSearchChange={(value) => { setSearch(value); setPage(0); }}
+            onSearchChange={(value) => { setFilters({ search: value, page: '0' }); }}
             filterCount={activeFilterCount}
             onOpenFilters={() => setFilterDrawerOpen(!filterDrawerOpen)}
             searchPlaceholder="Search field trips…"
@@ -153,7 +163,7 @@ export function FieldTripListPage() {
                 <Select
                   size="small"
                   value={statusFilter}
-                  onChange={(e) => { setStatusFilter(e.target.value as FieldTripStatus | ''); setPage(0); }}
+                  onChange={(e) => { setFilters({ status: e.target.value, page: '0' }); }}
                   displayEmpty
                   fullWidth
                 >
@@ -165,7 +175,7 @@ export function FieldTripListPage() {
                 <Button
                   size="small"
                   variant="text"
-                  onClick={() => { setStatusFilter(''); setSearch(''); setPage(0); setFilterDrawerOpen(false); }}
+                  onClick={() => { setFilters({ status: '', search: '', page: '0' }); setFilterDrawerOpen(false); }}
                 >
                   Clear Filters
                 </Button>
@@ -179,7 +189,7 @@ export function FieldTripListPage() {
             size="small"
             placeholder="Search field trips…"
             value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(0); }}
+            onChange={(e) => { setFilters({ search: e.target.value, page: '0' }); }}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
@@ -193,7 +203,7 @@ export function FieldTripListPage() {
             size="small"
             displayEmpty
             value={statusFilter}
-            onChange={(e) => { setStatusFilter(e.target.value as FieldTripStatus | ''); setPage(0); }}
+            onChange={(e) => { setFilters({ status: e.target.value, page: '0' }); }}
             sx={{ minWidth: 160 }}
           >
             <MenuItem value="">All Statuses</MenuItem>
@@ -238,8 +248,8 @@ export function FieldTripListPage() {
         page={page}
         rowsPerPage={rowsPerPage}
         rowsPerPageOptions={[10, 25, 50, 100]}
-        onPageChange={(_, p) => setPage(p)}
-        onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
+        onPageChange={(_, p) => setFilters({ page: String(p) })}
+        onRowsPerPageChange={(e) => { setFilters({ rows: e.target.value, page: '0' }); }}
       />
     </Box>
   );

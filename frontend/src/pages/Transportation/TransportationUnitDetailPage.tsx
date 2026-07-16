@@ -197,7 +197,7 @@ export default function TransportationUnitDetailPage() {
   return (
     <Box sx={{ p: { xs: 2, sm: 3 } }}>
       <Box display="flex" alignItems="center" gap={1} mb={3} flexWrap="wrap">
-        <PageBackButton to="/transportation/units" />
+        <PageBackButton />
         <Typography variant="h5" fontWeight="bold">
           Unit: {unit.unitNumber}
         </Typography>

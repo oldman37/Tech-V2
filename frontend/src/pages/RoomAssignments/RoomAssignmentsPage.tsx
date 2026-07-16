@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { useFilterParams } from '@/hooks/useFilterParams';
 import {
   Box,
   Typography,
@@ -53,21 +54,31 @@ export function RoomAssignmentsPage() {
   const { isAdmin, isPrincipalOrVP, isPrimarySupervisor, primarySupervisorLocationIds } =
     useRoomAssignmentAccess();
 
-  const [selectedLocationId, setSelectedLocationId] = useState<string>('');
   const [dialogRoom, setDialogRoom] = useState<RoomWithAssignments | null>(null);
 
-  // Filter & pagination state
-  const [roomSearch, setRoomSearch] = useState('');
-  const [typeFilter, setTypeFilter] = useState<string>('');
-  const [buildingFilter, setBuildingFilter] = useState<string>('');
-  const [page, setPage] = useState(1);
+  // Filter state - lives in the URL so Back returns to this view
+  const [filters, setFilters, hasFilterParam] = useFilterParams({
+    location: '',
+    search:   '',
+    type:     '',
+    building: '',
+    page:     '1',
+  });
+
+  const selectedLocationId = filters.location;
+  const roomSearch         = filters.search;
+  const typeFilter         = filters.type;
+  const buildingFilter     = filters.building;
+  const page               = Number(filters.page) || 1;
 
   // For primary supervisors / principals (non-admin): auto-select their location
   useEffect(() => {
+    // An explicit location in the URL - chosen, or restored by Back - outranks this default.
+    if (hasFilterParam('location')) return;
     if (!isAdmin && isPrimarySupervisor && primarySupervisorLocationIds.length > 0) {
-      setSelectedLocationId(primarySupervisorLocationIds[0]);
+      setFilters({ location: primarySupervisorLocationIds[0] });
     }
-  }, [isAdmin, isPrimarySupervisor, primarySupervisorLocationIds]);
+  }, [isAdmin, isPrimarySupervisor, primarySupervisorLocationIds, hasFilterParam, setFilters]);
 
   // Admins and Principals/VPs without a primary location: fetch all locations for the selector
   const showLocationSelector = isAdmin || (isPrincipalOrVP && !isPrimarySupervisor);
@@ -82,13 +93,17 @@ export function RoomAssignmentsPage() {
     isError: assignmentsError,
   } = useLocationRoomAssignments(selectedLocationId);
 
-  // Reset filters when location changes
+  // Reset filters when location changes. The first run is skipped: on mount (including
+  // a Back that restores filters) there is no change to react to, and resetting here
+  // would discard the restored view.
+  const locationChangeMounted = useRef(false);
   useEffect(() => {
-    setRoomSearch('');
-    setTypeFilter('');
-    setBuildingFilter('');
-    setPage(1);
-  }, [selectedLocationId]);
+    if (!locationChangeMounted.current) {
+      locationChangeMounted.current = true;
+      return;
+    }
+    setFilters({ search: '', type: '', building: '', page: '1' });
+  }, [selectedLocationId, setFilters]);
 
   // Client-side filtering + natural sort
   const filteredRooms = useMemo(() => {
@@ -133,7 +148,7 @@ export function RoomAssignmentsPage() {
           <Select
             value={selectedLocationId}
             label="Select Location"
-            onChange={(e) => setSelectedLocationId(e.target.value)}
+            onChange={(e) => setFilters({ location: e.target.value })}
             disabled={locationsLoading}
           >
             <MenuItem value="">
@@ -191,7 +206,7 @@ export function RoomAssignmentsPage() {
               size="small"
               placeholder="Search rooms..."
               value={roomSearch}
-              onChange={(e) => { setRoomSearch(e.target.value); setPage(1); }}
+              onChange={(e) => { setFilters({ search: e.target.value, page: '1' }); }}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
@@ -206,7 +221,7 @@ export function RoomAssignmentsPage() {
               <Select
                 value={typeFilter}
                 label="Room Type"
-                onChange={(e) => { setTypeFilter(e.target.value); setPage(1); }}
+                onChange={(e) => { setFilters({ type: e.target.value, page: '1' }); }}
               >
                 <MenuItem value="">All Types</MenuItem>
                 {ROOM_TYPES.map((t) => (
@@ -222,7 +237,7 @@ export function RoomAssignmentsPage() {
                 <Select
                   value={buildingFilter}
                   label="Building"
-                  onChange={(e) => { setBuildingFilter(e.target.value); setPage(1); }}
+                  onChange={(e) => { setFilters({ building: e.target.value, page: '1' }); }}
                 >
                   <MenuItem value="">All Buildings</MenuItem>
                   {uniqueBuildings.map((b) => (
@@ -236,7 +251,7 @@ export function RoomAssignmentsPage() {
             {(roomSearch || typeFilter || buildingFilter) && (
               <Button
                 size="small"
-                onClick={() => { setRoomSearch(''); setTypeFilter(''); setBuildingFilter(''); setPage(1); }}
+                onClick={() => { setFilters({ search: '', type: '', building: '', page: '1' }); }}
               >
                 Clear Filters
               </Button>
@@ -332,7 +347,7 @@ export function RoomAssignmentsPage() {
               <Pagination
                 count={totalPages}
                 page={page}
-                onChange={(_, p) => setPage(p)}
+                onChange={(_, p) => setFilters({ page: String(p) })}
                 color="primary"
                 showFirstButton
                 showLastButton

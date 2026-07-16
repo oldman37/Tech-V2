@@ -186,7 +186,7 @@ export function TransportationRequestDetailPage() {
     return (
       <Box sx={{ p: 3 }}>
         <Alert severity="error">Failed to load request. It may not exist or you may not have access.</Alert>
-        <PageBackButton to="/transportation-requests" label="Back to Requests" sx={{ mt: 2 }} />
+        <PageBackButton sx={{ mt: 2 }} />
       </Box>
     );
   }
@@ -205,11 +205,7 @@ export function TransportationRequestDetailPage() {
   return (
     <Box sx={{ p: { xs: 1, sm: 3 }, maxWidth: 960, mx: 'auto' }}>
       {/* Nav */}
-      <PageBackButton
-        to="/transportation-requests"
-        label="Back to Requests"
-        sx={{ mb: 2 }}
-      />
+      <PageBackButton sx={{ mb: 2 }} />
 
       {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3, flexWrap: 'wrap' }}>

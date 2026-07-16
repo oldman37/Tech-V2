@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useFilterParams } from '@/hooks/useFilterParams';
 import {
   Box,
   FormControl,
@@ -12,13 +12,15 @@ import { UnresolvedItemsTable } from '@/components/inventory-audit/UnresolvedIte
 import { useLocations } from '@/hooks/queries/useLocations';
 
 export function UnresolvedInventoryPage() {
-  const [officeLocationId, setOfficeLocationId] = useState('');
+  // Filter state - lives in the URL so Back returns to this view
+  const [filters, setFilters] = useFilterParams({ location: '' });
+  const officeLocationId = filters.location;
 
   const { data: locations } = useLocations();
   const activeLocations = (locations ?? []).filter((loc) => loc.isActive);
 
   const handleLocationChange = (event: SelectChangeEvent<string>) => {
-    setOfficeLocationId(event.target.value);
+    setFilters({ location: event.target.value });
   };
 
   return (

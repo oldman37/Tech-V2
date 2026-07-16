@@ -150,7 +150,7 @@ export default function ReportsPage() {
 
   return (
     <Box sx={{ p: { xs: 1, sm: 3 } }}>
-      <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/device-management')} sx={{ mb: 2 }}>
+      <Button startIcon={<ArrowBackIcon />} onClick={() => navigate(-1)} sx={{ mb: 2 }}>
         Back
       </Button>
       <Typography variant="h4" fontWeight={600} gutterBottom>

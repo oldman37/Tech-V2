@@ -12,6 +12,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useFilterParams } from '@/hooks/useFilterParams';
 import {
   Alert,
   Box,
@@ -60,17 +61,27 @@ export default function WorkOrderListPage() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
 
-  // Filter state
-  const [search, setSearch] = useState('');
-  const [department, setDepartment] = useState<WorkOrderDepartment | ''>(
-    user?.permLevels?.defaultWorkOrderDepartment ?? ''
-  );
-  const [statusBucket, setStatusBucket] = useState<'open' | 'closed'>('open');
-  const [priority, setPriority] = useState<WorkOrderPriority | ''>('');
-  const [locationFilter, setLocationFilter] = useState<string>('');
-  const [fiscalYearFilter, setFiscalYearFilter] = useState<string>('');
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(25);
+  // Filter state — lives in the URL so Back from a work order returns to this view
+  const [filters, setFilters, hasFilterParam] = useFilterParams({
+    search: '',
+    department: user?.permLevels?.defaultWorkOrderDepartment ?? '',
+    status: 'open',
+    priority: '',
+    location: '',
+    fiscalYear: '',
+    page: '0',
+    rows: '25',
+  });
+
+  const search = filters.search;
+  const department = filters.department as WorkOrderDepartment | '';
+  const statusBucket: 'open' | 'closed' = filters.status === 'closed' ? 'closed' : 'open';
+  const priority = filters.priority as WorkOrderPriority | '';
+  const locationFilter = filters.location;
+  const fiscalYearFilter = filters.fiscalYear;
+  const page = Number(filters.page) || 0;
+  const rowsPerPage = Number(filters.rows) || 25;
+
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
   const defaultLocationApplied = useRef(false);
 
@@ -97,15 +108,18 @@ export default function WorkOrderListPage() {
 
   useEffect(() => {
     if (isAdmin) return;
+    // An explicit location in the URL — chosen by the user, or restored by Back —
+    // outranks this default. `has` covers "All Schools", which is an empty value.
+    if (hasFilterParam('location')) return;
     if (supervisedLocations.length > 0 && !defaultLocationApplied.current) {
       defaultLocationApplied.current = true;
       const techAssignments = supervisedLocations.filter((a) => a.supervisorType === 'TECHNOLOGY_ASSISTANT');
       if (techAssignments.length > 0) {
         const match = techAssignments.find((a) => a.isPrimary) ?? techAssignments[0];
-        setLocationFilter(match.locationId);
+        setFilters({ location: match.locationId });
       }
     }
-  }, [supervisedLocations, isAdmin]);
+  }, [supervisedLocations, isAdmin, hasFilterParam, setFilters]);
 
   // Fetch distinct work order fiscal years for dropdown
   const { data: workOrderFiscalYears = [] } = useQuery({
@@ -117,7 +131,7 @@ export default function WorkOrderListPage() {
   const activeFiscalYear = fiscalYearFilter || settingsData?.currentFiscalYear || '';
 
   // Build query params
-  const filters: WorkOrderQuery = {
+  const query: WorkOrderQuery = {
     page: page + 1,
     limit: rowsPerPage,
     ...(search.trim() && { search: search.trim() }),
@@ -128,7 +142,7 @@ export default function WorkOrderListPage() {
     ...(activeFiscalYear && { fiscalYear: activeFiscalYear }),
   };
 
-  const { data, isLoading, error } = useWorkOrderList(filters);
+  const { data, isLoading, error } = useWorkOrderList(query);
 
   // If the main data query returned 403 — user lacks permissions
   const is403 = (error as any)?.response?.status === 403;
@@ -253,7 +267,7 @@ export default function WorkOrderListPage() {
         <Box sx={{ mb: 2 }}>
           <MobileFilterBar
             searchValue={search}
-            onSearchChange={(value) => { setSearch(value); setPage(0); }}
+            onSearchChange={(value) => { setFilters({ search: value, page: '0' }); }}
             filterCount={activeFilterCount}
             onOpenFilters={() => setFilterDrawerOpen(!filterDrawerOpen)}
             searchPlaceholder="Search work orders…"
@@ -265,7 +279,7 @@ export default function WorkOrderListPage() {
                   size="small"
                   displayEmpty
                   value={department}
-                  onChange={(e) => { setDepartment(e.target.value as WorkOrderDepartment | ''); setPage(0); }}
+                  onChange={(e) => { setFilters({ department: e.target.value, page: '0' }); }}
                   fullWidth
                 >
                   <MenuItem value="">All Departments</MenuItem>
@@ -275,7 +289,7 @@ export default function WorkOrderListPage() {
                 <ToggleButtonGroup
                   exclusive
                   value={statusBucket}
-                  onChange={(_, v) => { if (v !== null) { setStatusBucket(v); setPage(0); } }}
+                  onChange={(_, v) => { if (v !== null) { setFilters({ status: v, page: '0' }); } }}
                   size="small"
                   fullWidth
                 >
@@ -286,7 +300,7 @@ export default function WorkOrderListPage() {
                   size="small"
                   displayEmpty
                   value={priority}
-                  onChange={(e) => { setPriority(e.target.value as WorkOrderPriority | ''); setPage(0); }}
+                  onChange={(e) => { setFilters({ priority: e.target.value, page: '0' }); }}
                   fullWidth
                 >
                   <MenuItem value="">All Priorities</MenuItem>
@@ -299,7 +313,7 @@ export default function WorkOrderListPage() {
                   size="small"
                   displayEmpty
                   value={locationFilter}
-                  onChange={(e) => { setLocationFilter(e.target.value); setPage(0); }}
+                  onChange={(e) => { setFilters({ location: e.target.value, page: '0' }); }}
                   fullWidth
                 >
                   <MenuItem value="">All Schools</MenuItem>
@@ -314,13 +328,15 @@ export default function WorkOrderListPage() {
                   size="small"
                   variant="text"
                   onClick={() => {
-                    setSearch('');
-                    setDepartment('');
-                    setStatusBucket('open');
-                    setPriority('');
-                    setLocationFilter('');
-                    setFiscalYearFilter('');
-                    setPage(0);
+                    setFilters({
+                      search: '',
+                      department: '',
+                      status: 'open',
+                      priority: '',
+                      location: '',
+                      fiscalYear: '',
+                      page: '0',
+                    });
                     setFilterDrawerOpen(false);
                   }}
                 >
@@ -336,7 +352,7 @@ export default function WorkOrderListPage() {
             size="small"
             placeholder="Search work orders…"
             value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(0); }}
+            onChange={(e) => { setFilters({ search: e.target.value, page: '0' }); }}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
@@ -351,7 +367,7 @@ export default function WorkOrderListPage() {
             size="small"
             displayEmpty
             value={department}
-            onChange={(e) => { setDepartment(e.target.value as WorkOrderDepartment | ''); setPage(0); }}
+            onChange={(e) => { setFilters({ department: e.target.value, page: '0' }); }}
             sx={{ minWidth: 160 }}
           >
             <MenuItem value="">All Departments</MenuItem>
@@ -362,7 +378,7 @@ export default function WorkOrderListPage() {
           <ToggleButtonGroup
             exclusive
             value={statusBucket}
-            onChange={(_, v) => { if (v !== null) { setStatusBucket(v); setPage(0); } }}
+            onChange={(_, v) => { if (v !== null) { setFilters({ status: v, page: '0' }); } }}
             size="small"
           >
             <ToggleButton value="open">Open</ToggleButton>
@@ -373,7 +389,7 @@ export default function WorkOrderListPage() {
             size="small"
             displayEmpty
             value={priority}
-            onChange={(e) => { setPriority(e.target.value as WorkOrderPriority | ''); setPage(0); }}
+            onChange={(e) => { setFilters({ priority: e.target.value, page: '0' }); }}
             sx={{ minWidth: 140 }}
           >
             <MenuItem value="">All Priorities</MenuItem>
@@ -387,7 +403,7 @@ export default function WorkOrderListPage() {
             size="small"
             displayEmpty
             value={locationFilter}
-            onChange={(e) => { setLocationFilter(e.target.value); setPage(0); }}
+            onChange={(e) => { setFilters({ location: e.target.value, page: '0' }); }}
             sx={{ minWidth: 180 }}
           >
             <MenuItem value="">All Schools</MenuItem>
@@ -404,7 +420,7 @@ export default function WorkOrderListPage() {
               size="small"
               displayEmpty
               value={activeFiscalYear}
-              onChange={(e) => { setFiscalYearFilter(e.target.value); setPage(0); }}
+              onChange={(e) => { setFilters({ fiscalYear: e.target.value, page: '0' }); }}
               sx={{ minWidth: 160 }}
             >
               <MenuItem value="">All Years</MenuItem>
@@ -450,8 +466,8 @@ export default function WorkOrderListPage() {
         page={page}
         rowsPerPage={rowsPerPage}
         rowsPerPageOptions={[10, 25, 50, 100]}
-        onPageChange={(_, p) => setPage(p)}
-        onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
+        onPageChange={(_, p) => setFilters({ page: String(p) })}
+        onRowsPerPageChange={(e) => { setFilters({ rows: e.target.value, page: '0' }); }}
       />
     </Box>
   );

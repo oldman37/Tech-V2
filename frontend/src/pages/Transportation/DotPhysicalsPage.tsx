@@ -7,6 +7,7 @@
  */
 
 import { useState } from 'react';
+import { useFilterParams } from '@/hooks/useFilterParams';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Alert,
@@ -107,9 +108,11 @@ export default function DotPhysicalsPage() {
   const permLevel = isAdmin ? 6 : (user?.permLevels?.TRANSPORTATION ?? 2);
   const isMobile = useIsMobile();
 
-  const [tab, setTab]           = useState<TabValue>('all');
-  const [page, setPage]         = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(25);
+  // Filter state - lives in the URL so Back returns to this view
+  const [filters, setFilters] = useFilterParams({ tab: 'all', page: '0', rows: '25' });
+  const tab         = filters.tab as TabValue;
+  const page        = Number(filters.page) || 0;
+  const rowsPerPage = Number(filters.rows) || 25;
 
   // DOT physical dialog
   const [dialogOpen, setDialogOpen]   = useState(false);
@@ -396,7 +399,7 @@ export default function DotPhysicalsPage() {
   return (
     <Box sx={{ p: { xs: 2, sm: 3 } }}>
       <Box display="flex" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={1} mb={2}>
-        <PageBackButton to="/transportation" />
+        <PageBackButton />
         <Typography variant="h5" fontWeight="bold">DOT Physicals</Typography>
         <Box display="flex" gap={1} flexWrap="wrap" sx={isMobile ? { width: '100%' } : {}}>
           {permLevel >= 2 && (
@@ -427,7 +430,7 @@ export default function DotPhysicalsPage() {
           <Box sx={{ p: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}>
             <select
               value={tab}
-              onChange={(e) => { setTab(e.target.value as TabValue); setPage(0); }}
+              onChange={(e) => { setFilters({ tab: e.target.value, page: '0' }); }}
               className="form-select"
               style={{ width: '100%' }}
             >
@@ -440,7 +443,7 @@ export default function DotPhysicalsPage() {
         ) : (
           <Tabs
             value={tab}
-            onChange={(_, v) => { setTab(v); setPage(0); }}
+            onChange={(_, v) => { setFilters({ tab: v, page: '0' }); }}
             sx={{ borderBottom: '1px solid', borderColor: 'divider' }}
             variant="scrollable"
             scrollButtons="auto"
@@ -500,8 +503,8 @@ export default function DotPhysicalsPage() {
           count={total}
           page={page}
           rowsPerPage={rowsPerPage}
-          onPageChange={(_, p) => setPage(p)}
-          onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
+          onPageChange={(_, p) => setFilters({ page: String(p) })}
+          onRowsPerPageChange={(e) => { setFilters({ rows: e.target.value, page: '0' }); }}
           rowsPerPageOptions={[25, 50, 100]}
         />
       </Paper>

@@ -6,8 +6,8 @@
  * Clicking a row navigates to the detail page where approval/denial can be performed.
  */
 
-import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useFilterParams } from '@/hooks/useFilterParams';
 import { useQuery } from '@tanstack/react-query';
 import {
   Alert,
@@ -43,7 +43,9 @@ import {
 export function FieldTripApprovalPage() {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
-  const [activeTab, setActiveTab] = useState(0);
+  // Tab lives in the URL so Back from a trip returns to the tab it was opened from
+  const [filters, setFilters] = useFilterParams({ tab: '0' });
+  const activeTab = Number(filters.tab) || 0;
 
   const { data: trips, isLoading, error } = useQuery<FieldTripRequest[]>({
     queryKey: ['field-trips', 'pending-approvals'],
@@ -85,7 +87,7 @@ export function FieldTripApprovalPage() {
         <Box sx={{ mb: 2 }}>
           <select
             value={activeTab}
-            onChange={(e) => setActiveTab(Number(e.target.value))}
+            onChange={(e) => setFilters({ tab: String(e.target.value) })}
             className="form-select"
             style={{ width: '100%' }}
           >
@@ -97,7 +99,7 @@ export function FieldTripApprovalPage() {
       ) : (
         <Tabs
           value={activeTab}
-          onChange={(_, v) => setActiveTab(v)}
+          onChange={(_, v) => setFilters({ tab: String(v) })}
           variant="scrollable"
           scrollButtons="auto"
           allowScrollButtonsMobile

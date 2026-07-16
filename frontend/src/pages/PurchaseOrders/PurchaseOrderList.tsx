@@ -10,6 +10,7 @@
  */
 
 import { useState, useMemo } from 'react';
+import { useFilterParams } from '@/hooks/useFilterParams';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import {
   Alert,
@@ -115,15 +116,28 @@ export default function PurchaseOrderList() {
   // Finance Directors, and Director of Schools) default to "Pending My Approval"
   // instead of "My Requests" — this is also what they land on when navigating back
   // from a PO detail page, since that remounts this component fresh.
-  const [tab, setTab] = useState<TabKey>(permLevel >= 3 ? 'pending' : 'mine');
-  const [statusFilter, setStatusFilter] = useState<POStatus | ''>('');
-  const [search, setSearch] = useState('');
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
-  const [fiscalYearFilter, setFiscalYearFilter] = useState<string>('');
-  const [workflowTypeFilter, setWorkflowTypeFilter] = useState<WorkflowType | ''>('');
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(25);
+  // Filter state — lives in the URL so Back from a purchase order returns to this view
+  const [filters, setFilters] = useFilterParams({
+    tab:        permLevel >= 3 ? 'pending' : 'mine',
+    status:     '',
+    search:     '',
+    from:       '',
+    to:         '',
+    fiscalYear: '',
+    workflow:   '',
+    page:       '0',
+    rows:       '25',
+  });
+
+  const tab                = filters.tab as TabKey;
+  const statusFilter       = filters.status as POStatus | '';
+  const search             = filters.search;
+  const dateFrom           = filters.from;
+  const dateTo             = filters.to;
+  const fiscalYearFilter   = filters.fiscalYear;
+  const workflowTypeFilter = filters.workflow as WorkflowType | '';
+  const page               = Number(filters.page) || 0;
+  const rowsPerPage        = Number(filters.rows) || 25;
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
 
   const isMobile = useIsMobile();
@@ -188,14 +202,12 @@ export default function PurchaseOrderList() {
     : visibleTabs[0]?.key ?? 'mine';
 
   const handleTabChange = (_: React.SyntheticEvent, newTab: TabKey) => {
-    setTab(newTab);
-    setPage(0);
+    setFilters({ tab: newTab, page: '0' });
   };
 
-  const handleChangePage = (_: unknown, newPage: number) => setPage(newPage);
+  const handleChangePage = (_: unknown, newPage: number) => setFilters({ page: String(newPage) });
   const handleChangeRowsPerPage = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setRowsPerPage(Number(e.target.value));
-    setPage(0);
+    setFilters({ rows: e.target.value, page: '0' });
   };
 
   const formatCurrency = (val: string | number) =>
@@ -351,7 +363,7 @@ export default function PurchaseOrderList() {
         <Box sx={{ mb: 2 }}>
           <select
             value={activeTab}
-            onChange={(e) => { setTab(e.target.value as TabKey); setPage(0); }}
+            onChange={(e) => { setFilters({ tab: e.target.value, page: '0' }); }}
             className="form-select"
             style={{ width: '100%' }}
           >
@@ -380,7 +392,7 @@ export default function PurchaseOrderList() {
         <Box sx={{ mb: 2 }}>
           <MobileFilterBar
             searchValue={search}
-            onSearchChange={(value) => { setSearch(value); setPage(0); }}
+            onSearchChange={(value) => { setFilters({ search: value, page: '0' }); }}
             filterCount={
               (statusFilter ? 1 : 0) + (dateFrom ? 1 : 0) + (dateTo ? 1 : 0) +
               (fiscalYearFilter ? 1 : 0) + (workflowTypeFilter ? 1 : 0)
@@ -394,7 +406,7 @@ export default function PurchaseOrderList() {
                 <Select
                   size="small"
                   value={statusFilter}
-                  onChange={(e) => { setStatusFilter(e.target.value as POStatus | ''); setPage(0); }}
+                  onChange={(e) => { setFilters({ status: e.target.value, page: '0' }); }}
                   displayEmpty
                   fullWidth
                 >
@@ -406,7 +418,7 @@ export default function PurchaseOrderList() {
                 <Select
                   size="small"
                   value={fiscalYearFilter || settings?.currentFiscalYear || ''}
-                  onChange={(e) => { setFiscalYearFilter(e.target.value); setPage(0); }}
+                  onChange={(e) => { setFilters({ fiscalYear: e.target.value, page: '0' }); }}
                   displayEmpty
                   fullWidth
                 >
@@ -418,7 +430,7 @@ export default function PurchaseOrderList() {
                 <Select
                   size="small"
                   value={workflowTypeFilter}
-                  onChange={(e) => { setWorkflowTypeFilter(e.target.value as WorkflowType | ''); setPage(0); }}
+                  onChange={(e) => { setFilters({ workflow: e.target.value, page: '0' }); }}
                   displayEmpty
                   fullWidth
                 >
@@ -430,13 +442,15 @@ export default function PurchaseOrderList() {
                   size="small"
                   variant="text"
                   onClick={() => {
-                    setStatusFilter('');
-                    setSearch('');
-                    setDateFrom('');
-                    setDateTo('');
-                    setFiscalYearFilter('');
-                    setWorkflowTypeFilter('');
-                    setPage(0);
+                    setFilters({
+                      status: '',
+                      search: '',
+                      from: '',
+                      to: '',
+                      fiscalYear: '',
+                      workflow: '',
+                      page: '0',
+                    });
                     setFilterDrawerOpen(false);
                   }}
                 >
@@ -453,7 +467,7 @@ export default function PurchaseOrderList() {
               size="small"
               placeholder="Search PO#, title, program…"
               value={search}
-              onChange={(e) => { setSearch(e.target.value); setPage(0); }}
+              onChange={(e) => { setFilters({ search: e.target.value, page: '0' }); }}
               slotProps={{
                 input: {
                   startAdornment: (
@@ -466,7 +480,7 @@ export default function PurchaseOrderList() {
             <Select
               size="small"
               value={statusFilter}
-              onChange={(e) => { setStatusFilter(e.target.value as POStatus | ''); setPage(0); }}
+              onChange={(e) => { setFilters({ status: e.target.value, page: '0' }); }}
               displayEmpty
               sx={{ minWidth: { xs: 'unset', sm: 180 } }}
             >
@@ -480,7 +494,7 @@ export default function PurchaseOrderList() {
               type="date"
               label="From"
               value={dateFrom}
-              onChange={(e) => { setDateFrom(e.target.value); setPage(0); }}
+              onChange={(e) => { setFilters({ from: e.target.value, page: '0' }); }}
               slotProps={{ inputLabel: { shrink: true } }}
               sx={{ width: { xs: 'unset', sm: 150 } }}
             />
@@ -489,14 +503,14 @@ export default function PurchaseOrderList() {
               type="date"
               label="To"
               value={dateTo}
-              onChange={(e) => { setDateTo(e.target.value); setPage(0); }}
+              onChange={(e) => { setFilters({ to: e.target.value, page: '0' }); }}
               slotProps={{ inputLabel: { shrink: true } }}
               sx={{ width: { xs: 'unset', sm: 150 } }}
             />
             <Select
               size="small"
               value={fiscalYearFilter || settings?.currentFiscalYear || ''}
-              onChange={(e) => { setFiscalYearFilter(e.target.value); setPage(0); }}
+              onChange={(e) => { setFilters({ fiscalYear: e.target.value, page: '0' }); }}
               displayEmpty
               sx={{ minWidth: { xs: 'unset', sm: 160 } }}
             >
@@ -508,7 +522,7 @@ export default function PurchaseOrderList() {
             <Select
               size="small"
               value={workflowTypeFilter}
-              onChange={(e) => { setWorkflowTypeFilter(e.target.value as WorkflowType | ''); setPage(0); }}
+              onChange={(e) => { setFilters({ workflow: e.target.value, page: '0' }); }}
               displayEmpty
               sx={{ minWidth: { xs: 'unset', sm: 160 } }}
             >
@@ -521,13 +535,15 @@ export default function PurchaseOrderList() {
                 size="small"
                 variant="text"
                 onClick={() => {
-                  setStatusFilter('');
-                  setSearch('');
-                  setDateFrom('');
-                  setDateTo('');
-                  setFiscalYearFilter('');
-                  setWorkflowTypeFilter('');
-                  setPage(0);
+                  setFilters({
+                    status: '',
+                    search: '',
+                    from: '',
+                    to: '',
+                    fiscalYear: '',
+                    workflow: '',
+                    page: '0',
+                  });
                 }}
               >
                 Clear Filters

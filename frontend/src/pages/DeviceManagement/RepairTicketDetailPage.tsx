@@ -73,8 +73,8 @@ export default function RepairTicketDetailPage() {
 
   return (
     <Box sx={{ p: { xs: 1, sm: 3 }, maxWidth: 900, mx: 'auto' }}>
-      <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/device-management/repair-tickets')} sx={{ mb: 2 }}>
-        Back to Repair Tickets
+      <Button startIcon={<ArrowBackIcon />} onClick={() => navigate(-1)} sx={{ mb: 2 }}>
+        Back
       </Button>
 
       {/* Status Stepper */}

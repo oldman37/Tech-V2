@@ -153,7 +153,7 @@ export default function TransportationReportsPage() {
   return (
     <Box sx={{ p: { xs: 2, sm: 3 } }}>
       <Box display="flex" alignItems="center" gap={1} mb={3} flexWrap="wrap">
-        <PageBackButton to="/transportation" />
+        <PageBackButton />
         <Typography variant="h5" fontWeight="bold">Transportation Reports</Typography>
       </Box>
 

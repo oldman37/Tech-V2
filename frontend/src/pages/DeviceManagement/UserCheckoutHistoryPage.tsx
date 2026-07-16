@@ -1,5 +1,5 @@
-import { useState } from 'react';
 import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
+import { useFilterParams } from '@/hooks/useFilterParams';
 import {
   Alert,
   Box,
@@ -48,7 +48,9 @@ export default function UserCheckoutHistoryPage() {
   const { userId } = useParams<{ userId: string }>();
   const navigate   = useNavigate();
 
-  const [activeTab, setActiveTab] = useState(0);
+  // Tab lives in the URL so Back from a device or incident returns to the right tab
+  const [filters, setFilters] = useFilterParams({ tab: '0' });
+  const activeTab = Number(filters.tab) || 0;
 
   // ── Queries ───────────────────────────────────────────────────────────
   const {
@@ -110,7 +112,7 @@ export default function UserCheckoutHistoryPage() {
       {/* Back button */}
       <Button
         startIcon={<ArrowBackIcon />}
-        onClick={() => navigate('/device-management/checkouts')}
+        onClick={() => navigate(-1)}
         sx={{ mb: 2 }}
       >
         Back to Checkouts
@@ -205,7 +207,7 @@ export default function UserCheckoutHistoryPage() {
       </Paper>
 
       {/* ── Tabs ─────────────────────────────────────────────────────────── */}
-      <Tabs value={activeTab} onChange={(_, v) => setActiveTab(v)} sx={{ mb: 3 }}>
+      <Tabs value={activeTab} onChange={(_, v) => setFilters({ tab: String(v) })} sx={{ mb: 3 }}>
         <Tab label="Checkout History" />
         <Tab label="Incidents" />
       </Tabs>

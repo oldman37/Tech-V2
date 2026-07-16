@@ -6,6 +6,7 @@
  */
 
 import { useState, useMemo } from 'react';
+import { useFilterParams } from '@/hooks/useFilterParams';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -99,23 +100,33 @@ export function TransportationRequestsPage() {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
 
-  const [statusFilter, setStatusFilter] = useState<TransportationRequestStatus | ''>('');
-  const [fromFilter,   setFromFilter]   = useState<string>('');
-  const [toFilter,     setToFilter]     = useState<string>('');
-  const [searchFilter, setSearchFilter] = useState('');
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(25);
+  // Filter state — lives in the URL so Back from a request returns to this view
+  const [filters, setFilters] = useFilterParams({
+    status: '',
+    from:   '',
+    to:     '',
+    search: '',
+    page:   '0',
+    rows:   '25',
+  });
+
+  const statusFilter = filters.status as TransportationRequestStatus | '';
+  const fromFilter   = filters.from;
+  const toFilter     = filters.to;
+  const searchFilter = filters.search;
+  const page         = Number(filters.page) || 0;
+  const rowsPerPage  = Number(filters.rows) || 25;
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
 
-  const filters = {
+  const query = {
     ...(statusFilter ? { status: statusFilter } : {}),
     ...(fromFilter   ? { from: fromFilter }     : {}),
     ...(toFilter     ? { to: toFilter }         : {}),
   };
 
   const { data: requests, isLoading, error } = useQuery<TransportationRequest[]>({
-    queryKey: ['transportation-requests', filters],
-    queryFn:  () => transportationRequestService.list(filters),
+    queryKey: ['transportation-requests', query],
+    queryFn:  () => transportationRequestService.list(query),
   });
 
   const filteredRows = useMemo(() => {
@@ -160,7 +171,7 @@ export function TransportationRequestsPage() {
         <Box sx={{ mb: 2 }}>
           <MobileFilterBar
             searchValue={searchFilter}
-            onSearchChange={(value) => { setSearchFilter(value); setPage(0); }}
+            onSearchChange={(value) => { setFilters({ search: value, page: '0' }); }}
             filterCount={activeFilterCount}
             onOpenFilters={() => setFilterDrawerOpen(!filterDrawerOpen)}
             searchPlaceholder="Search transportation requests…"
@@ -172,7 +183,7 @@ export function TransportationRequestsPage() {
                   size="small"
                   displayEmpty
                   value={statusFilter}
-                  onChange={(e) => { setStatusFilter(e.target.value as TransportationRequestStatus | ''); setPage(0); }}
+                  onChange={(e) => { setFilters({ status: e.target.value, page: '0' }); }}
                   fullWidth
                 >
                   <MenuItem value="">All Statuses</MenuItem>
@@ -186,7 +197,7 @@ export function TransportationRequestsPage() {
                   label="Trip Date From"
                   type="date"
                   value={fromFilter}
-                  onChange={(e) => { setFromFilter(e.target.value); setPage(0); }}
+                  onChange={(e) => { setFilters({ from: e.target.value, page: '0' }); }}
                   InputLabelProps={{ shrink: true }}
                   fullWidth
                 />
@@ -195,14 +206,14 @@ export function TransportationRequestsPage() {
                   label="Trip Date To"
                   type="date"
                   value={toFilter}
-                  onChange={(e) => { setToFilter(e.target.value); setPage(0); }}
+                  onChange={(e) => { setFilters({ to: e.target.value, page: '0' }); }}
                   InputLabelProps={{ shrink: true }}
                   fullWidth
                 />
                 <Button
                   size="small"
                   variant="text"
-                  onClick={() => { setStatusFilter(''); setFromFilter(''); setToFilter(''); setSearchFilter(''); setPage(0); setFilterDrawerOpen(false); }}
+                  onClick={() => { setFilters({ status: '', from: '', to: '', search: '', page: '0' }); setFilterDrawerOpen(false); }}
                 >
                   Clear Filters
                 </Button>
@@ -216,7 +227,7 @@ export function TransportationRequestsPage() {
             size="small"
             placeholder="Search transportation requests…"
             value={searchFilter}
-            onChange={(e) => { setSearchFilter(e.target.value); setPage(0); }}
+            onChange={(e) => { setFilters({ search: e.target.value, page: '0' }); }}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
@@ -230,7 +241,7 @@ export function TransportationRequestsPage() {
             size="small"
             displayEmpty
             value={statusFilter}
-            onChange={(e) => { setStatusFilter(e.target.value as TransportationRequestStatus | ''); setPage(0); }}
+            onChange={(e) => { setFilters({ status: e.target.value, page: '0' }); }}
             sx={{ minWidth: 160 }}
           >
             <MenuItem value="">All Statuses</MenuItem>
@@ -244,7 +255,7 @@ export function TransportationRequestsPage() {
             type="date"
             label="From"
             value={fromFilter}
-            onChange={(e) => { setFromFilter(e.target.value); setPage(0); }}
+            onChange={(e) => { setFilters({ from: e.target.value, page: '0' }); }}
             InputLabelProps={{ shrink: true }}
             sx={{ width: 150 }}
           />
@@ -253,14 +264,14 @@ export function TransportationRequestsPage() {
             type="date"
             label="To"
             value={toFilter}
-            onChange={(e) => { setToFilter(e.target.value); setPage(0); }}
+            onChange={(e) => { setFilters({ to: e.target.value, page: '0' }); }}
             InputLabelProps={{ shrink: true }}
             sx={{ width: 150 }}
           />
           {(statusFilter || fromFilter || toFilter || searchFilter) && (
             <Button
               variant="text"
-              onClick={() => { setStatusFilter(''); setFromFilter(''); setToFilter(''); setSearchFilter(''); setPage(0); }}
+              onClick={() => { setFilters({ status: '', from: '', to: '', search: '', page: '0' }); }}
             >
               Clear Filters
             </Button>
@@ -302,8 +313,8 @@ export function TransportationRequestsPage() {
         page={page}
         rowsPerPage={rowsPerPage}
         rowsPerPageOptions={[10, 25, 50, 100]}
-        onPageChange={(_, p) => setPage(p)}
-        onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
+        onPageChange={(_, p) => setFilters({ page: String(p) })}
+        onRowsPerPageChange={(e) => { setFilters({ rows: e.target.value, page: '0' }); }}
       />
     </Box>
   );

@@ -5,6 +5,7 @@
  */
 
 import { useState } from 'react';
+import { useFilterParams } from '@/hooks/useFilterParams';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -85,12 +86,22 @@ export default function TransportationUnitsPage() {
   const isMobile = useIsMobile();
 
   // Filters
-  const [search, setSearch]         = useState('');
-  const [typeFilter, setTypeFilter] = useState<TransportationUnitType | ''>('');
-  const [fuelFilter, setFuelFilter] = useState<FuelType | ''>('');
-  const [activeOnly, setActiveOnly] = useState(true);
-  const [page, setPage]             = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(25);
+  // Filter state — lives in the URL so Back from a unit returns to this view
+  const [filters, setFilters] = useFilterParams({
+    search:     '',
+    type:       '',
+    fuel:       '',
+    activeOnly: '1',
+    page:       '0',
+    rows:       '25',
+  });
+
+  const search      = filters.search;
+  const typeFilter  = filters.type as TransportationUnitType | '';
+  const fuelFilter  = filters.fuel as FuelType | '';
+  const activeOnly  = filters.activeOnly === '1';
+  const page        = Number(filters.page) || 0;
+  const rowsPerPage = Number(filters.rows) || 25;
 
   // Dialog
   const [dialogOpen, setDialogOpen]   = useState(false);
@@ -293,7 +304,7 @@ export default function TransportationUnitsPage() {
   return (
     <Box sx={{ p: { xs: 2, sm: 3 } }}>
       <Box display="flex" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={1} mb={3}>
-        <PageBackButton to="/transportation" />
+        <PageBackButton />
         <Typography variant="h5" fontWeight="bold">Fleet Management</Typography>
         {permLevel >= 2 && (
           <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate} sx={{ ...(isMobile ? { width: '100%' } : {}) }}>
@@ -311,7 +322,7 @@ export default function TransportationUnitsPage() {
               fullWidth
               placeholder="Search unit number, make, model…"
               value={search}
-              onChange={(e) => { setSearch(e.target.value); setPage(0); }}
+              onChange={(e) => { setFilters({ search: e.target.value, page: '0' }); }}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
@@ -327,7 +338,7 @@ export default function TransportationUnitsPage() {
               <Select
                 label="Type"
                 value={typeFilter}
-                onChange={(e) => { setTypeFilter(e.target.value as TransportationUnitType | ''); setPage(0); }}
+                onChange={(e) => { setFilters({ type: e.target.value, page: '0' }); }}
               >
                 <MenuItem value="">All Types</MenuItem>
                 {UNIT_TYPES.map((t) => (
@@ -342,7 +353,7 @@ export default function TransportationUnitsPage() {
               <Select
                 label="Fuel"
                 value={fuelFilter}
-                onChange={(e) => { setFuelFilter(e.target.value as FuelType | ''); setPage(0); }}
+                onChange={(e) => { setFilters({ fuel: e.target.value, page: '0' }); }}
               >
                 <MenuItem value="">All Fuels</MenuItem>
                 {FUEL_TYPES.map((f) => (
@@ -357,7 +368,7 @@ export default function TransportationUnitsPage() {
               <Select
                 label="Status"
                 value={activeOnly ? 'active' : 'all'}
-                onChange={(e) => { setActiveOnly(e.target.value === 'active'); setPage(0); }}
+                onChange={(e) => { setFilters({ activeOnly: e.target.value === 'active' ? '1' : '0', page: '0' }); }}
               >
                 <MenuItem value="active">Active Only</MenuItem>
                 <MenuItem value="all">All</MenuItem>
@@ -424,8 +435,8 @@ export default function TransportationUnitsPage() {
             count={total}
             page={page}
             rowsPerPage={rowsPerPage}
-            onPageChange={(_, p) => setPage(p)}
-            onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
+            onPageChange={(_, p) => setFilters({ page: String(p) })}
+            onRowsPerPageChange={(e) => { setFilters({ rows: e.target.value, page: '0' }); }}
             rowsPerPageOptions={[25, 50, 100]}
           />
         </Paper>

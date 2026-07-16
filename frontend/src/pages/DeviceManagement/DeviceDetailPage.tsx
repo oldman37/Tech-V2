@@ -228,7 +228,7 @@ export default function DeviceDetailPage() {
       {/* Back button */}
       <Button
         startIcon={<ArrowBackIcon />}
-        onClick={() => navigate('/device-management/checkouts')}
+        onClick={() => navigate(-1)}
         sx={{ mb: 2 }}
       >
         Back to Checkouts

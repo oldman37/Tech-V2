@@ -287,7 +287,7 @@ export default function InvoiceDetailPage() {
       {/* Back button */}
       <Button
         startIcon={<ArrowBackIcon />}
-        onClick={() => navigate('/device-management/invoices')}
+        onClick={() => navigate(-1)}
         sx={{ mb: 2 }}
       >
         Back to Invoices

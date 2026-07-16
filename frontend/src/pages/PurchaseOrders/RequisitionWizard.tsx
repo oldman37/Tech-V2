@@ -668,7 +668,7 @@ export default function RequisitionWizard() {
     <Box sx={{ p: { xs: 1, sm: 3 }, maxWidth: isWideStep ? 'none' : 900, mx: 'auto' }}>
       {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
-        <PageBackButton to="/purchase-orders" />
+        <PageBackButton />
         <Typography variant="h5" fontWeight={700}>New Requisition</Typography>
       </Box>
 

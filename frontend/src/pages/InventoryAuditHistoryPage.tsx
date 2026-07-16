@@ -1,4 +1,5 @@
 import { ChangeEvent, useState } from 'react';
+import { useFilterParams } from '@/hooks/useFilterParams';
 import { useNavigate } from 'react-router-dom';
 import {
   Alert,
@@ -35,8 +36,10 @@ const STATUS_LABELS: Record<AuditSessionStatus, string> = {
 const PAGE_SIZE = 50;
 
 export function InventoryAuditHistoryPage() {
-  const [page, setPage] = useState(1);
-  const [officeLocationId, setOfficeLocationId] = useState('');
+  // Filter state - lives in the URL so Back returns to this view
+  const [filters, setFilters] = useFilterParams({ location: '', page: '1' });
+  const page             = Number(filters.page) || 1;
+  const officeLocationId = filters.location;
   const [exportLoading, setExportLoading] = useState(false);
   const [exportError, setExportError] = useState('');
   const navigate = useNavigate();
@@ -59,13 +62,12 @@ export function InventoryAuditHistoryPage() {
   };
 
   const handleLocationChange = (event: SelectChangeEvent<string>) => {
-    setOfficeLocationId(event.target.value);
-    setPage(1);
+    setFilters({ location: event.target.value, page: '1' });
     setExportError('');
   };
 
   const handlePageChange = (_event: ChangeEvent<unknown>, value: number) => {
-    setPage(value);
+    setFilters({ page: String(value) });
   };
 
   const handleExportPdf = async () => {

@@ -360,8 +360,8 @@ export default function WorkOrderDetailPage() {
     return (
       <Box sx={{ p: 3 }}>
         <Alert severity="error" action={
-          <Button color="inherit" onClick={() => navigate('/work-orders')}>
-            Back to list
+          <Button color="inherit" onClick={() => navigate(-1)}>
+            Back
           </Button>
         }>
           Work order not found or failed to load.
@@ -373,7 +373,7 @@ export default function WorkOrderDetailPage() {
   return (
     <Box sx={{ p: { xs: 1, sm: 3 } }}>
       {/* Back Button */}
-      <PageBackButton to="/work-orders" />
+      <PageBackButton />
 
       {/* Breadcrumb */}
       <Breadcrumbs sx={{ mb: 2 }}>

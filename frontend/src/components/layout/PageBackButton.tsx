@@ -4,8 +4,6 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { useNavigate } from 'react-router-dom';
 
 interface PageBackButtonProps {
-  /** Explicit route to navigate to. If omitted, uses navigate(-1). */
-  to?: string;
   /** Button label. Defaults to "Back". */
   label?: string;
   /** Custom click handler. Overrides default navigation when provided. */
@@ -14,14 +12,12 @@ interface PageBackButtonProps {
   sx?: SxProps<Theme>;
 }
 
-export function PageBackButton({ to, label = 'Back', onClick, sx }: PageBackButtonProps) {
+export function PageBackButton({ label = 'Back', onClick, sx }: PageBackButtonProps) {
   const navigate = useNavigate();
 
   const handleClick = () => {
     if (onClick) {
       onClick();
-    } else if (to) {
-      navigate(to);
     } else {
       navigate(-1);
     }

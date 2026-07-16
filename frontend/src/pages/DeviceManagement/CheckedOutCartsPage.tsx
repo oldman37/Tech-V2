@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback } from 'react';
+import { useFilterParams } from '@/hooks/useFilterParams';
 import { useNavigate } from 'react-router-dom';
 import {
   Alert,
@@ -331,12 +332,23 @@ export default function CheckedOutCartsPage() {
   const isMobile = useIsMobile();
 
   // Filter state
-  const [statusFilter, setStatusFilter]     = useState<ActiveStatusFilter>('');
-  const [locationFilter, setLocationFilter] = useState<string>('');
-  const [search, setSearch]                 = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [page, setPage]                     = useState(0);
-  const [pageSize, setPageSize]             = useState(25);
+  // Filter state — lives in the URL so Back returns to this view
+  const [filters, setFilters] = useFilterParams({
+    status:   '',
+    location: '',
+    search:   '',
+    page:     '0',
+    rows:     '25',
+  });
+
+  const statusFilter   = filters.status as ActiveStatusFilter;
+  const locationFilter = filters.location;
+  const search         = filters.search;
+  const page           = Number(filters.page) || 0;
+  const pageSize       = Number(filters.rows) || 25;
+
+  // Seeded from the URL so a restored search is queried without waiting on the debounce
+  const [debouncedSearch, setDebouncedSearch] = useState(search);
 
   // Return dialog
   const [returnTarget, setReturnTarget] = useState<DeviceCartDetail | null>(null);
@@ -345,10 +357,10 @@ export default function CheckedOutCartsPage() {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleSearchChange = useCallback((val: string) => {
-    setSearch(val);
+    setFilters({ search: val });
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => setDebouncedSearch(val), 300);
-  }, []);
+  }, [setFilters]);
 
   // Locations for filter
   const { data: locations } = useQuery({
@@ -391,7 +403,7 @@ export default function CheckedOutCartsPage() {
     <Box sx={{ p: { xs: 2, sm: 3 } }}>
       {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-        <IconButton size="small" onClick={() => navigate('/device-management')} aria-label="Back to Device Management">
+        <IconButton size="small" onClick={() => navigate(-1)} aria-label="Back">
           <ArrowBackIcon />
         </IconButton>
         <ShoppingCartIcon color="action" />
@@ -409,7 +421,7 @@ export default function CheckedOutCartsPage() {
             <Select
               value={statusFilter}
               label="Status"
-              onChange={(e) => { setStatusFilter(e.target.value as ActiveStatusFilter); setPage(0); }}
+              onChange={(e) => { setFilters({ status: e.target.value, page: '0' }); }}
             >
               <MenuItem value="">All Active (Out + Partial)</MenuItem>
               <MenuItem value="checked_out">Checked Out</MenuItem>
@@ -427,7 +439,7 @@ export default function CheckedOutCartsPage() {
               options={locations}
               getOptionLabel={(o) => o.name}
               value={locations.find((l) => l.id === locationFilter) ?? null}
-              onChange={(_, val) => { setLocationFilter(val?.id ?? ''); setPage(0); }}
+              onChange={(_, val) => { setFilters({ location: val?.id ?? '', page: '0' }); }}
               renderInput={(params) => <TextField {...params} label="Location" />}
             />
           )}
@@ -437,7 +449,7 @@ export default function CheckedOutCartsPage() {
             size="small"
             label="Search tag / name"
             value={search}
-            onChange={(e) => { handleSearchChange(e.target.value); setPage(0); }}
+            onChange={(e) => { handleSearchChange(e.target.value); setFilters({ page: '0' }); }}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
@@ -486,9 +498,9 @@ export default function CheckedOutCartsPage() {
               component="div"
               count={rawData.total}
               page={page}
-              onPageChange={(_, p) => setPage(p)}
+              onPageChange={(_, p) => setFilters({ page: String(p) })}
               rowsPerPage={pageSize}
-              onRowsPerPageChange={(e) => { setPageSize(Number(e.target.value)); setPage(0); }}
+              onRowsPerPageChange={(e) => { setFilters({ rows: e.target.value, page: '0' }); }}
               rowsPerPageOptions={[10, 25, 50]}
             />
           )}
@@ -544,9 +556,9 @@ export default function CheckedOutCartsPage() {
               component="div"
               count={rawData.total}
               page={page}
-              onPageChange={(_, p) => setPage(p)}
+              onPageChange={(_, p) => setFilters({ page: String(p) })}
               rowsPerPage={pageSize}
-              onRowsPerPageChange={(e) => { setPageSize(Number(e.target.value)); setPage(0); }}
+              onRowsPerPageChange={(e) => { setFilters({ rows: e.target.value, page: '0' }); }}
               rowsPerPageOptions={[10, 25, 50]}
             />
           )}

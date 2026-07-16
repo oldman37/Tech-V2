@@ -143,7 +143,7 @@ export default function DmRolloverPage() {
       <Box sx={{ p: 3, maxWidth: 720, mx: 'auto' }}>
         <Button
           startIcon={<ArrowBackIcon />}
-          onClick={() => navigate('/device-management')}
+          onClick={() => navigate(-1)}
           sx={{ mb: 2 }}
         >
           Back to DM Dashboard
@@ -189,7 +189,7 @@ export default function DmRolloverPage() {
 
   return (
     <Box sx={{ p: 3, maxWidth: 800, mx: 'auto' }}>
-      <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/device-management')} sx={{ mb: 2 }}>
+      <Button startIcon={<ArrowBackIcon />} onClick={() => navigate(-1)} sx={{ mb: 2 }}>
         Back
       </Button>
 

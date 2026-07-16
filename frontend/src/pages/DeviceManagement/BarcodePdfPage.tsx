@@ -86,7 +86,7 @@ export default function BarcodePdfPage() {
 
   return (
     <Box sx={{ p: 3, maxWidth: 600 }}>
-      <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/device-management')} sx={{ mb: 2 }}>
+      <Button startIcon={<ArrowBackIcon />} onClick={() => navigate(-1)} sx={{ mb: 2 }}>
         Back
       </Button>
       <Typography variant="h5" fontWeight="bold" gutterBottom>

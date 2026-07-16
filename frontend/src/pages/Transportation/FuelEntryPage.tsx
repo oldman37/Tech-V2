@@ -140,7 +140,7 @@ export default function FuelEntryPage() {
   return (
     <Box sx={{ p: { xs: 2, sm: 3 }, maxWidth: 600 }}>
       <Box display="flex" alignItems="center" gap={1} mb={3} flexWrap="wrap">
-        <PageBackButton to="/transportation/my-fuel-history" />
+        <PageBackButton />
         <Typography variant="h5" fontWeight="bold">Log Fuel Entry</Typography>
       </Box>
 

@@ -231,7 +231,7 @@ export default function BulkCheckinPage() {
       {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3, flexWrap: 'wrap', gap: 1 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/device-management')} size="small">
+          <Button startIcon={<ArrowBackIcon />} onClick={() => navigate(-1)} size="small">
             Back
           </Button>
           <Typography variant="h5" fontWeight={600}>

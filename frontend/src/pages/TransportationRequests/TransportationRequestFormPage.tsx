@@ -184,7 +184,7 @@ export function TransportationRequestFormPage() {
   return (
     <Box sx={{ p: { xs: 2, sm: 3 }, maxWidth: 900, mx: 'auto' }}>
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 3, gap: 1 }}>
-        <PageBackButton to="/transportation-requests" label="Back to Requests" />
+        <PageBackButton />
       </Box>
 
       <Typography variant="h4" component="h1" sx={{ mb: 3 }}>

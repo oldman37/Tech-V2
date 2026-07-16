@@ -245,7 +245,7 @@ export default function NewWorkOrderPage() {
     <Box sx={{ p: { xs: 2, sm: 3 }, maxWidth: 800, mx: 'auto' }}>
       {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
-        <PageBackButton to="/work-orders" />
+        <PageBackButton />
         <Typography variant="h5" fontWeight={600}>
           Submit a Work Order
         </Typography>

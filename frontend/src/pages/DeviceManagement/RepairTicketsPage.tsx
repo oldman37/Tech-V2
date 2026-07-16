@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useFilterParams } from '@/hooks/useFilterParams';
 import {
   Alert,
   Box,
@@ -48,10 +49,19 @@ export default function RepairTicketsPage() {
 
   const isMobile = useIsMobile();
 
-  const [statusFilter,    setStatusFilter]    = useState('');
-  const [search,          setSearch]          = useState('');
-  const [page,            setPage]            = useState(0);
-  const [pageSize,        setPageSize]        = useState(25);
+  // Filter state — lives in the URL so Back from a ticket returns to this view
+  const [filters, setFilters] = useFilterParams({
+    status: '',
+    search: '',
+    page:   '0',
+    rows:   '25',
+  });
+
+  const statusFilter = filters.status;
+  const search       = filters.search;
+  const page         = Number(filters.page) || 0;
+  const pageSize     = Number(filters.rows) || 25;
+
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
   const [dialogOpen,      setDialogOpen]      = useState(false);
   const [form,            setForm]            = useState<CreateRepairTicketData>(emptyForm);
@@ -157,7 +167,7 @@ export default function RepairTicketsPage() {
 
   return (
     <Box sx={{ p: { xs: 1, sm: 3 } }}>
-      <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/device-management')} sx={{ mb: 2 }}>
+      <Button startIcon={<ArrowBackIcon />} onClick={() => navigate(-1)} sx={{ mb: 2 }}>
         Back
       </Button>
       {/* Header */}
@@ -178,7 +188,7 @@ export default function RepairTicketsPage() {
         <Box sx={{ mb: 2 }}>
           <MobileFilterBar
             searchValue={search}
-            onSearchChange={(v) => { setSearch(v); setPage(0); }}
+            onSearchChange={(v) => { setFilters({ search: v, page: '0' }); }}
             filterCount={activeFilterCount}
             onOpenFilters={() => setFilterDrawerOpen(!filterDrawerOpen)}
             searchPlaceholder="Search tickets…"
@@ -190,13 +200,13 @@ export default function RepairTicketsPage() {
                   size="small"
                   displayEmpty
                   value={statusFilter}
-                  onChange={(e) => { setStatusFilter(e.target.value); setPage(0); }}
+                  onChange={(e) => { setFilters({ status: e.target.value, page: '0' }); }}
                   fullWidth
                 >
                   <MenuItem value="">All Statuses</MenuItem>
                   {STATUSES.map((s) => <MenuItem key={s} value={s}>{s.replace(/_/g, ' ')}</MenuItem>)}
                 </Select>
-                <Button size="small" variant="text" onClick={() => { setStatusFilter(''); setPage(0); }}>
+                <Button size="small" variant="text" onClick={() => { setFilters({ status: '', page: '0' }); }}>
                   Clear Filters
                 </Button>
               </Box>
@@ -209,13 +219,13 @@ export default function RepairTicketsPage() {
             size="small"
             placeholder="Search tickets…"
             value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(0); }}
+            onChange={(e) => { setFilters({ search: e.target.value, page: '0' }); }}
             InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> }}
             sx={{ minWidth: 220 }}
           />
           <FormControl size="small" sx={{ minWidth: 180 }}>
             <InputLabel>Status</InputLabel>
-            <Select value={statusFilter} label="Status" onChange={(e) => { setStatusFilter(e.target.value); setPage(0); }}>
+            <Select value={statusFilter} label="Status" onChange={(e) => { setFilters({ status: e.target.value, page: '0' }); }}>
               <MenuItem value="">All</MenuItem>
               {STATUSES.map((s) => <MenuItem key={s} value={s}>{s.replace(/_/g, ' ')}</MenuItem>)}
             </Select>
@@ -237,9 +247,9 @@ export default function RepairTicketsPage() {
         component="div"
         count={data?.total ?? 0}
         page={page}
-        onPageChange={(_, p) => setPage(p)}
+        onPageChange={(_, p) => setFilters({ page: String(p) })}
         rowsPerPage={pageSize}
-        onRowsPerPageChange={(e) => { setPageSize(Number(e.target.value)); setPage(0); }}
+        onRowsPerPageChange={(e) => { setFilters({ rows: e.target.value, page: '0' }); }}
         rowsPerPageOptions={[10, 25, 50]}
       />
 
