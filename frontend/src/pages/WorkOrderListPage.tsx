@@ -26,6 +26,7 @@ import {
   TextField,
   ToggleButton,
   ToggleButtonGroup,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
@@ -203,12 +204,36 @@ export default function WorkOrderListPage() {
     {
       key: 'officeLocation',
       label: 'Location',
-      render: (wo) => (
-        <span>
-          {wo.officeLocation?.name ?? '—'}
-          {wo.room ? ` / ${wo.room.name}` : ''}
-        </span>
-      ),
+      render: (wo) =>
+        locationFilter ? (
+          <span>{wo.room?.name ?? '—'}</span>
+        ) : (
+          <span>
+            {wo.officeLocation?.name ?? '—'}
+            {wo.room ? ` / ${wo.room.name}` : ''}
+          </span>
+        ),
+    },
+    {
+      key: 'description',
+      label: 'Description',
+      render: (wo) =>
+        isMobile ? (
+          <span>{wo.description}</span>
+        ) : (
+          <Tooltip title={wo.description} placement="top" arrow>
+            <Box
+              sx={{
+                maxWidth: 220,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {wo.description}
+            </Box>
+          </Tooltip>
+        ),
     },
     {
       key: 'reportedBy',

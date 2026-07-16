@@ -61,6 +61,7 @@ export interface WorkOrderSummary {
   createdAt: string;
   updatedAt: string;
   notInInventory: boolean;
+  description: string;
   _count?: { comments: number };
 }
 
