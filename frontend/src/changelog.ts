@@ -13,7 +13,8 @@ export const CHANGELOG: ChangelogEntry[] = [
       'Fixed so that all back buttons navigate to the previous page instead of going back to the bginning page of the list view.',
       'Added Discription field to the work order form for Technology and Maintenance work orders, allowing users to provide additional details about the issue or request.',
       'Fixed Purchase Order PDF export to correctly display all line items, including those with long descriptions that previously caused formatting issues.',
-      
+      'Fixed gradient background on the sidebar to display correctly in dark mode, ensuring better visibility and aesthetics for users who prefer the dark theme.',
+
     ],
   },
   {

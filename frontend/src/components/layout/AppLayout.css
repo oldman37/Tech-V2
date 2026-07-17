@@ -306,7 +306,7 @@
 /* Dark mode — literal colors that global.css's :root.dark variable
    overrides can't reach. */
 :root.dark .shell-header {
-  background: linear-gradient(90deg, #0f172a 0%, #1e3a8a 40%, var(--primary-blue, #3b82f6) 100%);
+  background: linear-gradient(90deg, var(--primary-blue, #3b82f6) 0%, #1e3a8a 60%, #0f172a 100%);
 }
 
 :root.dark .shell-sidebar {
@@ -325,4 +325,10 @@
 
 :root.dark .nav-item:hover:not(.nav-item--disabled) {
   background: linear-gradient(135deg, rgba(59, 130, 246, 0.16) 0%, rgba(96, 165, 250, 0.16) 100%);
+}
+
+@media (max-width: 768px) {
+  :root.dark .hamburger-btn {
+    color: #1e3a8a !important;
+  }
 }
