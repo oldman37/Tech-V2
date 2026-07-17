@@ -43,3 +43,23 @@ every other column already behaves in the mobile card), desktop keeps the trunca
 
 ## Result
 **APPROVED**
+
+---
+
+## Refinement Cycle 2
+
+**Issue found (user visual test, mobile viewport):** unbounded plain-text wrapping
+made cards with long descriptions grow much taller than neighboring cards.
+
+**Fix:** `frontend/src/pages/WorkOrderListPage.tsx` — mobile branch of the
+description column now uses a 3-line CSS clamp (`display: '-webkit-box'`,
+`WebkitLineClamp: 3`, `WebkitBoxOrient: 'vertical'`, `overflow: 'hidden'`) instead of
+unbounded wrap. Desktop single-line + `Tooltip` truncation unchanged.
+
+**Verification:**
+- `docker compose -f docker-compose.dev.yml build frontend` → PASS
+- `scripts/preflight.ps1` → PASS, exit code 0, both images built, all 38 backend
+  tests passed.
+
+## Result (Cycle 2)
+**APPROVED**

@@ -12,6 +12,8 @@ export const CHANGELOG: ChangelogEntry[] = [
       'Added a daily limit of 8 field trips requiring a district bus/driver, due to the ongoing driver shortage. Dates at the limit remain bookable if the requester acknowledges they are arranging their own transportation.',
       'Fixed so that all back buttons navigate to the previous page instead of going back to the bginning page of the list view.',
       'Added Discription field to the work order form for Technology and Maintenance work orders, allowing users to provide additional details about the issue or request.',
+      'Fixed Purchase Order PDF export to correctly display all line items, including those with long descriptions that previously caused formatting issues.',
+      
     ],
   },
   {

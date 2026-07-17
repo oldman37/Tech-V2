@@ -1,5 +1,21 @@
 # Work Order List — Description Column + Location Column Simplification
 
+## Addendum: Mobile Line-Clamp (post-delivery follow-up)
+
+Original delivery rendered the description as unbounded, fully-wrapping plain text
+on mobile (`isMobile ? <span>{wo.description}</span> : ...`). User feedback (visual
+check on device): a long description makes the mobile card grow very tall, which is
+inconsistent with every other card on the list.
+
+**Fix:** cap the mobile rendering to 3 lines via CSS `-webkit-line-clamp` (with
+`overflow: hidden`, `WebkitBoxOrient: 'vertical'`) instead of unbounded wrap. This is
+a pure-CSS technique, no new dependency, well-supported in all evergreen mobile
+browsers (Safari iOS, Chrome Android, Firefox — the property lost its "webkit-only"
+caveat years ago and is now standardized as `line-clamp` with the prefixed property
+still required for broadest support). Desktop single-line truncation + `Tooltip`
+behavior is unchanged. No popout — tapping the card still opens the full detail page,
+per the original design decision.
+
 ## Current State Analysis
 
 `frontend/src/pages/WorkOrderListPage.tsx` renders the work order list via the generic

@@ -219,7 +219,16 @@ export default function WorkOrderListPage() {
       label: 'Description',
       render: (wo) =>
         isMobile ? (
-          <span>{wo.description}</span>
+          <Box
+            sx={{
+              display: '-webkit-box',
+              WebkitLineClamp: 3,
+              WebkitBoxOrient: 'vertical',
+              overflow: 'hidden',
+            }}
+          >
+            {wo.description}
+          </Box>
         ) : (
           <Tooltip title={wo.description} placement="top" arrow>
             <Box
