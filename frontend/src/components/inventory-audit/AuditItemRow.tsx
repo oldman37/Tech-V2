@@ -2,7 +2,7 @@ import { Box, Button, Typography, Chip } from '@mui/material';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
-import { AuditItem, AuditItemStatus } from '@/types/inventoryAudit.types';
+import { AuditItem } from '@/types/inventoryAudit.types';
 import { useUpdateAuditItem } from '@/hooks/mutations/useInventoryAuditMutations';
 
 interface AuditItemRowProps {
@@ -18,22 +18,6 @@ export function AuditItemRow({ item, sessionId }: AuditItemRowProps) {
     updateMutation.mutate({ sessionId, itemId: item.id, data: { status } });
   };
 
-  const statusColor: Record<AuditItemStatus, string> = {
-    PRESENT: '#e8f5e9',
-    MISSING: '#ffebee',
-    UNVERIFIED: '#fafafa',
-  };
-
-  const statusBorderColor: Record<AuditItemStatus, string> = {
-    PRESENT: '#a5d6a7',
-    MISSING: '#ef9a9a',
-    UNVERIFIED: '#e0e0e0',
-  };
-
-  // Addition items get a distinct light-blue background regardless of status
-  const backgroundColor = item.isAddition ? '#e3f2fd' : statusColor[item.status];
-  const borderColor = item.isAddition ? '#90caf9' : statusBorderColor[item.status];
-
   return (
     <Box
       sx={{
@@ -44,9 +28,8 @@ export function AuditItemRow({ item, sessionId }: AuditItemRowProps) {
         p: 1.5,
         borderRadius: 1,
         border: '1px solid',
-        borderColor,
-        backgroundColor,
-        transition: 'background-color 0.2s',
+        borderColor: 'divider',
+        backgroundColor: 'background.paper',
       }}
     >
       {/* Row 1: icon + equipment info + status chip (chip hidden on mobile) */}

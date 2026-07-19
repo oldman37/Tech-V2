@@ -6,11 +6,11 @@ import {
 } from '@/types/work-order.types';
 
 const STATUS_COLOR: Record<WorkOrderStatus, ChipProps['color']> = {
-  OPEN:        'info',
-  IN_PROGRESS: 'warning',
-  ON_HOLD:     'default',
-  RESOLVED:    'success',
-  CLOSED:      'default',
+  OPEN:        'statusOpen',
+  IN_PROGRESS: 'statusInProgress',
+  ON_HOLD:     'statusOnHold',
+  RESOLVED:    'statusResolved',
+  CLOSED:      'statusClosed',
 };
 
 interface WorkOrderStatusChipProps {

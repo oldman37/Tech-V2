@@ -1,5 +1,44 @@
 import { createTheme } from '@mui/material/styles';
 
+declare module '@mui/material/styles' {
+  interface Palette {
+    statusOpen: Palette['primary'];
+    statusInProgress: Palette['primary'];
+    statusOnHold: Palette['primary'];
+    statusResolved: Palette['primary'];
+    statusClosed: Palette['primary'];
+    priorityLow: Palette['primary'];
+    priorityMedium: Palette['primary'];
+    priorityHigh: Palette['primary'];
+    priorityUrgent: Palette['primary'];
+  }
+  interface PaletteOptions {
+    statusOpen?: PaletteOptions['primary'];
+    statusInProgress?: PaletteOptions['primary'];
+    statusOnHold?: PaletteOptions['primary'];
+    statusResolved?: PaletteOptions['primary'];
+    statusClosed?: PaletteOptions['primary'];
+    priorityLow?: PaletteOptions['primary'];
+    priorityMedium?: PaletteOptions['primary'];
+    priorityHigh?: PaletteOptions['primary'];
+    priorityUrgent?: PaletteOptions['primary'];
+  }
+}
+
+declare module '@mui/material/Chip' {
+  interface ChipPropsColorOverrides {
+    statusOpen: true;
+    statusInProgress: true;
+    statusOnHold: true;
+    statusResolved: true;
+    statusClosed: true;
+    priorityLow: true;
+    priorityMedium: true;
+    priorityHigh: true;
+    priorityUrgent: true;
+  }
+}
+
 export const theme = createTheme({
   cssVariables: {
     colorSchemeSelector: 'class',
@@ -11,6 +50,15 @@ export const theme = createTheme({
           main: '#3b82f6',
           dark: '#2563eb',
         },
+        statusOpen: { main: '#2563eb', contrastText: '#ffffff' },
+        statusInProgress: { main: '#7c3aed', contrastText: '#ffffff' },
+        statusOnHold: { main: '#475569', contrastText: '#ffffff' },
+        statusResolved: { main: '#0f766e', contrastText: '#ffffff' },
+        statusClosed: { main: '#334155', contrastText: '#ffffff' },
+        priorityLow: { main: '#15803d', contrastText: '#ffffff' },
+        priorityMedium: { main: '#a16207', contrastText: '#ffffff' },
+        priorityHigh: { main: '#c2410c', contrastText: '#ffffff' },
+        priorityUrgent: { main: '#dc2626', contrastText: '#ffffff' },
       },
     },
     dark: {
@@ -19,6 +67,15 @@ export const theme = createTheme({
           main: '#60a5fa',
           dark: '#3b82f6',
         },
+        statusOpen: { main: '#60a5fa', contrastText: 'rgba(0, 0, 0, 0.87)' },
+        statusInProgress: { main: '#a78bfa', contrastText: 'rgba(0, 0, 0, 0.87)' },
+        statusOnHold: { main: '#94a3b8', contrastText: 'rgba(0, 0, 0, 0.87)' },
+        statusResolved: { main: '#2dd4bf', contrastText: 'rgba(0, 0, 0, 0.87)' },
+        statusClosed: { main: '#cbd5e1', contrastText: 'rgba(0, 0, 0, 0.87)' },
+        priorityLow: { main: '#4ade80', contrastText: 'rgba(0, 0, 0, 0.87)' },
+        priorityMedium: { main: '#fbbf24', contrastText: 'rgba(0, 0, 0, 0.87)' },
+        priorityHigh: { main: '#fb923c', contrastText: 'rgba(0, 0, 0, 0.87)' },
+        priorityUrgent: { main: '#f87171', contrastText: 'rgba(0, 0, 0, 0.87)' },
       },
     },
   },

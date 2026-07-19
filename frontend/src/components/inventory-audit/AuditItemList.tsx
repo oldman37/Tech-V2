@@ -106,7 +106,7 @@ export function AuditItemList({ sessionId, onCompleted }: AuditItemListProps) {
             {(session.additionCount ?? 0) > 0 && (
               <>
                 <Typography variant="body2" color="text.secondary">·</Typography>
-                <Typography variant="body2" sx={{ color: '#1976d2' }}>{session.additionCount} added</Typography>
+                <Typography variant="body2" sx={{ color: 'info.main' }}>{session.additionCount} added</Typography>
               </>
             )}
           </Box>

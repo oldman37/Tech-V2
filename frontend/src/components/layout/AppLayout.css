@@ -317,6 +317,12 @@
   background: var(--slate-100, #1e293b);
 }
 
+:root.dark .shell-drawer--mobile .MuiDrawer-paper {
+  background-color: var(--slate-100, #1e293b);
+  background-image: none;
+  box-shadow: none;
+}
+
 :root.dark .nav-section-title,
 :root.dark .nav-section-header,
 :root.dark .nav-section-expand-icon {

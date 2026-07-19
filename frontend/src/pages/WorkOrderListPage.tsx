@@ -69,6 +69,11 @@ export default function WorkOrderListPage() {
     status: 'open',
     priority: '',
     location: '',
+    // Tracks whether the user has explicitly picked a location (including
+    // "All Schools", which is the same empty string as the unset default) so
+    // Back navigation can tell that apart from "home-school default not yet
+    // applied" — see effect below.
+    locationChosen: '',
     fiscalYear: '',
     page: '0',
     rows: '25',
@@ -110,8 +115,9 @@ export default function WorkOrderListPage() {
   useEffect(() => {
     if (isAdmin) return;
     // An explicit location in the URL — chosen by the user, or restored by Back —
-    // outranks this default. `has` covers "All Schools", which is an empty value.
-    if (hasFilterParam('location')) return;
+    // outranks this default. `locationChosen` covers "All Schools", whose value
+    // ('') is otherwise indistinguishable from "not yet defaulted".
+    if (hasFilterParam('location') || hasFilterParam('locationChosen')) return;
     if (supervisedLocations.length > 0 && !defaultLocationApplied.current) {
       defaultLocationApplied.current = true;
       const techAssignments = supervisedLocations.filter((a) => a.supervisorType === 'TECHNOLOGY_ASSISTANT');
@@ -347,7 +353,7 @@ export default function WorkOrderListPage() {
                   size="small"
                   displayEmpty
                   value={locationFilter}
-                  onChange={(e) => { setFilters({ location: e.target.value, page: '0' }); }}
+                  onChange={(e) => { setFilters({ location: e.target.value, locationChosen: '1', page: '0' }); }}
                   fullWidth
                 >
                   <MenuItem value="">All Schools</MenuItem>
@@ -368,6 +374,7 @@ export default function WorkOrderListPage() {
                       status: 'open',
                       priority: '',
                       location: '',
+                      locationChosen: '',
                       fiscalYear: '',
                       page: '0',
                     });
@@ -437,7 +444,7 @@ export default function WorkOrderListPage() {
             size="small"
             displayEmpty
             value={locationFilter}
-            onChange={(e) => { setFilters({ location: e.target.value, page: '0' }); }}
+            onChange={(e) => { setFilters({ location: e.target.value, locationChosen: '1', page: '0' }); }}
             sx={{ minWidth: 180 }}
           >
             <MenuItem value="">All Schools</MenuItem>

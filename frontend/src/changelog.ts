@@ -5,6 +5,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.4.4',
+    changes: [
+      'Work Order status and priority chips now use distinct colors so a chip\'s color always tells you which one it is at a glance.',
+      'Fixed Inventory Audit item rows, the resolve dialog, and the "added" count being unreadable in dark mode.',
+      'Fixed the Intune Test Mode toggle label breaking apart letter-by-letter on mobile.',
+      'Fixed the Work Orders "All Schools" location filter reverting to your home school after pressing Back from a work order.',
+      'Fixed a gray outline appearing around the mobile navigation menu in dark mode.',
+    ],
+  },
+  {
     version: '1.4.3',
     changes: [
       'Assistant Directors approving an overnight field trip now see an on-screen reminder (and receive an email) that the trip requires Board approval and must be submitted for the next Board meeting.',

@@ -94,7 +94,7 @@ function ResolveDialog({ item, open, onClose, onResolved }: ResolveDialogProps) 
       <DialogTitle>Resolve Missing Item</DialogTitle>
       <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
         {item && (
-          <Box sx={{ p: 1.5, bgcolor: 'grey.50', borderRadius: 1 }}>
+          <Box sx={{ p: 1.5, bgcolor: 'action.hover', borderRadius: 1 }}>
             <Typography variant="subtitle2">{item.equipmentTag}</Typography>
             <Typography variant="body2" color="text.secondary">
               {item.equipmentName}

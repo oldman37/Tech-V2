@@ -518,7 +518,7 @@ export default function IntuneScanWizardTab({ initialLookupResult, initialAction
           {/* Dry Run / Test Mode toggle */}
           <Alert
             severity={isDryRun ? 'info' : 'warning'}
-            sx={{ mb: 2 }}
+            sx={{ mb: 2, flexWrap: 'wrap', '& .MuiAlert-action': { flexShrink: 0, pt: 0 } }}
             action={
               <FormControlLabel
                 control={
@@ -530,7 +530,7 @@ export default function IntuneScanWizardTab({ initialLookupResult, initialAction
                   />
                 }
                 label={
-                  <Typography variant="body2" fontWeight={600}>
+                  <Typography variant="body2" fontWeight={600} sx={{ whiteSpace: 'nowrap' }}>
                     {isDryRun ? 'Test Mode ON' : 'Test Mode OFF'}
                   </Typography>
                 }

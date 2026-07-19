@@ -6,10 +6,10 @@ import {
 } from '@/types/work-order.types';
 
 const PRIORITY_COLOR: Record<WorkOrderPriority, ChipProps['color']> = {
-  LOW:    'success',
-  MEDIUM: 'info',
-  HIGH:   'warning',
-  URGENT: 'error',
+  LOW:    'priorityLow',
+  MEDIUM: 'priorityMedium',
+  HIGH:   'priorityHigh',
+  URGENT: 'priorityUrgent',
 };
 
 interface WorkOrderPriorityChipProps {
