@@ -84,15 +84,13 @@ const STATUSES: { value: WorkOrderStatus; label: string }[] = [
   { value: 'OPEN',        label: 'Open' },
   { value: 'IN_PROGRESS', label: 'In Progress' },
   { value: 'ON_HOLD',     label: 'On Hold' },
-  { value: 'RESOLVED',    label: 'Resolved' },
   { value: 'CLOSED',      label: 'Closed' },
 ];
 
 const ALLOWED_NEXT_STATUSES: Record<string, string[]> = {
   OPEN:        ['IN_PROGRESS', 'CLOSED'],
-  IN_PROGRESS: ['ON_HOLD', 'RESOLVED', 'CLOSED'],
+  IN_PROGRESS: ['ON_HOLD', 'CLOSED'],
   ON_HOLD:     ['IN_PROGRESS', 'CLOSED'],
-  RESOLVED:    ['CLOSED', 'IN_PROGRESS', 'OPEN'],
   CLOSED:      ['OPEN'],
 };
 

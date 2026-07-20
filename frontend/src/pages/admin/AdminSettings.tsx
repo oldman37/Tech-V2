@@ -187,7 +187,6 @@ const WORK_ORDER_STATUS_LABELS: Record<string, string> = {
   OPEN:        'Open',
   IN_PROGRESS: 'In Progress',
   ON_HOLD:     'On Hold',
-  RESOLVED:    'Resolved',
   CLOSED:      'Closed',
 };
 
@@ -758,7 +757,7 @@ function FiscalYearTab({ settings, isFiscalYearExpired }: FiscalYearTabProps) {
   // ── Rows / columns for the work order status summary table ──
   const workOrderStatusRows: { status: string; count: number; isTotal?: boolean }[] = workOrderSummary
     ? [
-        ...(['OPEN', 'IN_PROGRESS', 'ON_HOLD', 'RESOLVED', 'CLOSED'] as const).map((s) => ({
+        ...(['OPEN', 'IN_PROGRESS', 'ON_HOLD', 'CLOSED'] as const).map((s) => ({
           status: s as string,
           count: workOrderSummary.totals[s],
         })),
@@ -789,7 +788,6 @@ function FiscalYearTab({ settings, isFiscalYearExpired }: FiscalYearTabProps) {
     OPEN: number;
     IN_PROGRESS: number;
     ON_HOLD: number;
-    RESOLVED: number;
     CLOSED: number;
     total: number;
   };
@@ -807,7 +805,6 @@ function FiscalYearTab({ settings, isFiscalYearExpired }: FiscalYearTabProps) {
     { key: 'OPEN', label: 'Open', align: 'right', render: (r) => r.OPEN },
     { key: 'IN_PROGRESS', label: 'In Progress', align: 'right', render: (r) => r.IN_PROGRESS },
     { key: 'ON_HOLD', label: 'On Hold', align: 'right', render: (r) => r.ON_HOLD },
-    { key: 'RESOLVED', label: 'Resolved', align: 'right', render: (r) => r.RESOLVED },
     { key: 'CLOSED', label: 'Closed', align: 'right', render: (r) => r.CLOSED },
     { key: 'total', label: 'Total', align: 'right', isSecondary: true, render: (r) => r.total },
   ];

@@ -109,10 +109,10 @@ const closedAgeBucket = (closedAt: Date, now: Date): ClosedAgeBucket['bucket'] =
 
 /**
  * Effective resolution timestamp for a ticket = resolvedAt ?? closedAt.
- * Tickets can transition directly OPEN/IN_PROGRESS/ON_HOLD -> CLOSED without ever
- * passing through RESOLVED (see WorkOrderService.updateStatus), which leaves
- * resolvedAt permanently null. Averaging only resolvedAt would silently drop those
- * tickets from every resolution-time metric, so closedAt is used as the fallback.
+ * resolvedAt is only ever set on tickets resolved before the RESOLVED status
+ * was removed (see WorkOrderService.updateStatus) — all tickets since then close
+ * with resolvedAt permanently null. Averaging only resolvedAt would silently drop
+ * those tickets from every resolution-time metric, so closedAt is the fallback.
  */
 export async function getReportsOverview(filters: ReportsOverviewFilters): Promise<ReportsOverview> {
   log.info('getReportsOverview', { filters });
@@ -206,9 +206,9 @@ export async function getReportsOverview(filters: ReportsOverviewFilters): Promi
   const locationNames = new Map(locations.map((l) => [l.id, l.name]));
 
   // ---- Work order status / priority counts ----
-  const statusCounts: Record<string, number> = { OPEN: 0, IN_PROGRESS: 0, ON_HOLD: 0, RESOLVED: 0, CLOSED: 0 };
+  const statusCounts: Record<string, number> = { OPEN: 0, IN_PROGRESS: 0, ON_HOLD: 0, CLOSED: 0 };
   for (const row of statusGrouped) statusCounts[row.status] = row._count.status;
-  const openCount = statusCounts.OPEN + statusCounts.IN_PROGRESS + statusCounts.ON_HOLD + statusCounts.RESOLVED;
+  const openCount = statusCounts.OPEN + statusCounts.IN_PROGRESS + statusCounts.ON_HOLD;
   const closedCount = statusCounts.CLOSED;
 
   const byPriority = priorityGrouped.map((r) => ({ priority: r.priority, count: r._count.priority }));

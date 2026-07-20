@@ -12,7 +12,7 @@ import { z } from 'zod';
 // ---------------------------------------------------------------------------
 
 export const TicketDepartmentEnum = z.enum(['TECHNOLOGY', 'MAINTENANCE']);
-export const TicketStatusEnum     = z.enum(['OPEN', 'IN_PROGRESS', 'ON_HOLD', 'RESOLVED', 'CLOSED']);
+export const TicketStatusEnum     = z.enum(['OPEN', 'IN_PROGRESS', 'ON_HOLD', 'CLOSED']);
 export const TicketPriorityEnum   = z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']);
 
 // ---------------------------------------------------------------------------

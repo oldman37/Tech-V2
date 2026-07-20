@@ -86,7 +86,7 @@ async function main() {
     fyMap.get(fy)![g.status] = g._count;
   }
 
-  const statuses = ['OPEN', 'IN_PROGRESS', 'ON_HOLD', 'RESOLVED', 'CLOSED'];
+  const statuses = ['OPEN', 'IN_PROGRESS', 'ON_HOLD', 'CLOSED'];
 
   console.log('');
   console.log('🎫 TICKETS BY FISCAL YEAR');

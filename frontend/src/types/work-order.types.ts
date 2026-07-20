@@ -4,7 +4,7 @@
  */
 
 export type WorkOrderDepartment = 'TECHNOLOGY' | 'MAINTENANCE';
-export type WorkOrderStatus     = 'OPEN' | 'IN_PROGRESS' | 'ON_HOLD' | 'RESOLVED' | 'CLOSED';
+export type WorkOrderStatus     = 'OPEN' | 'IN_PROGRESS' | 'ON_HOLD' | 'CLOSED';
 export type WorkOrderPriority   = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
 
 export const TECH_CATEGORIES: { value: string; label: string }[] = [
@@ -169,7 +169,6 @@ export const WORK_ORDER_STATUS_LABELS: Record<WorkOrderStatus, string> = {
   OPEN:        'Open',
   IN_PROGRESS: 'In Progress',
   ON_HOLD:     'On Hold',
-  RESOLVED:    'Resolved',
   CLOSED:      'Closed',
 };
 

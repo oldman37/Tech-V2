@@ -45,17 +45,11 @@ const VALID_TRANSITIONS: Record<string, { to: TicketStatus; minLevel: number }[]
   ],
   IN_PROGRESS: [
     { to: 'ON_HOLD',   minLevel: 3 },
-    { to: 'RESOLVED',  minLevel: 3 },
     { to: 'CLOSED',    minLevel: 3 },
   ],
   ON_HOLD: [
     { to: 'IN_PROGRESS', minLevel: 3 },
     { to: 'CLOSED',      minLevel: 3 },
-  ],
-  RESOLVED: [
-    { to: 'CLOSED',      minLevel: 3 },
-    { to: 'IN_PROGRESS', minLevel: 3 },
-    { to: 'OPEN',        minLevel: 3 },
   ],
   CLOSED: [
     { to: 'OPEN', minLevel: 3 },
@@ -606,15 +600,10 @@ export class WorkOrderService {
     const now = new Date();
     const timestamps: { resolvedAt?: Date | null; closedAt?: Date | null } = {};
 
-    if (data.status === 'RESOLVED') {
-      timestamps.resolvedAt = now;
-    } else if (data.status === 'CLOSED') {
+    if (data.status === 'CLOSED') {
       timestamps.closedAt = now;
-    } else if (data.status === 'IN_PROGRESS' && ticket.status === 'RESOLVED') {
-      // Reopen from RESOLVED clears resolvedAt
-      timestamps.resolvedAt = null;
-    } else if (data.status === 'OPEN' && (ticket.status === 'CLOSED' || ticket.status === 'RESOLVED')) {
-      // Reopen clears both closedAt and resolvedAt
+    } else if (data.status === 'OPEN' && ticket.status === 'CLOSED') {
+      // Reopen clears closedAt and any historical resolvedAt
       timestamps.closedAt = null;
       timestamps.resolvedAt = null;
     }
@@ -837,7 +826,6 @@ export class WorkOrderService {
       OPEN:        0,
       IN_PROGRESS: 0,
       ON_HOLD:     0,
-      RESOLVED:    0,
       CLOSED:      0,
     };
 

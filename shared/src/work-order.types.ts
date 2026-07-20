@@ -4,7 +4,7 @@
  */
 
 export type WorkOrderDepartment = 'TECHNOLOGY' | 'MAINTENANCE';
-export type WorkOrderStatus = 'OPEN' | 'IN_PROGRESS' | 'ON_HOLD' | 'RESOLVED' | 'CLOSED';
+export type WorkOrderStatus = 'OPEN' | 'IN_PROGRESS' | 'ON_HOLD' | 'CLOSED';
 export type WorkOrderPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
 
 export type TechWorkOrderCategory =
@@ -197,6 +197,5 @@ export interface WorkOrderStatsSummary {
   OPEN: number;
   IN_PROGRESS: number;
   ON_HOLD: number;
-  RESOLVED: number;
   CLOSED: number;
 }

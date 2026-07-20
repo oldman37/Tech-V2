@@ -143,7 +143,7 @@ export default function WorkOrderListPage() {
     limit: rowsPerPage,
     ...(search.trim() && { search: search.trim() }),
     ...(department && { department }),
-    statuses: statusBucket === 'open' ? ['OPEN', 'IN_PROGRESS', 'ON_HOLD'] : ['RESOLVED', 'CLOSED'],
+    statuses: statusBucket === 'open' ? ['OPEN', 'IN_PROGRESS', 'ON_HOLD'] : ['CLOSED'],
     ...(priority && { priority }),
     ...(locationFilter && { officeLocationId: locationFilter }),
     ...(activeFiscalYear && { fiscalYear: activeFiscalYear }),

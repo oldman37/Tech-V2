@@ -12,6 +12,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       'Fixed the Intune Test Mode toggle label breaking apart letter-by-letter on mobile.',
       'Fixed the Work Orders "All Schools" location filter reverting to your home school after pressing Back from a work order.',
       'Fixed a gray outline appearing around the mobile navigation menu in dark mode.',
+      
     ],
   },
   {

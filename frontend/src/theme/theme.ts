@@ -5,7 +5,6 @@ declare module '@mui/material/styles' {
     statusOpen: Palette['primary'];
     statusInProgress: Palette['primary'];
     statusOnHold: Palette['primary'];
-    statusResolved: Palette['primary'];
     statusClosed: Palette['primary'];
     priorityLow: Palette['primary'];
     priorityMedium: Palette['primary'];
@@ -16,7 +15,6 @@ declare module '@mui/material/styles' {
     statusOpen?: PaletteOptions['primary'];
     statusInProgress?: PaletteOptions['primary'];
     statusOnHold?: PaletteOptions['primary'];
-    statusResolved?: PaletteOptions['primary'];
     statusClosed?: PaletteOptions['primary'];
     priorityLow?: PaletteOptions['primary'];
     priorityMedium?: PaletteOptions['primary'];
@@ -30,7 +28,6 @@ declare module '@mui/material/Chip' {
     statusOpen: true;
     statusInProgress: true;
     statusOnHold: true;
-    statusResolved: true;
     statusClosed: true;
     priorityLow: true;
     priorityMedium: true;
@@ -53,7 +50,6 @@ export const theme = createTheme({
         statusOpen: { main: '#2563eb', contrastText: '#ffffff' },
         statusInProgress: { main: '#7c3aed', contrastText: '#ffffff' },
         statusOnHold: { main: '#475569', contrastText: '#ffffff' },
-        statusResolved: { main: '#0f766e', contrastText: '#ffffff' },
         statusClosed: { main: '#334155', contrastText: '#ffffff' },
         priorityLow: { main: '#15803d', contrastText: '#ffffff' },
         priorityMedium: { main: '#a16207', contrastText: '#ffffff' },
@@ -70,7 +66,6 @@ export const theme = createTheme({
         statusOpen: { main: '#60a5fa', contrastText: 'rgba(0, 0, 0, 0.87)' },
         statusInProgress: { main: '#a78bfa', contrastText: 'rgba(0, 0, 0, 0.87)' },
         statusOnHold: { main: '#94a3b8', contrastText: 'rgba(0, 0, 0, 0.87)' },
-        statusResolved: { main: '#2dd4bf', contrastText: 'rgba(0, 0, 0, 0.87)' },
         statusClosed: { main: '#cbd5e1', contrastText: 'rgba(0, 0, 0, 0.87)' },
         priorityLow: { main: '#4ade80', contrastText: 'rgba(0, 0, 0, 0.87)' },
         priorityMedium: { main: '#fbbf24', contrastText: 'rgba(0, 0, 0, 0.87)' },
