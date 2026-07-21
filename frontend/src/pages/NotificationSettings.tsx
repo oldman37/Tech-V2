@@ -70,7 +70,17 @@ export default function NotificationSettings() {
       }
       await refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update notification settings');
+      // The Push API's catch-all failure (per spec: DOMException named "AbortError")
+      // usually means the OS/browser couldn't reach its push service — on Windows
+      // this is most often Focus Assist / Do Not Disturb silently blocking it.
+      if (err instanceof Error && err.name === 'AbortError') {
+        setError(
+          "Registration failed — your browser couldn't reach its push service. " +
+          'Make sure Focus Assist / Do Not Disturb is turned off in Windows, then try again.',
+        );
+      } else {
+        setError(err instanceof Error ? err.message : 'Failed to update notification settings');
+      }
       await refresh();
     } finally {
       setBusy(false);
