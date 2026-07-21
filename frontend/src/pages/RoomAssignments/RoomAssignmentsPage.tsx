@@ -126,15 +126,16 @@ export function RoomAssignmentsPage() {
     isError: assignmentsError,
   } = useLocationRoomAssignments(selectedLocationId);
 
-  // Reset filters when location changes. The first run is skipped: on mount (including
-  // a Back that restores filters) there is no change to react to, and resetting here
-  // would discard the restored view.
-  const locationChangeMounted = useRef(false);
+  // Reset filters when location changes. Compared against the previous actual value
+  // (not just "is this the first render") because `setFilters` is not referentially
+  // stable — react-router's useSearchParams recreates it on every URL change, including
+  // page changes — so a boolean "already mounted" guard would misfire this reset on every
+  // pagination click. Initializing the ref to the current value skips the reset on mount
+  // (including a Back that restores filters), matching the previous behavior.
+  const previousLocationIdRef = useRef(selectedLocationId);
   useEffect(() => {
-    if (!locationChangeMounted.current) {
-      locationChangeMounted.current = true;
-      return;
-    }
+    if (previousLocationIdRef.current === selectedLocationId) return;
+    previousLocationIdRef.current = selectedLocationId;
     setFilters({ search: '', type: '', building: '', page: '1' });
   }, [selectedLocationId, setFilters]);
 
@@ -351,7 +352,21 @@ export function RoomAssignmentsPage() {
           <Grid container spacing={2}>
             {paginatedRooms.map((room) => (
               <Grid size={{ xs: 12, sm: 6, md: 4 }} key={room.id}>
-                <Card variant="outlined" sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                <Card
+                  variant="outlined"
+                  onClick={() => setDialogRoom(room)}
+                  sx={{
+                    height: '100%',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    cursor: 'pointer',
+                    transition: 'box-shadow 0.15s, border-color 0.15s',
+                    '&:hover': {
+                      boxShadow: 2,
+                      borderColor: 'primary.main',
+                    },
+                  }}
+                >
                   <CardContent sx={{ flexGrow: 1 }}>
                     <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={0.5}>
                       <Typography variant="subtitle1" fontWeight={600} noWrap>
