@@ -5,6 +5,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.5.1',
+    changes: [
+      'Technology Assistants can now manage room assignments for the school(s) they support.',
+      'Room Assignments: clicking anywhere on a room\'s card now opens its assignment dialog, not just the "Manage Assignments" button.',
+      'Fixed Room Assignments pagination reverting to page 1 immediately after selecting a different page.',
+    ],
+  },
+  {
     version: '1.5.0',
     changes: [
       'Added native push notifications — install SchoolWorks as an app and opt in from Settings > Notifications to get a device notification for approvals, assignments, and more, even when the app isn\'t open. Email notifications are unaffected and always continue to be sent.',
