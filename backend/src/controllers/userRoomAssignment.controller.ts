@@ -5,6 +5,7 @@ import { handleControllerError } from '../utils/errorHandler';
 import { prisma } from '../lib/prisma';
 import { loggers } from '../lib/logger';
 import { AuthorizationError, NotFoundError } from '../utils/errors';
+import { isTechAssistant } from '../utils/groupAuth';
 import {
   LocationRoomAssignmentsQuerySchema,
   AssignUsersToRoomSchema,
@@ -68,6 +69,33 @@ async function assertAdminOrPrimarySupervisor(
           'You are not the primary supervisor of this location'
         );
       }
+    }
+
+    return;
+  }
+
+  // Technology Assistants can manage room assignments for schools they are assigned to
+  // support, regardless of which of that school's assistants is flagged "primary" —
+  // unlike Principal/VP, a school may have more than one assigned Technology Assistant.
+  if (isTechAssistant(req.user.groups)) {
+    const techAssistantRecord = await prisma.locationSupervisor.findFirst({
+      where: {
+        locationId,
+        userId: req.user.id,
+        supervisorType: 'TECHNOLOGY_ASSISTANT',
+        user: { isActive: true },
+      },
+    });
+
+    if (!techAssistantRecord) {
+      loggers.roomAssignments.warn('Forbidden: technology assistant is not assigned to requested location', {
+        requesterId: req.user.id,
+        targetLocationId: locationId,
+        action: 'room-assignment',
+      });
+      throw new AuthorizationError(
+        'You are not an assigned Technology Assistant for this location'
+      );
     }
 
     return;

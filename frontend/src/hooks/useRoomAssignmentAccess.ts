@@ -9,16 +9,19 @@ import { queryKeys } from '@/lib/queryKeys';
  * Access is granted if:
  * - The user is a System Admin (role = 'ADMIN'), OR
  * - The user is in the Principals or Vice Principals Entra group, OR
- * - The user is the primary supervisor of at least one office location
+ * - The user is the primary supervisor of at least one office location, OR
+ * - The user is a Technology Assistant assigned to at least one office location
  */
 export function useRoomAssignmentAccess() {
   const { user } = useAuthStore();
   const isAdmin = user?.roles?.includes('ADMIN') ?? false;
 
-  // Backend-computed flag — no group IDs needed on the frontend
+  // Backend-computed flags — no group IDs needed on the frontend
   const isPrincipalOrVP = user?.isPrincipalOrVP ?? false;
+  const isTechAssistant = user?.isTechAssistant ?? false;
 
-  // Principals/VPs still query their supervised locations to auto-select
+  // Principals/VPs and Technology Assistants still query their supervised
+  // locations to auto-select
   const skipQuery = isAdmin;
 
   const { data: supervisedLocations = [], isLoading } = useQuery({
@@ -32,14 +35,26 @@ export function useRoomAssignmentAccess() {
     .filter((sl) => sl.isPrimary)
     .map((sl) => sl.locationId);
 
+  // A school can have more than one assigned Technology Assistant, so unlike
+  // primary-supervisor scoping this does not filter on isPrimary.
+  const techAssistantLocations = supervisedLocations.filter(
+    (sl) => sl.supervisorType === 'TECHNOLOGY_ASSISTANT'
+  );
+
   const isPrimarySupervisor = primarySupervisorLocationIds.length > 0;
-  const canAccess = isAdmin || isPrincipalOrVP || isPrimarySupervisor;
+  const canAccess =
+    isAdmin ||
+    isPrincipalOrVP ||
+    isPrimarySupervisor ||
+    (isTechAssistant && techAssistantLocations.length > 0);
 
   return {
     isAdmin,
     isPrincipalOrVP,
     isPrimarySupervisor,
     primarySupervisorLocationIds,
+    isTechAssistant,
+    techAssistantLocations,
     canAccess,
     isLoading: !skipQuery && isLoading,
   };

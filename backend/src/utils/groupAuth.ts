@@ -196,6 +196,11 @@ export function isPrincipalOrVP(groupIds: string[]): boolean {
   return allowlist.some((id) => groupIds.includes(id));
 }
 
+export function isTechAssistant(groupIds: string[]): boolean {
+  const gid = process.env.ENTRA_TECH_ASSISTANTS_GROUP_ID;
+  return Boolean(gid && groupIds.includes(gid));
+}
+
 /**
  * requireModule — replacement middleware for checkPermission.
  *

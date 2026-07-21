@@ -2,6 +2,7 @@ import { Response, NextFunction } from 'express';
 import { AuthRequest } from './auth';
 import { prisma } from '../lib/prisma';
 import { loggers } from '../lib/logger';
+import { isTechAssistant } from '../utils/groupAuth';
 
 
 type LocationIdSource = 'body' | 'params' | 'query';
@@ -53,6 +54,47 @@ export const requireAdminOrPrimarySupervisor = (
         .status(400)
         .json({ error: 'Bad Request', message: 'locationId is required' });
       return;
+    }
+
+    // Technology Assistants can manage room assignments for schools they are assigned to
+    // support, regardless of which of that school's assistants is flagged "primary".
+    if (isTechAssistant(req.user.groups)) {
+      try {
+        const techAssistantRecord = await prisma.locationSupervisor.findFirst({
+          where: {
+            locationId,
+            userId: req.user.id,
+            supervisorType: 'TECHNOLOGY_ASSISTANT',
+            user: { isActive: true },
+          },
+        });
+
+        if (!techAssistantRecord) {
+          loggers.accessControl.warn('Forbidden: technology assistant is not assigned to requested location', {
+            requesterId: req.user.id,
+            targetLocationId: locationId,
+            action: 'room-assignment',
+          });
+          res.status(403).json({
+            error: 'Forbidden',
+            message: 'You are not an assigned Technology Assistant for this location',
+          });
+          return;
+        }
+
+        next();
+        return;
+      } catch (error) {
+        loggers.accessControl.error('Error checking technology assistant assignment', {
+          requesterId: req.user.id,
+          targetLocationId: locationId,
+          error,
+        });
+        res
+          .status(500)
+          .json({ error: 'Internal Server Error', message: 'An unexpected error occurred' });
+        return;
+      }
     }
 
     try {

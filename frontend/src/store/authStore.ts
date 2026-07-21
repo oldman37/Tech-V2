@@ -20,6 +20,7 @@ interface User {
   canAccessDeviceManagement?: boolean;
   canSeeAllLocations?: boolean;
   isPrincipalOrVP?: boolean;
+  isTechAssistant?: boolean;
   permLevels?: {
     TECHNOLOGY: number;
     MAINTENANCE: number;

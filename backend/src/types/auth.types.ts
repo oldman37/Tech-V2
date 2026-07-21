@@ -102,6 +102,8 @@ export interface AuthUserInfo {
   canSeeAllLocations: boolean;
   /** True if user is in the Principals or Vice Principals group */
   isPrincipalOrVP: boolean;
+  /** True if user is in the Technology Assistants group */
+  isTechAssistant: boolean;
   /** Display label for the user's highest-priority Entra group (e.g. "Staff", "Maintenance Director") */
   roleLabel: string | null;
 }

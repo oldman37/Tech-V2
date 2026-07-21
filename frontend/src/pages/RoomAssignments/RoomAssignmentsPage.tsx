@@ -51,8 +51,14 @@ const ROOM_TYPES: RoomType[] = [
 const PAGE_SIZE = 12;
 
 export function RoomAssignmentsPage() {
-  const { isAdmin, isPrincipalOrVP, isPrimarySupervisor, primarySupervisorLocationIds } =
-    useRoomAssignmentAccess();
+  const {
+    isAdmin,
+    isPrincipalOrVP,
+    isPrimarySupervisor,
+    primarySupervisorLocationIds,
+    isTechAssistant,
+    techAssistantLocations,
+  } = useRoomAssignmentAccess();
 
   const [dialogRoom, setDialogRoom] = useState<RoomWithAssignments | null>(null);
 
@@ -77,11 +83,38 @@ export function RoomAssignmentsPage() {
     if (hasFilterParam('location')) return;
     if (!isAdmin && isPrimarySupervisor && primarySupervisorLocationIds.length > 0) {
       setFilters({ location: primarySupervisorLocationIds[0] });
+    } else if (
+      !isAdmin &&
+      !isPrincipalOrVP &&
+      !isPrimarySupervisor &&
+      isTechAssistant &&
+      techAssistantLocations.length === 1
+    ) {
+      setFilters({ location: techAssistantLocations[0].locationId });
     }
-  }, [isAdmin, isPrimarySupervisor, primarySupervisorLocationIds, hasFilterParam, setFilters]);
+  }, [
+    isAdmin,
+    isPrincipalOrVP,
+    isPrimarySupervisor,
+    primarySupervisorLocationIds,
+    isTechAssistant,
+    techAssistantLocations,
+    hasFilterParam,
+    setFilters,
+  ]);
 
   // Admins and Principals/VPs without a primary location: fetch all locations for the selector
   const showLocationSelector = isAdmin || (isPrincipalOrVP && !isPrimarySupervisor);
+
+  // Technology Assistants assigned to more than one school: scope the selector to only
+  // their assigned schools, never the district-wide list used for Admin/Principal fallback.
+  const showTechAssistantSelector =
+    !isAdmin &&
+    !isPrincipalOrVP &&
+    !isPrimarySupervisor &&
+    isTechAssistant &&
+    techAssistantLocations.length > 1;
+
   const { data: allLocations = [], isLoading: locationsLoading } = useLocations({
     enabled: showLocationSelector,
   });
@@ -163,17 +196,42 @@ export function RoomAssignmentsPage() {
         </FormControl>
       )}
 
-      {/* Show location name for primary supervisors */}
-      {!showLocationSelector && isPrimarySupervisor && assignmentData && (
-        <Typography variant="subtitle1" color="text.secondary" mb={2}>
-          {assignmentData.location.name}
-        </Typography>
+      {/* Location selector — Technology Assistants assigned to more than one school,
+          scoped to only their assigned schools */}
+      {showTechAssistantSelector && (
+        <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 300 }, mb: 3 }}>
+          <InputLabel>Select Location</InputLabel>
+          <Select
+            value={selectedLocationId}
+            label="Select Location"
+            onChange={(e) => setFilters({ location: e.target.value })}
+          >
+            <MenuItem value="">
+              <em>— Choose a location —</em>
+            </MenuItem>
+            {techAssistantLocations.map((sl) => (
+              <MenuItem key={sl.locationId} value={sl.locationId}>
+                {sl.location.name}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
       )}
+
+      {/* Show location name for primary supervisors / single-school technology assistants */}
+      {!showLocationSelector &&
+        !showTechAssistantSelector &&
+        (isPrimarySupervisor || isTechAssistant) &&
+        assignmentData && (
+          <Typography variant="subtitle1" color="text.secondary" mb={2}>
+            {assignmentData.location.name}
+          </Typography>
+        )}
 
       {/* Prompt to select a location */}
       {!selectedLocationId && (
         <Alert severity="info" sx={{ maxWidth: 500 }}>
-          {showLocationSelector
+          {showLocationSelector || showTechAssistantSelector
             ? 'Select a location above to manage room assignments.'
             : 'Loading your assigned location…'}
         </Alert>
