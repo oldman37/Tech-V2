@@ -401,7 +401,7 @@ export class UserSyncService {
       // Fetch user from Graph API with multiple location-related fields
       const graphUser = await this.graphClient
         .api(`/users/${entraId}`)
-        .select('id,displayName,givenName,surname,mail,jobTitle,department,officeLocation,physicalDeliveryOfficeName,usageLocation,accountEnabled,employeeId,onPremisesExtensionAttributes')
+        .select('id,displayName,givenName,surname,mail,userPrincipalName,jobTitle,department,officeLocation,physicalDeliveryOfficeName,usageLocation,accountEnabled,employeeId,onPremisesExtensionAttributes')
         .get();
 
       // Log location fields for debugging
@@ -441,7 +441,11 @@ export class UserSyncService {
       // Try multiple fields for office location (some orgs use physicalDeliveryOfficeName instead)
       const rawLocation = graphUser.officeLocation || graphUser.physicalDeliveryOfficeName || null;
       const officeLocation = this.mapOfficeLocation(rawLocation);
-      
+
+      // Some Entra accounts have no `mail` attribute populated; fall back to the
+      // (always-present, unique) userPrincipalName so `email` is never null.
+      const email = graphUser.mail || graphUser.userPrincipalName;
+
       loggers.userSync.debug('Location mapped', {
         entraId: redactEntraId(entraId),
         rawLocation,
@@ -452,7 +456,7 @@ export class UserSyncService {
       const user = await this.prisma.user.upsert({
         where: { entraId },
         update: {
-          email: graphUser.mail,
+          email,
           displayName: graphUser.displayName,
           firstName: graphUser.givenName,
           lastName: graphUser.surname,
@@ -467,7 +471,7 @@ export class UserSyncService {
         },
         create: {
           entraId,
-          email: graphUser.mail,
+          email,
           displayName: graphUser.displayName,
           firstName: graphUser.givenName,
           lastName: graphUser.surname,

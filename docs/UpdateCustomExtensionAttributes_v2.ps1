@@ -6,12 +6,12 @@
     the Entra account enabled state into CustomAttribute15.
 
 .DESCRIPTION
-    This script does NOT enable or disable Entra accounts — that is owned
+    This script does NOT enable or disable Entra accounts - that is owned
     exclusively by the Tech-V2 provisioning service. Its sole responsibilities are:
       1. Set Exchange CustomAttribute fields from SIS CSV data (staff and students).
       2. Mirror each account's Entra accountEnabled state into CustomAttribute15:
-           - Disabled account  → CustomAttribute15 = today's date stamp
-           - Enabled account   → CustomAttribute15 = "" (cleared)
+           - Disabled account  -> CustomAttribute15 = today's date stamp
+           - Enabled account   -> CustomAttribute15 = "" (cleared)
 
 .PARAMETER TenantId
     Azure AD tenant ID. Defaults to the OCBOE production tenant.
@@ -55,6 +55,11 @@ param(
 
 $LogFile = "C:\Logs\UpdateCustomExtensionAttributes.log"
 
+$LogDir = Split-Path -Path $LogFile -Parent
+if (-not (Test-Path $LogDir)) {
+    New-Item -ItemType Directory -Path $LogDir -Force | Out-Null
+}
+
 function WriteLog {
     param ([string]$Message)
     $line = "$(Get-Date -Format 'yyyy/MM/dd HH:mm:ss') $Message"
@@ -71,12 +76,12 @@ if (Test-Path $LogFile) {
     }
 }
 
-if ($DryRun) { WriteLog "=== DRY RUN MODE — no changes will be written ===" }
+if ($DryRun) { WriteLog "=== DRY RUN MODE - no changes will be written ===" }
 
 $disableDate = Get-Date -Format "MM/d/yyyy h:mm:ss tt"
 
 # ---------------------------------------------------------------------------
-# Connect — Microsoft Graph (certificate, app-only)
+# Connect - Microsoft Graph (certificate, app-only)
 # ---------------------------------------------------------------------------
 
 try {
@@ -88,12 +93,12 @@ try {
         -ErrorAction Stop
     WriteLog "Connected to Microsoft Graph"
 } catch {
-    WriteLog "FATAL: Microsoft Graph connection failed — $($_.Exception.Message)"
+    WriteLog "FATAL: Microsoft Graph connection failed - $($_.Exception.Message)"
     exit 1
 }
 
 # ---------------------------------------------------------------------------
-# Connect — Exchange Online (certificate, app-only)
+# Connect - Exchange Online (certificate, app-only)
 # ---------------------------------------------------------------------------
 
 try {
@@ -105,41 +110,43 @@ try {
         -ErrorAction Stop
     WriteLog "Connected to Exchange Online"
 } catch {
-    WriteLog "FATAL: Exchange Online connection failed — $($_.Exception.Message)"
+    WriteLog "FATAL: Exchange Online connection failed - $($_.Exception.Message)"
     Disconnect-MgGraph -ErrorAction SilentlyContinue
     exit 1
 }
 
 # ---------------------------------------------------------------------------
-# STAFF
+# STAFF / STUDENT processing - wrapped so a mid-run failure still disconnects
 # ---------------------------------------------------------------------------
-#
+
+try {
+
 # CustomAttribute1  = "Staff"
 # CustomAttribute10 = StaffType (from CSV)
 # CustomAttribute15 = disable date stamp if accountEnabled=false; "" if enabled
 
 WriteLog "START STAFF"
 
+try {
+    $azureStaffUsers = Get-MgUser `
+        -Filter           "endsWith(mail,'@ocboe.com')" `
+        -ConsistencyLevel eventual `
+        -All `
+        -Property         "id,userPrincipalName,employeeId,displayName,accountEnabled" `
+        -ErrorAction Stop
+    WriteLog "Retrieved $($azureStaffUsers.Count) staff accounts from Entra"
+} catch {
+    WriteLog "ERROR retrieving staff accounts from Graph - $($_.Exception.Message)"
+    $azureStaffUsers = @()
+}
+
+# Pass 1 - Update Exchange attributes for accounts present in the CSV
 if (-not (Test-Path $StaffCsvPath)) {
-    WriteLog "Staff CSV not found at '$StaffCsvPath' — skipping staff pass"
+    WriteLog "Staff CSV not found at '$StaffCsvPath' - skipping staff attribute update pass"
 } else {
     $sisStaffUsers = Import-Csv $StaffCsvPath
     WriteLog "Loaded $($sisStaffUsers.Count) staff records from CSV"
 
-    try {
-        $azureStaffUsers = Get-MgUser `
-            -Filter           "endsWith(mail,'@ocboe.com')" `
-            -ConsistencyLevel eventual `
-            -All `
-            -Property         "id,userPrincipalName,employeeId,displayName,accountEnabled" `
-            -ErrorAction Stop
-        WriteLog "Retrieved $($azureStaffUsers.Count) staff accounts from Entra"
-    } catch {
-        WriteLog "ERROR retrieving staff accounts from Graph — $($_.Exception.Message)"
-        $azureStaffUsers = @()
-    }
-
-    # Pass 1 — Update Exchange attributes for accounts present in the CSV
     $updateStaffUsers = $azureStaffUsers | Where-Object {
         $sisStaffUsers.BadgeNumber -contains $_.EmployeeId
     }
@@ -168,21 +175,22 @@ if (-not (Test-Path $StaffCsvPath)) {
             WriteLog "ERROR updating staff attributes for $($user.UserPrincipalName): $($_.Exception.Message)"
         }
     }
+}
 
-    # Pass 2 — Mirror CustomAttribute15 for ALL staff accounts based on Entra accountEnabled
-    foreach ($user in $azureStaffUsers) {
-        $stamp = if ($user.AccountEnabled -eq $false) { $disableDate } else { "" }
-        try {
-            if ($DryRun) {
-                $label = if ($user.AccountEnabled -eq $false) { "disabled — stamping date" } else { "enabled — clearing" }
-                WriteLog "[DRY RUN] Would set CustomAttribute15='$stamp' for $($user.UserPrincipalName) ($label)"
-            } else {
-                Set-Mailbox -Identity $user.UserPrincipalName -CustomAttribute15 $stamp -ErrorAction Stop
-                WriteLog "Set CustomAttribute15='$stamp' for $($user.UserPrincipalName)"
-            }
-        } catch {
-            WriteLog "ERROR setting CustomAttribute15 for $($user.UserPrincipalName): $($_.Exception.Message)"
+# Pass 2 - Mirror CustomAttribute15 for ALL staff accounts based on Entra accountEnabled.
+# Runs regardless of CSV availability - this reflects live Entra state, not SIS data.
+foreach ($user in $azureStaffUsers) {
+    $stamp = if ($user.AccountEnabled -eq $false) { $disableDate } else { "" }
+    try {
+        if ($DryRun) {
+            $label = if ($user.AccountEnabled -eq $false) { "disabled - stamping date" } else { "enabled - clearing" }
+            WriteLog "[DRY RUN] Would set CustomAttribute15='$stamp' for $($user.UserPrincipalName) ($label)"
+        } else {
+            Set-Mailbox -Identity $user.UserPrincipalName -CustomAttribute15 $stamp -ErrorAction Stop
+            WriteLog "Set CustomAttribute15='$stamp' for $($user.UserPrincipalName)"
         }
+    } catch {
+        WriteLog "ERROR setting CustomAttribute15 for $($user.UserPrincipalName): $($_.Exception.Message)"
     }
 }
 
@@ -202,28 +210,28 @@ WriteLog "END STAFF"
 
 WriteLog "START STUDENT"
 
+try {
+    $azureStudentUsers = Get-MgUser `
+        -Filter           "endsWith(mail,'@students.ocboe.com')" `
+        -ConsistencyLevel eventual `
+        -All `
+        -Property         "id,userPrincipalName,employeeId,displayName,accountEnabled" `
+        -ErrorAction Stop
+    WriteLog "Retrieved $($azureStudentUsers.Count) student accounts from Entra"
+} catch {
+    WriteLog "ERROR retrieving student accounts from Graph - $($_.Exception.Message)"
+    $azureStudentUsers = @()
+}
+
+# Pass 1 - Update Exchange attributes for accounts present in the CSV
 if (-not (Test-Path $StudentCsvPath)) {
-    WriteLog "Student CSV not found at '$StudentCsvPath' — skipping student pass"
+    WriteLog "Student CSV not found at '$StudentCsvPath' - skipping student attribute update pass"
 } else {
     $sisStudentUsers = Import-Csv $StudentCsvPath
     # Prefix student IDs to match the format stored in Entra EmployeeId
     $sisStudentUsers | ForEach-Object { $_."Student ID" = "s" + $_."Student ID" }
     WriteLog "Loaded $($sisStudentUsers.Count) student records from CSV"
 
-    try {
-        $azureStudentUsers = Get-MgUser `
-            -Filter           "endsWith(mail,'@students.ocboe.com')" `
-            -ConsistencyLevel eventual `
-            -All `
-            -Property         "id,userPrincipalName,employeeId,displayName,accountEnabled" `
-            -ErrorAction Stop
-        WriteLog "Retrieved $($azureStudentUsers.Count) student accounts from Entra"
-    } catch {
-        WriteLog "ERROR retrieving student accounts from Graph — $($_.Exception.Message)"
-        $azureStudentUsers = @()
-    }
-
-    # Pass 1 — Update Exchange attributes for accounts present in the CSV
     $updateStudentUsers = $azureStudentUsers | Where-Object {
         $sisStudentUsers."Student ID" -contains $_.EmployeeId
     }
@@ -249,30 +257,34 @@ if (-not (Test-Path $StudentCsvPath)) {
             WriteLog "ERROR updating student attributes for $($user.UserPrincipalName): $($_.Exception.Message)"
         }
     }
+}
 
-    # Pass 2 — Mirror CustomAttribute15 for ALL student accounts based on Entra accountEnabled
-    foreach ($user in $azureStudentUsers) {
-        $stamp = if ($user.AccountEnabled -eq $false) { $disableDate } else { "" }
-        try {
-            if ($DryRun) {
-                $label = if ($user.AccountEnabled -eq $false) { "disabled — stamping date" } else { "enabled — clearing" }
-                WriteLog "[DRY RUN] Would set CustomAttribute15='$stamp' for $($user.UserPrincipalName) ($label)"
-            } else {
-                Set-Mailbox -Identity $user.UserPrincipalName -CustomAttribute15 $stamp -ErrorAction Stop
-                WriteLog "Set CustomAttribute15='$stamp' for $($user.UserPrincipalName)"
-            }
-        } catch {
-            WriteLog "ERROR setting CustomAttribute15 for $($user.UserPrincipalName): $($_.Exception.Message)"
+# Pass 2 - Mirror CustomAttribute15 for ALL student accounts based on Entra accountEnabled.
+# Runs regardless of CSV availability - this reflects live Entra state, not SIS data.
+foreach ($user in $azureStudentUsers) {
+    $stamp = if ($user.AccountEnabled -eq $false) { $disableDate } else { "" }
+    try {
+        if ($DryRun) {
+            $label = if ($user.AccountEnabled -eq $false) { "disabled - stamping date" } else { "enabled - clearing" }
+            WriteLog "[DRY RUN] Would set CustomAttribute15='$stamp' for $($user.UserPrincipalName) ($label)"
+        } else {
+            Set-Mailbox -Identity $user.UserPrincipalName -CustomAttribute15 $stamp -ErrorAction Stop
+            WriteLog "Set CustomAttribute15='$stamp' for $($user.UserPrincipalName)"
         }
+    } catch {
+        WriteLog "ERROR setting CustomAttribute15 for $($user.UserPrincipalName): $($_.Exception.Message)"
     }
 }
 
 WriteLog "END STUDENT"
 
-# ---------------------------------------------------------------------------
-# Disconnect
-# ---------------------------------------------------------------------------
-
-Disconnect-ExchangeOnline -Confirm:$false -ErrorAction SilentlyContinue
-Disconnect-MgGraph -ErrorAction SilentlyContinue
-WriteLog "Script complete"
+} catch {
+    WriteLog "FATAL: unexpected error during processing - $($_.Exception.Message)"
+} finally {
+    # ---------------------------------------------------------------------------
+    # Disconnect
+    # ---------------------------------------------------------------------------
+    Disconnect-ExchangeOnline -Confirm:$false -ErrorAction SilentlyContinue
+    Disconnect-MgGraph -ErrorAction SilentlyContinue
+    WriteLog "Script complete"
+}

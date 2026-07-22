@@ -68,3 +68,6 @@ uploads/
 
 # CSV Files
 docs/*.csv
+
+# Entra/Exchange ops scripts (contain tenant/app identifiers, internal paths)
+docs/UpdateCustomExtensionAttributes_v2.ps1
