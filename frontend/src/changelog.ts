@@ -5,6 +5,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.5.2',
+    changes: [
+      'Fixed the Inventory Management Refresh button not matching the style of the Import, Export, and Add Item buttons next to it.',
+      'The header notification bell now shows whether push notifications are actually enabled on this device instead of always looking the same.',
+      'Fixed the mobile header overflowing and pushing the Logout button off-screen.',
+    ],
+  },
+  {
     version: '1.5.1',
     changes: [
       'Technology Assistants can now manage room assignments for the school(s) they support.',

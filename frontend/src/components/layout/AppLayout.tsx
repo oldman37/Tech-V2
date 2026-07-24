@@ -2,6 +2,7 @@
 
 import { ReactNode, useState, Dispatch, SetStateAction } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { Drawer, IconButton, Collapse, Tooltip, ClickAwayListener } from '@mui/material';
 import { useColorScheme } from '@mui/material/styles';
 import MenuIcon from '@mui/icons-material/Menu';
@@ -9,9 +10,11 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
+import NotificationsNoneIcon from '@mui/icons-material/NotificationsNone';
 import { useAuthStore, selectCanAccessDeviceManagement } from '../../store/authStore';
 import { authApi } from '../../services/authService';
 import { cancelProactiveRefresh } from '../../services/api';
+import { PUSH_STATUS_QUERY_KEY, isPushEnabled } from '../../services/pushService';
 import { useRoomAssignmentAccess } from '../../hooks/useRoomAssignmentAccess';
 import { OfflineIndicator } from '../responsive/OfflineIndicator';
 import { CHANGELOG } from '../../changelog';
@@ -126,6 +129,11 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
   const canAccessDeviceManagement = useAuthStore(selectCanAccessDeviceManagement);
   const navigate = useNavigate();
   const location = useLocation();
+  const { data: pushEnabled } = useQuery({
+    queryKey: PUSH_STATUS_QUERY_KEY,
+    queryFn: isPushEnabled,
+    staleTime: 60_000,
+  });
   const isAdmin = user?.roles?.includes('ADMIN');
   const hasTechAccess = isAdmin || (user?.permLevels?.TECHNOLOGY ?? 0) >= 2;
   const hasFieldTripApproverAccess = isAdmin || (user?.permLevels?.FIELD_TRIPS ?? 0) >= 3;
@@ -293,8 +301,13 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
               color="inherit"
               aria-label="notification settings"
               onClick={() => navigate('/settings/notifications')}
+              className="shell-header-icon-btn"
             >
-              <NotificationsActiveIcon />
+              {pushEnabled ? (
+                <NotificationsActiveIcon color="success" />
+              ) : (
+                <NotificationsNoneIcon />
+              )}
             </IconButton>
           </Tooltip>
           {mode && (
@@ -303,6 +316,7 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
                 color="inherit"
                 aria-label="toggle dark mode"
                 onClick={() => setMode(resolvedMode === 'dark' ? 'light' : 'dark')}
+                className="shell-header-icon-btn"
               >
                 {resolvedMode === 'dark' ? <LightModeIcon /> : <DarkModeIcon />}
               </IconButton>

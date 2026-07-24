@@ -361,7 +361,7 @@ export const InventoryManagement = () => {
                 </button>
               </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <button onClick={() => refetch()} className="btn btn-ghost btn-sm" title="Refresh">
+                <button onClick={() => refetch()} className="btn btn-secondary" title="Refresh">
                   🔄
                 </button>
               </div>
@@ -369,7 +369,7 @@ export const InventoryManagement = () => {
           ) : (
             <div className="card mb-6">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}>
-                <button onClick={() => refetch()} className="btn btn-ghost btn-sm" title="Refresh">
+                <button onClick={() => refetch()} className="btn btn-secondary" title="Refresh">
                   🔄 Refresh
                 </button>
                 <div style={{ display: 'flex', gap: '0.75rem' }}>

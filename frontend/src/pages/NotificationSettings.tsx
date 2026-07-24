@@ -7,6 +7,7 @@
  */
 
 import { useEffect, useState, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   Alert,
   Box,
@@ -24,6 +25,7 @@ import {
   getVapidPublicKey,
   subscribeToPush,
   unsubscribeFromPush,
+  PUSH_STATUS_QUERY_KEY,
 } from '../services/pushService';
 
 type PushState = 'loading' | 'unsupported' | 'unconfigured' | 'denied' | 'ready';
@@ -33,6 +35,7 @@ export default function NotificationSettings() {
   const [enabled, setEnabled] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
   const refresh = useCallback(async () => {
     if (!isPushSupported()) {
@@ -69,6 +72,7 @@ export default function NotificationSettings() {
         await unsubscribeFromPush();
       }
       await refresh();
+      await queryClient.invalidateQueries({ queryKey: PUSH_STATUS_QUERY_KEY });
     } catch (err) {
       // The Push API's catch-all failure (per spec: DOMException named "AbortError")
       // usually means the OS/browser couldn't reach its push service — on Windows

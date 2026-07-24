@@ -38,6 +38,16 @@ export async function getCurrentSubscription(): Promise<PushSubscription | null>
   return registration.pushManager.getSubscription();
 }
 
+/** Shared TanStack Query key for "is push currently enabled on this device". */
+export const PUSH_STATUS_QUERY_KEY = ['push-subscription-enabled'] as const;
+
+/** Whether push is currently enabled on this device — the header bell's source of truth. */
+export async function isPushEnabled(): Promise<boolean> {
+  if (!isPushSupported() || Notification.permission !== 'granted') return false;
+  const subscription = await getCurrentSubscription();
+  return subscription !== null;
+}
+
 /** Requests notification permission (must be called from a user gesture) and subscribes. */
 export async function subscribeToPush(): Promise<PushSubscription> {
   const permission = await Notification.requestPermission();
