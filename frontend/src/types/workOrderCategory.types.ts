@@ -6,6 +6,7 @@ export interface WorkOrderCategory {
   module:           WorkOrderCategoryModule;
   isActive:         boolean;
   requiresAssetTag: boolean;
+  quickFix:         boolean;
   sortOrder:        number;
   createdAt:        string;
   updatedAt:        string;
@@ -16,6 +17,7 @@ export interface CreateWorkOrderCategoryDto {
   module:            WorkOrderCategoryModule;
   isActive?:         boolean;
   requiresAssetTag?: boolean;
+  quickFix?:         boolean;
   sortOrder?:        number;
 }
 
@@ -23,6 +25,7 @@ export interface UpdateWorkOrderCategoryDto {
   name?:              string;
   isActive?:          boolean;
   requiresAssetTag?:  boolean;
+  quickFix?:          boolean;
   sortOrder?:         number;
 }
 
@@ -40,6 +43,7 @@ export interface WorkOrderCategoryQueryParams {
   search?:    string;
   module?:    WorkOrderCategoryModule;
   isActive?:  boolean;
+  quickFix?:  boolean;
   sortBy?:    'name' | 'sortOrder' | 'createdAt';
   sortOrder?: 'asc' | 'desc';
 }

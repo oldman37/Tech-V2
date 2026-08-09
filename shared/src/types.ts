@@ -330,11 +330,15 @@ export interface AddCartItemRequest {
   equipmentId: string;
   condition?: CheckoutCondition;
   notes?: string;
+  /** If the device is already checked out in a different cart, move it here instead of erroring. */
+  moveFromOtherCart?: boolean;
 }
 
 export interface ScanToCartRequest {
   /** barcode, qrCode, assetTag, or UUID */
   identifier: string;
+  /** If the device is already checked out in a different cart, move it here instead of erroring. */
+  moveFromOtherCart?: boolean;
 }
 
 export interface CommitCartRequest {

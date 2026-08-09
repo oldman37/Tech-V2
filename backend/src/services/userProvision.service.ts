@@ -50,6 +50,7 @@ export interface StudentRow {
   lastName:    string;
   school:      string;
   grade:       string;
+  ell:         string;   // raw 'ELL/ESL' CSV value ('Y' or '')
 }
 
 export interface UpdatedAccount {
@@ -87,6 +88,7 @@ interface EntraUser {
   employeeType:    string | null;
   ageGroup:        string | null;
   consentProvidedForMinor: string | null;
+  country:         string | null;
   accountEnabled:  boolean;
 }
 
@@ -116,6 +118,7 @@ const FIELD_LABELS: Record<string, string> = {
   employeeType:   'Employee type',
   ageGroup:       'Age group',
   consentProvidedForMinor: 'Minor consent',
+  country:        'ELL/ESL flag',
 };
 
 // Role groups whose members are protected from deprovisioning.
@@ -255,8 +258,9 @@ export function parseStudentCSV(filePath: string): Map<string, StudentRow> {
     const lastName   = row['Last Name']?.trim()   ?? '';
     const school     = row['School']?.trim()      ?? '';
     const grade      = row['Grade']?.trim()       ?? '';
+    const ell        = row['ELL/ESL']?.trim()     ?? '';
 
-    result.set(employeeId, { employeeId, firstName, middleName, lastName, school, grade });
+    result.set(employeeId, { employeeId, firstName, middleName, lastName, school, grade, ell });
   }
 
   return result;
@@ -309,7 +313,7 @@ async function fetchProtectedUpns(): Promise<Set<string>> {
 
 async function fetchEntraUsersByUpnDomain(domain: string, client: Client): Promise<EntraUser[]> {
   const users: EntraUser[] = [];
-  const select = 'id,userPrincipalName,displayName,givenName,surname,officeLocation,companyName,jobTitle,department,employeeId,employeeType,ageGroup,consentProvidedForMinor,accountEnabled';
+  const select = 'id,userPrincipalName,displayName,givenName,surname,officeLocation,companyName,jobTitle,department,employeeId,employeeType,ageGroup,consentProvidedForMinor,country,accountEnabled';
 
   let url: string | null = `/users?$select=${select}&$filter=endsWith(userPrincipalName,'@${domain}')&$count=true`;
 
@@ -715,6 +719,12 @@ async function runForType(
           const expectedDepartment = `Grade ${row.grade}`;
           if (expectedDepartment !== (entraUser.department ?? '')) patch['department'] = expectedDepartment;
 
+          // ELL/ESL marker — repurposes the (otherwise-unused) `country` property so
+          // an Entra dynamic group can filter on user.country -eq "ELL". Clears back
+          // to null when the SIS flag is removed.
+          const expectedCountry = row.ell.toUpperCase() === 'Y' ? 'ELL' : null;
+          if (expectedCountry !== (entraUser.country ?? null)) patch['country'] = expectedCountry;
+
           // Legal age group reconciliation — required for Device Registration
           // Service / Authentication Broker enrollment. Without both fields set,
           // legalAgeGroupClassification resolves to MinorWithoutParentalConsent
@@ -838,6 +848,7 @@ async function runForType(
           body['ageGroup']      = 'Minor';
           body['consentProvidedForMinor'] = 'Granted';
           body['employeeType']  = 'Student';
+          if (row.ell.toUpperCase() === 'Y') body['country'] = 'ELL';
         }
 
         const action = testMode ? 'DRY_RUN_CREATE' : 'CREATED';

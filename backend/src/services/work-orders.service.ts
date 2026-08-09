@@ -24,6 +24,10 @@ import type {
   UpdatePriorityDto,
   RequestInputDto,
   WorkOrderSortField,
+  QuickFixDto,
+  UpdateCommentDto,
+  UpdateHistoryNotesDto,
+  UpdateDescriptionDto,
 } from '../validators/work-orders.validators';
 
 // ---------------------------------------------------------------------------
@@ -738,6 +742,84 @@ export class WorkOrderService {
   }
 
   // -------------------------------------------------------------------------
+  // quickFix
+  // -------------------------------------------------------------------------
+
+  /**
+   * Create a low-priority Technology work order for a device already identified
+   * on the Active Checkouts page and immediately close it, so on-the-spot fixes
+   * get logged without a full incident. Requires permLevel >= 3 up front — the
+   * minimum level the close step itself requires (see VALID_TRANSITIONS) — so a
+   * user who could never close it doesn't end up with an orphaned open ticket.
+   */
+  async quickFix(
+    data: QuickFixDto,
+    userId: string,
+    permLevel: number,
+    maintenanceRole?: MaintenanceRole,
+  ) {
+    if (permLevel < 3) {
+      throw new AuthorizationError('Quick Fix requires permission to close work orders');
+    }
+
+    const equipment = await this.prisma.equipment.findFirst({
+      where:  { id: data.equipmentId, isDisposed: false },
+      select: { id: true, officeLocationId: true },
+    });
+    if (!equipment) {
+      throw new ValidationError('Device not found or has been disposed', 'equipmentId');
+    }
+
+    // quickFix is opt-in per category — enforced here so the curated list is a
+    // server-side rule, not just a filter the dropdown happens to apply.
+    const category = await this.prisma.workOrderCategory.findUnique({
+      where:  { id: data.categoryId },
+      select: { id: true, name: true, module: true, isActive: true, quickFix: true },
+    });
+    if (!category || category.module !== 'TECHNOLOGY' || !category.isActive || !category.quickFix) {
+      throw new ValidationError('Invalid category selected', 'categoryId');
+    }
+
+    const created = await this.createWorkOrder(
+      {
+        department:     'TECHNOLOGY',
+        priority:       'LOW',
+        // Fixed prefix — some category names alone are shorter than the
+        // description field's min(10).
+        description:    `Quick Fix: ${category.name}`,
+        categoryId:     category.id,
+        equipmentId:    equipment.id,
+        // Explicit despite the schema's .default(false): the Zod-inferred
+        // output type makes this required at the call site.
+        notInInventory: false,
+        ...(equipment.officeLocationId && { officeLocationId: equipment.officeLocationId }),
+      },
+      userId,
+    );
+    if (!created) throw new NotFoundError('Work order');
+
+    try {
+      return await this.updateStatus(
+        created.id,
+        { status: 'CLOSED', notes: data.notes },
+        userId,
+        permLevel,
+        maintenanceRole,
+      );
+    } catch (err) {
+      // Scope rules in assertTicketAccess can block closing this specific
+      // ticket even for a caller who generally holds close permission. Return
+      // the still-open ticket rather than losing track of it.
+      loggers.workOrders.warn('Quick Fix could not auto-close the work order', {
+        ticketId: created.id,
+        userId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      return created;
+    }
+  }
+
+  // -------------------------------------------------------------------------
   // updateWorkOrder
   // -------------------------------------------------------------------------
 
@@ -751,6 +833,10 @@ export class WorkOrderService {
       where: { id },
       data: {
         description:     data.description,
+        // Keep the "edited" marker accurate regardless of which path changed it
+        descriptionEditedAt: data.description !== undefined && data.description !== ticket.description
+          ? new Date()
+          : undefined,
         category:        data.category,
         categoryId:      data.categoryId,
         equipmentId:     data.equipmentId,
@@ -993,6 +1079,184 @@ export class WorkOrderService {
     this.notifyInputRequestResponse(ticketId, userId).catch(() => {});
 
     return comment;
+  }
+
+  // -------------------------------------------------------------------------
+  // Post edit / delete — author-only, no admin override (deliberate; see
+  // work-order-post-edit-delete spec). Every method here runs three gates in
+  // order: (1) the row belongs to the ticket named in the URL, (2) the caller
+  // still has scoped access to that ticket, (3) the caller is the author.
+  // -------------------------------------------------------------------------
+
+  /**
+   * Loads a comment, asserting it belongs to `ticketId`, that the caller still
+   * has access to the work order, that the caller wrote it, and that it is not
+   * a system-generated comment (assignment / input request).
+   */
+  private async assertOwnComment(
+    ticketId: string,
+    commentId: string,
+    userId: string,
+    permLevel: number,
+    maintenanceRole: MaintenanceRole,
+    action: 'edit' | 'delete',
+  ) {
+    const comment = await this.prisma.ticketComment.findUnique({ where: { id: commentId } });
+    if (!comment || comment.ticketId !== ticketId) throw new NotFoundError('Comment', commentId);
+
+    const ticket = await this.prisma.ticket.findUnique({ where: { id: ticketId } });
+    if (!ticket) throw new NotFoundError('Work order', ticketId);
+
+    await this.assertTicketAccess(ticket, userId, permLevel, maintenanceRole);
+
+    if (comment.isSystem) {
+      throw new AuthorizationError(`System-generated comments cannot be ${action}d`);
+    }
+    if (comment.authorId !== userId) {
+      throw new AuthorizationError(`You can only ${action} your own comments`);
+    }
+
+    return comment;
+  }
+
+  async updateComment(
+    ticketId: string,
+    commentId: string,
+    data: UpdateCommentDto,
+    userId: string,
+    permLevel: number,
+    maintenanceRole?: MaintenanceRole,
+  ) {
+    await this.assertOwnComment(ticketId, commentId, userId, permLevel, maintenanceRole, 'edit');
+
+    const updated = await this.prisma.ticketComment.update({
+      where: { id: commentId },
+      data:  { body: data.body, editedAt: new Date() },
+      include: { author: { select: { id: true, displayName: true, email: true } } },
+    });
+
+    loggers.workOrders.info('Comment edited', { ticketId, commentId, userId });
+    return updated;
+  }
+
+  async deleteComment(
+    ticketId: string,
+    commentId: string,
+    userId: string,
+    permLevel: number,
+    maintenanceRole?: MaintenanceRole,
+  ) {
+    await this.assertOwnComment(ticketId, commentId, userId, permLevel, maintenanceRole, 'delete');
+
+    await this.prisma.ticketComment.delete({ where: { id: commentId } });
+
+    loggers.workOrders.info('Comment deleted', { ticketId, commentId, userId });
+  }
+
+  /**
+   * Edit the notes ("Actions Taken") on a status history entry. The transition
+   * itself is immutable — only the note text changes, and the entry can never
+   * be deleted. The seed "Work order created" entry (fromStatus === null) is
+   * not editable.
+   */
+  async updateStatusHistoryNotes(
+    ticketId: string,
+    entryId: string,
+    data: UpdateHistoryNotesDto,
+    userId: string,
+    permLevel: number,
+    maintenanceRole?: MaintenanceRole,
+  ) {
+    const entry = await this.prisma.ticketStatusHistory.findUnique({ where: { id: entryId } });
+    if (!entry || entry.ticketId !== ticketId) throw new NotFoundError('Status history entry', entryId);
+
+    const ticket = await this.prisma.ticket.findUnique({ where: { id: ticketId } });
+    if (!ticket) throw new NotFoundError('Work order', ticketId);
+
+    await this.assertTicketAccess(ticket, userId, permLevel, maintenanceRole);
+
+    if (entry.fromStatus === null) {
+      throw new AuthorizationError('The work order creation entry cannot be edited');
+    }
+    if (entry.changedById !== userId) {
+      throw new AuthorizationError('You can only edit your own notes');
+    }
+
+    const updated = await this.prisma.ticketStatusHistory.update({
+      where: { id: entryId },
+      data:  { notes: data.notes, notesEditedAt: new Date() },
+      include: { changedBy: { select: { id: true, displayName: true, email: true } } },
+    });
+
+    loggers.workOrders.info('Status history notes edited', { ticketId, entryId, userId });
+    return updated;
+  }
+
+  /**
+   * Edit the notes on a priority history entry. Same shape as
+   * updateStatusHistoryNotes, minus the fromStatus guard — priority history
+   * has no equivalent immutable seed row.
+   */
+  async updatePriorityHistoryNotes(
+    ticketId: string,
+    entryId: string,
+    data: UpdateHistoryNotesDto,
+    userId: string,
+    permLevel: number,
+    maintenanceRole?: MaintenanceRole,
+  ) {
+    const entry = await this.prisma.ticketPriorityHistory.findUnique({ where: { id: entryId } });
+    if (!entry || entry.ticketId !== ticketId) throw new NotFoundError('Priority history entry', entryId);
+
+    const ticket = await this.prisma.ticket.findUnique({ where: { id: ticketId } });
+    if (!ticket) throw new NotFoundError('Work order', ticketId);
+
+    await this.assertTicketAccess(ticket, userId, permLevel, maintenanceRole);
+
+    if (entry.changedById !== userId) {
+      throw new AuthorizationError('You can only edit your own notes');
+    }
+
+    const updated = await this.prisma.ticketPriorityHistory.update({
+      where: { id: entryId },
+      data:  { notes: data.notes, notesEditedAt: new Date() },
+      include: { changedBy: { select: { id: true, displayName: true, email: true } } },
+    });
+
+    loggers.workOrders.info('Priority history notes edited', { ticketId, entryId, userId });
+    return updated;
+  }
+
+  /**
+   * Edit the work order description. Restricted to the reporter — the person
+   * who wrote it. Separate from updateWorkOrder (level 3+) because a reporter
+   * is commonly level 1-2 and must not gain access to the other fields on that
+   * endpoint.
+   */
+  async updateDescription(
+    id: string,
+    data: UpdateDescriptionDto,
+    userId: string,
+    permLevel: number,
+    maintenanceRole?: MaintenanceRole,
+  ) {
+    const ticket = await this.prisma.ticket.findUnique({ where: { id } });
+    if (!ticket) throw new NotFoundError('Work order', id);
+
+    await this.assertTicketAccess(ticket, userId, permLevel, maintenanceRole);
+
+    if (ticket.reportedById !== userId) {
+      throw new AuthorizationError('You can only edit the description of a work order you submitted');
+    }
+
+    const updated = await this.prisma.ticket.update({
+      where: { id },
+      data:  { description: data.description, descriptionEditedAt: new Date() },
+      include: WORK_ORDER_DETAIL_INCLUDE,
+    });
+
+    loggers.workOrders.info('Work order description edited', { ticketId: id, userId });
+    return updated;
   }
 
   // -------------------------------------------------------------------------

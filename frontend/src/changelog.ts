@@ -12,6 +12,38 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.8.0',
+    highlights: [
+      {
+        icon: '🛠️',
+        title: 'Quick Fix on the Checkouts page',
+        body: 'Found a device with a small problem while checking it out? Quick Fix logs and closes a work order for it in one step, right from the Checkouts page — pick a reason, describe what you did, and it\'s done. No trip through the full New Work Order form.',
+      },
+      {
+        icon: '✏️',
+        title: 'Edit or delete your own work order posts',
+        body: 'Comments, status-change notes, priority-change notes, and (for whoever submitted it) the description can now be edited or deleted after the fact, right on the work order — useful for typos or adding details you forgot.',
+      },
+      {
+        icon: '🔀',
+        title: 'Move a device between carts',
+        body: 'Adding a device to a checked-out cart when it\'s already checked out on a different cart now offers a "Move Device" option instead of just blocking you — it\'s removed from the old cart and checked out on the new one in one step.',
+      },
+    ],
+    changes: [
+      'Added "Quick Fix" on the Checkouts page — log and immediately close a small device fix in one step from a curated, admin-controlled list of categories, without leaving the page. Requires a note describing what was done, which becomes the work order\'s closing note.',
+      'Which categories show up under Quick Fix is controlled from the Work Order Categories admin page with a new "Show in Quick Fix" toggle.',
+      'Work order comments can now be edited or deleted after posting — author-only, and system-generated entries can\'t be touched.',
+      'Status-change and priority-change notes on a work order can now be edited after the fact.',
+      'The person who submitted a work order can now edit its description after creation.',
+      'Adding a device to a checked-out cart when it\'s already checked out on a different cart now offers a "Move Device" option — it\'s removed from the old cart and checked out on the new one, instead of only being blocked.',
+      'Fixed moving or returning a device from a checked-out cart leaving a stale entry behind in the cart\'s device list, and incorrectly marking the cart as "partially returned" when nothing was actually returned.',
+      'Fixed a barcode scanner occasionally dropping characters when scanning into a search or add-device field.',
+      'Fixed the back-to-top button overlapping pagination controls at the bottom of long lists.',
+      'Fixed Active Checkouts table columns squeezing text illegibly at narrower desktop window widths.',
+    ],
+  },
+  {
     version: '1.7.5',
     highlights: [
       {

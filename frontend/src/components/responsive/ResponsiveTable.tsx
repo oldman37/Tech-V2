@@ -305,15 +305,19 @@ export function ResponsiveTable<T>({
                   </tr>
                   {expanded && (
                     <tr>
+                      {/* The grid lives on an inner div, not the td: colSpan is only
+                          honored while the cell's display stays table-cell. */}
                       <td colSpan={totalColSpan} className="responsive-table__expand-row">
-                        {hiddenColumns.map((col) => (
-                          <div key={String(col.key)} className="responsive-table__expand-field">
-                            <span className="responsive-table__expand-label">{col.label}</span>
-                            <span className="responsive-table__expand-value">
-                              {getCellValue(col, row)}
-                            </span>
-                          </div>
-                        ))}
+                        <div className="responsive-table__expand-grid">
+                          {hiddenColumns.map((col) => (
+                            <div key={String(col.key)} className="responsive-table__expand-field">
+                              <span className="responsive-table__expand-label">{col.label}</span>
+                              <span className="responsive-table__expand-value">
+                                {getCellValue(col, row)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
                       </td>
                     </tr>
                   )}

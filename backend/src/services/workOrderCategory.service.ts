@@ -23,6 +23,7 @@ export interface WorkOrderCategoryQuery {
   search?:    string;
   module?:    WorkOrderCategoryModule;
   isActive?:  boolean;
+  quickFix?:  boolean;
   sortBy?:    'name' | 'sortOrder' | 'createdAt';
   sortOrder?: 'asc' | 'desc';
 }
@@ -52,6 +53,7 @@ export class WorkOrderCategoryService {
       search,
       module,
       isActive,
+      quickFix,
       sortBy    = 'sortOrder',
       sortOrder = 'asc',
     } = query;
@@ -61,6 +63,7 @@ export class WorkOrderCategoryService {
     const where: Prisma.WorkOrderCategoryWhereInput = {
       ...(module   !== undefined && { module }),
       ...(isActive !== undefined && { isActive }),
+      ...(quickFix !== undefined && { quickFix }),
       ...(search && {
         name: { contains: search, mode: 'insensitive' as const },
       }),

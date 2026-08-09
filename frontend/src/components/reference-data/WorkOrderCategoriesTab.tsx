@@ -47,6 +47,7 @@ function CategorySection({ module, label }: CategorySectionProps) {
   const [fSortOrder, setFSortOrder]   = useState('0');
   const [fIsActive, setFIsActive]     = useState(true);
   const [fRequiresAssetTag, setFRequiresAssetTag] = useState(true);
+  const [fQuickFix, setFQuickFix]     = useState(false);
   const [formError, setFormError]     = useState<string | null>(null);
   const [formLoading, setFormLoading] = useState(false);
 
@@ -76,6 +77,7 @@ function CategorySection({ module, label }: CategorySectionProps) {
     setFSortOrder('0');
     setFIsActive(true);
     setFRequiresAssetTag(true);
+    setFQuickFix(false);
     setFormError(null);
     setModalOpen(true);
   };
@@ -86,6 +88,7 @@ function CategorySection({ module, label }: CategorySectionProps) {
     setFSortOrder(String(cat.sortOrder));
     setFIsActive(cat.isActive);
     setFRequiresAssetTag(cat.requiresAssetTag);
+    setFQuickFix(cat.quickFix);
     setFormError(null);
     setModalOpen(true);
   };
@@ -103,6 +106,7 @@ function CategorySection({ module, label }: CategorySectionProps) {
           name:             fName.trim(),
           isActive:         fIsActive,
           requiresAssetTag: fRequiresAssetTag,
+          quickFix:         fQuickFix,
           sortOrder:        sortOrderVal,
         });
       } else {
@@ -111,6 +115,7 @@ function CategorySection({ module, label }: CategorySectionProps) {
           module,
           isActive:         fIsActive,
           requiresAssetTag: fRequiresAssetTag,
+          quickFix:         fQuickFix,
           sortOrder:        sortOrderVal,
         });
       }
@@ -192,6 +197,11 @@ function CategorySection({ module, label }: CategorySectionProps) {
                     <span className="badge badge-secondary">No asset tag required</span>
                   </div>
                 )}
+                {module === 'TECHNOLOGY' && cat.quickFix && (
+                  <div style={{ marginBottom: '0.5rem' }}>
+                    <span className="badge badge-success">In Quick Fix</span>
+                  </div>
+                )}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontSize: '0.75rem', color: 'var(--slate-500)' }}>Sort: {cat.sortOrder}</span>
                   <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -210,6 +220,7 @@ function CategorySection({ module, label }: CategorySectionProps) {
                   <th>Name</th>
                   <th>Status</th>
                   {module === 'TECHNOLOGY' && <th>Asset Tag</th>}
+                  {module === 'TECHNOLOGY' && <th>Quick Fix</th>}
                   <th>Sort Order</th>
                   <th style={{ textAlign: 'right' }}>Actions</th>
                 </tr>
@@ -228,6 +239,13 @@ function CategorySection({ module, label }: CategorySectionProps) {
                         {cat.requiresAssetTag
                           ? <span style={{ color: 'var(--slate-500)' }}>Required</span>
                           : <span className="badge badge-secondary">Not required</span>}
+                      </td>
+                    )}
+                    {module === 'TECHNOLOGY' && (
+                      <td>
+                        {cat.quickFix
+                          ? <span className="badge badge-success">Shown</span>
+                          : <span style={{ color: 'var(--slate-500)' }}>Hidden</span>}
                       </td>
                     )}
                     <td style={{ color: 'var(--slate-600)' }}>{cat.sortOrder}</td>
@@ -290,6 +308,25 @@ function CategorySection({ module, label }: CategorySectionProps) {
               }
               label="Requires asset tag"
             />
+          )}
+          {module === 'TECHNOLOGY' && (
+            <>
+              <FormControlLabel
+                sx={{ display: 'flex', mt: 1 }}
+                control={
+                  <Switch
+                    checked={fQuickFix}
+                    onChange={(e) => setFQuickFix(e.target.checked)}
+                    disabled={formLoading}
+                  />
+                }
+                label="Show in Quick Fix"
+              />
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: -0.5 }}>
+                Quick Fix is the one-click log-and-close action on the Checkouts page. Leave
+                this off for issues that belong on a full work order.
+              </Typography>
+            </>
           )}
         </DialogContent>
         <DialogActions>

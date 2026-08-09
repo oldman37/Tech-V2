@@ -19,10 +19,14 @@ export const AddCartItemSchema = z.object({
   equipmentId: z.string().uuid(),
   condition:   checkoutCondition.optional(),
   notes:       z.string().max(2000).optional(),
+  // If the device is already checked out in a different cart, move it here
+  // instead of erroring — set only after the caller has confirmed the move.
+  moveFromOtherCart: z.boolean().optional().default(false),
 });
 
 export const ScanToCartSchema = z.object({
   identifier: z.string().min(1).max(200),
+  moveFromOtherCart: z.boolean().optional().default(false),
 });
 
 export const CommitCartSchema = z.object({

@@ -21,8 +21,12 @@ import {
   UpdateStatusSchema,
   AssignWorkOrderSchema,
   AddCommentSchema,
+  UpdateCommentSchema,
+  UpdateHistoryNotesSchema,
+  UpdateDescriptionSchema,
   UpdatePrioritySchema,
   RequestInputSchema,
+  QuickFixSchema,
 } from '../validators/work-orders.validators';
 
 // ---------------------------------------------------------------------------
@@ -167,6 +171,23 @@ export const createWorkOrder = async (req: AuthRequest, res: Response): Promise<
 };
 
 /**
+ * POST /api/work-orders/quick-fix
+ */
+export const quickFix = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const data            = QuickFixSchema.parse(req.body);
+    const userId          = req.user!.id;
+    const permLevel       = req.user!.permLevel ?? 1;
+    const maintenanceRole = getMaintenanceRole(req.user!.groups ?? []);
+
+    const ticket = await service.quickFix(data, userId, permLevel, maintenanceRole);
+    res.status(201).json(mapTicket(ticket));
+  } catch (error) {
+    handleControllerError(error, res);
+  }
+};
+
+/**
  * PUT /api/work-orders/:id
  */
 export const updateWorkOrder = async (req: AuthRequest, res: Response): Promise<void> => {
@@ -245,6 +266,96 @@ export const addComment = async (req: AuthRequest, res: Response): Promise<void>
 
     const comment = await service.addComment(req.params.id as string, data, userId, permLevel);
     res.status(201).json(comment);
+  } catch (error) {
+    handleControllerError(error, res);
+  }
+};
+
+/**
+ * PUT /api/work-orders/:id/comments/:commentId
+ */
+export const updateComment = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const data      = UpdateCommentSchema.parse(req.body);
+    const userId    = req.user!.id;
+    const permLevel = req.user!.permLevel ?? 1;
+    const maintenanceRole = getMaintenanceRole(req.user!.groups ?? []);
+
+    const comment = await service.updateComment(
+      req.params.id as string, req.params.commentId as string, data, userId, permLevel, maintenanceRole,
+    );
+    res.json(comment);
+  } catch (error) {
+    handleControllerError(error, res);
+  }
+};
+
+/**
+ * DELETE /api/work-orders/:id/comments/:commentId
+ */
+export const deleteComment = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const userId    = req.user!.id;
+    const permLevel = req.user!.permLevel ?? 1;
+    const maintenanceRole = getMaintenanceRole(req.user!.groups ?? []);
+
+    await service.deleteComment(req.params.id as string, req.params.commentId as string, userId, permLevel, maintenanceRole);
+    res.status(204).send();
+  } catch (error) {
+    handleControllerError(error, res);
+  }
+};
+
+/**
+ * PUT /api/work-orders/:id/status-history/:entryId/notes
+ */
+export const updateStatusHistoryNotes = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const data      = UpdateHistoryNotesSchema.parse(req.body);
+    const userId    = req.user!.id;
+    const permLevel = req.user!.permLevel ?? 1;
+    const maintenanceRole = getMaintenanceRole(req.user!.groups ?? []);
+
+    const entry = await service.updateStatusHistoryNotes(
+      req.params.id as string, req.params.entryId as string, data, userId, permLevel, maintenanceRole,
+    );
+    res.json(entry);
+  } catch (error) {
+    handleControllerError(error, res);
+  }
+};
+
+/**
+ * PUT /api/work-orders/:id/priority-history/:entryId/notes
+ */
+export const updatePriorityHistoryNotes = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const data      = UpdateHistoryNotesSchema.parse(req.body);
+    const userId    = req.user!.id;
+    const permLevel = req.user!.permLevel ?? 1;
+    const maintenanceRole = getMaintenanceRole(req.user!.groups ?? []);
+
+    const entry = await service.updatePriorityHistoryNotes(
+      req.params.id as string, req.params.entryId as string, data, userId, permLevel, maintenanceRole,
+    );
+    res.json(entry);
+  } catch (error) {
+    handleControllerError(error, res);
+  }
+};
+
+/**
+ * PUT /api/work-orders/:id/description
+ */
+export const updateDescription = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const data      = UpdateDescriptionSchema.parse(req.body);
+    const userId    = req.user!.id;
+    const permLevel = req.user!.permLevel ?? 1;
+    const maintenanceRole = getMaintenanceRole(req.user!.groups ?? []);
+
+    const ticket = await service.updateDescription(req.params.id as string, data, userId, permLevel, maintenanceRole);
+    res.json(mapTicket(ticket));
   } catch (error) {
     handleControllerError(error, res);
   }

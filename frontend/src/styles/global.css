@@ -365,10 +365,14 @@ body {
   white-space: nowrap;
 }
 
+/* break-word, not anywhere: `anywhere` also drops the cell's min-content width to
+   a single character, so auto table layout squeezes columns and shreds ordinary
+   words ("Elementa/ry"). `break-word` still breaks a long unbreakable token that
+   cannot fit the cell on its own. */
 .table td {
   padding: 0.75rem 0.875rem;
   border-bottom: 1px solid var(--slate-200);
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 /* MUI tables outside ResponsiveTable (Provisioning, Intune Device Actions,
@@ -635,6 +639,12 @@ body {
 .table td.responsive-table__expand-row {
   background-color: var(--slate-50);
   padding: var(--spacing-md) 0.875rem;
+}
+
+/* Grid sits on an inner wrapper — a td overridden to display: grid loses its
+   table-cell semantics, and with them its colSpan, collapsing the expand
+   content into the width of the first column. */
+.responsive-table__expand-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: var(--spacing-xs) var(--spacing-md);
@@ -657,7 +667,7 @@ body {
 .responsive-table__expand-value {
   font-size: 0.8125rem;
   color: var(--slate-700);
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 /* Responsive Table — Loading / Empty states */

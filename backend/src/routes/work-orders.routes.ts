@@ -26,9 +26,15 @@ import {
   UpdateStatusSchema,
   AssignWorkOrderSchema,
   AddCommentSchema,
+  WorkOrderCommentParamSchema,
+  UpdateCommentSchema,
+  WorkOrderHistoryEntryParamSchema,
+  UpdateHistoryNotesSchema,
+  UpdateDescriptionSchema,
   UpdatePrioritySchema,
   RequestInputSchema,
   InputRequestIdParamSchema,
+  QuickFixSchema,
 } from '../validators/work-orders.validators';
 import * as workOrdersController from '../controllers/work-orders.controller';
 
@@ -89,6 +95,20 @@ router.post(
   validateRequest(CreateWorkOrderSchema, 'body'),
   requireModule('WORK_ORDERS', 2),
   workOrdersController.createWorkOrder,
+);
+
+/**
+ * POST /api/work-orders/quick-fix
+ * Create a low-priority Technology work order for an already-identified device
+ * and immediately close it. Level 3+ required — matches the minimum level the
+ * close step (PUT /:id/status, OPEN -> CLOSED) itself requires.
+ * Registered before /:id so Express does not match "quick-fix" as an id.
+ */
+router.post(
+  '/quick-fix',
+  validateRequest(QuickFixSchema, 'body'),
+  requireModule('WORK_ORDERS', 3),
+  workOrdersController.quickFix,
 );
 
 // ---------------------------------------------------------------------------
@@ -168,6 +188,72 @@ router.post(
   validateRequest(AddCommentSchema, 'body'),
   requireModule('WORK_ORDERS', 2),
   workOrdersController.addComment,
+);
+
+/**
+ * PUT /api/work-orders/:id/comments/:commentId
+ * Edit a comment. Author-only, enforced in the service — this level just
+ * matches the level required to have posted a comment in the first place.
+ */
+router.put(
+  '/:id/comments/:commentId',
+  validateRequest(WorkOrderCommentParamSchema, 'params'),
+  validateRequest(UpdateCommentSchema, 'body'),
+  requireModule('WORK_ORDERS', 2),
+  workOrdersController.updateComment,
+);
+
+/**
+ * DELETE /api/work-orders/:id/comments/:commentId
+ * Delete a comment. Author-only, enforced in the service.
+ */
+router.delete(
+  '/:id/comments/:commentId',
+  validateRequest(WorkOrderCommentParamSchema, 'params'),
+  requireModule('WORK_ORDERS', 2),
+  workOrdersController.deleteComment,
+);
+
+/**
+ * PUT /api/work-orders/:id/status-history/:entryId/notes
+ * Edit the "Actions Taken" note on a status history entry. The transition
+ * itself, its timestamp, and its author are immutable — only the note text
+ * changes, and there is deliberately no delete for this entry type.
+ */
+router.put(
+  '/:id/status-history/:entryId/notes',
+  validateRequest(WorkOrderHistoryEntryParamSchema, 'params'),
+  validateRequest(UpdateHistoryNotesSchema, 'body'),
+  requireModule('WORK_ORDERS', 1),
+  workOrdersController.updateStatusHistoryNotes,
+);
+
+/**
+ * PUT /api/work-orders/:id/priority-history/:entryId/notes
+ * Edit the note on a priority history entry. Same shape as the status
+ * history endpoint above.
+ */
+router.put(
+  '/:id/priority-history/:entryId/notes',
+  validateRequest(WorkOrderHistoryEntryParamSchema, 'params'),
+  validateRequest(UpdateHistoryNotesSchema, 'body'),
+  requireModule('WORK_ORDERS', 1),
+  workOrdersController.updatePriorityHistoryNotes,
+);
+
+/**
+ * PUT /api/work-orders/:id/description
+ * Edit the work order description. Reporter-only, enforced in the service.
+ * Deliberately a separate endpoint from PUT /:id (level 3+) rather than a
+ * lowered level on that route, since PUT /:id also exposes location,
+ * category, and equipment fields a level-1/2 reporter must not gain access to.
+ */
+router.put(
+  '/:id/description',
+  validateRequest(WorkOrderIdParamSchema, 'params'),
+  validateRequest(UpdateDescriptionSchema, 'body'),
+  requireModule('WORK_ORDERS', 1),
+  workOrdersController.updateDescription,
 );
 
 /**

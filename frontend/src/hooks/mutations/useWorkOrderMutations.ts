@@ -27,6 +27,24 @@ export function useCreateWorkOrder() {
 }
 
 // ---------------------------------------------------------------------------
+// useQuickFix
+// ---------------------------------------------------------------------------
+
+export function useQuickFix() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: { equipmentId: string; categoryId: string; notes: string }) =>
+      workOrderService.quickFix(data),
+    onSuccess: () => {
+      // Work orders only — Quick Fix does not modify the checkout assignment,
+      // so the checkouts list must not be refetched.
+      queryClient.invalidateQueries({ queryKey: queryKeys.workOrders.all });
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
 // useUpdateWorkOrder
 // ---------------------------------------------------------------------------
 
@@ -104,6 +122,86 @@ export function useAddWorkOrderComment() {
   return useMutation({
     mutationFn: ({ id, body, isInternal }: { id: string; body: string; isInternal?: boolean }) =>
       workOrderService.addComment(id, body, isInternal ?? false),
+    onSuccess: (_, { id }) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.workOrders.detail(id) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.workOrders.lists() });
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// useUpdateWorkOrderComment / useDeleteWorkOrderComment
+//
+// Also invalidate lists() — the list row carries a comment count and the
+// unread flag, both of which an edit or delete can affect.
+// ---------------------------------------------------------------------------
+
+export function useUpdateWorkOrderComment() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, commentId, body }: { id: string; commentId: string; body: string }) =>
+      workOrderService.updateComment(id, commentId, body),
+    onSuccess: (_, { id }) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.workOrders.detail(id) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.workOrders.lists() });
+    },
+  });
+}
+
+export function useDeleteWorkOrderComment() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, commentId }: { id: string; commentId: string }) =>
+      workOrderService.deleteComment(id, commentId),
+    onSuccess: (_, { id }) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.workOrders.detail(id) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.workOrders.lists() });
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// useUpdateStatusHistoryNotes / useUpdatePriorityHistoryNotes
+//
+// Note edits only affect the detail view — no list-visible field changes.
+// ---------------------------------------------------------------------------
+
+export function useUpdateStatusHistoryNotes() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, entryId, notes }: { id: string; entryId: string; notes: string | null }) =>
+      workOrderService.updateStatusHistoryNotes(id, entryId, notes),
+    onSuccess: (_, { id }) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.workOrders.detail(id) });
+    },
+  });
+}
+
+export function useUpdatePriorityHistoryNotes() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, entryId, notes }: { id: string; entryId: string; notes: string | null }) =>
+      workOrderService.updatePriorityHistoryNotes(id, entryId, notes),
+    onSuccess: (_, { id }) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.workOrders.detail(id) });
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// useUpdateWorkOrderDescription
+// ---------------------------------------------------------------------------
+
+export function useUpdateWorkOrderDescription() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, description }: { id: string; description: string }) =>
+      workOrderService.updateDescription(id, description),
     onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.workOrders.detail(id) });
       queryClient.invalidateQueries({ queryKey: queryKeys.workOrders.lists() });

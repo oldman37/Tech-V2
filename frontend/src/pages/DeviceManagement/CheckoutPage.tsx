@@ -22,6 +22,7 @@ import {
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import AssignmentReturnIcon from '@mui/icons-material/AssignmentReturn';
+import BuildIcon from '@mui/icons-material/Build';
 import EditIcon from '@mui/icons-material/Edit';
 import PowerIcon from '@mui/icons-material/Power';
 import ReportProblemIcon from '@mui/icons-material/ReportProblem';
@@ -38,6 +39,7 @@ import { CheckinForm } from '../../components/DeviceManagement/CheckinForm';
 import { ChargerNotReturnedInvoiceDialog } from '../../components/DeviceManagement/ChargerNotReturnedInvoiceDialog';
 import { EditAssignmentDialog } from '../../components/DeviceManagement/EditAssignmentDialog';
 import { AssignChargerDialog } from '../../components/DeviceManagement/AssignChargerDialog';
+import { QuickFixDialog } from '../../components/DeviceManagement/QuickFixDialog';
 import { GRADE_LEVELS, gradeLevelLabel, toDbGradeLevel } from '../../constants/gradeLevel';
 import type { DeviceAssignment, DeviceAssignmentUser } from '../../types/deviceAssignment.types';
 
@@ -99,6 +101,7 @@ export default function CheckoutPage() {
   const [checkinTarget, setCheckinTarget] = useState<DeviceAssignment | null>(null);
   const [editTarget, setEditTarget] = useState<DeviceAssignment | null>(null);
   const [chargerTarget, setChargerTarget] = useState<DeviceAssignment | null>(null);
+  const [quickFixTarget, setQuickFixTarget] = useState<DeviceAssignment | null>(null);
   const [chargerInvoiceTarget, setChargerInvoiceTarget] = useState<{
     equipmentId: string;
     userId?: string;
@@ -146,6 +149,7 @@ export default function CheckoutPage() {
       key:       'assigneeName',
       label:     'Assignee',
       isPrimary: true,
+      minWidth:  140,
       render:    (r) => {
         const u = r.user;
         if (!u) return <span>{r.userId}</span>;
@@ -164,6 +168,8 @@ export default function CheckoutPage() {
       key:         'assigneeType',
       label:       'Type',
       isSecondary: true,
+      // Chip labels never wrap, so the column cannot shrink to its header.
+      minWidth:    100,
       render:      (r) => (
         <Chip
           label={r.assigneeType === 'student' ? 'Student' : 'Staff'}
@@ -178,6 +184,7 @@ export default function CheckoutPage() {
       key:          'gradeLevel',
       label:        'Grade',
       hideOnMobile: true,
+      minWidth:     90,
       render:       (r) => {
         const gl = r.user?.gradeLevel;
         if (r.assigneeType !== 'student' || !gl) return <span>—</span>;
@@ -185,9 +192,11 @@ export default function CheckoutPage() {
       },
     },
     {
-      key:    'assetTag',
-      label:  'Device',
-      render: (r) => {
+      key:      'assetTag',
+      label:    'Device',
+      // Asset tag plus device name — far wider than the "Device" header.
+      minWidth: 150,
+      render:   (r) => {
         const eq = r.equipment;
         if (!eq) return <span>{r.equipmentId}</span>;
         return (
@@ -206,13 +215,17 @@ export default function CheckoutPage() {
       },
     },
     {
-      key:    'charger',
-      label:  'Charger',
-      render: (r) => {
+      key:      'charger',
+      label:    'Charger',
+      minWidth: 170,
+      render:   (r) => {
         const serial = r.chargerAssignment?.charger.serialNumber;
         return serial
           ? (
-            <span title={serial} style={{ fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
+            // A serial is an opaque token, not a word, so `anywhere` is the right
+            // break here: it keeps the column's min-content width low enough for
+            // the fit calculation to hold, and the title tooltip has the full value.
+            <span title={serial} style={{ fontFamily: 'monospace', overflowWrap: 'anywhere' }}>
               {chargerSerialDisplay(serial, isMobile)}
             </span>
           )
@@ -223,31 +236,42 @@ export default function CheckoutPage() {
       key:          'location',
       label:        'Location',
       hideOnMobile: true,
+      minWidth:     150,
       render:       (r) => <span>{r.location?.name ?? '—'}</span>,
     },
     {
       key:          'checkoutAt',
       label:        'Checked Out',
       hideOnMobile: true,
+      // Keeps "Aug 5, 2026" on one line.
+      minWidth:     110,
       render:       (r) =>
         new Date(r.checkoutAt).toLocaleDateString('en-US', {
           month: 'short', day: 'numeric', year: 'numeric',
         }),
     },
     {
-      key:    'checkoutCondition',
-      label:  'Condition',
-      render: (r) => <ConditionChip condition={r.checkoutCondition} />,
+      key:      'checkoutCondition',
+      label:    'Condition',
+      minWidth: 100,
+      render:   (r) => <ConditionChip condition={r.checkoutCondition} />,
     },
     {
-      key:    'status',
-      label:  'Status',
-      render: (r) => <DeviceStatusChip status={r.equipment?.status ?? 'checked_out'} />,
+      key:      'status',
+      label:    'Status',
+      minWidth: 120,
+      render:   (r) => <DeviceStatusChip status={r.equipment?.status ?? 'checked_out'} />,
     },
     {
-      key:    'actions',
-      label:  '',
-      render: (r) => {
+      key:      'actions',
+      label:    '',
+      // An empty header would otherwise budget the floor width for labelled
+      // buttons; 180 fits the widest one once the group wraps to a single column.
+      minWidth: 180,
+      // Acting on a checkout is the point of this page, so the buttons are the
+      // last thing to leave the row rather than the first.
+      priority: -3,
+      render:   (r) => {
         const hasOpenCharger = !!r.chargerAssignment && !r.chargerAssignment.returnedAt;
         return (
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -259,6 +283,14 @@ export default function CheckoutPage() {
             </Button>
             <Button size="small" startIcon={<PowerIcon />} onClick={(e) => { e.stopPropagation(); setChargerTarget(r); }} sx={{ whiteSpace: 'nowrap' }}>
               {hasOpenCharger ? 'Replace Charger' : 'Assign Charger'}
+            </Button>
+            <Button
+              size="small"
+              startIcon={<BuildIcon />}
+              onClick={(e) => { e.stopPropagation(); setQuickFixTarget(r); }}
+              sx={{ whiteSpace: 'nowrap' }}
+            >
+              Quick Fix
             </Button>
             <Button
               size="small"
@@ -454,6 +486,14 @@ export default function CheckoutPage() {
           assignment={chargerTarget}
           open={true}
           onClose={() => setChargerTarget(null)}
+        />
+      )}
+
+      {quickFixTarget && (
+        <QuickFixDialog
+          assignment={quickFixTarget}
+          open={true}
+          onClose={() => setQuickFixTarget(null)}
         />
       )}
     </Box>

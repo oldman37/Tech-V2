@@ -382,6 +382,13 @@ export async function deleteCart(cartId: string, requesterId: string, permLevel:
  * for an ad-hoc addition made after the cart was already committed.
  * Re-verifies equipment availability inside the transaction, same rigor as
  * commitCart().
+ *
+ * If the device is currently active in a *different* cart and
+ * `moveFromOtherCart` is true, that source cart's item is closed out (same
+ * effect as returnCartItem) before this cart's checkout proceeds, so the
+ * whole move is one atomic transaction. A device checked out directly to a
+ * person (no cartId on its assignment) is never eligible for this — that's
+ * a different workflow and out of scope here.
  */
 async function addAndCheckoutCartItem(
   tx: Prisma.TransactionClient,
@@ -389,7 +396,8 @@ async function addAndCheckoutCartItem(
   equipmentId: string,
   condition: AddCartItemData['condition'],
   notes: AddCartItemData['notes'],
-  performedByUserId: string
+  performedByUserId: string,
+  moveFromOtherCart = false,
 ) {
   const [cart, equipment] = await Promise.all([
     tx.deviceCart.findUnique({
@@ -410,9 +418,39 @@ async function addAndCheckoutCartItem(
 
   const activeAssignment = await tx.deviceAssignment.findFirst({
     where: { equipmentId, returnedAt: null },
-    select: { id: true },
+    select: { id: true, cartId: true, checkoutCondition: true },
   });
-  if (activeAssignment) throw new AppError('Device is currently checked out', 409, 'DEVICE_CHECKED_OUT');
+
+  if (activeAssignment) {
+    const inAnotherCart = !!activeAssignment.cartId && activeAssignment.cartId !== cartId;
+
+    if (!inAnotherCart) {
+      // Either checked out directly to a person, or (shouldn't happen given
+      // the item-existence check below) already active in this same cart.
+      throw new AppError('Device is currently checked out', 409, 'DEVICE_CHECKED_OUT');
+    }
+
+    if (!moveFromOtherCart) {
+      const sourceCart = await tx.deviceCart.findUnique({
+        where: { id: activeAssignment.cartId! },
+        select: { tagNumber: true, name: true },
+      });
+      throw new ConflictError('Device is currently checked out in another cart', {
+        code:      'DEVICE_IN_ANOTHER_CART',
+        cartId:    activeAssignment.cartId,
+        cartLabel: sourceCart?.tagNumber ?? sourceCart?.name ?? 'another cart',
+      });
+    }
+
+    // Confirmed move: close out the device's assignment in the source cart
+    // (required so the device never has two simultaneously-active
+    // assignments once the new one below is created) and remove it from the
+    // source cart's item list entirely — see closeAssignmentForMove for why
+    // this is deliberately NOT the same as a genuine return.
+    await closeAssignmentForMove(
+      tx, activeAssignment.cartId!, activeAssignment.id, activeAssignment.checkoutCondition, performedByUserId,
+    );
+  }
 
   const existing = await tx.deviceCartItem.findUnique({
     where: { cartId_equipmentId: { cartId, equipmentId } },
@@ -462,6 +500,55 @@ async function addAndCheckoutCartItem(
 }
 
 /**
+ * Closes out a device's assignment in its source cart when it's being moved
+ * directly into another cart (see addAndCheckoutCartItem's moveFromOtherCart
+ * handling). Deliberately NOT the same as a genuine return
+ * (returnAssignmentAndUpdateCart): nothing physically came back, so this
+ * must never flip an otherwise still-checked-out source cart to "partially
+ * returned" — that status is reserved for genuine returns. It also removes
+ * the device from the source cart's item list entirely rather than leaving
+ * a "returned" entry behind there, so a moved device stops showing in its
+ * old cart altogether. The assignment itself still has to be closed
+ * (returnedAt set) so the device never has two simultaneously-active
+ * assignments once the fresh one for the destination cart is created.
+ */
+async function closeAssignmentForMove(
+  tx: Prisma.TransactionClient,
+  sourceCartId: string,
+  assignmentId: string,
+  lastKnownCondition: string,
+  performedByUserId: string,
+) {
+  const now = new Date();
+
+  await tx.deviceAssignment.update({
+    where: { id: assignmentId },
+    data: {
+      returnedAt:      now,
+      returnCondition: lastKnownCondition,
+      returnedBy:      performedByUserId,
+      returnNotes:     'Moved to another cart',
+    },
+  });
+
+  await tx.deviceCartItem.deleteMany({ where: { assignmentId } });
+
+  // Only close the source cart out if moving this device leaves it with
+  // nothing else actively checked out — otherwise leave its status exactly
+  // as it was (still "checked_out", or "partially_returned" if a genuine
+  // return had already happened separately).
+  const remainingActive = await tx.deviceCartItem.count({
+    where: { cartId: sourceCartId, assignment: { returnedAt: null }, assignmentId: { not: null } },
+  });
+  if (remainingActive === 0) {
+    await tx.deviceCart.update({
+      where: { id: sourceCartId },
+      data: { status: 'returned', fullyReturnedAt: now },
+    });
+  }
+}
+
+/**
  * Add an equipment item to a cart by UUID. Draft carts stage the item
  * unassigned (as before); an already checked-out/partially-returned cart
  * checks the device out immediately to the cart's current primary user.
@@ -473,7 +560,7 @@ export async function addItem(cartId: string, data: AddCartItemData, performedBy
 
   if (cart.status !== 'draft') {
     const item = await prisma.$transaction(
-      (tx) => addAndCheckoutCartItem(tx, cartId, data.equipmentId, data.condition, data.notes, performedByUserId),
+      (tx) => addAndCheckoutCartItem(tx, cartId, data.equipmentId, data.condition, data.notes, performedByUserId, data.moveFromOtherCart),
       { isolationLevel: 'Serializable' }
     );
     log.info('Item added and checked out into active cart', { cartId, equipmentId: data.equipmentId, performedByUserId });
@@ -563,7 +650,7 @@ export async function scanToCart(cartId: string, data: ScanToCartData, performed
 
   if (cart.status !== 'draft') {
     const item = await prisma.$transaction(
-      (tx) => addAndCheckoutCartItem(tx, cartId, equipment.id, undefined, undefined, performedByUserId),
+      (tx) => addAndCheckoutCartItem(tx, cartId, equipment.id, undefined, undefined, performedByUserId, data.moveFromOtherCart),
       { isolationLevel: 'Serializable' }
     );
     log.info('Device scanned and checked out into active cart', { cartId, equipmentId: equipment.id, identifier, performedByUserId });
@@ -716,6 +803,66 @@ export async function commitCart(cartId: string, data: CommitCartData, performed
 }
 
 /**
+ * Core of a single cart-item return: marks the assignment returned, frees the
+ * equipment, removes the item from the cart's device list, and recalculates
+ * the owning cart's status. Extracted so it can run both standalone
+ * (returnCartItem, wrapped in its own transaction) and as part of a larger
+ * transaction — specifically, closing out the *source* cart's item when a
+ * device is moved directly into another cart (see addAndCheckoutCartItem's
+ * moveFromOtherCart handling).
+ */
+async function returnAssignmentAndUpdateCart(
+  tx: Prisma.TransactionClient,
+  cartId: string,
+  equipmentId: string,
+  assignmentId: string,
+  returnCondition: string,
+  returnedBy: string,
+  returnNotes?: string | null,
+) {
+  const now = new Date();
+
+  await tx.deviceAssignment.update({
+    where: { id: assignmentId },
+    data: {
+      returnedAt:      now,
+      returnCondition,
+      returnedBy,
+      returnNotes:     returnNotes ?? null,
+    },
+  });
+
+  await tx.equipment.update({
+    where: { id: equipmentId },
+    data: { status: 'active', assignedToUserId: null, condition: returnCondition },
+  });
+
+  // The cart no longer holds this device — remove its item record entirely
+  // rather than leaving a "returned" entry behind in the cart's device list.
+  // The DeviceAssignment itself (the permanent checkout-history record, used
+  // by Active Checkouts / user checkout history) is untouched by this.
+  await tx.deviceCartItem.deleteMany({ where: { assignmentId } });
+
+  // Determine new cart status
+  const remaining = await tx.deviceCartItem.count({
+    where: {
+      cartId,
+      assignment: { returnedAt: null },
+      assignmentId: { not: null },
+    },
+  });
+
+  const newStatus = remaining === 0 ? 'returned' : 'partially_returned';
+  await tx.deviceCart.update({
+    where: { id: cartId },
+    data: {
+      status:         newStatus,
+      fullyReturnedAt: remaining === 0 ? now : null,
+    },
+  });
+}
+
+/**
  * Return a single cart item (its linked assignment).
  */
 export async function returnCartItem(
@@ -746,42 +893,11 @@ export async function returnCartItem(
     throw new ConflictError('Item has already been returned', { code: 'ITEM_ALREADY_RETURNED' });
   }
 
-  const now = new Date();
-
-  await prisma.$transaction(async (tx) => {
-    await tx.deviceAssignment.update({
-      where: { id: item.assignmentId! },
-      data: {
-        returnedAt:      now,
-        returnCondition: data.returnCondition,
-        returnedBy:      performedByUserId,
-        returnNotes:     data.returnNotes,
-      },
-    });
-
-    await tx.equipment.update({
-      where: { id: item.equipmentId },
-      data: { status: 'active', assignedToUserId: null, condition: data.returnCondition },
-    });
-
-    // Determine new cart status
-    const remaining = await tx.deviceCartItem.count({
-      where: {
-        cartId,
-        assignment: { returnedAt: null },
-        assignmentId: { not: null },
-      },
-    });
-
-    const newStatus = remaining === 0 ? 'returned' : 'partially_returned';
-    await tx.deviceCart.update({
-      where: { id: cartId },
-      data: {
-        status:         newStatus,
-        fullyReturnedAt: remaining === 0 ? now : null,
-      },
-    });
-  });
+  await prisma.$transaction((tx) =>
+    returnAssignmentAndUpdateCart(
+      tx, cartId, item.equipmentId, item.assignmentId!, data.returnCondition, performedByUserId, data.returnNotes,
+    )
+  );
 
   log.info('Cart item returned', { cartId, itemId, performedByUserId });
   return getCart(cartId);
@@ -840,6 +956,10 @@ export async function returnAllCartItems(
         where: { id: item.equipmentId },
         data: { status: 'active', assignedToUserId: null, condition: data.returnCondition },
       });
+
+      // The cart no longer holds this device — remove its item record
+      // entirely rather than leaving a "returned" entry behind in the list.
+      await tx.deviceCartItem.delete({ where: { id: item.id } });
     }
 
     await tx.deviceCart.update({

@@ -17,6 +17,9 @@ import type {
   CreateWorkOrderDto,
   UpdateWorkOrderDto,
   WorkOrderPriority,
+  WorkOrderComment,
+  WorkOrderStatusHistoryEntry,
+  WorkOrderPriorityHistoryEntry,
   MyInputRequest,
   WorkOrderInputRequest,
 } from '../types/work-order.types';
@@ -70,6 +73,16 @@ const workOrderService = {
   },
 
   // -------------------------------------------------------------------------
+  // Quick Fix — create and immediately close a low-priority Technology
+  // work order for a device already identified on the Checkouts page.
+  // -------------------------------------------------------------------------
+
+  quickFix: async (data: { equipmentId: string; categoryId: string; notes: string }): Promise<WorkOrderDetail> => {
+    const res = await api.post<WorkOrderDetail>(`${BASE}/quick-fix`, data);
+    return res.data;
+  },
+
+  // -------------------------------------------------------------------------
   // Update
   // -------------------------------------------------------------------------
 
@@ -115,6 +128,34 @@ const workOrderService = {
 
   addComment: async (id: string, body: string, isInternal = false) => {
     const res = await api.post(`${BASE}/${id}/comments`, { body, isInternal });
+    return res.data;
+  },
+
+  // -------------------------------------------------------------------------
+  // Edit / delete your own posts — author-only, enforced server-side
+  // -------------------------------------------------------------------------
+
+  updateComment: async (id: string, commentId: string, body: string): Promise<WorkOrderComment> => {
+    const res = await api.put<WorkOrderComment>(`${BASE}/${id}/comments/${commentId}`, { body });
+    return res.data;
+  },
+
+  deleteComment: async (id: string, commentId: string): Promise<void> => {
+    await api.delete(`${BASE}/${id}/comments/${commentId}`);
+  },
+
+  updateStatusHistoryNotes: async (id: string, entryId: string, notes: string | null): Promise<WorkOrderStatusHistoryEntry> => {
+    const res = await api.put<WorkOrderStatusHistoryEntry>(`${BASE}/${id}/status-history/${entryId}/notes`, { notes });
+    return res.data;
+  },
+
+  updatePriorityHistoryNotes: async (id: string, entryId: string, notes: string | null): Promise<WorkOrderPriorityHistoryEntry> => {
+    const res = await api.put<WorkOrderPriorityHistoryEntry>(`${BASE}/${id}/priority-history/${entryId}/notes`, { notes });
+    return res.data;
+  },
+
+  updateDescription: async (id: string, description: string): Promise<WorkOrderDetail> => {
+    const res = await api.put<WorkOrderDetail>(`${BASE}/${id}/description`, { description });
     return res.data;
   },
 

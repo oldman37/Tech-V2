@@ -1077,6 +1077,8 @@ model Ticket {
   // Issue description
   title            String?
   description      String
+  /// Set whenever `description` is changed after creation — drives the "edited" marker
+  descriptionEditedAt DateTime?
 
   // Category — stored as String; DEPRECATED: kept for legacy data / migration fallback
   category         String?
@@ -1133,6 +1135,9 @@ model TicketComment {
   isSystem   Boolean  @default(false)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+  /// Set when the author edits `body` — drives the "edited" marker. Distinct from
+  /// updatedAt, which Prisma also sets on insert and on any non-body write.
+  editedAt   DateTime?
 
   ticket     Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
   author     User     @relation("TicketCommentAuthor", fields: [authorId], references: [id])
@@ -1191,6 +1196,8 @@ model TicketStatusHistory {
   changedById String
   changedAt   DateTime      @default(now())
   notes       String?
+  /// Set when the author edits `notes` — drives the "edited" marker
+  notesEditedAt DateTime?
 
   ticket      Ticket        @relation(fields: [ticketId], references: [id], onDelete: Cascade)
   changedBy   User          @relation("TicketStatusChangedBy", fields: [changedById], references: [id])
@@ -1208,6 +1215,7 @@ model TicketPriorityHistory {
   changedById  String
   changedAt    DateTime        @default(now())
   notes        String?
+  notesEditedAt DateTime?
 
   ticket       Ticket          @relation(fields: [ticketId], references: [id], onDelete: Cascade)
   changedBy    User            @relation("TicketPriorityChangedBy", fields: [changedById], references: [id])
@@ -1383,6 +1391,8 @@ model WorkOrderCategory {
   module           WorkOrderCategoryModule
   isActive         Boolean                 @default(true)
   requiresAssetTag Boolean                 @default(true)
+  /// Opt-in: only categories flagged here appear in the Checkouts page Quick Fix dropdown.
+  quickFix         Boolean                 @default(false)
   sortOrder        Int                     @default(0)
   createdAt        DateTime                @default(now())
   updatedAt        DateTime                @updatedAt

@@ -91,9 +91,19 @@ function AuthInitializer({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+// useTransitions={false} — react-router v7's BrowserRouter wraps every router state
+// update in React.startTransition by default. That defers the commit of any controlled
+// input whose value comes from useSearchParams (every useFilterParams search box across
+// the app), so React reverts the input to its last committed value and any character
+// arriving faster than the transition commits is silently dropped — human typing is slow
+// enough to never notice, but a barcode scanner emitting characters within milliseconds
+// loses most of a scanned tag. Compared with strict === false, so omitting the prop or
+// passing undefined leaves transitions on. Safe to disable app-wide only because this app
+// has no React.lazy routes and no Suspense boundaries; if either is introduced, re-enable
+// transitions and give the affected inputs local state instead of removing this line.
 function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter useTransitions={false}>
       <PwaUpdatePrompt />
       <PwaInstallPrompt />
       <AuthInitializer>

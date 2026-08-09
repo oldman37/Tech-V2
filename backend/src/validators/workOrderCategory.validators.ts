@@ -32,6 +32,10 @@ export const GetWorkOrderCategoriesQuerySchema = z.object({
     .string()
     .optional()
     .transform((val) => (val === 'true' ? true : val === 'false' ? false : undefined)),
+  quickFix: z
+    .string()
+    .optional()
+    .transform((val) => (val === 'true' ? true : val === 'false' ? false : undefined)),
   sortBy: z.enum(['name', 'sortOrder', 'createdAt']).optional(),
   sortOrder: z.enum(['asc', 'desc']).optional(),
 });
@@ -51,6 +55,7 @@ export const CreateWorkOrderCategorySchema = z.object({
   module:           WorkOrderCategoryModuleSchema,
   isActive:         z.boolean().optional().default(true),
   requiresAssetTag: z.boolean().optional().default(true),
+  quickFix:         z.boolean().optional().default(false),
   sortOrder:        z.number().int().min(0).optional().default(0),
 });
 
@@ -61,6 +66,7 @@ export const UpdateWorkOrderCategorySchema = z.object({
   name:             z.string().min(1).max(100).trim().optional(),
   isActive:         z.boolean().optional(),
   requiresAssetTag: z.boolean().optional(),
+  quickFix:         z.boolean().optional(),
   sortOrder:        z.number().int().min(0).optional(),
 });
 

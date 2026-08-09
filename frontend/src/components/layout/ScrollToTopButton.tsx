@@ -5,6 +5,11 @@ import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 // How far scrolled down from the top (in px) before the button appears.
 const VISIBILITY_THRESHOLD = 100;
 
+// How close to the absolute bottom (in px) hides the button, so it doesn't
+// overlap in-flow bottom controls like TablePagination (sized to clear a
+// two-row, mobile-wrapped pagination bar plus padding).
+const NEAR_BOTTOM_THRESHOLD = 150;
+
 interface ScrollToTopButtonProps {
   containerRef: RefObject<HTMLElement | null>;
 }
@@ -19,7 +24,8 @@ export function ScrollToTopButton({ containerRef }: ScrollToTopButtonProps) {
     if (!el) return;
 
     const handleScroll = () => {
-      const next = el.scrollTop > VISIBILITY_THRESHOLD;
+      const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+      const next = el.scrollTop > VISIBILITY_THRESHOLD && distanceFromBottom > NEAR_BOTTOM_THRESHOLD;
       if (visibleRef.current !== next) setVisible(next);
     };
 

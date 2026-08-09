@@ -140,6 +140,20 @@ export const CreateWorkOrderSchema = z
   });
 
 // ---------------------------------------------------------------------------
+// POST /work-orders/quick-fix — body schema
+// ---------------------------------------------------------------------------
+
+export const QuickFixSchema = z.object({
+  equipmentId: z.string().uuid('Invalid equipment ID'),
+  categoryId:  z.string().uuid('Invalid category ID'),
+  // Required — becomes the closing "Actions Taken" note, so the ticket's
+  // history shows what was actually done rather than a generic message.
+  notes: z.string().trim().min(1, 'Please describe what was completed').max(1000, 'Notes must be 1000 characters or less'),
+});
+
+export type QuickFixDto = z.infer<typeof QuickFixSchema>;
+
+// ---------------------------------------------------------------------------
 // PUT /work-orders/:id — update
 // ---------------------------------------------------------------------------
 
@@ -203,6 +217,42 @@ export const AddCommentSchema = z.object({
 });
 
 // ---------------------------------------------------------------------------
+// PUT/DELETE /work-orders/:id/comments/:commentId — param schema
+// ---------------------------------------------------------------------------
+
+export const WorkOrderCommentParamSchema = z.object({
+  id:        z.string().uuid('Invalid work order ID format'),
+  commentId: z.string().uuid('Invalid comment ID format'),
+});
+
+export const UpdateCommentSchema = z.object({
+  body: z.string().min(1, 'Comment cannot be empty').max(5000, 'Comment must be 5000 characters or less'),
+});
+
+// ---------------------------------------------------------------------------
+// PUT /work-orders/:id/{status,priority}-history/:entryId/notes — param schema
+// ---------------------------------------------------------------------------
+
+export const WorkOrderHistoryEntryParamSchema = z.object({
+  id:      z.string().uuid('Invalid work order ID format'),
+  entryId: z.string().uuid('Invalid entry ID format'),
+});
+
+// Nullable: clearing the note back to empty is the "delete" affordance for a
+// history note — the history row itself must survive.
+export const UpdateHistoryNotesSchema = z.object({
+  notes: z.string().max(1000).nullable(),
+});
+
+// ---------------------------------------------------------------------------
+// PUT /work-orders/:id/description — edit description (reporter only)
+// ---------------------------------------------------------------------------
+
+export const UpdateDescriptionSchema = z.object({
+  description: z.string().min(10, 'Description must be at least 10 characters').max(5000, 'Description must be 5000 characters or less'),
+});
+
+// ---------------------------------------------------------------------------
 // POST /work-orders/:id/input-requests — request input
 // ---------------------------------------------------------------------------
 
@@ -231,5 +281,8 @@ export type UpdateWorkOrderDto  = z.infer<typeof UpdateWorkOrderSchema>;
 export type UpdateStatusDto     = z.infer<typeof UpdateStatusSchema>;
 export type AssignWorkOrderDto  = z.infer<typeof AssignWorkOrderSchema>;
 export type AddCommentDto       = z.infer<typeof AddCommentSchema>;
+export type UpdateCommentDto      = z.infer<typeof UpdateCommentSchema>;
+export type UpdateHistoryNotesDto = z.infer<typeof UpdateHistoryNotesSchema>;
+export type UpdateDescriptionDto  = z.infer<typeof UpdateDescriptionSchema>;
 export type UpdatePriorityDto   = z.infer<typeof UpdatePrioritySchema>;
 export type RequestInputDto     = z.infer<typeof RequestInputSchema>;

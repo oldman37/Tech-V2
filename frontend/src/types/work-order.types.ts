@@ -73,8 +73,12 @@ export interface WorkOrderComment {
   workOrderId: string;
   body: string;
   isInternal: boolean;
+  /** System-generated (assignment, input request) — never editable or deletable. */
+  isSystem: boolean;
   createdAt: string;
   updatedAt: string;
+  /** Non-null once the author has edited the body. */
+  editedAt: string | null;
   author: WorkOrderUser;
 }
 
@@ -84,6 +88,7 @@ export interface WorkOrderStatusHistoryEntry {
   toStatus: WorkOrderStatus;
   changedAt: string;
   notes: string | null;
+  notesEditedAt: string | null;
   changedBy: WorkOrderUser;
 }
 
@@ -93,6 +98,7 @@ export interface WorkOrderPriorityHistoryEntry {
   toPriority: WorkOrderPriority;
   changedAt: string;
   notes: string | null;
+  notesEditedAt: string | null;
   changedBy: WorkOrderUser;
 }
 
@@ -125,6 +131,8 @@ export interface MyInputRequest extends WorkOrderInputRequest {
 
 export interface WorkOrderDetail extends WorkOrderSummary {
   description: string;
+  /** Non-null once the reporter has edited the description. */
+  descriptionEditedAt: string | null;
   equipmentId: string | null;
   equipment: { id: string; assetTag: string; name: string } | null;
   notInInventoryTag: string | null;

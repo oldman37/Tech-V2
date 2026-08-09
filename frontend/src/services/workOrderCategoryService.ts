@@ -25,6 +25,7 @@ const workOrderCategoryService = {
     if (params?.search)                  q.append('search',    params.search);
     if (params?.module)                  q.append('module',    params.module);
     if (params?.isActive  !== undefined) q.append('isActive',  String(params.isActive));
+    if (params?.quickFix  !== undefined) q.append('quickFix',  String(params.quickFix));
     if (params?.sortBy)                  q.append('sortBy',    params.sortBy);
     if (params?.sortOrder)               q.append('sortOrder', params.sortOrder);
 

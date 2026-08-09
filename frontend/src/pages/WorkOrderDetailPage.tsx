@@ -26,9 +26,14 @@ import {
   CardContent,
   Chip,
   CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Divider,
   FormControl,
   FormControlLabel,
+  IconButton,
   InputLabel,
   Link,
   MenuItem,
@@ -41,6 +46,8 @@ import {
 } from '@mui/material';
 import AssignmentIndIcon from '@mui/icons-material/AssignmentInd';
 import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import EditIcon from '@mui/icons-material/Edit';
 import ReplayIcon from '@mui/icons-material/Replay';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import PriorityHighIcon from '@mui/icons-material/PriorityHigh';
@@ -52,6 +59,11 @@ import {
   useUpdateWorkOrderPriority,
   useAssignWorkOrder,
   useAddWorkOrderComment,
+  useUpdateWorkOrderComment,
+  useDeleteWorkOrderComment,
+  useUpdateStatusHistoryNotes,
+  useUpdatePriorityHistoryNotes,
+  useUpdateWorkOrderDescription,
   useDismissInputRequest,
   useRequestInput,
 } from '@/hooks/mutations/useWorkOrderMutations';
@@ -112,13 +124,107 @@ const PRIORITIES: { value: WorkOrderPriority; label: string }[] = [
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function CommentCard({ comment }: { comment: WorkOrderComment }) {
+/** "edited <date>" caption, rendered only once the item has actually been edited. */
+function EditedMarker({ at }: { at: string | null }) {
+  if (!at) return null;
+  return (
+    <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+      edited {formatDate(at)}
+    </Typography>
+  );
+}
+
+/**
+ * Shared inline editor for a comment body, a history note, or the description.
+ * Owns its own draft/saving/error state so each item can be edited independently
+ * without threading state through the page. `onSave` rejecting keeps the editor
+ * open and surfaces the API message; resolving leaves the parent to unmount it.
+ */
+function InlineEditForm({
+  initialValue, label, minLength = 1, allowEmpty = false, onSave, onCancel,
+}: {
+  initialValue: string;
+  label: string;
+  minLength?: number;
+  allowEmpty?: boolean;
+  onSave: (value: string) => Promise<void>;
+  onCancel: () => void;
+}) {
+  const [draft, setDraft]   = useState(initialValue);
+  const [saving, setSaving] = useState(false);
+  const [error, setError]   = useState<string | null>(null);
+
+  const trimmed  = draft.trim();
+  const tooShort = trimmed.length > 0 && trimmed.length < minLength;
+  const isEmpty  = trimmed.length === 0;
+  const invalid  = tooShort || (isEmpty && !allowEmpty);
+
+  const handleSave = async () => {
+    if (invalid) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await onSave(trimmed);
+    } catch (err: unknown) {
+      const apiMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setError(apiMessage ?? 'Unable to save your changes. Please try again.');
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+      <TextField
+        label={label}
+        multiline
+        minRows={2}
+        fullWidth
+        size="small"
+        autoFocus
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        disabled={saving}
+      />
+      {error && <Alert severity="error">{error}</Alert>}
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+        <Button size="small" onClick={onCancel} disabled={saving}>Cancel</Button>
+        <Button
+          size="small"
+          variant="contained"
+          onClick={handleSave}
+          disabled={saving || invalid}
+          startIcon={saving ? <CircularProgress size={14} /> : undefined}
+        >
+          Save
+        </Button>
+      </Box>
+    </Box>
+  );
+}
+
+function CommentCard({
+  comment, workOrderId, currentUserId,
+}: { comment: WorkOrderComment; workOrderId: string; currentUserId: string | undefined }) {
   const initials = (comment.author.displayName ?? comment.author.email)
     .split(' ')
     .map((p) => p[0])
     .join('')
     .slice(0, 2)
     .toUpperCase();
+
+  // Own, non-system comments only. Re-checked server-side.
+  const canManage = currentUserId === comment.author.id && !comment.isSystem;
+
+  const [isEditing, setIsEditing]           = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+
+  const updateComment = useUpdateWorkOrderComment();
+  const deleteComment = useDeleteWorkOrderComment();
+
+  const handleDelete = async () => {
+    await deleteComment.mutateAsync({ id: workOrderId, commentId: comment.id });
+    setConfirmDeleteOpen(false);
+  };
 
   return (
     <Box
@@ -134,7 +240,7 @@ function CommentCard({ comment }: { comment: WorkOrderComment }) {
       }}
     >
       <Avatar sx={{ width: 32, height: 32, fontSize: 13 }}>{initials}</Avatar>
-      <Box sx={{ flex: 1 }}>
+      <Box sx={{ flex: 1, minWidth: 0 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
           <Typography variant="body2" fontWeight={600}>
             {comment.author.displayName ?? comment.author.email}
@@ -145,16 +251,63 @@ function CommentCard({ comment }: { comment: WorkOrderComment }) {
           <Typography variant="caption" color="text.secondary">
             {formatDate(comment.createdAt)}
           </Typography>
+          <EditedMarker at={comment.editedAt} />
+          {canManage && !isEditing && (
+            <Box sx={{ ml: 'auto', display: 'flex', gap: 0.5 }}>
+              <IconButton size="small" aria-label="Edit comment" onClick={() => setIsEditing(true)}>
+                <EditIcon fontSize="inherit" />
+              </IconButton>
+              <IconButton size="small" aria-label="Delete comment" onClick={() => setConfirmDeleteOpen(true)}>
+                <DeleteOutlineIcon fontSize="inherit" />
+              </IconButton>
+            </Box>
+          )}
         </Box>
-        <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-          {comment.body}
-        </Typography>
+        {isEditing ? (
+          <InlineEditForm
+            initialValue={comment.body}
+            label="Comment"
+            minLength={1}
+            onSave={async (value) => {
+              await updateComment.mutateAsync({ id: workOrderId, commentId: comment.id, body: value });
+              setIsEditing(false);
+            }}
+            onCancel={() => setIsEditing(false)}
+          />
+        ) : (
+          <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+            {comment.body}
+          </Typography>
+        )}
       </Box>
+
+      <Dialog open={confirmDeleteOpen} onClose={() => setConfirmDeleteOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Delete comment?</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">
+            This comment will be permanently removed from the work order. This cannot be undone.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmDeleteOpen(false)} disabled={deleteComment.isPending}>Cancel</Button>
+          <Button
+            color="error"
+            variant="contained"
+            onClick={handleDelete}
+            disabled={deleteComment.isPending}
+            startIcon={deleteComment.isPending ? <CircularProgress size={14} /> : undefined}
+          >
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
 
-function StatusHistoryCard({ entry }: { entry: WorkOrderStatusHistoryEntry }) {
+function StatusHistoryCard({
+  entry, workOrderId, currentUserId,
+}: { entry: WorkOrderStatusHistoryEntry; workOrderId: string; currentUserId: string | undefined }) {
   const initials = (entry.changedBy.displayName ?? entry.changedBy.email)
     .split(' ')
     .map((p) => p[0])
@@ -165,10 +318,16 @@ function StatusHistoryCard({ entry }: { entry: WorkOrderStatusHistoryEntry }) {
   const fromLabel = entry.fromStatus ? WORK_ORDER_STATUS_LABELS[entry.fromStatus] : null;
   const toLabel   = WORK_ORDER_STATUS_LABELS[entry.toStatus];
 
+  // The seed "Work order created" entry (fromStatus === null) is never editable.
+  const canManage = currentUserId === entry.changedBy.id && entry.fromStatus !== null;
+
+  const [isEditing, setIsEditing] = useState(false);
+  const updateNotes = useUpdateStatusHistoryNotes();
+
   return (
     <Box sx={{ display: 'flex', gap: 1.5, py: 1.5 }}>
       <Avatar sx={{ width: 32, height: 32, fontSize: 13, bgcolor: 'grey.400' }}>{initials}</Avatar>
-      <Box sx={{ flex: 1 }}>
+      <Box sx={{ flex: 1, minWidth: 0 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5, flexWrap: 'wrap' }}>
           <Typography variant="body2" fontWeight={600}>
             {entry.changedBy.displayName ?? entry.changedBy.email}
@@ -179,18 +338,39 @@ function StatusHistoryCard({ entry }: { entry: WorkOrderStatusHistoryEntry }) {
           <Typography variant="caption" color="text.secondary">
             {formatDate(entry.changedAt)}
           </Typography>
+          <EditedMarker at={entry.notesEditedAt} />
+          {canManage && !isEditing && (
+            <IconButton size="small" aria-label="Edit note" sx={{ ml: 'auto' }} onClick={() => setIsEditing(true)}>
+              <EditIcon fontSize="inherit" />
+            </IconButton>
+          )}
         </Box>
-        {entry.notes && (
-          <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', color: 'text.secondary', fontStyle: 'italic' }}>
-            {entry.notes}
-          </Typography>
+        {isEditing ? (
+          <InlineEditForm
+            initialValue={entry.notes ?? ''}
+            label="Actions Taken"
+            allowEmpty
+            onSave={async (value) => {
+              await updateNotes.mutateAsync({ id: workOrderId, entryId: entry.id, notes: value || null });
+              setIsEditing(false);
+            }}
+            onCancel={() => setIsEditing(false)}
+          />
+        ) : (
+          entry.notes && (
+            <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', color: 'text.secondary', fontStyle: 'italic' }}>
+              {entry.notes}
+            </Typography>
+          )
         )}
       </Box>
     </Box>
   );
 }
 
-function PriorityHistoryCard({ entry }: { entry: WorkOrderPriorityHistoryEntry }) {
+function PriorityHistoryCard({
+  entry, workOrderId, currentUserId,
+}: { entry: WorkOrderPriorityHistoryEntry; workOrderId: string; currentUserId: string | undefined }) {
   const initials = (entry.changedBy.displayName ?? entry.changedBy.email)
     .split(' ')
     .map((p) => p[0])
@@ -201,10 +381,16 @@ function PriorityHistoryCard({ entry }: { entry: WorkOrderPriorityHistoryEntry }
   const fromLabel = entry.fromPriority ? WORK_ORDER_PRIORITY_LABELS[entry.fromPriority] : null;
   const toLabel   = WORK_ORDER_PRIORITY_LABELS[entry.toPriority];
 
+  // Priority entries: authorship alone (no immutable seed row to exclude here).
+  const canManage = currentUserId === entry.changedBy.id;
+
+  const [isEditing, setIsEditing] = useState(false);
+  const updateNotes = useUpdatePriorityHistoryNotes();
+
   return (
     <Box sx={{ display: 'flex', gap: 1.5, py: 1.5 }}>
       <Avatar sx={{ width: 32, height: 32, fontSize: 13, bgcolor: 'info.main' }}>{initials}</Avatar>
-      <Box sx={{ flex: 1 }}>
+      <Box sx={{ flex: 1, minWidth: 0 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5, flexWrap: 'wrap' }}>
           <Typography variant="body2" fontWeight={600}>
             {entry.changedBy.displayName ?? entry.changedBy.email}
@@ -215,11 +401,30 @@ function PriorityHistoryCard({ entry }: { entry: WorkOrderPriorityHistoryEntry }
           <Typography variant="caption" color="text.secondary">
             {formatDate(entry.changedAt)}
           </Typography>
+          <EditedMarker at={entry.notesEditedAt} />
+          {canManage && !isEditing && (
+            <IconButton size="small" aria-label="Edit note" sx={{ ml: 'auto' }} onClick={() => setIsEditing(true)}>
+              <EditIcon fontSize="inherit" />
+            </IconButton>
+          )}
         </Box>
-        {entry.notes && (
-          <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', color: 'text.secondary', fontStyle: 'italic' }}>
-            {entry.notes}
-          </Typography>
+        {isEditing ? (
+          <InlineEditForm
+            initialValue={entry.notes ?? ''}
+            label="Note"
+            allowEmpty
+            onSave={async (value) => {
+              await updateNotes.mutateAsync({ id: workOrderId, entryId: entry.id, notes: value || null });
+              setIsEditing(false);
+            }}
+            onCancel={() => setIsEditing(false)}
+          />
+        ) : (
+          entry.notes && (
+            <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', color: 'text.secondary', fontStyle: 'italic' }}>
+              {entry.notes}
+            </Typography>
+          )
         )}
       </Box>
     </Box>
@@ -239,6 +444,9 @@ export default function WorkOrderDetailPage() {
   const { user } = useAuthStore();
   const canAssign = (user?.permLevels?.WORK_ORDERS ?? 0) >= 4;
   const canChangePriority = user?.permLevels?.canChangeWorkOrderPriority ?? false;
+  // Description edit — the reporter only. Re-checked server-side.
+  const canEditDescription = !!user && workOrder?.reportedBy?.id === user.id;
+  const [isEditingDescription, setIsEditingDescription] = useState(false);
 
   // Opening the detail view clears the unread flag server-side (TicketView upsert
   // in getWorkOrderById) — invalidate the list cache so it doesn't linger stale
@@ -257,6 +465,7 @@ export default function WorkOrderDetailPage() {
   const addComment    = useAddWorkOrderComment();
   const requestInput  = useRequestInput();
   const dismissInputRequest = useDismissInputRequest();
+  const updateDescription = useUpdateWorkOrderDescription();
 
   // Which action (if any) the inline composer below "Comments & Activity" is
   // currently set to. `null` = plain comment. Only one action is active at a
@@ -567,12 +776,34 @@ export default function WorkOrderDetailPage() {
         <Box sx={{ minWidth: 0 }}>
           {/* Description */}
           <Paper variant="outlined" sx={{ p: 2.5, mb: 3 }}>
-            <Typography variant="subtitle1" fontWeight={600} gutterBottom>
-              Description
-            </Typography>
-            <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-              {workOrder.description}
-            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+              <Typography variant="subtitle1" fontWeight={600} sx={{ flex: 1 }}>
+                Description
+              </Typography>
+              <EditedMarker at={workOrder.descriptionEditedAt} />
+              {canEditDescription && !isEditingDescription && (
+                <IconButton size="small" aria-label="Edit description" onClick={() => setIsEditingDescription(true)}>
+                  <EditIcon fontSize="inherit" />
+                </IconButton>
+              )}
+            </Box>
+            {isEditingDescription ? (
+              <InlineEditForm
+                initialValue={workOrder.description}
+                label="Description"
+                minLength={10}
+                onSave={async (value) => {
+                  if (!id) return;
+                  await updateDescription.mutateAsync({ id, description: value });
+                  setIsEditingDescription(false);
+                }}
+                onCancel={() => setIsEditingDescription(false)}
+              />
+            ) : (
+              <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                {workOrder.description}
+              </Typography>
+            )}
           </Paper>
 
           {/* Comments */}
@@ -607,11 +838,13 @@ export default function WorkOrderDetailPage() {
 
               return items.map((entry, idx) => (
                 <Box key={entry.kind === 'comment' ? entry.item.id : `${entry.kind}-${entry.item.id}`}>
-                  {entry.kind === 'comment'
-                    ? <CommentCard comment={entry.item} />
-                    : entry.kind === 'status'
-                      ? <StatusHistoryCard entry={entry.item} />
-                      : <PriorityHistoryCard entry={entry.item} />}
+                  {entry.kind === 'comment' && id
+                    ? <CommentCard comment={entry.item} workOrderId={id} currentUserId={user?.id} />
+                    : entry.kind === 'status' && id
+                      ? <StatusHistoryCard entry={entry.item} workOrderId={id} currentUserId={user?.id} />
+                      : entry.kind === 'priority' && id
+                        ? <PriorityHistoryCard entry={entry.item} workOrderId={id} currentUserId={user?.id} />
+                        : null}
                   {idx < items.length - 1 && <Divider sx={{ my: 1 }} />}
                 </Box>
               ));
