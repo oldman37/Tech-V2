@@ -140,6 +140,20 @@ api.interceptors.response.use(
     return response;
   },
   async (error: AxiosError) => {
+    // Surface the backend's actual error text instead of Axios's generic
+    // "Request failed with status code NNN". Controllers send { message } for
+    // structured errors and rate limiters send { error } — prefer whichever is
+    // present. Leave `.message` untouched when there's no parseable body
+    // (network failures, CORS rejections) since there's nothing better to show.
+    const data = error.response?.data as Record<string, unknown> | undefined;
+    if (data && typeof data === 'object') {
+      if (typeof data.message === 'string' && data.message.length > 0) {
+        error.message = data.message;
+      } else if (typeof data.error === 'string' && data.error.length > 0) {
+        error.message = data.error;
+      }
+    }
+
     const originalRequest = error.config as any;
 
     // If error is 401, we haven't retried yet, and the user was already authenticated
