@@ -48,6 +48,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       'Fixed feild trip request not sending diecrtly to the assitant DOS when a building level admin put in a request for a trip that requires DOS approval.',
       'Added scroll down to the next step when the status of a work order is updated, so you can see the next step in the workflow without having to scroll manually.',
       'Combined details and description into a single "Details" box on mobile mobile mode, so you can see all the information about a work order without having to scroll through multiple boxes.',
+      'Updated the status buttons on the work order detail page to be more prominent and easier to tap on mobile, so you can update the status of a work order without having to scroll through multiple boxes.',
     ],
   },
   {
