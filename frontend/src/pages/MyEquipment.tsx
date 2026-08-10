@@ -26,6 +26,7 @@ import { InventoryItem } from '../types/inventory.types';
 
 import { useAuthStore } from '../store/authStore';
 import { ResponsiveTable, Column } from '../components/responsive';
+import { PageBackButton } from '../components/layout/PageBackButton';
 
 export const MyEquipment = () => {
   const { user } = useAuthStore();
@@ -169,6 +170,7 @@ export const MyEquipment = () => {
 
   return (
     <Box sx={{ p: { xs: 2, sm: 3 } }}>
+      <PageBackButton />
       {/* Page Header */}
       <Box sx={{ mb: 4 }}>
         <Typography variant="h4" gutterBottom>

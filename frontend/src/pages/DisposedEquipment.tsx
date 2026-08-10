@@ -10,6 +10,7 @@ import { categoriesService, modelsService, EquipmentModel, Category } from '../s
 import { InventoryItem, InventoryFilters } from '../types/inventory.types';
 import { ResponsiveTable, MobileFilterBar, Column } from '../components/responsive';
 import { useIsMobile } from '../hooks/useResponsive';
+import { PageBackButton } from '../components/layout/PageBackButton';
 
 
 interface PaginationModel {
@@ -282,6 +283,7 @@ const DisposedEquipment = () => {
     <>
       <main className="page-content">
         <div className="container">
+          <PageBackButton />
           {/* Page Header */}
           <div className="page-header">
             <h2 className="page-title">Disposed Equipment</h2>

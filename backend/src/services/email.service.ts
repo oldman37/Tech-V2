@@ -585,7 +585,19 @@ export async function buildFieldTripApproverSnapshot(
     },
   });
 
-  const supervisorEmails: string[] = user
+  // Principals and Vice Principals must always route straight to the Assistant
+  // Director of Schools, bypassing the supervisor stage — even if a stray
+  // UserSupervisor row exists for their account (e.g. pointing at another
+  // building's Vice Principal).
+  const isPrincipalOrVicePrincipal = await prisma.locationSupervisor.findFirst({
+    where: {
+      userId:         submitterId,
+      supervisorType: { in: ['PRINCIPAL', 'VICE_PRINCIPAL'] },
+    },
+    select: { id: true },
+  });
+
+  const supervisorEmails: string[] = (user && !isPrincipalOrVicePrincipal)
     ? user.user_supervisors_user_supervisors_userIdTousers
         .map((us) => us.supervisor.email)
         .filter(Boolean)

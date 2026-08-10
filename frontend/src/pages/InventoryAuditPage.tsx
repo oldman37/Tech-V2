@@ -22,6 +22,7 @@ import { AuditItemList } from '@/components/inventory-audit/AuditItemList';
 import { FiscalYearAuditEntry } from '@/components/inventory-audit/FiscalYearAuditEntry';
 import { FiscalYearAuditHeader } from '@/components/inventory-audit/FiscalYearAuditHeader';
 import inventoryAuditService from '@/services/inventoryAudit.service';
+import { PageBackButton } from '@/components/layout/PageBackButton';
 import { FiscalYearAudit } from '@/types/inventoryAudit.types';
 
 type AuditStep = 'select' | 'audit' | 'summary';
@@ -215,6 +216,7 @@ export function InventoryAuditPage() {
   if (!effectiveFyAudit) {
     return (
       <Box sx={{ p: { xs: 2, md: 3 } }}>
+        <PageBackButton />
         <Typography variant="h5" gutterBottom>
           Inventory Audit
         </Typography>
@@ -229,6 +231,7 @@ export function InventoryAuditPage() {
   // Active fiscal year audit — show the room audit flow
   return (
     <Box sx={{ p: { xs: 2, md: 3 } }}>
+      <PageBackButton />
       <Typography variant="h5" gutterBottom>
         Inventory Audit
       </Typography>

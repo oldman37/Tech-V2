@@ -1,7 +1,7 @@
 import { Box, Button, Divider, List, ListItem, ListItemIcon, ListItemText, Paper, Typography } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import AddShoppingCartIcon from '@mui/icons-material/AddShoppingCart';
-import ListAltIcon from '@mui/icons-material/ListAlt';
+import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import { useNavigate } from 'react-router-dom';
 import type { DeviceCartDetail } from '../../types/deviceCart.types';
 
@@ -63,10 +63,10 @@ export function CartCheckoutConfirmation({ cart, onNewCart }: CartCheckoutConfir
         </Button>
         <Button
           variant="contained"
-          startIcon={<ListAltIcon />}
-          onClick={() => navigate('/device-management/checkouts')}
+          startIcon={<ShoppingCartIcon />}
+          onClick={() => navigate('/device-management/carts')}
         >
-          View Checkouts
+          View Checked-Out Carts
         </Button>
       </Box>
     </Box>

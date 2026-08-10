@@ -55,6 +55,7 @@ import provisioningService, {
 } from '@/services/provisioningService';
 import { useUpdateSchedule } from '@/hooks/mutations/useJobMutations';
 import { useJobSchedules } from '@/hooks/queries/useJobSchedules';
+import { PageBackButton } from '@/components/layout/PageBackButton';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -1868,6 +1869,7 @@ export default function ProvisioningPage() {
 
   return (
     <Box sx={{ p: { xs: 2, sm: 3 }, maxWidth: 1100, mx: 'auto' }}>
+      <PageBackButton />
       <Box sx={{ mb: 3 }}>
         <Typography variant="h4" component="h1" gutterBottom>
           User Provisioning

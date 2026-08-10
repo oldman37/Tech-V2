@@ -33,6 +33,7 @@ import {
 } from '@/types/fieldTrip.types';
 import { ResponsiveTable, MobileFilterBar, Column } from '@/components/responsive';
 import { formatTripDateRange } from '@/utils/fieldTripDateFormat';
+import { PageBackButton } from '../../components/layout/PageBackButton';
 
 const columns: Column<FieldTripRequest>[] = [
   {
@@ -132,6 +133,7 @@ export function FieldTripListPage() {
 
   return (
     <Box sx={{ p: { xs: 2, sm: 3 } }}>
+      <PageBackButton />
       {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 3 }}>
         <Typography variant="h5" fontWeight={600}>

@@ -6,6 +6,7 @@ import { SyncResultDetail } from '../services/adminService';
 import SyncResultDialog from '../components/admin/SyncResultDialog';
 import { Box, Paper } from '@mui/material';
 import { ResponsiveTable, MobileFilterBar, Column } from '../components/responsive';
+import { PageBackButton } from '../components/layout/PageBackButton';
 import { useIsMobile } from '../hooks/useResponsive';
 
 // TanStack Query hooks
@@ -329,6 +330,7 @@ const Users: React.FC = () => {
 
   return (
     <Box sx={{ p: { xs: 2, sm: 3 } }}>
+          <PageBackButton />
           <div className="page-header">
             <h2 className="page-title">User Management</h2>
             <p className="page-description">Manage user roles and permissions</p>

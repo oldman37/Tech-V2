@@ -17,6 +17,7 @@ import type { Column } from '../../components/responsive';
 import { incidentService } from '../../services/incident.service';
 import type { DamageIncident } from '../../types/damageIncident.types';
 import type { IncidentWorkflowStep, IncidentIntent } from '@mgspe/shared-types';
+import { PageBackButton } from '../../components/layout/PageBackButton';
 
 // ---------------------------------------------------------------------------
 // Chip helpers
@@ -171,6 +172,7 @@ export default function IncidentsPage() {
 
   return (
     <Box sx={{ p: { xs: 1.5, sm: 3 } }}>
+      <PageBackButton />
       {/* Header */}
       <Box sx={{ mb: 3 }}>
         <Typography variant="h5" fontWeight={700}>Incidents</Typography>

@@ -42,6 +42,7 @@ import type { IntuneOnlyDevice } from '@mgspe/shared-types';
 import { useIsMobile } from '../../hooks/useResponsive';
 import { ResponsiveTable } from '../../components/responsive';
 import type { Column } from '../../components/responsive';
+import { PageBackButton } from '../../components/layout/PageBackButton';
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
@@ -379,6 +380,7 @@ export default function IntuneDeviceActionsPage() {
 
   return (
     <Box sx={{ p: { xs: 1, sm: 3 } }}>
+      <PageBackButton />
       {/* Header */}
       <Typography variant="h4" fontWeight={600} gutterBottom>
         Intune Device Actions

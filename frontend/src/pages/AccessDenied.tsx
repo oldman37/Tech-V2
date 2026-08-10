@@ -17,6 +17,7 @@ import PersonIcon from '@mui/icons-material/Person';
 import LogoutIcon from '@mui/icons-material/Logout';
 import api, { cancelProactiveRefresh } from '../services/api';
 import { useAuthStore } from '../store/authStore';
+import { PageBackButton } from '../components/layout/PageBackButton';
 
 interface AdminContact {
   displayName: string;
@@ -44,15 +45,19 @@ export default function AccessDenied() {
   }, []);
 
   return (
-    <Box
-      sx={{
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        minHeight: '60vh',
-        p: 3,
-      }}
-    >
+    <>
+      <Box sx={{ p: 3, pb: 0 }}>
+        <PageBackButton />
+      </Box>
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          minHeight: '60vh',
+          p: 3,
+        }}
+      >
       <Paper
         elevation={3}
         sx={{
@@ -128,6 +133,7 @@ export default function AccessDenied() {
           Log Out
         </Button>
       </Paper>
-    </Box>
+      </Box>
+    </>
   );
 }

@@ -44,6 +44,8 @@ export const CHANGELOG: ChangelogEntry[] = [
       'Added surface backend error messages instead of generic text when a request fails, so you can see what went wrong without checking the server logs.',
       'Fixed the Device Exchange step of the incident wizard showing a generic "Device exchange failed" message instead of telling you the replacement device is already checked out to someone else.',
       'Fixed when updating the status of a work order to close not navigating back to the filtered list of work orders, but instead leaving you on the unfiltered list of work orders.',
+      'Add back buttons to all pages, and make them consistently go back to the previous page instead of always going to the top-level list view.',
+      'Fixed feild trip request not sending diecrtly to the assitant DOS when a building level admin put in a request for a trip that requires DOS approval.',
     ],
   },
   {

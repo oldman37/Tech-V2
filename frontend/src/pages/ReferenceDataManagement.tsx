@@ -47,6 +47,7 @@ import type { RoomWithLocation, CreateRoomRequest, UpdateRoomRequest, RoomType, 
 import { usePaginatedRooms } from '../hooks/queries/useRooms';
 import RoomFormModal from '../components/RoomFormModal';
 import WorkOrderCategoriesTab from '../components/reference-data/WorkOrderCategoriesTab';
+import { PageBackButton } from '../components/layout/PageBackButton';
 
 // ─── Tab Panel Helper ──────────────────────────────────────────────────────
 
@@ -1398,6 +1399,7 @@ const ReferenceDataManagement = () => {
 
   return (
     <Box sx={{ p: { xs: 2, sm: 3 } }}>
+      <PageBackButton />
       <div className="page-header" style={{ marginBottom: '1rem' }}>
         <div>
           <h2 className="page-title">Reference Data</h2>

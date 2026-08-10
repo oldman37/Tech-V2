@@ -29,6 +29,7 @@ import type {
   TransportationRequest,
   TransportationRequestStatus,
 } from '@/types/transportationRequest.types';
+import { PageBackButton } from '../../components/layout/PageBackButton';
 import {
   TRANSPORTATION_REQUEST_STATUS_LABELS,
   TRANSPORTATION_REQUEST_STATUS_COLORS,
@@ -151,6 +152,7 @@ export function TransportationRequestsPage() {
 
   return (
     <Box sx={{ p: { xs: 2, sm: 3 } }}>
+      <PageBackButton />
       {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 3 }}>
         <Typography variant="h5" fontWeight={600}>

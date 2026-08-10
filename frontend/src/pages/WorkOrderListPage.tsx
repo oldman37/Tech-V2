@@ -46,6 +46,7 @@ import { queryKeys } from '@/lib/queryKeys';
 import AccessDenied from '@/pages/AccessDenied';
 import { ResponsiveTable, MobileFilterBar, Column } from '@/components/responsive';
 import { useIsMobile } from '@/hooks/useResponsive';
+import { PageBackButton } from '@/components/layout/PageBackButton';
 import type { WorkOrderQuery, WorkOrderDepartment, WorkOrderPriority, WorkOrderStatus, WorkOrderSummary, WorkOrderSortField } from '@/types/work-order.types';
 
 // ─── helpers ────────────────────────────────────────────────────────────────
@@ -321,6 +322,7 @@ export default function WorkOrderListPage() {
 
   return (
     <Box sx={{ p: { xs: 2, sm: 3 } }}>
+      <PageBackButton />
       {/* Page header */}
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1, mb: 3 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>

@@ -16,6 +16,7 @@ import { AssignmentDialog } from '../components/inventory/AssignmentDialog';
 import { Box, Paper } from '@mui/material';
 import { ResponsiveTable, MobileFilterBar, Column } from '../components/responsive';
 import { useIsMobile } from '../hooks/useResponsive';
+import { PageBackButton } from '../components/layout/PageBackButton';
 import fundingSourceService from '../services/fundingSourceService';
 
 interface PaginationModel {
@@ -374,6 +375,7 @@ export const InventoryManagement = () => {
 
   return (
     <Box sx={{ p: { xs: 2, sm: 3 } }}>
+      <PageBackButton />
       {/* Page Header */}
       <div className="page-header">
         <h2 className="page-title">Inventory Management</h2>

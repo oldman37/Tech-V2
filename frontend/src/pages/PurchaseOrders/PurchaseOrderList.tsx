@@ -35,6 +35,7 @@ import { usePurchaseOrderList } from '@/hooks/queries/usePurchaseOrders';
 import { useRequisitionsPermLevel } from '@/hooks/queries/useRequisitionsPermLevel';
 import settingsService from '@/services/settingsService';
 import { queryKeys } from '@/lib/queryKeys';
+import { PageBackButton } from '@/components/layout/PageBackButton';
 import AccessDenied from '@/pages/AccessDenied';
 import { useAuthStore } from '@/store/authStore';
 import { ResponsiveTable, MobileFilterBar, Column } from '@/components/responsive';
@@ -312,6 +313,7 @@ export default function PurchaseOrderList() {
 
   return (
     <Box sx={{ p: { xs: 2, sm: 3 } }}>
+      <PageBackButton />
       {/* ── Page Header ── */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 3 }}>
         <Box>

@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Box, Typography } from '@mui/material';
 import { checkoutReportService } from '../../services/checkoutReport.service';
 import { DashboardWidgets } from '../../components/DeviceManagement/DashboardWidgets';
+import { PageBackButton } from '../../components/layout/PageBackButton';
 
 export default function DeviceManagementDashboard() {
   const { data, isLoading } = useQuery({
@@ -18,6 +19,7 @@ export default function DeviceManagementDashboard() {
 
   return (
     <Box sx={{ p: { xs: 1, sm: 3 } }}>
+      <PageBackButton />
       <Box sx={{ mb: 2 }}>
         <Typography variant="h4" fontWeight={600}>
           Device Management Dashboard

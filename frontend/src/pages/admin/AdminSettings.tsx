@@ -53,6 +53,7 @@ import settingsService, {
 } from '../../services/settingsService';
 import { queryKeys } from '../../lib/queryKeys';
 import { useIsMobile } from '../../hooks/useResponsive';
+import { PageBackButton } from '../../components/layout/PageBackButton';
 import { ResponsiveTable, type Column } from '../../components/responsive';
 import { AdminJobsContent } from './AdminJobsPage';
 import AdminEmailQueueTab from './AdminEmailQueueTab';
@@ -287,6 +288,7 @@ export default function AdminSettings() {
 
   return (
     <Box maxWidth={activeTab === 3 || activeTab === 4 ? 1100 : 800} mx="auto" mt={3} px={{ xs: 2, sm: 0 }}>
+      <PageBackButton />
       <Typography variant="h5" gutterBottom>
         Admin Settings
       </Typography>

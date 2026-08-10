@@ -28,6 +28,7 @@ import { useRoomAssignmentAccess } from '@/hooks/useRoomAssignmentAccess';
 import { RoomAssignmentDialog } from './RoomAssignmentDialog';
 import { RoomWithAssignments } from '@/types/userRoomAssignment.types';
 import { RoomType } from '@/types/room.types';
+import { PageBackButton } from '@/components/layout/PageBackButton';
 
 const ROOM_TYPES: RoomType[] = [
   'CLASSROOM',
@@ -167,6 +168,7 @@ export function RoomAssignmentsPage() {
 
   return (
     <Box sx={{ p: { xs: 2, sm: 3 } }}>
+      <PageBackButton />
       {/* Page header */}
       <Box display="flex" alignItems="center" gap={1} mb={3}>
         <MeetingRoomIcon color="primary" />

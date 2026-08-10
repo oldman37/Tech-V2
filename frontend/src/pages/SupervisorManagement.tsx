@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { PageBackButton } from '../components/layout/PageBackButton';
 
 const US_STATES = [
   { code: 'AL', name: 'Alabama' }, { code: 'AK', name: 'Alaska' }, { code: 'AZ', name: 'Arizona' },
@@ -116,6 +117,7 @@ export const SupervisorManagement: React.FC = () => {
 
   return (
     <Box sx={{ p: { xs: 2, sm: 3 } }}>
+          <PageBackButton />
           <div className="page-header">
             <h2 className="page-title">Office Locations & Supervisors</h2>
             <p className="page-description">

@@ -20,6 +20,7 @@ import { useAuditSessions } from '@/hooks/queries/useInventoryAudit';
 import { useLocations } from '@/hooks/queries/useLocations';
 import { AuditSession, AuditSessionStatus } from '@/types/inventoryAudit.types';
 import inventoryAuditService from '@/services/inventoryAudit.service';
+import { PageBackButton } from '@/components/layout/PageBackButton';
 
 const STATUS_COLORS: Record<AuditSessionStatus, 'warning' | 'success' | 'default'> = {
   IN_PROGRESS: 'warning',
@@ -175,6 +176,7 @@ export function InventoryAuditHistoryPage() {
 
   return (
     <Box sx={{ p: { xs: 2, md: 3 } }}>
+      <PageBackButton />
       <Typography variant="h5" gutterBottom>
         Audit History
       </Typography>

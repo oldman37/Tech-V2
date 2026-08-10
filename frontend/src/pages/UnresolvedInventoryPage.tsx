@@ -10,6 +10,7 @@ import {
 } from '@mui/material';
 import { UnresolvedItemsTable } from '@/components/inventory-audit/UnresolvedItemsTable';
 import { useLocations } from '@/hooks/queries/useLocations';
+import { PageBackButton } from '@/components/layout/PageBackButton';
 
 export function UnresolvedInventoryPage() {
   // Filter state - lives in the URL so Back returns to this view
@@ -25,6 +26,7 @@ export function UnresolvedInventoryPage() {
 
   return (
     <Box sx={{ p: { xs: 2, md: 3 } }}>
+      <PageBackButton />
       <Typography variant="h5" gutterBottom>
         Unresolved Inventory Items
       </Typography>

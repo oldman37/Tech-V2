@@ -19,6 +19,7 @@ import { BarChart } from '@mui/x-charts/BarChart';
 import { Download as DownloadIcon } from '@mui/icons-material';
 import { reportsService } from '../services/reports.service';
 import { ResponsiveTable } from '../components/responsive';
+import { PageBackButton } from '../components/layout/PageBackButton';
 import type {
   LocationWorkOrderSummary,
   AssigneeWorkload,
@@ -139,6 +140,7 @@ export default function ReportsPage() {
 
   return (
     <Box sx={{ p: { xs: 1, sm: 3 } }}>
+      <PageBackButton />
       <Typography variant="h4" fontWeight={600} gutterBottom>
         Reports
       </Typography>

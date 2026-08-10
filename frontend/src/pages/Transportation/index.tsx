@@ -28,6 +28,7 @@ import { ResponsiveTable } from '@/components/responsive/ResponsiveTable';
 import type { Column } from '@/components/responsive/ResponsiveTable';
 import { useAuthStore } from '@/store/authStore';
 import { transportationDashboardApi } from '@/services/transportation.service';
+import { PageBackButton } from '@/components/layout/PageBackButton';
 import {
   UNIT_TYPE_LABELS,
   FUEL_TYPE_LABELS,
@@ -144,6 +145,7 @@ export default function TransportationDashboardPage() {
     const assignment = dashboard?.myUnit;
     return (
       <Box sx={{ p: { xs: 2, sm: 3 } }}>
+        <PageBackButton />
         <Typography variant="h5" fontWeight="bold" mb={3}>
           Transportation
         </Typography>
@@ -271,6 +273,7 @@ export default function TransportationDashboardPage() {
 
   return (
     <Box sx={{ p: { xs: 2, sm: 3 } }}>
+      <PageBackButton />
       <Typography variant="h5" fontWeight="bold" mb={3}>
         Transportation Dashboard
       </Typography>

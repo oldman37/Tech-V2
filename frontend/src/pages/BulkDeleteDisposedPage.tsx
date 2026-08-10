@@ -11,6 +11,7 @@ import { InventoryItem } from '../types/inventory.types';
 import { useIsMobile } from '../hooks/useResponsive';
 import { ResponsiveTable } from '../components/responsive';
 import type { Column } from '../components/responsive';
+import { PageBackButton } from '../components/layout/PageBackButton';
 import Autocomplete from '@mui/material/Autocomplete';
 import Button from '@mui/material/Button';
 import Checkbox from '@mui/material/Checkbox';
@@ -289,6 +290,7 @@ const BulkDeleteDisposedPage = () => {
     <>
       <main className="page-content">
         <div className="container">
+          <PageBackButton />
           {/* Page Header */}
           <div className="page-header">
             <h2 className="page-title">Bulk Dispose Equipment</h2>

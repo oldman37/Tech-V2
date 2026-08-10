@@ -38,6 +38,7 @@ import {
   TRANSPORTATION_STATUS_LABELS,
   TRANSPORTATION_STATUS_COLORS,
 } from '@/types/fieldTrip.types';
+import { PageBackButton } from '../../components/layout/PageBackButton';
 
 
 export function FieldTripApprovalPage() {
@@ -76,6 +77,7 @@ export function FieldTripApprovalPage() {
 
   return (
     <Box sx={{ p: { xs: 2, sm: 3 } }}>
+      <PageBackButton />
       <Typography variant="h5" fontWeight={600} sx={{ mb: 1 }}>
         Field Trip Approvals
       </Typography>

@@ -37,6 +37,7 @@ import {
   isReleaseNotesOptedOut,
   setReleaseNotesOptedOut,
 } from '../utils/releaseNotesPreference';
+import { PageBackButton } from '../components/layout/PageBackButton';
 
 type PushState = 'loading' | 'unsupported' | 'unconfigured' | 'denied' | 'ready';
 
@@ -141,6 +142,7 @@ export default function NotificationSettings() {
 
   return (
     <Box sx={{ maxWidth: 600, mx: 'auto', mt: 4, px: 2 }}>
+      <PageBackButton />
       <Card>
         <CardContent>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
