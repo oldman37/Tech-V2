@@ -54,6 +54,13 @@ const CONDITION_OPTIONS = [
 
 type Condition = 'perfect' | 'good' | 'fair' | 'damaged';
 
+function getApiErrorMessage(error: unknown): string | undefined {
+  if (error && typeof error === 'object' && 'response' in error) {
+    return (error as { response?: { data?: { message?: string } } }).response?.data?.message;
+  }
+  return undefined;
+}
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -148,9 +155,12 @@ export default function WizardStep4DeviceExchange({
       queryClient.invalidateQueries({ queryKey: ['device-assignments'] });
       queryClient.invalidateQueries({ queryKey: ['inventory'] });
     },
-    onError: () => {
+    onError: (err) => {
+      const reason = getApiErrorMessage(err);
       setApiError(
-        'Device exchange failed. The incident record is saved — please complete check-in/out manually if needed.',
+        reason
+          ? `Device exchange failed: ${reason}`
+          : 'Device exchange failed. The incident record is saved — please complete check-in/out manually if needed.',
       );
     },
   });
