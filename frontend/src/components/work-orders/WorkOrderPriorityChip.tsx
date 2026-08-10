@@ -5,7 +5,7 @@ import {
   type WorkOrderPriority,
 } from '@/types/work-order.types';
 
-const PRIORITY_COLOR: Record<WorkOrderPriority, ChipProps['color']> = {
+export const PRIORITY_COLOR: Record<WorkOrderPriority, ChipProps['color']> = {
   LOW:    'priorityLow',
   MEDIUM: 'priorityMedium',
   HIGH:   'priorityHigh',

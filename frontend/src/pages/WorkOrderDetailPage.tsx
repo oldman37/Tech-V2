@@ -31,19 +31,16 @@ import {
   DialogContent,
   DialogTitle,
   Divider,
-  FormControl,
   FormControlLabel,
   IconButton,
-  InputLabel,
   Link,
-  MenuItem,
   Paper,
-  Select,
   Skeleton,
   Switch,
   TextField,
   Typography,
 } from '@mui/material';
+import type { ChipProps } from '@mui/material';
 import AssignmentIndIcon from '@mui/icons-material/AssignmentInd';
 import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
@@ -68,9 +65,10 @@ import {
   useRequestInput,
 } from '@/hooks/mutations/useWorkOrderMutations';
 import { WorkOrderStatusChip } from '@/components/work-orders/WorkOrderStatusChip';
-import { WorkOrderPriorityChip } from '@/components/work-orders/WorkOrderPriorityChip';
+import { WorkOrderPriorityChip, PRIORITY_COLOR } from '@/components/work-orders/WorkOrderPriorityChip';
 import { UserSearchAutocomplete } from '@/components/UserSearchAutocomplete';
 import type {
+  WorkOrderDetail,
   WorkOrderStatus,
   WorkOrderPriority,
   WorkOrderComment,
@@ -107,6 +105,19 @@ const ALLOWED_NEXT_STATUSES: Record<string, string[]> = {
   ON_HOLD:     ['IN_PROGRESS', 'LONG_TERM', 'CLOSED'],
   LONG_TERM:   ['OPEN', 'IN_PROGRESS', 'ON_HOLD', 'CLOSED'],
   CLOSED:      ['OPEN', 'ON_HOLD', 'LONG_TERM'],
+};
+
+// Unselected-state color for the status composer's chip picker. Statuses not
+// listed here fall back to 'default' (neutral gray outline). Selecting a
+// chip always overrides this with 'primary' (blue), regardless of status —
+// note LONG_TERM's unselected color is also 'primary', so it and the
+// selected state share a hue; filled vs. outlined variant is what tells
+// them apart.
+const STATUS_CHIP_COLOR: Partial<Record<WorkOrderStatus, ChipProps['color']>> = {
+  ON_HOLD:     'warning',
+  CLOSED:      'error',
+  IN_PROGRESS: 'success',
+  LONG_TERM:   'primary',
 };
 
 const STATUS_KEY_LEGEND: { label: string; description: string }[] = [
@@ -428,6 +439,158 @@ function PriorityHistoryCard({
         )}
       </Box>
     </Box>
+  );
+}
+
+/**
+ * Details field list (Reported By, Assigned To, Location, Room, etc.) with no
+ * wrapping card/heading — the caller supplies the surrounding chrome. Shared
+ * between the desktop Details sidebar and the mobile combined Description +
+ * Details card so the field markup exists in exactly one place.
+ */
+function WorkOrderDetailsFields({ workOrder }: { workOrder: WorkOrderDetail }) {
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+      <Box>
+        <Typography variant="caption" color="text.secondary" display="block">
+          Reported By
+        </Typography>
+        <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
+          {workOrder.reportedBy.displayName ?? workOrder.reportedBy.email}
+        </Typography>
+      </Box>
+
+      <Box>
+        <Typography variant="caption" color="text.secondary" display="block">
+          Assigned To
+        </Typography>
+        <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
+          {workOrder.assignedTo?.displayName ?? workOrder.assignedTo?.email ?? '—'}
+        </Typography>
+      </Box>
+
+      <Box>
+        <Typography variant="caption" color="text.secondary" display="block">
+          Location
+        </Typography>
+        <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
+          {workOrder.officeLocation?.name ?? '—'}
+        </Typography>
+      </Box>
+
+      <Box>
+        <Typography variant="caption" color="text.secondary" display="block">
+          Room
+        </Typography>
+        <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
+          {workOrder.room?.name ?? '—'}
+        </Typography>
+      </Box>
+
+      {workOrder.departmentLocation && (
+        <Box>
+          <Typography variant="caption" color="text.secondary" display="block">
+            Department/Program
+          </Typography>
+          <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
+            {workOrder.departmentLocation.name}
+          </Typography>
+        </Box>
+      )}
+
+      <Box>
+        <Typography variant="caption" color="text.secondary" display="block">
+          Category
+        </Typography>
+        <Typography variant="body2">
+          {workOrder.workOrderCategory?.name ?? workOrder.category ?? '—'}
+        </Typography>
+      </Box>
+
+      {workOrder.notInInventory && workOrder.notInInventoryTag && (
+        <Box>
+          <Typography variant="caption" color="text.secondary" display="block">
+            Reported Tag Number
+          </Typography>
+          <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
+            {workOrder.notInInventoryTag}
+          </Typography>
+        </Box>
+      )}
+
+      <Divider />
+
+      <Box>
+        <Typography variant="caption" color="text.secondary" display="block">
+          Created
+        </Typography>
+        <Typography variant="body2">{formatDate(workOrder.createdAt)}</Typography>
+      </Box>
+
+      <Box>
+        <Typography variant="caption" color="text.secondary" display="block">
+          Last Updated
+        </Typography>
+        <Typography variant="body2">{formatDate(workOrder.updatedAt)}</Typography>
+      </Box>
+
+      {workOrder.resolvedAt && (
+        <Box>
+          <Typography variant="caption" color="text.secondary" display="block">
+            Resolved
+          </Typography>
+          <Typography variant="body2">{formatDate(workOrder.resolvedAt)}</Typography>
+        </Box>
+      )}
+    </Box>
+  );
+}
+
+/**
+ * Description heading + edit affordance + body (or inline-edit form). Shared
+ * between the desktop Description card and the mobile combined Description +
+ * Details card so this markup and its editing behavior exist in exactly one
+ * place, even though it's mounted at both breakpoints simultaneously (one
+ * hidden via `display: none`, matching this codebase's existing responsive
+ * show/hide pattern).
+ */
+function WorkOrderDescriptionSection({
+  workOrder, canEdit, isEditing, onEditStart, onSave, onCancel,
+}: {
+  workOrder: WorkOrderDetail;
+  canEdit: boolean;
+  isEditing: boolean;
+  onEditStart: () => void;
+  onSave: (value: string) => Promise<void>;
+  onCancel: () => void;
+}) {
+  return (
+    <>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+        <Typography variant="subtitle1" fontWeight={600} sx={{ flex: 1 }}>
+          Description
+        </Typography>
+        <EditedMarker at={workOrder.descriptionEditedAt} />
+        {canEdit && !isEditing && (
+          <IconButton size="small" aria-label="Edit description" onClick={onEditStart}>
+            <EditIcon fontSize="inherit" />
+          </IconButton>
+        )}
+      </Box>
+      {isEditing ? (
+        <InlineEditForm
+          initialValue={workOrder.description}
+          label="Description"
+          minLength={10}
+          onSave={onSave}
+          onCancel={onCancel}
+        />
+      ) : (
+        <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+          {workOrder.description}
+        </Typography>
+      )}
+    </>
   );
 }
 
@@ -783,36 +946,45 @@ export default function WorkOrderDetailPage() {
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '2fr 1fr' }, gap: { xs: 2, md: 3 }, alignItems: 'start' }}>
         {/* ── Left: description + comments ─────────────────────────────── */}
         <Box sx={{ minWidth: 0 }}>
-          {/* Description */}
-          <Paper variant="outlined" sx={{ p: 2.5, mb: 3 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-              <Typography variant="subtitle1" fontWeight={600} sx={{ flex: 1 }}>
-                Description
-              </Typography>
-              <EditedMarker at={workOrder.descriptionEditedAt} />
-              {canEditDescription && !isEditingDescription && (
-                <IconButton size="small" aria-label="Edit description" onClick={() => setIsEditingDescription(true)}>
-                  <EditIcon fontSize="inherit" />
-                </IconButton>
-              )}
-            </Box>
-            {isEditingDescription ? (
-              <InlineEditForm
-                initialValue={workOrder.description}
-                label="Description"
-                minLength={10}
-                onSave={async (value) => {
-                  if (!id) return;
-                  await updateDescription.mutateAsync({ id, description: value });
-                  setIsEditingDescription(false);
-                }}
-                onCancel={() => setIsEditingDescription(false)}
-              />
-            ) : (
-              <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-                {workOrder.description}
-              </Typography>
-            )}
+          {/* Mobile-only: Description + Details combined into one card above
+              Comments & Activity. Desktop keeps the separate Description
+              card (below) plus the sidebar Details card in the right column. */}
+          <Paper variant="outlined" sx={{ p: 2.5, mb: 3, display: { xs: 'block', md: 'none' } }}>
+            <WorkOrderDescriptionSection
+              workOrder={workOrder}
+              canEdit={canEditDescription}
+              isEditing={isEditingDescription}
+              onEditStart={() => setIsEditingDescription(true)}
+              onSave={async (value) => {
+                if (!id) return;
+                await updateDescription.mutateAsync({ id, description: value });
+                setIsEditingDescription(false);
+              }}
+              onCancel={() => setIsEditingDescription(false)}
+            />
+
+            <Divider sx={{ my: 2 }} />
+
+            <Typography variant="subtitle1" fontWeight={600} gutterBottom>
+              Details
+            </Typography>
+            <WorkOrderDetailsFields workOrder={workOrder} />
+          </Paper>
+
+          {/* Description (desktop only) */}
+          <Paper variant="outlined" sx={{ p: 2.5, mb: 3, display: { xs: 'none', md: 'block' } }}>
+            <WorkOrderDescriptionSection
+              workOrder={workOrder}
+              canEdit={canEditDescription}
+              isEditing={isEditingDescription}
+              onEditStart={() => setIsEditingDescription(true)}
+              onSave={async (value) => {
+                if (!id) return;
+                await updateDescription.mutateAsync({ id, description: value });
+                setIsEditingDescription(false);
+              }}
+              onCancel={() => setIsEditingDescription(false)}
+            />
           </Paper>
 
           {/* Comments */}
@@ -892,71 +1064,83 @@ export default function WorkOrderDetailPage() {
               )}
 
               {/* Action button row — clicking the active one again returns to
-                  plain-comment mode. Plain contained Buttons (same as Add
-                  Comment below) rather than ToggleButtonGroup, so they look
-                  identical with no custom styling needed. */}
+                  plain-comment mode. Same clickable-chip style as the status
+                  picker below: active = solid blue, inactive = outlined. */}
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                <Button
-                  variant="contained"
+                <Chip
+                  icon={<SwapHorizIcon fontSize="small" />}
+                  label="Update Status"
                   size="small"
+                  clickable
                   disabled={composerPending}
+                  variant={activeAction === 'status' ? 'filled' : 'outlined'}
+                  color="primary"
+                  aria-pressed={activeAction === 'status'}
                   onClick={() => toggleAction('status')}
-                >
-                  <SwapHorizIcon fontSize="small" sx={{ mr: 0.75 }} />
-                  Update Status
-                </Button>
+                />
                 {canChangePriority && (
-                  <Button
-                    variant="contained"
+                  <Chip
+                    icon={<PriorityHighIcon fontSize="small" />}
+                    label="Change Priority"
                     size="small"
+                    clickable
                     disabled={composerPending}
+                    variant={activeAction === 'priority' ? 'filled' : 'outlined'}
+                    color="primary"
+                    aria-pressed={activeAction === 'priority'}
                     onClick={() => toggleAction('priority')}
-                  >
-                    <PriorityHighIcon fontSize="small" sx={{ mr: 0.75 }} />
-                    Change Priority
-                  </Button>
+                  />
                 )}
                 {canAssign && (
-                  <Button
-                    variant="contained"
+                  <Chip
+                    icon={<AssignmentIndIcon fontSize="small" />}
+                    label="Assign To"
                     size="small"
+                    clickable
                     disabled={composerPending}
+                    variant={activeAction === 'assign' ? 'filled' : 'outlined'}
+                    color="primary"
+                    aria-pressed={activeAction === 'assign'}
                     onClick={() => toggleAction('assign')}
-                  >
-                    <AssignmentIndIcon fontSize="small" sx={{ mr: 0.75 }} />
-                    Assign To
-                  </Button>
+                  />
                 )}
-                <Button
-                  variant="contained"
+                <Chip
+                  icon={<HelpOutlineIcon fontSize="small" />}
+                  label="Request Input"
                   size="small"
+                  clickable
                   disabled={composerPending}
+                  variant={activeAction === 'requestInput' ? 'filled' : 'outlined'}
+                  color="primary"
+                  aria-pressed={activeAction === 'requestInput'}
                   onClick={() => toggleAction('requestInput')}
-                >
-                  <HelpOutlineIcon fontSize="small" sx={{ mr: 0.75 }} />
-                  Request Input
-                </Button>
+                />
               </Box>
 
               {/* Fields specific to the active action */}
               {activeAction === 'status' && (
                 <Box ref={statusFieldRef} sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                  <FormControl size="small" fullWidth>
-                    <InputLabel>New Status</InputLabel>
-                    <Select
-                      label="New Status"
-                      value={newStatus}
-                      onChange={(e) => setNewStatus(e.target.value as WorkOrderStatus)}
-                    >
+                  <Box>
+                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
+                      New Status
+                    </Typography>
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
                       {STATUSES.filter((s) =>
                         (ALLOWED_NEXT_STATUSES[workOrder.status] ?? []).includes(s.value)
                       ).map((s) => (
-                        <MenuItem key={s.value} value={s.value}>
-                          {s.label}
-                        </MenuItem>
+                        <Chip
+                          key={s.value}
+                          label={s.label}
+                          color={newStatus === s.value ? 'primary' : (STATUS_CHIP_COLOR[s.value] ?? 'default')}
+                          size="small"
+                          clickable
+                          variant={newStatus === s.value ? 'filled' : 'outlined'}
+                          aria-pressed={newStatus === s.value}
+                          onClick={() => setNewStatus(s.value)}
+                        />
                       ))}
-                    </Select>
-                  </FormControl>
+                    </Box>
+                  </Box>
                   {newStatus === 'LONG_TERM' && (
                     <FormControlLabel
                       control={
@@ -980,20 +1164,25 @@ export default function WorkOrderDetailPage() {
               )}
 
               {activeAction === 'priority' && (
-                <FormControl size="small" fullWidth>
-                  <InputLabel>New Priority</InputLabel>
-                  <Select
-                    label="New Priority"
-                    value={newPriority}
-                    onChange={(e) => setNewPriority(e.target.value as WorkOrderPriority)}
-                  >
+                <Box>
+                  <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
+                    New Priority
+                  </Typography>
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
                     {PRIORITIES.map((p) => (
-                      <MenuItem key={p.value} value={p.value}>
-                        {p.label}
-                      </MenuItem>
+                      <Chip
+                        key={p.value}
+                        label={p.label}
+                        color={newPriority === p.value ? 'primary' : PRIORITY_COLOR[p.value]}
+                        size="small"
+                        clickable
+                        variant={newPriority === p.value ? 'filled' : 'outlined'}
+                        aria-pressed={newPriority === p.value}
+                        onClick={() => setNewPriority(p.value)}
+                      />
                     ))}
-                  </Select>
-                </FormControl>
+                  </Box>
+                </Box>
               )}
 
               {activeAction === 'assign' && (
@@ -1041,8 +1230,9 @@ export default function WorkOrderDetailPage() {
           </Paper>
         </Box>
 
-        {/* ── Right: work order details sidebar ─────────────────────────────── */}
-        <Box sx={{ minWidth: 0 }}>
+        {/* ── Right: work order details sidebar (desktop only — merged into
+            the mobile combined card above Comments & Activity instead) ──── */}
+        <Box sx={{ minWidth: 0, display: { xs: 'none', md: 'block' } }}>
           <Card variant="outlined">
             <CardContent>
               <Typography variant="subtitle1" fontWeight={600} gutterBottom>
@@ -1050,99 +1240,7 @@ export default function WorkOrderDetailPage() {
               </Typography>
               <Divider sx={{ mb: 2 }} />
 
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                <Box>
-                  <Typography variant="caption" color="text.secondary" display="block">
-                    Reported By
-                  </Typography>
-                  <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
-                    {workOrder.reportedBy.displayName ?? workOrder.reportedBy.email}
-                  </Typography>
-                </Box>
-
-                <Box>
-                  <Typography variant="caption" color="text.secondary" display="block">
-                    Assigned To
-                  </Typography>
-                  <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
-                    {workOrder.assignedTo?.displayName ?? workOrder.assignedTo?.email ?? '—'}
-                  </Typography>
-                </Box>
-
-                <Box>
-                  <Typography variant="caption" color="text.secondary" display="block">
-                    Location
-                  </Typography>
-                  <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
-                    {workOrder.officeLocation?.name ?? '—'}
-                  </Typography>
-                </Box>
-
-                <Box>
-                  <Typography variant="caption" color="text.secondary" display="block">
-                    Room
-                  </Typography>
-                  <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
-                    {workOrder.room?.name ?? '—'}
-                  </Typography>
-                </Box>
-
-                {workOrder.departmentLocation && (
-                  <Box>
-                    <Typography variant="caption" color="text.secondary" display="block">
-                      Department/Program
-                    </Typography>
-                    <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
-                      {workOrder.departmentLocation.name}
-                    </Typography>
-                  </Box>
-                )}
-
-                <Box>
-                  <Typography variant="caption" color="text.secondary" display="block">
-                    Category
-                  </Typography>
-                  <Typography variant="body2">
-                    {workOrder.workOrderCategory?.name ?? workOrder.category ?? '—'}
-                  </Typography>
-                </Box>
-
-                {workOrder.notInInventory && workOrder.notInInventoryTag && (
-                  <Box>
-                    <Typography variant="caption" color="text.secondary" display="block">
-                      Reported Tag Number
-                    </Typography>
-                    <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
-                      {workOrder.notInInventoryTag}
-                    </Typography>
-                  </Box>
-                )}
-
-                <Divider />
-
-                <Box>
-                  <Typography variant="caption" color="text.secondary" display="block">
-                    Created
-                  </Typography>
-                  <Typography variant="body2">{formatDate(workOrder.createdAt)}</Typography>
-                </Box>
-
-                <Box>
-                  <Typography variant="caption" color="text.secondary" display="block">
-                    Last Updated
-                  </Typography>
-                  <Typography variant="body2">{formatDate(workOrder.updatedAt)}</Typography>
-                </Box>
-
-                {workOrder.resolvedAt && (
-                  <Box>
-                    <Typography variant="caption" color="text.secondary" display="block">
-                      Resolved
-                    </Typography>
-                    <Typography variant="body2">{formatDate(workOrder.resolvedAt)}</Typography>
-                  </Box>
-                )}
-              </Box>
+              <WorkOrderDetailsFields workOrder={workOrder} />
             </CardContent>
           </Card>
         </Box>

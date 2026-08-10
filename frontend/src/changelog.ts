@@ -46,7 +46,8 @@ export const CHANGELOG: ChangelogEntry[] = [
       'Fixed when updating the status of a work order to close not navigating back to the filtered list of work orders, but instead leaving you on the unfiltered list of work orders.',
       'Add back buttons to all pages, and make them consistently go back to the previous page instead of always going to the top-level list view.',
       'Fixed feild trip request not sending diecrtly to the assitant DOS when a building level admin put in a request for a trip that requires DOS approval.',
-      'Added scroll down to the next step when the status of a work order is updated, so you can see the new status and any notes you just added without having to scroll manually.',
+      'Added scroll down to the next step when the status of a work order is updated, so you can see the next step in the workflow without having to scroll manually.',
+      'Combined details and description into a single "Details" box on mobile mobile mode, so you can see all the information about a work order without having to scroll through multiple boxes.',
     ],
   },
   {
