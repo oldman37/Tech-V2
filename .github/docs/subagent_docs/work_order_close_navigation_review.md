@@ -1,48 +1,50 @@
-# Work Order Close Navigation — Review
+# Work Order Close Navigation — Review (revision 2)
 
 ## Summary
 
-Reviewed the change to `frontend/src/pages/WorkOrderDetailPage.tsx` against
-`work_order_close_navigation_spec.md`.
+Revision 1 of this fix (removing the `CLOSED`-specific navigation entirely) was
+built, preflighted, and deployed, but production verification by the user showed
+it was the wrong fix: closing a ticket no longer navigated anywhere at all,
+whereas the actual expectation is that it always auto-returns the user to their
+previous page (e.g. a location-filtered list like Hillcrest) without a manual
+Back click.
 
-`handleStatusSubmit`'s `CLOSED`-specific branch (`navigate('/work-orders?status=open',
-{ replace: true }); return;`) was removed, so closing a work order now falls through
-to the same success path as every other status transition — clearing the composer
-and staying on the detail page. The `useNavigate` import and `navigate` binding,
-left orphaned by this removal (their only remaining use), were also removed per the
-surgical-changes rule. `useGoBack`/`PageBackButton` were untouched — `goBack` is
-still used for the error-state Back button, and `PageBackButton` (already rendered
-unconditionally at the top of the page) resumes being the only way to leave, which
-correctly returns to whatever page the user actually came from.
+Revision 2 changes `handleStatusSubmit` in
+`frontend/src/pages/WorkOrderDetailPage.tsx` so that on a successful `CLOSED`
+transition it calls the page's existing `goBack()` (from `useGoBack()`,
+`frontend/src/hooks/useGoBack.ts`) instead of either the old hardcoded
+`navigate('/work-orders?status=open', ...)` or doing nothing. `goBack()` is
+already used elsewhere on this page (the error-state Back button) and is the
+same logic driving the header `PageBackButton` — `navigate(-1)` when there's a
+history entry to pop, falling back to `/dashboard` otherwise. No new imports
+were needed since `goBack` was already bound on the page.
 
 ## Findings
 
-1. **Specification Compliance** — Matches the spec exactly: the `CLOSED` branch is
-   gone, the fallthrough behavior is unchanged for all statuses, and the orphaned
-   `navigate`/`useNavigate` were cleaned up.
-2. **Best Practices** — No new patterns introduced; this is a deletion-only change.
-3. **Consistency** — `CLOSED` now behaves identically to every other status change
-   in this handler (`IN_PROGRESS`, `ON_HOLD`, `LONG_TERM`, `OPEN`), which is more
-   consistent than singling one status out for a hard redirect.
-4. **Maintainability** — Removes a special case and its explanatory comment;
-   net simpler code, nothing left dangling.
-5. **Completeness** — `Reopen` button and status-history rendering already key off
-   `workOrder.status` reactively (via the `useWorkOrder` query, invalidated by the
-   mutation), so the closed state is still visibly reflected in place without the
-   redirect.
+1. **Specification Compliance** — Matches the revised spec: `goBack()` is called
+   only on a successful `CLOSED` transition; every other status keeps the
+   original `setCommentBody('')`/`setActiveAction(null)` fallthrough, unchanged.
+2. **Best Practices** — Reuses the existing `useGoBack` hook rather than
+   duplicating `navigate(-1)`/fallback logic inline; consistent with how the
+   rest of the page already handles "leave this page" navigation.
+3. **Consistency** — Now behaves the same as the header Back button and the
+   error-state Back button on this same page: same hook, same fallback.
+4. **Maintainability** — Small, well-commented branch; no new state, no new
+   imports.
+5. **Completeness** — Covers the reported scenario (return to a filtered list
+   such as Hillcrest) via real browser history rather than a guessed URL, so it
+   generalizes to any origin page, not just the Open list.
 6. **Performance** — No change.
 7. **Security** — No change; no auth/CSRF-relevant code touched.
-8. **API Currency** — N/A, no external library usage changed.
+8. **API Currency** — N/A.
 9. **Build Validation:**
 
    Command run (per spec, approved — not in FORBIDDEN COMMANDS):
    ```
    docker compose -f docker-compose.dev.yml build frontend
    ```
-   Result: **success**. `tsc && vite build` completed with no type errors
-   (confirming no orphaned-import breakage) and the production bundle built
-   normally. Only pre-existing, unrelated warnings appeared (dynamic-import
-   chunking note, chunk-size-over-500kB note) — neither introduced by this change.
+   Result: **success** — see Preflight section below (frontend build is one of
+   preflight's two steps and passed as part of it).
 
 ## Score Table
 
@@ -61,5 +63,8 @@ correctly returns to whatever page the user actually came from.
 
 ## Returns
 
-- Build result: **PASS** (`docker compose -f docker-compose.dev.yml build frontend` exit 0)
-- **PASS** — no refinement required
+- Build result: **PASS**
+- **PASS** — no further refinement required at the code level; proceed to
+  Phase 6 preflight, then redeploy the frontend container (this is what was
+  missed the first time — the fix must be running in the container, not just
+  built as an image, before it can be verified live).

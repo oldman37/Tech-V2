@@ -532,6 +532,13 @@ export default function WorkOrderDetailPage() {
         notes: commentBody.trim(),
         ...(newStatus === 'LONG_TERM' && { notifySubmitter }),
       });
+      if (newStatus === 'CLOSED') {
+        // Closing returns the user to wherever they came from — the same
+        // history-back behavior as the header Back button — rather than
+        // leaving them on the now-closed ticket or a hardcoded list.
+        goBack();
+        return;
+      }
       setCommentBody('');
       setActiveAction(null);
     } catch (err: unknown) {
