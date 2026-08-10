@@ -12,7 +12,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
+import { useParams, Link as RouterLink } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useGoBack } from '@/hooks/useGoBack';
 import { PageBackButton } from '@/components/layout/PageBackButton';
@@ -437,7 +437,6 @@ type ActiveAction = 'status' | 'priority' | 'assign' | 'requestInput' | null;
 
 export default function WorkOrderDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
   const goBack = useGoBack();
 
   const { data: workOrder, isLoading, error } = useWorkOrder(id);
@@ -533,13 +532,6 @@ export default function WorkOrderDetailPage() {
         notes: commentBody.trim(),
         ...(newStatus === 'LONG_TERM' && { notifySubmitter }),
       });
-      if (newStatus === 'CLOSED') {
-        // The ticket no longer belongs on whatever list the user came from —
-        // send them straight to the Open list instead of leaving them on
-        // the now-closed ticket.
-        navigate('/work-orders?status=open', { replace: true });
-        return;
-      }
       setCommentBody('');
       setActiveAction(null);
     } catch (err: unknown) {
