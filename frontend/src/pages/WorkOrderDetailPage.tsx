@@ -11,7 +11,7 @@
  * Route: /work-orders/:id
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, Link as RouterLink } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useGoBack } from '@/hooks/useGoBack';
@@ -518,6 +518,16 @@ export default function WorkOrderDetailPage() {
   // (mirrors ToggleButtonGroup's exclusive-with-deselect behavior).
   const toggleAction = (value: ActiveAction) => handleActionChange(undefined, activeAction === value ? null : value);
 
+  // On mobile the "New Status" dropdown renders below the fold when it
+  // first appears — nudge it into view so the user doesn't have to
+  // scroll manually before selecting the next status.
+  const statusFieldRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (activeAction === 'status') {
+      statusFieldRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [activeAction]);
+
   const handleStatusSubmit = async () => {
     if (!id) return;
     setStatusError(null);
@@ -930,7 +940,7 @@ export default function WorkOrderDetailPage() {
 
               {/* Fields specific to the active action */}
               {activeAction === 'status' && (
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                <Box ref={statusFieldRef} sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                   <FormControl size="small" fullWidth>
                     <InputLabel>New Status</InputLabel>
                     <Select
