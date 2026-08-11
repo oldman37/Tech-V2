@@ -6,8 +6,10 @@
  * When `collapsible` is set, the card starts collapsed — showing only the
  * subtitle plus any `showWhenCollapsed` fields, with the title and actions
  * hidden — and a tap toggles expand/collapse instead of firing `onRowClick`.
+ * Expand state is controlled by the parent (via `expanded`/`onToggle`) so
+ * that a list of cards can enforce only one being open at a time.
  */
-import { ReactNode, useState } from 'react';
+import { ReactNode } from 'react';
 import type { Column } from './ResponsiveTable';
 
 interface MobileCardProps<T> {
@@ -16,11 +18,21 @@ interface MobileCardProps<T> {
   onRowClick?: (row: T) => void;
   rowActions?: (row: T) => ReactNode;
   collapsible?: boolean;
+  /** Current expand state when `collapsible` is set. */
+  expanded?: boolean;
+  /** Called to toggle expand state when `collapsible` is set. */
+  onToggle?: () => void;
 }
 
-export function MobileCard<T>({ row, columns, onRowClick, rowActions, collapsible = false }: MobileCardProps<T>) {
-  const [expanded, setExpanded] = useState(false);
-
+export function MobileCard<T>({
+  row,
+  columns,
+  onRowClick,
+  rowActions,
+  collapsible = false,
+  expanded = false,
+  onToggle,
+}: MobileCardProps<T>) {
   const primaryCol = columns.find((c) => c.isPrimary);
   const secondaryCol = columns.find((c) => c.isSecondary);
   const detailCols = columns.filter(
@@ -40,7 +52,7 @@ export function MobileCard<T>({ row, columns, onRowClick, rowActions, collapsibl
     return String(val);
   };
 
-  const handleClick = collapsible ? () => setExpanded((prev) => !prev) : onRowClick ? () => onRowClick(row) : undefined;
+  const handleClick = collapsible ? onToggle : onRowClick ? () => onRowClick(row) : undefined;
 
   const renderField = (col: Column<T>) => (
     <div

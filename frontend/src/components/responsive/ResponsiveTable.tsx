@@ -122,6 +122,9 @@ export function ResponsiveTable<T>({
   const [internalSort, setInternalSort] = useState<SortState | undefined>(undefined);
   const [containerRef, containerWidth] = useContainerWidth();
   const [expandedKeys, setExpandedKeys] = useState<Set<string | number>>(new Set());
+  // Mobile card accordion: only one card open at a time, separate from the
+  // desktop hidden-column expand row above (which allows multiple).
+  const [mobileExpandedKey, setMobileExpandedKey] = useState<string | number | null>(null);
 
   const activeSort = sort ?? internalSort;
   const handleSort = onSortChange ?? setInternalSort;
@@ -204,16 +207,23 @@ export function ResponsiveTable<T>({
   if (isMobile) {
     return (
       <div className={`responsive-table responsive-table--mobile ${className}`}>
-        {rows.map((row) => (
-          <MobileCard<T>
-            key={getRowKey(row)}
-            row={row}
-            columns={columns}
-            onRowClick={onRowClick}
-            rowActions={rowActions}
-            collapsible={collapsible}
-          />
-        ))}
+        {rows.map((row) => {
+          const rowKey = getRowKey(row);
+          return (
+            <MobileCard<T>
+              key={rowKey}
+              row={row}
+              columns={columns}
+              onRowClick={onRowClick}
+              rowActions={rowActions}
+              collapsible={collapsible}
+              expanded={mobileExpandedKey === rowKey}
+              onToggle={() =>
+                setMobileExpandedKey((prev) => (prev === rowKey ? null : rowKey))
+              }
+            />
+          );
+        })}
       </div>
     );
   }
