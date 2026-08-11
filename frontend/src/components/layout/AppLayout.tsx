@@ -16,6 +16,8 @@ import { authApi } from '../../services/authService';
 import { cancelProactiveRefresh } from '../../services/api';
 import { PUSH_STATUS_QUERY_KEY, isPushEnabled } from '../../services/pushService';
 import { useRoomAssignmentAccess } from '../../hooks/useRoomAssignmentAccess';
+import { useRequestBadges, useMarkSectionVisited } from '../../hooks/queries/useRequestBadges';
+import type { RequestSection } from '../../types/requestBadges.types';
 import { OfflineIndicator } from '../responsive/OfflineIndicator';
 import { ScrollToTopButton } from './ScrollToTopButton';
 import { WhatsNewDialog } from './WhatsNewDialog';
@@ -39,11 +41,40 @@ interface NavItem {
   staffOnly?: boolean;  // Hidden from students (ALL_STUDENTS group)
   requireTransportationLevel?: number;
   requireReports?: boolean;
+  /** Requests-nav unread-count badge this item displays, if any. */
+  badgeKey?: RequestSection;
 }
 
 interface NavSection {
   title?: string;
   items: NavItem[];
+}
+
+/**
+ * Longest-prefix match against a flat list of nav items' paths: an exact
+ * match always wins; otherwise the item whose path is a prefix of pathname
+ * AND no sibling item in the same list has a longer matching prefix. Shared
+ * by the active-highlight logic and the mark-visited-on-navigate effect so
+ * the two can never disagree about which nav item "owns" the current route
+ * (e.g. /field-trips/approvals must match Field Trip Approvals, not Field Trips).
+ */
+function findMatchingNavItem<T extends { path?: string }>(pathname: string, items: T[]): T | undefined {
+  return items.find((item) => {
+    if (!item.path) return false;
+    if (pathname === item.path) return true;
+    if (pathname.startsWith(item.path + '/')) {
+      const hasMoreSpecificMatch = items.some(
+        (other) =>
+          other !== item &&
+          other.path &&
+          other.path !== item.path &&
+          other.path.startsWith(item.path + '/') &&
+          (pathname === other.path || pathname.startsWith(other.path + '/')),
+      );
+      return !hasMoreSpecificMatch;
+    }
+    return false;
+  });
 }
 
 const NAV_SECTIONS: NavSection[] = [
@@ -68,11 +99,11 @@ const NAV_SECTIONS: NavSection[] = [
   {
     title: 'Requests',
     items: [
-      { label: 'Purchase Orders', icon: '📋', path: '/purchase-orders', staffOnly: true },
-      { label: 'Work Orders', icon: '🔧', path: '/work-orders' },
-      { label: 'Field Trips', icon: '🚌', path: '/field-trips', staffOnly: true },
-      { label: 'Field Trip Approvals', icon: '✅', path: '/field-trips/approvals', requireFieldTripApprover: true },
-      { label: 'Transportation Requests', icon: '🚐', path: '/transportation-requests', staffOnly: true },
+      { label: 'Purchase Orders', icon: '📋', path: '/purchase-orders', staffOnly: true, badgeKey: 'PURCHASE_ORDERS' },
+      { label: 'Work Orders', icon: '🔧', path: '/work-orders', badgeKey: 'WORK_ORDERS' },
+      { label: 'Field Trips', icon: '🚌', path: '/field-trips', staffOnly: true, badgeKey: 'FIELD_TRIPS' },
+      { label: 'Field Trip Approvals', icon: '✅', path: '/field-trips/approvals', requireFieldTripApprover: true, badgeKey: 'FIELD_TRIP_APPROVALS' },
+      { label: 'Transportation Requests', icon: '🚐', path: '/transportation-requests', staffOnly: true, badgeKey: 'TRANSPORTATION_REQUESTS' },
     ],
   },
   {
@@ -149,11 +180,41 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
   const transportationLevel = isAdmin ? 6 : (user?.permLevels?.TRANSPORTATION ?? 0);
   const hasReportsAccess = isAdmin || (user?.permLevels?.REPORTS ?? 0) >= 1;
   const { canAccess: canAccessRoomAssignments } = useRoomAssignmentAccess();
+  const { data: badgeCounts } = useRequestBadges();
+  const markVisited = useMarkSectionVisited();
+
+  const isItemVisible = (item: NavItem) =>
+    (!item.adminOnly || isAdmin) &&
+    (!item.requireTech || hasTechAccess) &&
+    (!item.requireDeviceManagement || canAccessDeviceManagement) &&
+    (!item.requireDeviceManagementElevated || canAccessDeviceManagementElevated) &&
+    (!item.requireDashboardAccess || canAccessDeviceManagementDashboard) &&
+    (!item.requireFieldTripApprover || hasFieldTripApproverAccess) &&
+    (!item.staffOnly || isStaff) &&
+    (!item.requireRoomAssignment || canAccessRoomAssignments) &&
+    (item.requireTransportationLevel === undefined || transportationLevel >= item.requireTransportationLevel) &&
+    (!item.requireReports || hasReportsAccess);
 
   const contentRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     contentRef.current?.scrollTo({ top: 0 });
+  }, [location.pathname]);
+
+  // Clears a Requests-nav badge on visiting its page. Keyed on location.pathname
+  // (not the nav click handler) so deep links, browser back/forward, and
+  // redirects all clear it too. Reuses the same longest-prefix-wins matcher as
+  // the active-item highlight so /field-trips/approvals doesn't also clear
+  // /field-trips.
+  useEffect(() => {
+    const requestsSection = NAV_SECTIONS.find((s) => s.title === 'Requests');
+    if (!requestsSection) return;
+    const badgedItems = requestsSection.items.filter((item) => item.badgeKey && isItemVisible(item));
+    const matched = findMatchingNavItem(location.pathname, badgedItems);
+    if (matched?.badgeKey) {
+      markVisited.mutate(matched.badgeKey);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname]);
 
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -192,19 +253,14 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
   ) => (
     <>
       {NAV_SECTIONS.map((section, si) => {
-        const visibleItems = section.items.filter((item) =>
-          (!item.adminOnly || isAdmin) &&
-          (!item.requireTech || hasTechAccess) &&
-          (!item.requireDeviceManagement || canAccessDeviceManagement) &&
-          (!item.requireDeviceManagementElevated || canAccessDeviceManagementElevated) &&
-          (!item.requireDashboardAccess || canAccessDeviceManagementDashboard) &&
-          (!item.requireFieldTripApprover || hasFieldTripApproverAccess) &&
-          (!item.staffOnly || isStaff) &&
-          (!item.requireRoomAssignment || canAccessRoomAssignments) &&
-          (item.requireTransportationLevel === undefined || transportationLevel >= item.requireTransportationLevel) &&
-          (!item.requireReports || hasReportsAccess)
-        );
+        const visibleItems = section.items.filter(isItemVisible);
         if (visibleItems.length === 0) return null;
+        // Sum of visible items' badge counts, shown on the section header
+        // itself — needed because openGroup defaults to collapsed on the
+        // landing route, where a per-item-only badge would be invisible.
+        const sectionBadgeTotal = badgeCounts
+          ? visibleItems.reduce((sum, item) => sum + (item.badgeKey ? badgeCounts[item.badgeKey] ?? 0 : 0), 0)
+          : 0;
         return (
           <div key={si} className="nav-section">
             {section.title && (
@@ -214,33 +270,19 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
                 onClick={() => setOpenGroup(prev => prev === section.title ? null : section.title!)}
               >
                 <span className="nav-section-title">{section.title}</span>
-                <ExpandMoreIcon
-                  className={`nav-section-expand-icon${openGroup === section.title ? ' nav-section-expand-icon--open' : ''}`}
-                  fontSize="small"
-                />
+                <span className="nav-section-header-end">
+                  {sectionBadgeTotal > 0 && <span className="nav-badge">{sectionBadgeTotal}</span>}
+                  <ExpandMoreIcon
+                    className={`nav-section-expand-icon${openGroup === section.title ? ' nav-section-expand-icon--open' : ''}`}
+                    fontSize="small"
+                  />
+                </span>
               </button>
             )}
             <Collapse in={!section.title || openGroup === section.title} timeout="auto" unmountOnExit={false}>
             {visibleItems.map((item) => {
-              const isActive = item.path
-                ? (() => {
-                    // Exact match always wins
-                    if (location.pathname === item.path) return true;
-                    // For startsWith matching, ensure no other sibling nav item is a better (longer) match
-                    if (location.pathname.startsWith(item.path + '/')) {
-                      // Check if any other item in this section is a longer prefix match
-                      const hasMoreSpecificMatch = visibleItems.some(
-                        (other) =>
-                          other.path &&
-                          other.path !== item.path &&
-                          other.path.startsWith(item.path + '/') &&
-                          (location.pathname === other.path || location.pathname.startsWith(other.path + '/'))
-                      );
-                      return !hasMoreSpecificMatch;
-                    }
-                    return false;
-                  })()
-                : false;
+              const isActive = item.path ? findMatchingNavItem(location.pathname, visibleItems) === item : false;
+              const badgeCount = item.badgeKey ? badgeCounts?.[item.badgeKey] ?? 0 : 0;
               if (item.disabled) {
                 return (
                   <div key={item.label} className="nav-item nav-item--disabled">
@@ -258,6 +300,7 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
                 >
                   <span className="nav-icon">{item.icon}</span>
                   <span>{item.label}</span>
+                  {badgeCount > 0 && <span className="nav-badge">{badgeCount}</span>}
                 </button>
               );
             })}

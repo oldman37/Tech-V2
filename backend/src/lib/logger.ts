@@ -197,4 +197,5 @@ export const loggers = {
   accessControl: createLogger('AccessControl'),
   push: createLogger('PushService'),
   notificationPreferences: createLogger('NotificationPreferencesService'),
+  requestBadges: createLogger('RequestBadgesService'),
 };

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useFilterParams } from '@/hooks/useFilterParams';
+import { useAutoFocusSearch } from '@/hooks/useAutoFocusSearch';
 import {
   Alert,
   Box,
@@ -52,6 +53,7 @@ export default function RepairTicketsPage() {
   const isMobile = useIsMobile();
 
   // Filter state — lives in the URL so Back from a ticket returns to this view
+  const searchRef = useAutoFocusSearch();
   const [filters, setFilters] = useFilterParams({
     status: '',
     search: '',
@@ -218,6 +220,7 @@ export default function RepairTicketsPage() {
       ) : (
         <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap' }}>
           <TextField
+            inputRef={searchRef}
             size="small"
             placeholder="Search tickets…"
             value={search}

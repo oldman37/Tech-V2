@@ -28,6 +28,27 @@ export function useDeleteInventoryItem() {
 }
 
 /**
+ * Mutation for permanently (hard) deleting an inventory item. Admin-only —
+ * the backend rejects this for non-admins and for items with related
+ * checkout/repair/damage/audit/cart history.
+ */
+export function usePermanentlyDeleteInventoryItem() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => inventoryService.deleteItem(id, true),
+
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.all });
+    },
+
+    onError: (error: Error) => {
+      console.error('Failed to permanently delete item:', error);
+    },
+  });
+}
+
+/**
  * Mutation for updating an existing inventory item (includes reactivation).
  * Invalidates list and detail queries for the affected item on success.
  */

@@ -55,6 +55,7 @@ import provisioningService, {
 } from '@/services/provisioningService';
 import { useUpdateSchedule } from '@/hooks/mutations/useJobMutations';
 import { useJobSchedules } from '@/hooks/queries/useJobSchedules';
+import { useAutoFocusSearch } from '@/hooks/useAutoFocusSearch';
 import { PageBackButton } from '@/components/layout/PageBackButton';
 
 // ---------------------------------------------------------------------------
@@ -1614,6 +1615,7 @@ function AuditLogSection() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
+  const searchRef = useAutoFocusSearch();
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -1694,6 +1696,7 @@ function AuditLogSection() {
           </Stack>
 
           <TextField
+            inputRef={searchRef}
             size="small"
             placeholder="Search by UPN or Employee ID…"
             value={searchInput}

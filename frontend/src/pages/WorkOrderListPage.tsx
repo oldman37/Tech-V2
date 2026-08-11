@@ -13,6 +13,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useFilterParams } from '@/hooks/useFilterParams';
+import { useAutoFocusSearch } from '@/hooks/useAutoFocusSearch';
 import {
   Alert,
   Box,
@@ -83,6 +84,7 @@ export default function WorkOrderListPage() {
   const { user } = useAuthStore();
 
   // Filter state — lives in the URL so Back from a work order returns to this view
+  const searchRef = useAutoFocusSearch();
   const [filters, setFilters, hasFilterParam] = useFilterParams({
     search: '',
     department: user?.permLevels?.defaultWorkOrderDepartment ?? '',
@@ -498,6 +500,7 @@ export default function WorkOrderListPage() {
       ) : (
         <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap' }}>
           <TextField
+            inputRef={searchRef}
             size="small"
             placeholder="Search work orders…"
             value={search}

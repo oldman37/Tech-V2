@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useFilterParams } from '@/hooks/useFilterParams';
+import { useAutoFocusSearch } from '@/hooks/useAutoFocusSearch';
 import {
   Alert,
   Box,
@@ -69,6 +70,7 @@ export default function IncidentsPage() {
   const [searchParams] = useSearchParams();
 
   // Filter state — lives in the URL so Back from an incident returns to this view
+  const searchRef = useAutoFocusSearch();
   const [filters, setFilters] = useFilterParams({
     search: '',
     page:   '0',
@@ -181,6 +183,7 @@ export default function IncidentsPage() {
       {/* Search */}
       <Box sx={{ mb: 2 }}>
         <TextField
+          inputRef={searchRef}
           size="small"
           placeholder="Search by incident #, asset tag, or user…"
           value={search}

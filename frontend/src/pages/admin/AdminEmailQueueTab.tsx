@@ -1,4 +1,5 @@
 import { useState, type ChangeEvent } from 'react';
+import { useAutoFocusSearch } from '@/hooks/useAutoFocusSearch';
 import {
   Alert,
   Box,
@@ -66,6 +67,7 @@ export default function AdminEmailQueueTab() {
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [search, setSearch] = useState('');
   const [searchInput, setSearchInput] = useState('');
+  const searchRef = useAutoFocusSearch();
 
   // Confirm dialog for bulk retry
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -243,6 +245,7 @@ export default function AdminEmailQueueTab() {
         </FormControl>
 
         <TextField
+          inputRef={searchRef}
           size="small"
           placeholder="Search subject or email…"
           value={searchInput}

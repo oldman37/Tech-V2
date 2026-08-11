@@ -8,6 +8,7 @@ import { Box, Paper } from '@mui/material';
 import { ResponsiveTable, MobileFilterBar, Column } from '../components/responsive';
 import { PageBackButton } from '../components/layout/PageBackButton';
 import { useIsMobile } from '../hooks/useResponsive';
+import { useAutoFocusSearch } from '@/hooks/useAutoFocusSearch';
 
 // TanStack Query hooks
 import { usePaginatedUsers } from '../hooks/queries/useUsers';
@@ -57,6 +58,7 @@ const Users: React.FC = () => {
     rows:        '50',
   });
 
+  const searchRef        = useAutoFocusSearch();
   const searchTerm       = filters.search;
   const accountType      = filters.accountType as 'all' | 'staff' | 'student';
   const locationFilter   = filters.location;
@@ -498,6 +500,7 @@ const Users: React.FC = () => {
             <Paper sx={{ p: 2, mb: 2 }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
                 <input
+                  ref={searchRef}
                   type="text"
                   placeholder="Search users by name or email..."
                   value={searchTerm}

@@ -23,6 +23,7 @@ import { formatDate, formatCurrency, getStatusBadgeClass } from '../utils/invent
 import { Box, Paper } from '@mui/material';
 import { ResponsiveTable, MobileFilterBar, Column } from '../components/responsive';
 import { useIsMobile } from '../hooks/useResponsive';
+import { useAutoFocusSearch } from '../hooks/useAutoFocusSearch';
 
 interface PaginationModel {
   page: number;
@@ -90,6 +91,7 @@ const EquipmentSearch = () => {
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
 
   const isMobile = useIsMobile();
+  const searchRef = useAutoFocusSearch();
 
   // Reference data
   const [categories, setCategories] = useState<Category[]>([]);
@@ -560,6 +562,7 @@ const EquipmentSearch = () => {
                 <Box sx={{ gridColumn: { md: '1 / 3' } }}>
                   <label className="form-label">Search by tag, name, serial, model, brand, vendor, or user</label>
                   <input
+                    ref={searchRef}
                     type="text"
                     placeholder="Asset tag, name, serial #, model, brand, vendor, PO#, barcode, assigned user..."
                     value={filters.search}

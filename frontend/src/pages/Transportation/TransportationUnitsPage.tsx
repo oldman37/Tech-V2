@@ -6,6 +6,7 @@
 
 import { useState } from 'react';
 import { useFilterParams } from '@/hooks/useFilterParams';
+import { useAutoFocusSearch } from '@/hooks/useAutoFocusSearch';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -87,6 +88,7 @@ export default function TransportationUnitsPage() {
 
   // Filters
   // Filter state — lives in the URL so Back from a unit returns to this view
+  const searchRef = useAutoFocusSearch();
   const [filters, setFilters] = useFilterParams({
     search:     '',
     type:       '',
@@ -318,6 +320,7 @@ export default function TransportationUnitsPage() {
         <Grid container spacing={2} alignItems="center">
           <Grid size={{ xs: 12, sm: 4 }}>
             <TextField
+              inputRef={searchRef}
               size="small"
               fullWidth
               placeholder="Search unit number, make, model…"

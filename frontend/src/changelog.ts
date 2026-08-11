@@ -12,6 +12,36 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.8.5',
+    highlights: [
+      {
+        icon: '🔔',
+        title: 'Unread-change badges on the Requests nav',
+        body: 'Work Orders, Purchase Orders, Field Trips, Field Trip Approvals, and Transportation Requests now show a count badge in the sidebar when something changes on an item you\'re personally involved in — a new comment, a fresh assignment, a status change — while you were away. Clears automatically the moment you visit that page. Your own changes never badge yourself.',
+      },
+      {
+        icon: '⛔',
+        title: 'Permanently delete an inventory record (admins)',
+        body: 'Inventory Management now has a "Permanently Delete" action for admins, separate from Dispose — for records that should never have existed (a duplicate entry, a mis-keyed asset tag) rather than genuine e-waste. Blocked with a clear message naming exactly what\'s in the way if the item still has checkout, repair, damage, audit, or cart history attached.',
+      },
+      {
+        icon: '🎨',
+        title: 'Colored chips replace dropdowns on the work order status composer',
+        body: 'New Status, New Priority, and the action row (Update Status, Change Priority, Assign To, Request Input) are now clickable colored chips instead of native dropdowns and plain buttons — see your choice by color instead of reading closed dropdown text, and no more mobile scroll-into-view for a dropdown menu.',
+      },
+    ],
+    changes: [
+      'Added unread-change count badges to the Requests section of the sidebar (Work Orders, Purchase Orders, Field Trips, Field Trip Approvals, Transportation Requests) — appears when something changes on an item you reported, submitted, or are assigned to since you last visited that page, and clears when you visit it.',
+      'Added a "Permanently Delete" action on Inventory Management, visible to admins only, distinct from Dispose — blocked with a specific reason (e.g. "2 checkout records, 1 repair ticket") if the item has related history, instead of a raw database error.',
+      'Redesigned the work order status composer\'s New Status, New Priority, and action-toggle controls from Select dropdowns and plain buttons to a consistent colored chip interface.',
+      'Fixed a previously-opened work order card on the mobile Work Orders list staying expanded when you opened a different card — only one card stays open at a time now.',
+      'Search fields across the app (Inventory, Users, Equipment Search, Disposed Equipment, Reference Data, Work Orders, Purchase Orders, Field Trips, Transportation, Repair Tickets, Invoices, Checked-Out Carts, Rooms, Room Assignments, Incidents, Provisioning, and the Admin Email Queue) now focus automatically when the page loads, with any existing search text selected so typing immediately starts a new search. Skipped on mobile/touch devices so it doesn\'t pop the on-screen keyboard.',
+      'Fixed the Checked-Out Carts search box rejecting every keystroke — typing a search term did nothing.',
+      'Checked-Out Carts search now also matches the asset tag of a device stored inside a cart and the name of who the cart is checked out to, not just the cart\'s own tag or label.',
+      'Fixed the Inventory Management table overflowing into a horizontal scrollbar at intermediate window widths instead of dropping columns like every other table in the app; asset tag, serial number, and PO# now wrap instead of silently failing to truncate.',
+    ],
+  },
+  {
     version: '1.8.0',
     highlights: [
       {

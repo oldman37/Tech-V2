@@ -11,6 +11,7 @@
 
 import { useState, useMemo } from 'react';
 import { useFilterParams } from '@/hooks/useFilterParams';
+import { useAutoFocusSearch } from '@/hooks/useAutoFocusSearch';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import {
   Alert,
@@ -118,6 +119,7 @@ export default function PurchaseOrderList() {
   // instead of "My Requests" — this is also what they land on when navigating back
   // from a PO detail page, since that remounts this component fresh.
   // Filter state — lives in the URL so Back from a purchase order returns to this view
+  const searchRef = useAutoFocusSearch();
   const [filters, setFilters] = useFilterParams({
     tab:        permLevel >= 3 ? 'pending' : 'mine',
     status:     '',
@@ -466,6 +468,7 @@ export default function PurchaseOrderList() {
         <Paper sx={{ p: 2, mb: 2 }}>
           <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center', '& > *': { flex: { xs: '1 1 100%', sm: '0 0 auto' } } }}>
             <TextField
+              inputRef={searchRef}
               size="small"
               placeholder="Search PO#, title, program…"
               value={search}

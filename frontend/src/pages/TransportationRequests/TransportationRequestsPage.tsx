@@ -7,6 +7,7 @@
 
 import { useState, useMemo } from 'react';
 import { useFilterParams } from '@/hooks/useFilterParams';
+import { useAutoFocusSearch } from '@/hooks/useAutoFocusSearch';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -102,6 +103,7 @@ export function TransportationRequestsPage() {
   const isMobile = useIsMobile();
 
   // Filter state — lives in the URL so Back from a request returns to this view
+  const searchRef = useAutoFocusSearch();
   const [filters, setFilters] = useFilterParams({
     status: '',
     from:   '',
@@ -226,6 +228,7 @@ export function TransportationRequestsPage() {
       ) : (
         <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap' }}>
           <TextField
+            inputRef={searchRef}
             size="small"
             placeholder="Search transportation requests…"
             value={searchFilter}

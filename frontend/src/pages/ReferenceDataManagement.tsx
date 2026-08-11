@@ -40,6 +40,7 @@ import type {
 } from '../types/fundingSource.types';
 import { useSearchParams } from 'react-router-dom';
 import { useIsMobile } from '../hooks/useResponsive';
+import { useAutoFocusSearch } from '../hooks/useAutoFocusSearch';
 import locationService from '../services/location.service';
 import roomService from '../services/roomService';
 import type { OfficeLocation, CreateLocationRequest, LocationType } from '../types/location.types';
@@ -91,6 +92,7 @@ function CrudTableShell({
   children, headers, empty, mobileContent,
 }: CrudTableProps) {
   const isMobile = useIsMobile();
+  const searchRef = useAutoFocusSearch();
   return (
     <>
       <div className="page-header">
@@ -103,6 +105,7 @@ function CrudTableShell({
       <div className="card mb-4">
         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
           <input
+            ref={searchRef}
             type="text"
             placeholder={`Search ${title.toLowerCase()}...`}
             value={searchValue}

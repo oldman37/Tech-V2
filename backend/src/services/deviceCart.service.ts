@@ -154,9 +154,37 @@ export async function listCarts(query: ListCartsQuery) {
   }
 
   if (search) {
+    const [first, ...rest] = search.trim().split(/\s+/);
+    const last = rest.join(' ');
     where.OR = [
       { tagNumber: { contains: search, mode: 'insensitive' } },
       { name:      { contains: search, mode: 'insensitive' } },
+      { items: { some: { equipment: { assetTag: { contains: search, mode: 'insensitive' } } } } },
+      { assignedToUser: { firstName: { contains: search, mode: 'insensitive' } } },
+      { assignedToUser: { lastName:  { contains: search, mode: 'insensitive' } } },
+      { users: { some: { user: { firstName: { contains: search, mode: 'insensitive' } } } } },
+      { users: { some: { user: { lastName:  { contains: search, mode: 'insensitive' } } } } },
+      // "sam rivera" must match firstName + lastName as a pair
+      ...(last
+        ? [
+            {
+              assignedToUser: {
+                firstName: { contains: first, mode: 'insensitive' as const },
+                lastName:  { contains: last,  mode: 'insensitive' as const },
+              },
+            },
+            {
+              users: {
+                some: {
+                  user: {
+                    firstName: { contains: first, mode: 'insensitive' as const },
+                    lastName:  { contains: last,  mode: 'insensitive' as const },
+                  },
+                },
+              },
+            },
+          ]
+        : []),
     ];
   }
 

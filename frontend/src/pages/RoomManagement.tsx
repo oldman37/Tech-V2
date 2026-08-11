@@ -19,12 +19,14 @@ import RoomFormModal from '../components/RoomFormModal';
 import { PaginationControls } from '../components/PaginationControls';
 import { usePaginatedRooms } from '../hooks/queries/useRooms';
 import { useIsMobile } from '../hooks/useResponsive';
+import { useAutoFocusSearch } from '../hooks/useAutoFocusSearch';
 import { ResponsiveTable, MobileFilterBar, Column } from '../components/responsive';
 
 export const RoomManagement = () => {
   // URL-based pagination and filter state
   const [searchParams, setSearchParams] = useSearchParams();
   const isMobile = useIsMobile();
+  const searchRef = useAutoFocusSearch();
   
   // Extract pagination from URL (with defaults)
   const currentPage = parseInt(searchParams.get('page') || '1', 10);
@@ -462,6 +464,7 @@ export const RoomManagement = () => {
             </Select>
           </FormControl>
           <TextField
+            inputRef={searchRef}
             size="small"
             placeholder="Search rooms..."
             value={filters.search}

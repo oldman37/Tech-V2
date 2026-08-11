@@ -10,6 +10,7 @@ import { categoriesService, modelsService, EquipmentModel, Category } from '../s
 import { InventoryItem, InventoryFilters } from '../types/inventory.types';
 import { ResponsiveTable, MobileFilterBar, Column } from '../components/responsive';
 import { useIsMobile } from '../hooks/useResponsive';
+import { useAutoFocusSearch } from '../hooks/useAutoFocusSearch';
 import { PageBackButton } from '../components/layout/PageBackButton';
 
 
@@ -62,6 +63,7 @@ const DisposedEquipment = () => {
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
 
   const isMobile = useIsMobile();
+  const searchRef = useAutoFocusSearch();
 
   useEffect(() => {
     fetchDisposedItems();
@@ -415,6 +417,7 @@ const DisposedEquipment = () => {
                 <div style={{ gridColumn: '1 / 3' }}>
                   <label className="form-label">Search</label>
                   <input
+                    ref={searchRef}
                     type="text"
                     placeholder="Asset tag, name, serial #, model, brand, vendor, PO#, barcode..."
                     value={filters.search}

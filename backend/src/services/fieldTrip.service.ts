@@ -664,7 +664,14 @@ export class FieldTripService {
   // List pending approvals for the current user's permission level
   // -------------------------------------------------------------------------
 
-  async getPendingApprovals(userId: string, permLevel: number, isAdmin: boolean) {
+  /**
+   * Builds the `where.OR` conditions selecting trips currently awaiting this
+   * user's approval action, per the stage-routing/scoping rules described in
+   * getPendingApprovals below. Extracted so the exact same security-sensitive
+   * routing can be reused by countPendingApprovalsSince (nav badge count)
+   * without re-deriving it — behavior-preserving extraction, no logic change.
+   */
+  private async buildPendingApprovalsWhere(userId: string, permLevel: number, isAdmin: boolean) {
     // Under strictly sequential approval, each approver only sees trips
     // at their own stage. Admins see all pending stages.
     const eligibleStatuses = isAdmin
@@ -673,7 +680,7 @@ export class FieldTripService {
           (s) => permLevel === (STAGE_MIN_LEVEL[s] ?? 99),
         );
 
-    if (eligibleStatuses.length === 0) return [];
+    if (eligibleStatuses.length === 0) return null;
 
     // For PENDING_SUPERVISOR:
     //   - Exact supervisor level (3): scope to direct reports only.
@@ -710,13 +717,61 @@ export class FieldTripService {
       orConditions.push({ status: { in: nonSupervisorStatuses } });
     }
 
-    if (orConditions.length === 0) return [];
+    if (orConditions.length === 0) return null;
+
+    return orConditions;
+  }
+
+  async getPendingApprovals(userId: string, permLevel: number, isAdmin: boolean) {
+    const orConditions = await this.buildPendingApprovalsWhere(userId, permLevel, isAdmin);
+    if (!orConditions) return [];
 
     return prisma.fieldTripRequest.findMany({
       where:   { OR: orConditions },
       orderBy: { submittedAt: 'asc' },
       include: TRIP_LIST_INCLUDE,
     });
+  }
+
+  /**
+   * Count of trips that entered this user's approval stage since `since` —
+   * drives the Field Trip Approvals nav badge. Reuses the exact same
+   * stage-routing/scoping as getPendingApprovals (via buildPendingApprovalsWhere)
+   * so the badge never drifts out of sync with what the approver can actually act on.
+   *
+   * "Entered this stage since `since`" is derived per trip:
+   *   - a FieldTripStatusHistory row whose toStatus matches the trip's current
+   *     status, changedAt > since (the trip was moved into this stage after `since`); or
+   *   - if no such history row exists yet (a freshly submitted trip whose first
+   *     stage is PENDING_SUPERVISOR), submittedAt > since.
+   * Plain submittedAt alone would undercount trips that have been in the
+   * pipeline since before `since` but only reached this approver's stage after it.
+   */
+  async countPendingApprovalsSince(userId: string, permLevel: number, isAdmin: boolean, since: Date): Promise<number> {
+    const orConditions = await this.buildPendingApprovalsWhere(userId, permLevel, isAdmin);
+    if (!orConditions) return 0;
+
+    const trips = await prisma.fieldTripRequest.findMany({
+      where:  { OR: orConditions },
+      select: {
+        id:            true,
+        status:        true,
+        submittedAt:   true,
+        statusHistory: {
+          orderBy: { changedAt: 'desc' },
+          select:  { toStatus: true, changedAt: true },
+        },
+      },
+    });
+
+    let count = 0;
+    for (const trip of trips) {
+      const enteredStageAt = trip.statusHistory.find(h => h.toStatus === trip.status)?.changedAt
+        ?? trip.submittedAt
+        ?? undefined;
+      if (enteredStageAt && enteredStageAt > since) count++;
+    }
+    return count;
   }
 
   // -------------------------------------------------------------------------

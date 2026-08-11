@@ -552,6 +552,7 @@ model User {
   assignedTickets                                           Ticket[]               @relation("TicketAssignee")
   ticketComments                                            TicketComment[]        @relation("TicketCommentAuthor")
   ticketViews                                               TicketView[]           @relation("TicketViewer")
+  requestSectionViews                                       RequestSectionView[]   @relation("RequestSectionViewer")
   inputRequestsMade                                         TicketInputRequest[]   @relation("InputRequestRequester")
   inputRequestsReceived                                     TicketInputRequest[]   @relation("InputRequestRecipient")
   ticketStatusHistory                                       TicketStatusHistory[]    @relation("TicketStatusChangedBy")
@@ -1161,6 +1162,32 @@ model TicketView {
   @@unique([ticketId, userId])
   @@index([userId])
   @@map("ticket_views")
+}
+
+/// Sections of the sidebar "Requests" nav group that carry an unread-change badge.
+enum RequestSection {
+  WORK_ORDERS
+  PURCHASE_ORDERS
+  FIELD_TRIPS
+  FIELD_TRIP_APPROVALS
+  TRANSPORTATION_REQUESTS
+}
+
+/// Per-user, per-nav-section read state driving the Requests nav badges.
+/// Coarser-grained than TicketView (one row per user+section, not per item) —
+/// the two coexist: this drives only the nav badge, TicketView still drives
+/// the per-row unread flags on the Work Orders list.
+model RequestSectionView {
+  id            String         @id @default(uuid())
+  userId        String
+  section       RequestSection
+  lastVisitedAt DateTime       @default(now())
+
+  user          User           @relation("RequestSectionViewer", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, section])
+  @@index([userId])
+  @@map("request_section_views")
 }
 
 /// A request for input/review from another user on a work order. Grants the

@@ -6,7 +6,7 @@
  */
 
 import { PrismaClient, equipment, Prisma } from '@prisma/client';
-import { NotFoundError, ValidationError } from '../utils/errors';
+import { NotFoundError, ValidationError, ConflictError } from '../utils/errors';
 import { loggers } from '../lib/logger';
 import {
   InventoryQuery,
@@ -714,6 +714,19 @@ export class InventoryService {
   async delete(id: string, permanent: boolean, user: UserContext): Promise<void> {
     const existing = await this.prisma.equipment.findUnique({
       where: { id },
+      include: {
+        _count: {
+          select: {
+            deviceAssignments: true,
+            repairTickets:     true,
+            damageIncidents:   true,
+            tickets:           true,
+            auditItems:        true,
+            cartItems:         true,
+            importJobs:        true,
+          },
+        },
+      },
     });
 
     if (!existing) {
@@ -721,6 +734,27 @@ export class InventoryService {
     }
 
     if (permanent) {
+      // These seven relations don't cascade on delete (unlike inventory_changes,
+      // EquipmentAttachment, MaintenanceHistory, EquipmentAssignmentHistory,
+      // which do) — a raw equipment.delete() would throw an opaque P2003 for
+      // any item with real history. Block early with a specific reason instead.
+      const c = existing._count;
+      const blockers: string[] = [];
+      if (c.deviceAssignments) blockers.push(`${c.deviceAssignments} checkout record${c.deviceAssignments === 1 ? '' : 's'}`);
+      if (c.tickets)           blockers.push(`${c.tickets} work order${c.tickets === 1 ? '' : 's'}`);
+      if (c.repairTickets)     blockers.push(`${c.repairTickets} repair ticket${c.repairTickets === 1 ? '' : 's'}`);
+      if (c.damageIncidents)   blockers.push(`${c.damageIncidents} damage incident${c.damageIncidents === 1 ? '' : 's'}`);
+      if (c.auditItems)        blockers.push(`${c.auditItems} inventory audit record${c.auditItems === 1 ? '' : 's'}`);
+      if (c.cartItems)         blockers.push(`${c.cartItems} device cart item${c.cartItems === 1 ? '' : 's'}`);
+      if (c.importJobs)        blockers.push(`${c.importJobs} import record${c.importJobs === 1 ? '' : 's'}`);
+
+      if (blockers.length > 0) {
+        throw new ConflictError(
+          `Cannot permanently delete "${existing.assetTag}" — it has ${blockers.join(', ')} referencing it. Use Dispose to retain this history, or remove the related records first.`,
+          { assetTag: existing.assetTag, counts: c },
+        );
+      }
+
       // Hard delete
       await this.prisma.equipment.delete({
         where: { id },

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useFilterParams } from '@/hooks/useFilterParams';
+import { useAutoFocusSearch } from '@/hooks/useAutoFocusSearch';
 import {
   Alert,
   Box,
@@ -64,6 +65,7 @@ export default function InvoicesPage() {
   const isMobile = useIsMobile();
 
   // Filter state — lives in the URL so Back from an invoice returns to this view
+  const searchRef = useAutoFocusSearch();
   const [filters, setFilters] = useFilterParams({
     status:  '',
     overdue: '0',
@@ -255,6 +257,7 @@ export default function InvoicesPage() {
       ) : (
         <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap', alignItems: 'center' }}>
           <TextField
+            inputRef={searchRef}
             size="small"
             placeholder="Search invoices…"
             value={search}

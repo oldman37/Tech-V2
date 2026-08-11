@@ -7,7 +7,7 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { InventoryItem, InventoryFilters } from '../types/inventory.types';
 import { useInventoryList, useInventoryStats } from '../hooks/queries/useInventory';
-import { useDeleteInventoryItem, useUpdateInventoryItem, useExportInventory } from '../hooks/mutations/useInventoryMutations';
+import { useDeleteInventoryItem, usePermanentlyDeleteInventoryItem, useUpdateInventoryItem, useExportInventory } from '../hooks/mutations/useInventoryMutations';
 import { queryKeys } from '../lib/queryKeys';
 import InventoryFormDialog from '../components/inventory/InventoryFormDialog';
 import InventoryHistoryDialog from '../components/inventory/InventoryHistoryDialog';
@@ -16,8 +16,10 @@ import { AssignmentDialog } from '../components/inventory/AssignmentDialog';
 import { Box, Paper } from '@mui/material';
 import { ResponsiveTable, MobileFilterBar, Column } from '../components/responsive';
 import { useIsMobile } from '../hooks/useResponsive';
+import { useAutoFocusSearch } from '../hooks/useAutoFocusSearch';
 import { PageBackButton } from '../components/layout/PageBackButton';
 import fundingSourceService from '../services/fundingSourceService';
+import { useAuthStore, selectIsAdmin } from '../store/authStore';
 
 interface PaginationModel {
   page: number;
@@ -52,6 +54,7 @@ export const InventoryManagement = () => {
   };
 
   const isMobile = useIsMobile();
+  const searchRef = useAutoFocusSearch();
   const queryClient = useQueryClient();
 
   const { data: fundingSourcesData } = useQuery({
@@ -74,8 +77,10 @@ export const InventoryManagement = () => {
   const { data: stats } = useInventoryStats();
 
   const deleteMutation = useDeleteInventoryItem();
+  const permanentDeleteMutation = usePermanentlyDeleteInventoryItem();
   const updateMutation = useUpdateInventoryItem();
   const exportMutation = useExportInventory();
+  const isAdmin = useAuthStore(selectIsAdmin);
 
   const error = listError
     ? (listError as any)?.response?.data?.message ?? 'Failed to fetch inventory'
@@ -97,6 +102,19 @@ export const InventoryManagement = () => {
     }
     deleteMutation.mutate(item.id, {
       onError: (err: any) => alert(err.response?.data?.message || 'Failed to delete item'),
+    });
+  };
+
+  const handlePermanentDelete = (item: InventoryItem) => {
+    if (
+      !window.confirm(
+        `Permanently delete "${item.name}" (${item.assetTag})? This cannot be undone and is different from disposing it as e-waste.`
+      )
+    ) {
+      return;
+    }
+    permanentDeleteMutation.mutate(item.id, {
+      onError: (err: any) => alert(err.response?.data?.message || 'Failed to permanently delete item'),
     });
   };
 
@@ -174,29 +192,38 @@ export const InventoryManagement = () => {
       label: 'Asset Tag',
       isPrimary: true,
       sortable: true,
-      render: (item) => <strong style={{ fontWeight: 600 }}>{item.assetTag}</strong>,
+      minWidth: 150,
+      // Opaque token: let it wrap so the column can shrink instead of forcing
+      // the table wider than its container.
+      render: (item) => (
+        <strong style={{ fontWeight: 600, overflowWrap: 'anywhere' }}>{item.assetTag}</strong>
+      ),
     },
     {
       key: 'name',
       label: 'Item Name',
       isSecondary: true,
       sortable: true,
+      minWidth: 150,
     },
     {
       key: 'category',
       label: 'Category',
+      minWidth: 120,
       render: (item) => item.category?.name || 'N/A',
     },
     {
       key: 'brand',
       label: 'Brand',
       hideOnMobile: true,
+      minWidth: 120,
       render: (item) => item.brand?.name || 'N/A',
     },
     {
       key: 'model',
       label: 'Model',
       hideOnMobile: true,
+      minWidth: 120,
       render: (item) =>
         item.model?.modelNumber || item.model?.name || <span style={{ color: 'var(--slate-400)' }}>—</span>,
     },
@@ -204,19 +231,18 @@ export const InventoryManagement = () => {
       key: 'serialNumber',
       label: 'Serial #',
       hideOnMobile: true,
+      minWidth: 140,
       render: (item) =>
         item.serialNumber ? (
+          // Opaque token, and the ellipsis it used to attempt never worked in an
+          // auto-layout table — the percentage max-width resolves to none during
+          // intrinsic sizing, so the cell just grew. Wrapping is what shrinks it.
           <span
             title={item.serialNumber}
             style={{
               fontFamily: 'monospace',
               fontSize: '0.8125rem',
-              whiteSpace: 'nowrap',
-              display: 'inline-block',
-              maxWidth: '100%',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              verticalAlign: 'bottom',
+              overflowWrap: 'anywhere',
             }}
           >
             {item.serialNumber}
@@ -228,11 +254,13 @@ export const InventoryManagement = () => {
     {
       key: 'officeLocation',
       label: 'Location',
+      minWidth: 150,
       render: (item) => item.officeLocation?.name || 'Unassigned',
     },
     {
       key: 'assignedToUser',
       label: 'Assigned To',
+      minWidth: 140,
       render: (item) =>
         item.assignedToUser ? (
           <span title={item.assignedToUser.email}>
@@ -249,7 +277,10 @@ export const InventoryManagement = () => {
       key: 'status',
       label: 'Status',
       sortable: true,
-      width: 100,
+      minWidth: 120,
+      // Kept longer than Category / Location / Assigned To — status is the most
+      // scanned field on an inventory list, but its array index would drop it first.
+      priority: 0,
       render: (item) => (
         <span className={`badge ${getStatusBadgeClass(item.status)}`}>{item.status}</span>
       ),
@@ -259,6 +290,7 @@ export const InventoryManagement = () => {
       label: 'Value',
       hideOnMobile: true,
       align: 'right',
+      minWidth: 90,
       render: (item) =>
         item.purchasePrice ? `$${parseFloat(item.purchasePrice as any).toFixed(2)}` : 'N/A',
     },
@@ -266,12 +298,14 @@ export const InventoryManagement = () => {
       key: 'vendor',
       label: 'Vendor',
       hideOnMobile: true,
+      minWidth: 120,
       render: (item) => item.vendor?.name || <span style={{ color: 'var(--slate-400)' }}>—</span>,
     },
     {
       key: 'poNumber',
       label: 'PO#',
       hideOnMobile: true,
+      minWidth: 90,
       render: (item) =>
         item.poNumber ? (
           <span
@@ -279,12 +313,7 @@ export const InventoryManagement = () => {
             style={{
               fontFamily: 'monospace',
               fontSize: '0.8125rem',
-              whiteSpace: 'nowrap',
-              display: 'inline-block',
-              maxWidth: '100%',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              verticalAlign: 'bottom',
+              overflowWrap: 'anywhere',
             }}
           >
             {item.poNumber}
@@ -297,6 +326,7 @@ export const InventoryManagement = () => {
       key: 'fundingSource',
       label: 'Funding',
       hideOnMobile: true,
+      minWidth: 130,
       render: (item) =>
         item.fundingSourceRef?.name ?? item.fundingSource ?? <span style={{ color: 'var(--slate-400)' }}>—</span>,
     },
@@ -304,6 +334,7 @@ export const InventoryManagement = () => {
       key: 'purchaseDate',
       label: 'Purchase Date',
       hideOnMobile: true,
+      minWidth: 140,
       render: (item) =>
         item.purchaseDate ? (
           <span
@@ -368,6 +399,17 @@ export const InventoryManagement = () => {
           disabled={deleteMutation.isPending}
         >
           🗑️
+        </button>
+      )}
+      {isAdmin && (
+        <button
+          onClick={() => handlePermanentDelete(item)}
+          className="btn btn-sm btn-ghost"
+          title="Permanently Delete"
+          style={{ color: 'var(--red-800)' }}
+          disabled={permanentDeleteMutation.isPending}
+        >
+          ⛔
         </button>
       )}
     </div>
@@ -544,6 +586,7 @@ export const InventoryManagement = () => {
                 <Box sx={{ gridColumn: { md: '1 / 3' } }}>
                   <label className="form-label">Search</label>
                   <input
+                    ref={searchRef}
                     type="text"
                     placeholder="Asset tag, name, serial #, model, brand, vendor, PO#, barcode..."
                     value={filters.search}
@@ -613,6 +656,10 @@ export const InventoryManagement = () => {
               loading={loading}
               emptyMessage="No equipment found. Adjust your filters and try again."
               rowActions={rowActions}
+              // Up to 5 .btn-sm ghost buttons for an admin viewing an active item
+              // (Assign, Edit, History, Dispose, Permanently Delete) in a
+              // non-wrapping flex row + cell padding
+              actionsMinWidth={296}
             />
 
             {/* Pagination Controls */}

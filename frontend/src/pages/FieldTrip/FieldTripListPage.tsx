@@ -7,6 +7,7 @@
 
 import { useState, useMemo } from 'react';
 import { useFilterParams } from '@/hooks/useFilterParams';
+import { useAutoFocusSearch } from '@/hooks/useAutoFocusSearch';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -86,6 +87,7 @@ export function FieldTripListPage() {
   const isMobile = useIsMobile();
 
   // Filter state — lives in the URL so Back from a trip returns to this view
+  const searchRef = useAutoFocusSearch();
   const [filters, setFilters] = useFilterParams({
     search: '',
     status: '',
@@ -188,6 +190,7 @@ export function FieldTripListPage() {
       ) : (
         <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap' }}>
           <TextField
+            inputRef={searchRef}
             size="small"
             placeholder="Search field trips…"
             value={search}

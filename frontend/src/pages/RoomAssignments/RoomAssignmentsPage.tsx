@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useFilterParams } from '@/hooks/useFilterParams';
+import { useAutoFocusSearch } from '@/hooks/useAutoFocusSearch';
 import {
   Box,
   Typography,
@@ -64,6 +65,7 @@ export function RoomAssignmentsPage() {
   const [dialogRoom, setDialogRoom] = useState<RoomWithAssignments | null>(null);
 
   // Filter state - lives in the URL so Back returns to this view
+  const searchRef = useAutoFocusSearch();
   const [filters, setFilters, hasFilterParam] = useFilterParams({
     location: '',
     search:   '',
@@ -264,6 +266,7 @@ export function RoomAssignmentsPage() {
           {/* Filter bar */}
           <Box display="flex" gap={2} mb={2} flexWrap="wrap" alignItems="center">
             <TextField
+              inputRef={searchRef}
               size="small"
               placeholder="Search rooms..."
               value={roomSearch}

@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback } from 'react';
 import { useGoBack } from '@/hooks/useGoBack';
 import { useFilterParams } from '@/hooks/useFilterParams';
+import { useAutoFocusSearch } from '@/hooks/useAutoFocusSearch';
 import {
   Alert,
   Autocomplete,
@@ -376,6 +377,7 @@ export default function CheckedOutCartsPage() {
 
   // Filter state
   // Filter state — lives in the URL so Back returns to this view
+  const searchRef = useAutoFocusSearch();
   const [filters, setFilters] = useFilterParams({
     status:   '',
     location: '',
@@ -403,7 +405,7 @@ export default function CheckedOutCartsPage() {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleSearchChange = useCallback((val: string) => {
-    setFilters({ search: val });
+    setFilters({ search: val, page: '0' });
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => setDebouncedSearch(val), 300);
   }, [setFilters]);
@@ -492,10 +494,11 @@ export default function CheckedOutCartsPage() {
 
           {/* Search */}
           <TextField
+            inputRef={searchRef}
             size="small"
             label="Search tag / name"
             value={search}
-            onChange={(e) => { handleSearchChange(e.target.value); setFilters({ page: '0' }); }}
+            onChange={(e) => handleSearchChange(e.target.value)}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">

@@ -184,6 +184,10 @@ export const queryKeys = {
     disableBatches: () => [...queryKeys.provisioning.all, 'disable-batches'] as const,
     disableBatchHistory: () => [...queryKeys.provisioning.all, 'disable-batch-history'] as const,
   },
+  // Requests-nav badge counts
+  requestBadges: {
+    all: ['requestBadges'] as const,
+  },
 } as const;
 
 // Export type for type-safe usage

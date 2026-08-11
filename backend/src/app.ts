@@ -47,6 +47,7 @@ import intuneDeviceRoutes from './routes/intuneDevice.routes';
 import provisioningRoutes from './routes/provisioning.routes';
 import pushRoutes from './routes/push.routes';
 import notificationPreferencesRoutes from './routes/notificationPreferences.routes';
+import requestBadgesRoutes from './routes/requestBadges.routes';
 import { provideCsrfToken, getCsrfToken } from './middleware/csrf';
 import { authenticate, requireAdmin } from './middleware/auth';
 import { maintenanceMode } from './middleware/maintenanceMode';
@@ -232,6 +233,15 @@ app.use('/api/reports', reportsRoutes);
 app.use('/api/damage-component-prices', damageComponentPriceRouter);
 app.use('/api/device-barcodes', barcodePdfRoutes);
 app.use('/api/device-management/rollover', dmRolloverRoutes);
+// Mounted before inventoryAuditRoutes/roomCheckoutRoutes deliberately: those two
+// routers apply an unconditional `router.use(requireModule('TECHNOLOGY', 2))` at
+// the bare '/api' prefix, which — because it has no path — runs for every '/api/*'
+// request that reaches it, not just its own routes. Any '/api/*' mount registered
+// AFTER them inherits that gate for non-technology users. request-badges has no
+// module requirement (every count is scoped to the caller's own items), so it must
+// be registered first. (notification-preferences below is structurally exposed to
+// the same bug and is NOT fixed here — flagged separately, out of scope for this change.)
+app.use('/api/request-badges', requestBadgesRoutes);
 app.use('/api', inventoryAuditRoutes);
 app.use('/api', roomCheckoutRoutes);
 app.use('/api/intune', intuneDeviceRoutes);
