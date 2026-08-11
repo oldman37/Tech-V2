@@ -39,6 +39,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       'Fixed the Checked-Out Carts search box rejecting every keystroke — typing a search term did nothing.',
       'Checked-Out Carts search now also matches the asset tag of a device stored inside a cart and the name of who the cart is checked out to, not just the cart\'s own tag or label.',
       'Fixed the Inventory Management table overflowing into a horizontal scrollbar at intermediate window widths instead of dropping columns like every other table in the app; asset tag, serial number, and PO# now wrap instead of silently failing to truncate.',
+      'Replace small next page buttons with a larger, full-width "Next Page" button on mobile for all paginated lists, so it\'s easier to tap.',
     ],
   },
   {

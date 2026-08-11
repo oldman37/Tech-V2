@@ -196,6 +196,7 @@ export default function WorkOrderListPage() {
 
   const rows = data?.items ?? [];
   const totalCount = data?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalCount / rowsPerPage));
 
   const handleRowClick = (id: string) => navigate(`/work-orders/${id}`);
 
@@ -638,15 +639,58 @@ export default function WorkOrderListPage() {
         />
       </Paper>
 
-      <TablePagination
-        component="div"
-        count={totalCount}
-        page={page}
-        rowsPerPage={rowsPerPage}
-        rowsPerPageOptions={[10, 25, 50, 100]}
-        onPageChange={(_, p) => setFilters({ page: String(p) })}
-        onRowsPerPageChange={(e) => { setFilters({ rows: e.target.value, page: '0' }); }}
-      />
+      {isMobile ? (
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 1,
+            py: 1.5,
+          }}
+        >
+          <Typography variant="body2" color="text.secondary">
+            {totalCount === 0
+              ? 0
+              : `${page * rowsPerPage + 1}–${Math.min((page + 1) * rowsPerPage, totalCount)}`}
+            {' of '}
+            {totalCount}
+          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <Button
+              variant="outlined"
+              onClick={() => setFilters({ page: String(page - 1) })}
+              disabled={page === 0}
+              sx={{ minHeight: 44, minWidth: 96 }}
+              aria-label="Go to previous page"
+            >
+              ‹ Prev
+            </Button>
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+              {page + 1} / {totalPages}
+            </Typography>
+            <Button
+              variant="outlined"
+              onClick={() => setFilters({ page: String(page + 1) })}
+              disabled={page + 1 >= totalPages}
+              sx={{ minHeight: 44, minWidth: 96 }}
+              aria-label="Go to next page"
+            >
+              Next ›
+            </Button>
+          </Box>
+        </Box>
+      ) : (
+        <TablePagination
+          component="div"
+          count={totalCount}
+          page={page}
+          rowsPerPage={rowsPerPage}
+          rowsPerPageOptions={[10, 25, 50, 100]}
+          onPageChange={(_, p) => setFilters({ page: String(p) })}
+          onRowsPerPageChange={(e) => { setFilters({ rows: e.target.value, page: '0' }); }}
+        />
+      )}
     </Box>
   );
 }
