@@ -15,6 +15,7 @@ import { InventoryItemWithRelations, InventoryItemWithRelationsExtended, UpdateI
 import { prisma } from '../lib/prisma';
 import { loggers } from '../lib/logger';
 import { writeAuditLog } from '../lib/auditLog';
+import { isTechAssistant } from '../utils/groupAuth';
 import ExcelJS from 'exceljs';
 
 // Instantiate services
@@ -206,10 +207,10 @@ export const deleteInventoryItem = async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
     const permanent = req.query.permanent === 'true';
 
-    // Only admins can permanently delete
-    if (permanent && !req.user.roles.includes('ADMIN')) {
+    // Only admins and Tech Assistants can permanently delete
+    if (permanent && !req.user.roles.includes('ADMIN') && !isTechAssistant(req.user.groups)) {
       return res.status(403).json({
-        error: 'Only administrators can permanently delete inventory items',
+        error: 'Only administrators and Tech Assistants can permanently delete inventory items',
       });
     }
 

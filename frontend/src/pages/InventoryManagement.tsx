@@ -19,7 +19,7 @@ import { useIsMobile } from '../hooks/useResponsive';
 import { useAutoFocusSearch } from '../hooks/useAutoFocusSearch';
 import { PageBackButton } from '../components/layout/PageBackButton';
 import fundingSourceService from '../services/fundingSourceService';
-import { useAuthStore, selectIsAdmin } from '../store/authStore';
+import { useAuthStore, selectIsAdmin, selectIsTechAssistant } from '../store/authStore';
 
 interface PaginationModel {
   page: number;
@@ -81,6 +81,8 @@ export const InventoryManagement = () => {
   const updateMutation = useUpdateInventoryItem();
   const exportMutation = useExportInventory();
   const isAdmin = useAuthStore(selectIsAdmin);
+  const isTechAssistant = useAuthStore(selectIsTechAssistant);
+  const canPermanentlyDelete = isAdmin || isTechAssistant;
 
   const error = listError
     ? (listError as any)?.response?.data?.message ?? 'Failed to fetch inventory'
@@ -401,7 +403,7 @@ export const InventoryManagement = () => {
           🗑️
         </button>
       )}
-      {isAdmin && (
+      {canPermanentlyDelete && (
         <button
           onClick={() => handlePermanentDelete(item)}
           className="btn btn-sm btn-ghost"

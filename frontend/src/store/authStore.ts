@@ -94,6 +94,10 @@ export const useAuthStore = create<AuthState>()((set) => ({
 export const selectIsAdmin = (state: AuthState): boolean =>
   state.user?.roles?.includes('ADMIN') ?? false;
 
+/** True when the signed-in user belongs to the Tech Assistants Entra group. */
+export const selectIsTechAssistant = (state: AuthState): boolean =>
+  state.user?.isTechAssistant ?? false;
+
 /** True when the signed-in user belongs to the Device Management allowlist. */
 export const selectCanAccessDeviceManagement = (state: AuthState): boolean =>
   state.user?.canAccessDeviceManagement ?? false;
