@@ -104,3 +104,25 @@ export const DenyTransportationSchema = z.object({
 });
 
 export type DenyTransportationDto = z.infer<typeof DenyTransportationSchema>;
+
+// ---------------------------------------------------------------------------
+// PUT /api/field-trips/:id/transportation/edit  — edit an already-approved
+// Part C record (e.g. driver reassignment). Same shape as approval — the
+// secretary/director is re-entering the same fields, just after the fact.
+// ---------------------------------------------------------------------------
+
+export const EditApprovedTransportationSchema = ApproveTransportationSchema;
+
+export type EditApprovedTransportationDto = z.infer<typeof EditApprovedTransportationSchema>;
+
+// ---------------------------------------------------------------------------
+// GET /api/field-trips/transportation/history  — list query filters
+// ---------------------------------------------------------------------------
+
+export const TransportationHistoryQuerySchema = z.object({
+  status: z.enum(['TRANSPORTATION_APPROVED', 'TRANSPORTATION_DENIED']).optional(),
+  from:   z.string().optional(),
+  to:     z.string().optional(),
+});
+
+export type TransportationHistoryQueryDto = z.infer<typeof TransportationHistoryQuerySchema>;

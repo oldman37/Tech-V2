@@ -31,6 +31,8 @@ import {
   UpdateTransportationSchema,
   ApproveTransportationSchema,
   DenyTransportationSchema,
+  EditApprovedTransportationSchema,
+  TransportationHistoryQuerySchema,
 } from '../validators/fieldTripTransportation.validators';
 import * as fieldTripController from '../controllers/fieldTrip.controller';
 import * as fieldTripTransportationController from '../controllers/fieldTripTransportation.controller';
@@ -233,6 +235,17 @@ router.get(
 );
 
 /**
+ * GET /api/field-trips/transportation/history
+ * List already-approved/denied transportation requests, most recent first.
+ */
+router.get(
+  '/transportation/history',
+  validateRequest(TransportationHistoryQuerySchema, 'query'),
+  requireModule('FIELD_TRIPS', 3),
+  fieldTripTransportationController.listHistory,
+);
+
+/**
  * POST /api/field-trips/:id/transportation
  * Create a new Step 2 transportation form (DRAFT).
  */
@@ -300,6 +313,29 @@ router.post(
   validateRequest(DenyTransportationSchema, 'body'),
   requireModule('FIELD_TRIPS', 3),
   fieldTripTransportationController.deny,
+);
+
+/**
+ * PUT /api/field-trips/:id/transportation/edit
+ * Edit an already-approved Part C record (e.g. driver reassignment).
+ */
+router.put(
+  '/:id/transportation/edit',
+  validateRequest(FieldTripIdParamSchema, 'params'),
+  validateRequest(EditApprovedTransportationSchema, 'body'),
+  requireModule('FIELD_TRIPS', 3),
+  fieldTripTransportationController.editApproved,
+);
+
+/**
+ * POST /api/field-trips/:id/transportation/resend-email
+ * Resend the approval/denial notification email to the submitter.
+ */
+router.post(
+  '/:id/transportation/resend-email',
+  validateRequest(FieldTripIdParamSchema, 'params'),
+  requireModule('FIELD_TRIPS', 3),
+  fieldTripTransportationController.resendEmail,
 );
 
 /**

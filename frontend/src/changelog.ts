@@ -29,6 +29,11 @@ export const CHANGELOG: ChangelogEntry[] = [
         title: 'Colored chips replace dropdowns on the work order status composer',
         body: 'New Status, New Priority, and the action row (Update Status, Change Priority, Assign To, Request Input) are now clickable colored chips instead of native dropdowns and plain buttons — see your choice by color instead of reading closed dropdown text, and no more mobile scroll-into-view for a dropdown menu.',
       },
+      {
+        icon: '🚌',
+        title: 'Transportation Approval History, edit & resend',
+        body: 'The Field Trip Approvals page now has a "Transportation History" tab listing every transportation request that\'s been approved or denied, who decided it, and when. Approved requests can be reopened to change the transportation type, cost, bus count, or driver names — useful when a driver assignment changes after the fact — with every change logged for review. A "Resend Email" button re-sends the approval/denial notice to the submitter on demand.',
+      },
     ],
     changes: [
       'Added unread-change count badges to the Requests section of the sidebar (Work Orders, Purchase Orders, Field Trips, Field Trip Approvals, Transportation Requests) — appears when something changes on an item you reported, submitted, or are assigned to since you last visited that page, and clears when you visit it.',
@@ -40,6 +45,10 @@ export const CHANGELOG: ChangelogEntry[] = [
       'Checked-Out Carts search now also matches the asset tag of a device stored inside a cart and the name of who the cart is checked out to, not just the cart\'s own tag or label.',
       'Fixed the Inventory Management table overflowing into a horizontal scrollbar at intermediate window widths instead of dropping columns like every other table in the app; asset tag, serial number, and PO# now wrap instead of silently failing to truncate.',
       'Replace small next page buttons with a larger, full-width "Next Page" button on mobile for all paginated lists, so it\'s easier to tap.',
+      'Added a "Transportation History" tab to the Field Trip Approvals page, listing every transportation request that has been approved or denied, along with who decided it and when.',
+      'Approved transportation requests can now be edited after the fact — transportation type, assessed cost, number of buses, driver names, and notes can all be changed by the Transportation Secretary/Director, with every change logged to a per-request history you can review.',
+      'Added a "Resend Email" button on transportation requests so the Transportation Secretary/Director can re-send the approval or denial notice to the submitter, whether because they say they didn\'t get it or because details changed since the original notice.',
+      'Transportation requests no longer become visible to the Transportation Secretary/Director until the field trip itself has cleared its entire approval chain (Supervisor, Assistant Director of Schools, Director of Schools, and Finance Director) — previously they could appear and be acted on as soon as just the first approval stage cleared.',
     ],
   },
   {

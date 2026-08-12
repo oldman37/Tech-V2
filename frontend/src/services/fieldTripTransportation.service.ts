@@ -14,6 +14,8 @@ import type {
   UpdateTransportationDto,
   ApproveTransportationDto,
   DenyTransportationDto,
+  EditApprovedTransportationDto,
+  TransportationHistoryFilters,
 } from '../types/fieldTrip.types';
 
 const BASE = '/field-trips';
@@ -113,6 +115,46 @@ export const fieldTripTransportationService = {
   listPending: async (): Promise<FieldTripTransportationRequest[]> => {
     const res = await api.get<FieldTripTransportationRequest[]>(
       `${BASE}/transportation/pending`,
+    );
+    return res.data;
+  },
+
+  // ---------------------------------------------------------------------------
+  // Edit an already-approved Part C record (e.g. driver reassignment)
+  // ---------------------------------------------------------------------------
+
+  editApproved: async (
+    fieldTripId: string,
+    data: EditApprovedTransportationDto,
+  ): Promise<FieldTripTransportationRequest> => {
+    const res = await api.put<FieldTripTransportationRequest>(
+      `${BASE}/${fieldTripId}/transportation/edit`,
+      data,
+    );
+    return res.data;
+  },
+
+  // ---------------------------------------------------------------------------
+  // Resend the approval/denial notification email to the submitter
+  // ---------------------------------------------------------------------------
+
+  resendEmail: async (fieldTripId: string): Promise<FieldTripTransportationRequest> => {
+    const res = await api.post<FieldTripTransportationRequest>(
+      `${BASE}/${fieldTripId}/transportation/resend-email`,
+    );
+    return res.data;
+  },
+
+  // ---------------------------------------------------------------------------
+  // List approval history (approved/denied requests, most recent decision first)
+  // ---------------------------------------------------------------------------
+
+  listHistory: async (
+    filters: TransportationHistoryFilters = {},
+  ): Promise<FieldTripTransportationRequest[]> => {
+    const res = await api.get<FieldTripTransportationRequest[]>(
+      `${BASE}/transportation/history`,
+      { params: filters },
     );
     return res.data;
   },

@@ -30,12 +30,17 @@ import {
 } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon      from '@mui/icons-material/Cancel';
+import EditIcon        from '@mui/icons-material/Edit';
+import ReplayIcon      from '@mui/icons-material/Replay';
+import HistoryIcon     from '@mui/icons-material/History';
 import { useIsMobile } from '../../hooks/useResponsive';
 import { fieldTripTransportationService } from '../../services/fieldTripTransportation.service';
 import type {
   AdditionalDestination,
   ApproveTransportationDto,
+  EditApprovedTransportationDto,
   FieldTripTransportationRequest,
+  TransportationHistoryAction,
   TransportationType,
 } from '../../types/fieldTrip.types';
 import {
@@ -44,6 +49,31 @@ import {
   TRANSPORTATION_TYPE_LABELS,
   PART_C_TRANSPORTATION_TYPE_LABELS,
 } from '../../types/fieldTrip.types';
+
+// ---------------------------------------------------------------------------
+// Approval history display helpers
+// ---------------------------------------------------------------------------
+
+const HISTORY_ACTION_LABELS: Record<TransportationHistoryAction, string> = {
+  APPROVED:     'Approved',
+  DENIED:       'Denied',
+  EDITED:       'Edited',
+  EMAIL_RESENT: 'Email resent to submitter',
+};
+
+const HISTORY_FIELD_LABELS: Record<string, string> = {
+  transportationType:     'Transportation Type',
+  transportationCost:     'Assessed Cost',
+  transportationBusCount: 'Number of Buses',
+  driverNames:            'Driver Names',
+  transportationNotes:    'Notes',
+};
+
+function formatHistoryValue(value: unknown): string {
+  if (value === null || value === undefined || value === '') return '—';
+  if (Array.isArray(value)) return value.length ? value.join(', ') : '—';
+  return String(value);
+}
 
 // ---------------------------------------------------------------------------
 // Props
@@ -70,21 +100,30 @@ export function TransportationPartCForm({ tripId, transport, isOwner, onUpdated 
     (a) => a.stage === 'SUPERVISOR' && a.action === 'APPROVED',
   );
 
-  // Part B is satisfied either normally (approval record exists) or because the
-  // submitter was the supervisor/principal and the SUPERVISOR stage was bypassed
-  // (indicated by the parent trip already being APPROVED with no approval record).
-  const partBSatisfied = !!principalApproval || trip?.status === 'APPROVED';
+  // Part C cannot be processed until the field trip has cleared its entire own
+  // approval chain (Supervisor -> Asst. Director of Schools -> Director of
+  // Schools -> Finance Director) and reached APPROVED — matches the backend
+  // gate in fieldTripTransportation.service.ts approve()/deny().
+  const tripFullyApproved = trip?.status === 'APPROVED';
 
   // Part C form state
   const [transportationType, setTransportationType] = useState<TransportationType | ''>('DISTRICT_BUS');
   const [transportationCost, setTransportationCost] = useState('');
-  const transportationBusCount = String(transport.busCount);
+  const [transportationBusCount, setTransportationBusCount] = useState(String(transport.busCount));
   const [driverNames, setDriverNames]               = useState<string[]>(Array(transport.busCount).fill(''));
   const [notes, setNotes]                           = useState('');
   const [denyDialogOpen, setDenyDialogOpen]         = useState(false);
   const [denialReason, setDenialReason]             = useState('');
   const [loading, setLoading]                       = useState(false);
   const [error, setError]                           = useState<string | null>(null);
+
+  // Edit-after-approval mode — reuses the same Part C fields/form, but pre-filled
+  // from the current approved values and submitted to the edit endpoint instead.
+  const [editMode, setEditMode] = useState(false);
+
+  // Resend-email state
+  const [resendStatus, setResendStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
+  const [resendError, setResendError]   = useState<string | null>(null);
 
   const isBusTrip = transportationType === 'DISTRICT_BUS';
 
@@ -96,10 +135,44 @@ export function TransportationPartCForm({ tripId, transport, isOwner, onUpdated 
     });
   };
 
+  // Keep the driver-name fields in sync with the bus count while editing —
+  // the backend requires driverNames.length === transportationBusCount.
+  const handleBusCountChange = (value: string) => {
+    setTransportationBusCount(value);
+    const count = parseInt(value, 10);
+    if (Number.isNaN(count) || count < 0) return;
+    setDriverNames((prev) => {
+      const next = [...prev];
+      next.length = count;
+      return next.fill('', prev.length);
+    });
+  };
+
   const canActOnPartC =
     !isOwner &&
     transport.status === 'PENDING_TRANSPORTATION' &&
-    partBSatisfied;
+    tripFullyApproved;
+
+  const canEdit   = !isOwner && transport.status === 'TRANSPORTATION_APPROVED';
+  const canResend = !isOwner && (transport.status === 'TRANSPORTATION_APPROVED' || transport.status === 'TRANSPORTATION_DENIED');
+
+  const handleEnterEditMode = () => {
+    setTransportationType(transport.transportationType ?? 'DISTRICT_BUS');
+    setTransportationCost(transport.transportationCost != null ? String(transport.transportationCost) : '');
+    setTransportationBusCount(String(transport.transportationBusCount ?? transport.busCount));
+    const currentDrivers = transport.driverNames?.length
+      ? transport.driverNames
+      : Array(transport.transportationBusCount ?? transport.busCount).fill('');
+    setDriverNames(currentDrivers);
+    setNotes(transport.transportationNotes ?? '');
+    setError(null);
+    setEditMode(true);
+  };
+
+  const handleCancelEdit = () => {
+    setEditMode(false);
+    setError(null);
+  };
 
   const handleApprove = async () => {
     if (!transportationType) {
@@ -114,7 +187,7 @@ export function TransportationPartCForm({ tripId, transport, isOwner, onUpdated 
       setError(null);
       setLoading(true);
       const cleanedDriverNames = driverNames.map((n) => n.trim()).filter(Boolean);
-      const dto: ApproveTransportationDto = {
+      const dto: ApproveTransportationDto | EditApprovedTransportationDto = {
         transportationType:     transportationType as TransportationType,
         transportationCost:     transportationCost ? parseFloat(transportationCost) : null,
         transportationBusCount: isBusTrip && transportationBusCount
@@ -125,12 +198,28 @@ export function TransportationPartCForm({ tripId, transport, isOwner, onUpdated 
           : null,
         notes: notes.trim() || null,
       };
-      const result = await fieldTripTransportationService.approve(tripId, dto);
+      const result = editMode
+        ? await fieldTripTransportationService.editApproved(tripId, dto)
+        : await fieldTripTransportationService.approve(tripId, dto);
       onUpdated(result);
+      setEditMode(false);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to approve');
+      setError(err instanceof Error ? err.message : `Failed to ${editMode ? 'save changes' : 'approve'}`);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleResend = async () => {
+    try {
+      setResendStatus('sending');
+      setResendError(null);
+      const result = await fieldTripTransportationService.resendEmail(tripId);
+      onUpdated(result);
+      setResendStatus('sent');
+    } catch (err: unknown) {
+      setResendStatus('error');
+      setResendError(err instanceof Error ? err.message : 'Failed to resend email');
     }
   };
 
@@ -308,10 +397,49 @@ export function TransportationPartCForm({ tripId, transport, isOwner, onUpdated 
         </Alert>
       )}
 
-      {/* ── Part C form (Transportation Director only, when PENDING) ── */}
-      {canActOnPartC && (
+      {/* ── Edit / Resend actions (Transportation Director/Secretary, after a decision) ── */}
+      {!editMode && (canEdit || canResend) && (
+        <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
+          {canEdit && (
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<EditIcon />}
+              onClick={handleEnterEditMode}
+            >
+              Edit Transportation Details
+            </Button>
+          )}
+          {canResend && (
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={resendStatus === 'sending' ? <CircularProgress size={16} /> : <ReplayIcon />}
+              onClick={handleResend}
+              disabled={resendStatus === 'sending'}
+            >
+              Resend Email to Submitter
+            </Button>
+          )}
+        </Box>
+      )}
+      {resendStatus === 'sent' && (
+        <Alert severity="success" sx={{ mb: 3 }} onClose={() => setResendStatus('idle')}>
+          Email resent to the submitter.
+        </Alert>
+      )}
+      {resendStatus === 'error' && (
+        <Alert severity="error" sx={{ mb: 3 }} onClose={() => setResendStatus('idle')}>
+          {resendError}
+        </Alert>
+      )}
+
+      {/* ── Part C form (Transportation Director only, when PENDING — or editing an approved record) ── */}
+      {(canActOnPartC || editMode) && (
         <Paper sx={{ p: 3 }}>
-          <Typography variant="h6" gutterBottom>Part C — Transportation Office Action</Typography>
+          <Typography variant="h6" gutterBottom>
+            {editMode ? 'Edit Transportation Details' : 'Part C — Transportation Office Action'}
+          </Typography>
           <Divider sx={{ mb: 2 }} />
 
           {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
@@ -345,7 +473,8 @@ export function TransportationPartCForm({ tripId, transport, isOwner, onUpdated 
               />
             </Grid>
 
-            {/* Number of Buses — pre-filled from Part A, read-only */}
+            {/* Number of Buses — pre-filled from Part A on initial approval (read-only);
+                editable while editing an already-approved record. */}
             {isBusTrip && (
               <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
@@ -353,8 +482,10 @@ export function TransportationPartCForm({ tripId, transport, isOwner, onUpdated 
                   label="Number of Buses Assigned"
                   type="number"
                   value={transportationBusCount}
-                  InputProps={{ readOnly: true }}
-                  helperText="Pre-filled from trip request"
+                  onChange={editMode ? (e) => handleBusCountChange(e.target.value) : undefined}
+                  InputProps={{ readOnly: !editMode }}
+                  inputProps={{ min: 1 }}
+                  helperText={editMode ? undefined : 'Pre-filled from trip request'}
                 />
               </Grid>
             )}
@@ -403,17 +534,23 @@ export function TransportationPartCForm({ tripId, transport, isOwner, onUpdated 
               onClick={handleApprove}
               disabled={loading || !transportationType}
             >
-              Approve Transportation
+              {editMode ? 'Save Changes' : 'Approve Transportation'}
             </Button>
-            <Button
-              variant="outlined"
-              color="error"
-              startIcon={<CancelIcon />}
-              onClick={() => setDenyDialogOpen(true)}
-              disabled={loading}
-            >
-              Deny
-            </Button>
+            {editMode ? (
+              <Button variant="outlined" onClick={handleCancelEdit} disabled={loading}>
+                Cancel
+              </Button>
+            ) : (
+              <Button
+                variant="outlined"
+                color="error"
+                startIcon={<CancelIcon />}
+                onClick={() => setDenyDialogOpen(true)}
+                disabled={loading}
+              >
+                Deny
+              </Button>
+            )}
           </Box>
         </Paper>
       )}
@@ -425,11 +562,49 @@ export function TransportationPartCForm({ tripId, transport, isOwner, onUpdated 
         </Alert>
       )}
 
-      {/* Pending but Part B not complete (approver, can't act yet) */}
-      {!isOwner && transport.status === 'PENDING_TRANSPORTATION' && !partBSatisfied && (
+      {/* Pending but the field trip hasn't cleared its own approval chain yet (approver, can't act yet) */}
+      {!isOwner && transport.status === 'PENDING_TRANSPORTATION' && !tripFullyApproved && (
         <Alert severity="warning">
-          Part C cannot be processed until the Building Principal approves the field trip (Part B).
+          Transportation cannot be processed until the field trip has received final approval.
         </Alert>
+      )}
+
+      {/* ── Approval history timeline (Transportation Director/Secretary) ── */}
+      {!isOwner && !!transport.approvalHistory?.length && (
+        <Paper variant="outlined" sx={{ p: 2, mt: 3 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+            <HistoryIcon fontSize="small" color="action" />
+            <Typography variant="subtitle2">Approval History</Typography>
+          </Box>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+            {[...transport.approvalHistory].reverse().map((entry) => (
+              <Box key={entry.id} sx={{ pl: 1.5, borderLeft: '3px solid', borderColor: 'divider' }}>
+                <Typography variant="body2">
+                  <strong>{HISTORY_ACTION_LABELS[entry.action] ?? entry.action}</strong>
+                  {' by '}{entry.performedByName}
+                  {' — '}
+                  {new Date(entry.performedAt).toLocaleString('en-US', {
+                    month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit',
+                  })}
+                </Typography>
+                {entry.notes && (
+                  <Typography variant="caption" color="text.secondary" display="block">
+                    {entry.notes}
+                  </Typography>
+                )}
+                {entry.changes && Object.keys(entry.changes).length > 0 && (
+                  <Box component="ul" sx={{ m: '4px 0 0', pl: 2 }}>
+                    {Object.entries(entry.changes).map(([field, diff]) => (
+                      <Typography key={field} component="li" variant="caption" color="text.secondary">
+                        {HISTORY_FIELD_LABELS[field] ?? field}: {formatHistoryValue(diff.from)} → {formatHistoryValue(diff.to)}
+                      </Typography>
+                    ))}
+                  </Box>
+                )}
+              </Box>
+            ))}
+          </Box>
+        </Paper>
       )}
 
       {/* ── Deny dialog ── */}

@@ -19,6 +19,8 @@ import {
   UpdateTransportationSchema,
   ApproveTransportationSchema,
   DenyTransportationSchema,
+  EditApprovedTransportationSchema,
+  TransportationHistoryQuerySchema,
 } from '../validators/fieldTripTransportation.validators';
 import {
   fetchGroupEmails,
@@ -101,9 +103,14 @@ export const submit = async (req: AuthRequest, res: Response): Promise<void> => 
       ? (submitter.displayName ?? `${submitter.firstName} ${submitter.lastName}`)
       : 'Unknown';
 
-    // Non-blocking: notify Transportation Director group
+    // Non-blocking: notify Transportation Director group — but only once the
+    // field trip has already cleared its own full approval chain. If it hasn't,
+    // no notice fires here; the Transportation Secretary group is instead
+    // notified at the correct time when the trip itself reaches APPROVED
+    // (see fieldTrip.controller.ts approve()). This covers the case where a
+    // teacher fills in Part A after the trip was already approved.
     const transportationDirectorGroupId = process.env.ENTRA_TRANSPORTATION_DIRECTOR_GROUP_ID;
-    if (transportationDirectorGroupId) {
+    if (transportationDirectorGroupId && trip.status === 'APPROVED') {
       fetchGroupEmails(transportationDirectorGroupId)
         .then((emails) => {
           if (emails.length === 0) return;
@@ -248,6 +255,97 @@ export const listPending = async (req: AuthRequest, res: Response): Promise<void
     const permLevel = req.user!.permLevel ?? 1;
 
     const result = await fieldTripTransportationService.listPending(userId, permLevel);
+    res.json(result);
+  } catch (error) {
+    handleControllerError(error, res);
+  }
+};
+
+// ---------------------------------------------------------------------------
+// GET /api/field-trips/transportation/history  — approval history list
+// ---------------------------------------------------------------------------
+
+export const listHistory = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const userId    = req.user!.id;
+    const permLevel = req.user!.permLevel ?? 1;
+    const filters   = TransportationHistoryQuerySchema.parse(req.query);
+
+    const result = await fieldTripTransportationService.listHistory(userId, permLevel, filters);
+    res.json(result);
+  } catch (error) {
+    handleControllerError(error, res);
+  }
+};
+
+// ---------------------------------------------------------------------------
+// PUT /api/field-trips/:id/transportation/edit  — edit an approved Part C record
+// ---------------------------------------------------------------------------
+
+export const editApproved = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const data      = EditApprovedTransportationSchema.parse(req.body);
+    const userId    = req.user!.id;
+    const permLevel = req.user!.permLevel ?? 1;
+    const tripId    = req.params.id as string;
+
+    const result = await fieldTripTransportationService.editApproved(userId, tripId, permLevel, data);
+    res.json(result);
+  } catch (error) {
+    handleControllerError(error, res);
+  }
+};
+
+// ---------------------------------------------------------------------------
+// POST /api/field-trips/:id/transportation/resend-email
+// ---------------------------------------------------------------------------
+
+export const resendEmail = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const userId    = req.user!.id;
+    const permLevel = req.user!.permLevel ?? 1;
+    const tripId    = req.params.id as string;
+
+    const transportRequest = await fieldTripTransportationService.getForResend(userId, tripId, permLevel);
+    const trip              = transportRequest.fieldTripRequest;
+    const submitterEmail    = trip.submitterEmail;
+
+    if (!submitterEmail) {
+      res.status(422).json({ error: 'VALIDATION_ERROR', message: 'This field trip has no submitter email on file' });
+      return;
+    }
+
+    const tripDetail = {
+      id:             trip.id,
+      destination:    trip.destination,
+      tripDate:       trip.tripDate,
+      teacherName:    trip.teacherName,
+      schoolBuilding: trip.schoolBuilding,
+      gradeClass:     trip.gradeClass,
+      studentCount:   trip.studentCount,
+      purpose:        trip.purpose,
+    };
+
+    // Unlike approve/deny, the resend's entire purpose is the email itself —
+    // if it fails, surface the error rather than silently succeeding.
+    if (transportRequest.status === 'TRANSPORTATION_APPROVED') {
+      await sendTransportationApproved(submitterEmail, tripDetail, {
+        transportationType:     transportRequest.transportationType,
+        transportationCost:     transportRequest.transportationCost,
+        transportationBusCount: transportRequest.transportationBusCount ?? null,
+        driverNames:            Array.isArray(transportRequest.driverNames) ? transportRequest.driverNames as string[] : null,
+        transportationNotes:    transportRequest.transportationNotes,
+      });
+    } else {
+      await sendTransportationDenied(
+        submitterEmail,
+        tripDetail,
+        { transportationNotes: transportRequest.transportationNotes },
+        transportRequest.denialReason ?? 'No reason provided',
+      );
+    }
+
+    const result = await fieldTripTransportationService.recordEmailResent(userId, tripId);
     res.json(result);
   } catch (error) {
     handleControllerError(error, res);

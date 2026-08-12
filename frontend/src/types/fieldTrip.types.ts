@@ -257,6 +257,19 @@ export interface TransportApproverSnap {
   lastName:    string;
 }
 
+export type TransportationHistoryAction = 'APPROVED' | 'DENIED' | 'EDITED' | 'EMAIL_RESENT';
+
+export interface TransportationApprovalHistoryEntry {
+  id:                      string;
+  transportationRequestId: string;
+  action:                  TransportationHistoryAction;
+  performedById:           string;
+  performedByName:         string;
+  performedAt:             string;
+  notes?:                  string | null;
+  changes?:                Record<string, { from: unknown; to: unknown }> | null;
+}
+
 export interface FieldTripTransportationRequest {
   id:                      string;
   fieldTripRequestId:      string;
@@ -291,6 +304,7 @@ export interface FieldTripTransportationRequest {
   approvedBy?:             TransportApproverSnap | null;
   deniedBy?:               TransportApproverSnap | null;
   fieldTripRequest?:       FieldTripRequest;
+  approvalHistory?:        TransportationApprovalHistoryEntry[];
 }
 
 export interface CreateTransportationDto {
@@ -323,6 +337,15 @@ export interface ApproveTransportationDto {
 export interface DenyTransportationDto {
   reason: string;
   notes?: string | null;
+}
+
+// Same shape as ApproveTransportationDto — used to edit an already-approved record.
+export type EditApprovedTransportationDto = ApproveTransportationDto;
+
+export interface TransportationHistoryFilters {
+  status?: 'TRANSPORTATION_APPROVED' | 'TRANSPORTATION_DENIED';
+  from?:   string;
+  to?:     string;
 }
 
 export const TRANSPORTATION_STATUS_LABELS: Record<TransportationStatus, string> = {

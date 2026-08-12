@@ -567,6 +567,7 @@ model User {
   fieldTripStatusChanges                                    FieldTripStatusHistory[] @relation("FieldTripStatusChangedBy")
   transportationApprovals                                   FieldTripTransportationRequest[] @relation("TransportationApprover")
   transportationDenials                                     FieldTripTransportationRequest[] @relation("TransportationDenier")
+  transportationApprovalHistoryActions                      TransportationApprovalHistory[]  @relation("TransportationApprovalHistoryActor")
   // Standalone Transportation Request relations
   transportationRequests                                    TransportationRequest[]          @relation("TransportationRequestSubmitter")
   transportationRequestApprovals                            TransportationRequest[]          @relation("TransportationRequestApprover")
@@ -842,10 +843,30 @@ model FieldTripTransportationRequest {
   fieldTripRequest        FieldTripRequest @relation(fields: [fieldTripRequestId], references: [id], onDelete: Cascade)
   approvedBy              User?           @relation("TransportationApprover", fields: [approvedById], references: [id])
   deniedBy                User?           @relation("TransportationDenier", fields: [deniedById], references: [id])
+  approvalHistory         TransportationApprovalHistory[]
 
   @@index([fieldTripRequestId])
   @@index([status])
   @@map("field_trip_transportation_requests")
+}
+
+model TransportationApprovalHistory {
+  id                       String    @id @default(uuid())
+  transportationRequestId  String
+  action                   String    // 'APPROVED' | 'DENIED' | 'EDITED' | 'EMAIL_RESENT'
+  performedById            String
+  performedByName          String    // Cached display name
+  performedAt              DateTime  @default(now())
+  notes                    String?   @db.Text
+  changes                  Json?     // { fieldName: { from, to }, ... } — populated only for 'EDITED'
+
+  transportationRequest    FieldTripTransportationRequest @relation(fields: [transportationRequestId], references: [id], onDelete: Cascade)
+  performedBy              User                           @relation("TransportationApprovalHistoryActor", fields: [performedById], references: [id])
+
+  @@index([transportationRequestId])
+  @@index([performedById])
+  @@index([performedAt])
+  @@map("transportation_approval_history")
 }
 
 model vendors {

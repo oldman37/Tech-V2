@@ -17,6 +17,8 @@ import type {
   UpdateTransportationDto,
   ApproveTransportationDto,
   DenyTransportationDto,
+  EditApprovedTransportationDto,
+  TransportationHistoryQueryDto,
 } from '../validators/fieldTripTransportation.validators';
 
 // ---------------------------------------------------------------------------
@@ -27,6 +29,18 @@ const BUS_CAPACITY = 52;
 
 export function calcMinBuses(studentCount: number): number {
   return Math.ceil(studentCount / BUS_CAPACITY);
+}
+
+// ---------------------------------------------------------------------------
+// Helper
+// ---------------------------------------------------------------------------
+
+function resolveDisplayName(user: {
+  displayName?: string | null;
+  firstName: string;
+  lastName: string;
+}): string {
+  return user.displayName ?? `${user.firstName} ${user.lastName}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -49,6 +63,9 @@ const TRANSPORT_WITH_TRIP = {
   },
   deniedBy: {
     select: { id: true, displayName: true, firstName: true, lastName: true },
+  },
+  approvalHistory: {
+    orderBy: { performedAt: 'asc' as const },
   },
 } as const;
 
@@ -268,11 +285,7 @@ export class FieldTripTransportationService {
 
     const transportRequest = await prisma.fieldTripTransportationRequest.findUnique({
       where:   { fieldTripRequestId: fieldTripId },
-      include: {
-        fieldTripRequest: {
-          include: { approvals: true },
-        },
-      },
+      include: { fieldTripRequest: true },
     });
 
     if (!transportRequest) {
@@ -285,34 +298,50 @@ export class FieldTripTransportationService {
       );
     }
 
-    // Enforce Part B: principal must have approved, OR the trip bypassed the supervisor stage
-    // (i.e., submitted by a user with no supervisor assigned) and is now fully APPROVED.
-    const hasPrincipalApproval = transportRequest.fieldTripRequest.approvals.some(
-      (a) => a.stage === 'SUPERVISOR' && a.action === 'APPROVED',
-    );
-    const tripIsFullyApproved = transportRequest.fieldTripRequest.status === 'APPROVED';
-
-    if (!hasPrincipalApproval && !tripIsFullyApproved) {
+    // Transportation cannot be processed until the field trip has cleared its
+    // entire own approval chain (Supervisor -> Asst. Director of Schools ->
+    // Director of Schools -> Finance Director) and reached APPROVED.
+    if (transportRequest.fieldTripRequest.status !== 'APPROVED') {
       throw new ValidationError(
-        'Transportation cannot be processed until the field trip has been approved by the Building Principal',
+        'Transportation cannot be processed until the field trip has received final approval',
       );
     }
 
     loggers.fieldTrip.info('Approving transportation request Part C', { userId, fieldTripId });
 
-    return prisma.fieldTripTransportationRequest.update({
-      where: { fieldTripRequestId: fieldTripId },
-      data: {
-        status:                 'TRANSPORTATION_APPROVED',
-        transportationType:     data.transportationType,
-        transportationCost:     data.transportationCost ?? null,
-        transportationBusCount: data.transportationBusCount ?? null,
-        driverNames:            data.driverNames ?? Prisma.DbNull,
-        transportationNotes:    data.notes ?? null,
-        approvedById:           userId,
-        approvedAt:             new Date(),
-      },
-      include: TRANSPORT_WITH_TRIP,
+    const actor = await prisma.user.findUnique({
+      where:  { id: userId },
+      select: { displayName: true, firstName: true, lastName: true },
+    });
+    const actorName = actor ? resolveDisplayName(actor) : 'Unknown Approver';
+
+    return prisma.$transaction(async (tx) => {
+      const updated = await tx.fieldTripTransportationRequest.update({
+        where: { fieldTripRequestId: fieldTripId },
+        data: {
+          status:                 'TRANSPORTATION_APPROVED',
+          transportationType:     data.transportationType,
+          transportationCost:     data.transportationCost ?? null,
+          transportationBusCount: data.transportationBusCount ?? null,
+          driverNames:            data.driverNames ?? Prisma.DbNull,
+          transportationNotes:    data.notes ?? null,
+          approvedById:           userId,
+          approvedAt:             new Date(),
+        },
+        include: TRANSPORT_WITH_TRIP,
+      });
+
+      await tx.transportationApprovalHistory.create({
+        data: {
+          transportationRequestId: updated.id,
+          action:                  'APPROVED',
+          performedById:            userId,
+          performedByName:          actorName,
+          notes:                    data.notes ?? null,
+        },
+      });
+
+      return updated;
     });
   }
 
@@ -332,11 +361,7 @@ export class FieldTripTransportationService {
 
     const transportRequest = await prisma.fieldTripTransportationRequest.findUnique({
       where:   { fieldTripRequestId: fieldTripId },
-      include: {
-        fieldTripRequest: {
-          include: { approvals: true },
-        },
-      },
+      include: { fieldTripRequest: true },
     });
 
     if (!transportRequest) {
@@ -349,29 +374,225 @@ export class FieldTripTransportationService {
       );
     }
 
-    const hasPrincipalApproval = transportRequest.fieldTripRequest.approvals.some(
-      (a) => a.stage === 'SUPERVISOR' && a.action === 'APPROVED',
-    );
-    const tripIsFullyApproved = transportRequest.fieldTripRequest.status === 'APPROVED';
-
-    if (!hasPrincipalApproval && !tripIsFullyApproved) {
+    // Transportation cannot be processed until the field trip has cleared its
+    // entire own approval chain (Supervisor -> Asst. Director of Schools ->
+    // Director of Schools -> Finance Director) and reached APPROVED.
+    if (transportRequest.fieldTripRequest.status !== 'APPROVED') {
       throw new ValidationError(
-        'Transportation cannot be processed until the field trip has been approved by the Building Principal',
+        'Transportation cannot be processed until the field trip has received final approval',
       );
     }
 
     loggers.fieldTrip.info('Denying transportation request Part C', { userId, fieldTripId });
 
-    return prisma.fieldTripTransportationRequest.update({
+    const actor = await prisma.user.findUnique({
+      where:  { id: userId },
+      select: { displayName: true, firstName: true, lastName: true },
+    });
+    const actorName = actor ? resolveDisplayName(actor) : 'Unknown';
+
+    return prisma.$transaction(async (tx) => {
+      const updated = await tx.fieldTripTransportationRequest.update({
+        where: { fieldTripRequestId: fieldTripId },
+        data: {
+          status:             'TRANSPORTATION_DENIED',
+          denialReason:       data.reason,
+          transportationNotes: data.notes ?? null,
+          deniedById:         userId,
+          deniedAt:           new Date(),
+        },
+        include: TRANSPORT_WITH_TRIP,
+      });
+
+      await tx.transportationApprovalHistory.create({
+        data: {
+          transportationRequestId: updated.id,
+          action:                  'DENIED',
+          performedById:            userId,
+          performedByName:          actorName,
+          notes:                    data.reason,
+        },
+      });
+
+      return updated;
+    });
+  }
+
+  // -------------------------------------------------------------------------
+  // Edit an already-approved Part C record (e.g. driver reassignment)
+  // -------------------------------------------------------------------------
+
+  async editApproved(
+    userId:      string,
+    fieldTripId: string,
+    permLevel:   number,
+    data:        EditApprovedTransportationDto,
+  ) {
+    if (permLevel < 3) {
+      throw new AuthorizationError('You do not have permission to edit transportation requests');
+    }
+
+    const transportRequest = await prisma.fieldTripTransportationRequest.findUnique({
       where: { fieldTripRequestId: fieldTripId },
+    });
+
+    if (!transportRequest) {
+      throw new NotFoundError('FieldTripTransportationRequest');
+    }
+
+    if (transportRequest.status !== 'TRANSPORTATION_APPROVED') {
+      throw new ValidationError(
+        `Only an approved transportation request can be edited (current status: ${transportRequest.status})`,
+      );
+    }
+
+    // Diff old vs. new values so the history row records exactly what changed.
+    const changes: Record<string, { from: unknown; to: unknown }> = {};
+    const nextDriverNames = data.driverNames ?? null;
+    const prevDriverNames = Array.isArray(transportRequest.driverNames)
+      ? (transportRequest.driverNames as string[])
+      : null;
+
+    if (data.transportationType !== transportRequest.transportationType) {
+      changes.transportationType = { from: transportRequest.transportationType, to: data.transportationType };
+    }
+    const prevCost = transportRequest.transportationCost != null ? Number(transportRequest.transportationCost) : null;
+    const nextCost = data.transportationCost ?? null;
+    if (nextCost !== prevCost) {
+      changes.transportationCost = { from: prevCost, to: nextCost };
+    }
+    if ((data.transportationBusCount ?? null) !== transportRequest.transportationBusCount) {
+      changes.transportationBusCount = { from: transportRequest.transportationBusCount, to: data.transportationBusCount ?? null };
+    }
+    if (JSON.stringify(nextDriverNames) !== JSON.stringify(prevDriverNames)) {
+      changes.driverNames = { from: prevDriverNames, to: nextDriverNames };
+    }
+    if ((data.notes ?? null) !== transportRequest.transportationNotes) {
+      changes.transportationNotes = { from: transportRequest.transportationNotes, to: data.notes ?? null };
+    }
+
+    const actor = await prisma.user.findUnique({
+      where:  { id: userId },
+      select: { displayName: true, firstName: true, lastName: true },
+    });
+    const actorName = actor ? resolveDisplayName(actor) : 'Unknown';
+
+    loggers.fieldTrip.info('Editing approved transportation request Part C', { userId, fieldTripId });
+
+    return prisma.$transaction(async (tx) => {
+      const updated = await tx.fieldTripTransportationRequest.update({
+        where: { fieldTripRequestId: fieldTripId },
+        data: {
+          transportationType:     data.transportationType,
+          transportationCost:     data.transportationCost ?? null,
+          transportationBusCount: data.transportationBusCount ?? null,
+          driverNames:            data.driverNames ?? Prisma.DbNull,
+          transportationNotes:    data.notes ?? null,
+        },
+        include: TRANSPORT_WITH_TRIP,
+      });
+
+      if (Object.keys(changes).length > 0) {
+        await tx.transportationApprovalHistory.create({
+          data: {
+            transportationRequestId: updated.id,
+            action:                  'EDITED',
+            performedById:            userId,
+            performedByName:          actorName,
+            changes:                  changes as unknown as Prisma.InputJsonValue,
+          },
+        });
+      }
+
+      return updated;
+    });
+  }
+
+  // -------------------------------------------------------------------------
+  // Resend the approval/denial email to the submitter
+  // -------------------------------------------------------------------------
+
+  async getForResend(userId: string, fieldTripId: string, permLevel: number) {
+    if (permLevel < 3) {
+      throw new AuthorizationError('You do not have permission to resend transportation emails');
+    }
+
+    const transportRequest = await prisma.fieldTripTransportationRequest.findUnique({
+      where:   { fieldTripRequestId: fieldTripId },
+      include: TRANSPORT_WITH_TRIP,
+    });
+
+    if (!transportRequest) {
+      throw new NotFoundError('FieldTripTransportationRequest');
+    }
+
+    if (transportRequest.status !== 'TRANSPORTATION_APPROVED' && transportRequest.status !== 'TRANSPORTATION_DENIED') {
+      throw new ValidationError(
+        `There is no decision email to resend yet (current status: ${transportRequest.status})`,
+      );
+    }
+
+    return transportRequest;
+  }
+
+  async recordEmailResent(userId: string, fieldTripId: string) {
+    const transportRequest = await prisma.fieldTripTransportationRequest.findUnique({
+      where: { fieldTripRequestId: fieldTripId },
+    });
+    if (!transportRequest) {
+      throw new NotFoundError('FieldTripTransportationRequest');
+    }
+
+    const actor = await prisma.user.findUnique({
+      where:  { id: userId },
+      select: { displayName: true, firstName: true, lastName: true },
+    });
+    const actorName = actor ? resolveDisplayName(actor) : 'Unknown';
+
+    await prisma.transportationApprovalHistory.create({
       data: {
-        status:             'TRANSPORTATION_DENIED',
-        denialReason:       data.reason,
-        transportationNotes: data.notes ?? null,
-        deniedById:         userId,
-        deniedAt:           new Date(),
+        transportationRequestId: transportRequest.id,
+        action:                  'EMAIL_RESENT',
+        performedById:            userId,
+        performedByName:          actorName,
+      },
+    });
+
+    // Return the full record (with the fresh history entry) so the frontend
+    // can update its cache the same way approve/deny/edit do.
+    return prisma.fieldTripTransportationRequest.findUniqueOrThrow({
+      where:   { fieldTripRequestId: fieldTripId },
+      include: TRANSPORT_WITH_TRIP,
+    });
+  }
+
+  // -------------------------------------------------------------------------
+  // List approval history (processed requests, most recent decision first)
+  // -------------------------------------------------------------------------
+
+  async listHistory(userId: string, permLevel: number, filters: TransportationHistoryQueryDto) {
+    if (permLevel < 3) {
+      throw new AuthorizationError('You do not have permission to view the transportation approval history');
+    }
+
+    return prisma.fieldTripTransportationRequest.findMany({
+      where: {
+        status: filters.status
+          ? filters.status
+          : { in: ['TRANSPORTATION_APPROVED', 'TRANSPORTATION_DENIED'] },
+        ...(filters.from || filters.to
+          ? {
+              fieldTripRequest: {
+                tripDate: {
+                  ...(filters.from ? { gte: new Date(filters.from) } : {}),
+                  ...(filters.to ? { lte: new Date(filters.to) } : {}),
+                },
+              },
+            }
+          : {}),
       },
       include: TRANSPORT_WITH_TRIP,
+      orderBy: { updatedAt: 'desc' },
     });
   }
 
@@ -384,8 +605,15 @@ export class FieldTripTransportationService {
       throw new AuthorizationError('You do not have permission to view the pending transportation queue');
     }
 
+    // Only surface requests whose field trip has cleared every approval stage.
+    // A teacher may submit Part A at any point after the trip's own submission
+    // (unchanged), but it must not become visible/actionable to the
+    // Transportation Secretary/Director until the trip itself is fully APPROVED.
     return prisma.fieldTripTransportationRequest.findMany({
-      where:   { status: 'PENDING_TRANSPORTATION' },
+      where: {
+        status: 'PENDING_TRANSPORTATION',
+        fieldTripRequest: { status: 'APPROVED' },
+      },
       include: TRANSPORT_WITH_TRIP,
       orderBy: { submittedAt: 'asc' },
     });

@@ -75,6 +75,16 @@ export function FieldTripApprovalPage() {
     enabled:  activeTab === 2,
   });
 
+  const {
+    data: transportHistory,
+    isLoading: transportHistoryLoading,
+    error: transportHistoryError,
+  } = useQuery<FieldTripTransportationRequest[]>({
+    queryKey: ['field-trips', 'transportation', 'history'],
+    queryFn:  () => fieldTripTransportationService.listHistory(),
+    enabled:  activeTab === 3,
+  });
+
   return (
     <Box sx={{ p: { xs: 2, sm: 3 } }}>
       <PageBackButton />
@@ -96,6 +106,7 @@ export function FieldTripApprovalPage() {
             <option value={0}>Field Trip Approvals</option>
             <option value={1}>Transportation Pending</option>
             <option value={2}>Approval History</option>
+            <option value={3}>Transportation History</option>
           </select>
         </Box>
       ) : (
@@ -110,6 +121,7 @@ export function FieldTripApprovalPage() {
           <Tab label="Field Trip Approvals" />
           <Tab label="Transportation Pending" icon={<DirectionsBusIcon fontSize="small" />} iconPosition="start" />
           <Tab label="Approval History" />
+          <Tab label="Transportation History" icon={<DirectionsBusIcon fontSize="small" />} iconPosition="start" />
         </Tabs>
       )}
 
@@ -194,6 +206,36 @@ export function FieldTripApprovalPage() {
                   size="small"
                   variant="outlined"
                   onClick={() => navigate(`/field-trips/${row.id}`)}
+                >
+                  View
+                </Button>
+              )}
+            />
+          </Paper>
+        </>
+      )}
+
+      {/* ── Tab 3: Transportation History ── */}
+      {activeTab === 3 && (
+        <>
+          {transportHistoryError && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              Failed to load transportation approval history.
+            </Alert>
+          )}
+          <Paper variant="outlined">
+            <ResponsiveTable<FieldTripTransportationRequest>
+              columns={transportHistoryColumns}
+              rows={transportHistory ?? []}
+              getRowKey={(row) => row.id}
+              onRowClick={(row) => navigate(`/field-trips/${row.fieldTripRequestId}/transportation/view`)}
+              loading={transportHistoryLoading}
+              emptyMessage="No transportation requests have been decided yet."
+              rowActions={(row) => (
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={() => navigate(`/field-trips/${row.fieldTripRequestId}/transportation/view`)}
                 >
                   View
                 </Button>
@@ -309,6 +351,60 @@ const transportColumns: Column<FieldTripTransportationRequest>[] = [
             month: 'short', day: 'numeric', year: 'numeric',
           })
         : '—',
+  },
+];
+
+const transportHistoryColumns: Column<FieldTripTransportationRequest>[] = [
+  {
+    key: 'destination',
+    label: 'Destination',
+    isPrimary: true,
+    render: (row) => row.fieldTripRequest?.destination ?? '—',
+  },
+  {
+    key: 'tripDate',
+    label: 'Trip Date',
+    render: (row) =>
+      row.fieldTripRequest?.tripDate
+        ? formatTripDateRange(row.fieldTripRequest.tripDate, row.fieldTripRequest.returnDate)
+        : '—',
+  },
+  {
+    key: 'school',
+    label: 'School',
+    isSecondary: true,
+    render: (row) => row.fieldTripRequest?.schoolBuilding ?? '—',
+  },
+  {
+    key: 'teacherName',
+    label: 'Teacher',
+    hideOnMobile: true,
+    render: (row) => row.fieldTripRequest?.teacherName ?? '—',
+  },
+  {
+    key: 'status',
+    label: 'Transport Status',
+    render: (row) => <TransportStatusChip status={row.status as TransportationStatus} />,
+  },
+  {
+    key: 'decidedBy',
+    label: 'Decided By',
+    hideOnMobile: true,
+    render: (row) => {
+      const actor = row.status === 'TRANSPORTATION_APPROVED' ? row.approvedBy : row.deniedBy;
+      return actor ? (actor.displayName ?? `${actor.firstName} ${actor.lastName}`) : '—';
+    },
+  },
+  {
+    key: 'decidedAt',
+    label: 'Decided',
+    hideOnMobile: true,
+    render: (row) => {
+      const at = row.status === 'TRANSPORTATION_APPROVED' ? row.approvedAt : row.deniedAt;
+      return at
+        ? new Date(at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+        : '—';
+    },
   },
 ];
 
