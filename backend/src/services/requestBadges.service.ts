@@ -61,18 +61,25 @@ async function getOrSeedLastVisited(userId: string, section: RequestSectionKey):
  * exactly), OR a fresh assignment to the caller.
  *
  * Assignment special case: assign() (work-orders.service.ts) writes a system
- * comment as the only timestamped trace of an assignment — there is no
- * assignedAt column — and system comments are excluded from the plain
+ * comment as the only timestamped trace of a *manual* reassignment — there is
+ * no assignedAt column — and system comments are excluded from the plain
  * new-comment signal above. Without this branch a freshly assigned ticket
  * with no discussion produces no badge at all. Matched on the literal
  * comment body assign() writes; if that text ever changes, update it there too.
+ *
+ * Auto-assignment special case: most new tickets are assigned at creation via
+ * resolveAutoAssignee() (work-orders.service.ts createWorkOrder()), which sets
+ * assignedToId directly in the ticket.create() call and writes no comment at
+ * all. Such a ticket has neither of the two comment-based signals above, so a
+ * ticket currently assigned to the caller and created after `since` also
+ * counts as changed.
  */
 async function countWorkOrders(userId: string, groups: string[], since: Date): Promise<number> {
   const permLevel = derivePermLevelFromGroups(groups, 'WORK_ORDERS');
 
   const ownTickets = await prisma.ticket.findMany({
     where: { OR: [{ reportedById: userId }, { assignedToId: userId }] },
-    select: { id: true, assignedToId: true },
+    select: { id: true, assignedToId: true, createdAt: true },
   });
   if (ownTickets.length === 0) return 0;
 
@@ -109,6 +116,9 @@ async function countWorkOrders(userId: string, groups: string[], since: Date): P
   const changed = new Set<string>();
   for (const row of commentRows) changed.add(row.ticketId);
   for (const row of assignmentRows) changed.add(row.ticketId);
+  for (const t of ownTickets) {
+    if (t.assignedToId === userId && t.createdAt > since) changed.add(t.id);
+  }
   return changed.size;
 }
 

@@ -2,6 +2,7 @@ import { useState, useRef, useCallback } from 'react';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import { useGoBack } from '@/hooks/useGoBack';
 import { useFilterParams } from '@/hooks/useFilterParams';
+import { useAutoFocusSearch } from '../../hooks/useAutoFocusSearch';
 import {
   Alert,
   Box,
@@ -66,6 +67,7 @@ export default function CheckoutPage() {
   const goBack = useGoBack();
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
+  const searchRef = useAutoFocusSearch();
 
   // Filter state — lives in the URL so Back returns to this view
   const [filters, setFilters] = useFilterParams({
@@ -371,6 +373,7 @@ export default function CheckoutPage() {
       ) : (
         <Paper sx={{ p: 1.5, mb: 2, display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
           <TextField
+            inputRef={searchRef}
             label="Search by name, asset tag, or charger serial"
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}

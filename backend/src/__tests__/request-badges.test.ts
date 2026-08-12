@@ -33,6 +33,7 @@ describe('Request Badges', () => {
   let tripId: string;
   let transportId: string;
   let workOrderId: string;
+  let locationId: string;
 
   beforeAll(async () => {
     [submitter, otherUser] = await Promise.all([
@@ -52,6 +53,8 @@ describe('Request Badges', () => {
       data: { name: `Badge Test Location ${crypto.randomUUID().slice(0, 8)}`, type: 'SCHOOL', isActive: true },
       select: { id: true },
     });
+
+    locationId = location.id;
 
     const wo = await createTestWorkOrder({ reportedById: submitter.id, officeLocationId: location.id });
     workOrderId = wo.id;
@@ -320,6 +323,32 @@ describe('Request Badges', () => {
       await prisma.userSupervisor.deleteMany({ where: { userId: submitter.id, supervisorId: approver.id } });
       await prisma.requestSectionView.deleteMany({ where: { userId: approver.id } });
       await cleanupUsers([approver.id]);
+    }
+  });
+
+  it('12. a ticket auto-assigned at creation (assignedToId set on create, no comments) counts for the assignee', async () => {
+    // Seed the assignee's WORK_ORDERS lastVisitedAt to now, before the auto-assigned ticket exists.
+    const { cookieStr, headerValue } = csrfPair();
+    await request(app)
+      .post('/api/request-badges/WORK_ORDERS/visited')
+      .set('Cookie', `access_token=${otherUserToken}; ${cookieStr}`)
+      .set('x-xsrf-token', headerValue);
+
+    // Mirrors createWorkOrder()'s auto-assign path: assignedToId set directly on create, no ticketComment written.
+    const autoAssigned = await createTestWorkOrder({
+      reportedById: submitter.id,
+      officeLocationId: locationId,
+      assignedToId: otherUser.id,
+    });
+
+    try {
+      const res = await request(app)
+        .get('/api/request-badges')
+        .set('Cookie', `access_token=${otherUserToken}`);
+      expect(res.body.WORK_ORDERS).toBe(1);
+    } finally {
+      await cleanupTickets([autoAssigned.id]);
+      await prisma.requestSectionView.deleteMany({ where: { userId: otherUser.id, section: 'WORK_ORDERS' } });
     }
   });
 });

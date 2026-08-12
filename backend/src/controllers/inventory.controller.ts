@@ -206,6 +206,7 @@ export const deleteInventoryItem = async (req: AuthRequest, res: Response) => {
 
     const { id } = req.params;
     const permanent = req.query.permanent === 'true';
+    const purgeAll = req.query.purgeAll === 'true';
 
     // Only admins and Tech Assistants can permanently delete
     if (permanent && !req.user.roles.includes('ADMIN') && !isTechAssistant(req.user.groups)) {
@@ -220,7 +221,7 @@ export const deleteInventoryItem = async (req: AuthRequest, res: Response) => {
       name: req.user.name,
     };
 
-    await inventoryService.delete(id as string, permanent, user);
+    await inventoryService.delete(id as string, permanent, user, purgeAll);
 
     loggers.inventory.warn('Inventory item deleted', {
       userId: req.user.id,

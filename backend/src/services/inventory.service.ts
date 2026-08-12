@@ -6,7 +6,7 @@
  */
 
 import { PrismaClient, equipment, Prisma } from '@prisma/client';
-import { NotFoundError, ValidationError, ConflictError } from '../utils/errors';
+import { NotFoundError, ValidationError } from '../utils/errors';
 import { loggers } from '../lib/logger';
 import {
   InventoryQuery,
@@ -711,22 +711,10 @@ export class InventoryService {
   /**
    * Delete inventory item (soft delete by default)
    */
-  async delete(id: string, permanent: boolean, user: UserContext): Promise<void> {
+  async delete(id: string, permanent: boolean, user: UserContext, purgeAll = false): Promise<void> {
     const existing = await this.prisma.equipment.findUnique({
       where: { id },
-      include: {
-        _count: {
-          select: {
-            deviceAssignments: true,
-            repairTickets:     true,
-            damageIncidents:   true,
-            tickets:           true,
-            auditItems:        true,
-            cartItems:         true,
-            importJobs:        true,
-          },
-        },
-      },
+      select: { id: true, assetTag: true },
     });
 
     if (!existing) {
@@ -734,36 +722,13 @@ export class InventoryService {
     }
 
     if (permanent) {
-      // These seven relations don't cascade on delete (unlike inventory_changes,
-      // EquipmentAttachment, MaintenanceHistory, EquipmentAssignmentHistory,
-      // which do) — a raw equipment.delete() would throw an opaque P2003 for
-      // any item with real history. Block early with a specific reason instead.
-      const c = existing._count;
-      const blockers: string[] = [];
-      if (c.deviceAssignments) blockers.push(`${c.deviceAssignments} checkout record${c.deviceAssignments === 1 ? '' : 's'}`);
-      if (c.tickets)           blockers.push(`${c.tickets} work order${c.tickets === 1 ? '' : 's'}`);
-      if (c.repairTickets)     blockers.push(`${c.repairTickets} repair ticket${c.repairTickets === 1 ? '' : 's'}`);
-      if (c.damageIncidents)   blockers.push(`${c.damageIncidents} damage incident${c.damageIncidents === 1 ? '' : 's'}`);
-      if (c.auditItems)        blockers.push(`${c.auditItems} inventory audit record${c.auditItems === 1 ? '' : 's'}`);
-      if (c.cartItems)         blockers.push(`${c.cartItems} device cart item${c.cartItems === 1 ? '' : 's'}`);
-      if (c.importJobs)        blockers.push(`${c.importJobs} import record${c.importJobs === 1 ? '' : 's'}`);
-
-      if (blockers.length > 0) {
-        throw new ConflictError(
-          `Cannot permanently delete "${existing.assetTag}" — it has ${blockers.join(', ')} referencing it. Use Dispose to retain this history, or remove the related records first.`,
-          { assetTag: existing.assetTag, counts: c },
-        );
-      }
-
-      // Hard delete
-      await this.prisma.equipment.delete({
-        where: { id },
-      });
+      await this.hardDeleteWithRelations(existing.id, existing.assetTag, purgeAll, user);
 
       loggers.inventory.warn('Inventory item permanently deleted', {
         itemId: id,
         assetTag: existing.assetTag,
         userId: user.id,
+        purgeAll,
       });
     } else {
       // Soft delete - mark as disposed
@@ -789,6 +754,124 @@ export class InventoryService {
         userId: user.id,
       });
     }
+  }
+
+  /**
+   * Permanently deletes an equipment row and every relation that references
+   * it, inside a single transaction so a failure partway rolls back cleanly.
+   *
+   * Some relations have a required (non-nullable) FK to equipment and cannot
+   * survive the equipment being deleted — those rows are always deleted
+   * outright, in both modes: DeviceAssignment, ChargerAssignment
+   * (transitively, via its required deviceAssignmentId), RepairTicket,
+   * InventoryAuditItem, DeviceCartItem.
+   *
+   * Others have a nullable FK. DamageIncident/DamageInvoice and
+   * InventoryImportItem are equipment-history — `purgeAll` decides whether
+   * they're deleted outright or preserved with their equipment reference
+   * cleared (and, for DamageIncident, a system note appended to its
+   * description — it has no dedicated comment-thread model). Ticket is
+   * different: it's an independent record (its own title/status/assignee/
+   * comment thread), not equipment-history, so it is never deleted in either
+   * mode — only unlinked, with a system TicketComment noting why.
+   */
+  private async hardDeleteWithRelations(
+    equipmentId: string,
+    assetTag: string,
+    purgeAll: boolean,
+    user: UserContext,
+  ): Promise<void> {
+    await this.prisma.$transaction(async (tx) => {
+      const assignments = await tx.deviceAssignment.findMany({
+        where: { equipmentId },
+        select: { id: true },
+      });
+      const assignmentIds = assignments.map((a) => a.id);
+
+      const chargerAssignments = assignmentIds.length > 0
+        ? await tx.chargerAssignment.findMany({
+            where: { deviceAssignmentId: { in: assignmentIds } },
+            select: { id: true },
+          })
+        : [];
+      const chargerAssignmentIds = chargerAssignments.map((c) => c.id);
+
+      const damageIncidents = await tx.damageIncident.findMany({
+        where: {
+          OR: [
+            { equipmentId },
+            ...(assignmentIds.length > 0 ? [{ assignmentId: { in: assignmentIds } }] : []),
+            ...(chargerAssignmentIds.length > 0 ? [{ chargerAssignmentId: { in: chargerAssignmentIds } }] : []),
+          ],
+        },
+        select: { id: true, description: true },
+      });
+      const damageIncidentIds = damageIncidents.map((d) => d.id);
+
+      if (damageIncidentIds.length > 0) {
+        if (purgeAll) {
+          // Repair tickets on *other* equipment that merely reference one of these
+          // incidents — this equipment's own repair tickets are deleted below regardless.
+          await tx.repairTicket.updateMany({
+            where: { damageIncidentId: { in: damageIncidentIds } },
+            data: { damageIncidentId: null },
+          });
+          await tx.damageInvoice.deleteMany({ where: { damageIncidentId: { in: damageIncidentIds } } });
+          await tx.damageIncident.deleteMany({ where: { id: { in: damageIncidentIds } } });
+        } else {
+          const note = `[System] Linked equipment "${assetTag}" was permanently deleted on ${new Date().toLocaleDateString()}.`;
+          for (const incident of damageIncidents) {
+            await tx.damageIncident.update({
+              where: { id: incident.id },
+              data: {
+                equipmentId: null,
+                assignmentId: null,
+                chargerAssignmentId: null,
+                description: incident.description ? `${incident.description}\n\n${note}` : note,
+              },
+            });
+          }
+        }
+      }
+
+      if (chargerAssignmentIds.length > 0) {
+        await tx.chargerAssignment.deleteMany({ where: { id: { in: chargerAssignmentIds } } });
+      }
+
+      await tx.deviceCartItem.deleteMany({ where: { equipmentId } });
+      await tx.repairTicket.deleteMany({ where: { equipmentId } });
+      await tx.inventoryAuditItem.deleteMany({ where: { equipmentId } });
+
+      if (purgeAll) {
+        await tx.inventoryImportItem.deleteMany({ where: { equipmentId } });
+      } else {
+        await tx.inventoryImportItem.updateMany({ where: { equipmentId }, data: { equipmentId: null } });
+      }
+
+      const tickets = await tx.ticket.findMany({ where: { equipmentId }, select: { id: true } });
+      for (const ticket of tickets) {
+        await tx.ticketComment.create({
+          data: {
+            ticketId: ticket.id,
+            authorId: user.id,
+            body: `[System] Linked inventory item "${assetTag}" was permanently deleted.`,
+            isSystem: true,
+          },
+        });
+      }
+      if (tickets.length > 0) {
+        await tx.ticket.updateMany({
+          where: { id: { in: tickets.map((t) => t.id) } },
+          data: { equipmentId: null },
+        });
+      }
+
+      if (assignmentIds.length > 0) {
+        await tx.deviceAssignment.deleteMany({ where: { id: { in: assignmentIds } } });
+      }
+
+      await tx.equipment.delete({ where: { id: equipmentId } });
+    });
   }
 
   /**

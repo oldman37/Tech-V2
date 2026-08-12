@@ -28,15 +28,20 @@ export function useDeleteInventoryItem() {
 }
 
 /**
- * Mutation for permanently (hard) deleting an inventory item. Admin-only —
- * the backend rejects this for non-admins and for items with related
- * checkout/repair/damage/audit/cart history.
+ * Mutation for permanently (hard) deleting an inventory item. Admin/Tech-
+ * Assistant-only — the backend rejects this for other users. `purgeAll`
+ * chooses whether related history (damage incidents/invoices, import
+ * records) is deleted outright or preserved with its equipment reference
+ * cleared; rows that structurally cannot survive (checkout/repair/audit/
+ * cart records) are always deleted, and linked work orders are always kept
+ * (unlinked with a system note) regardless of `purgeAll`.
  */
 export function usePermanentlyDeleteInventoryItem() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (id: string) => inventoryService.deleteItem(id, true),
+    mutationFn: ({ id, purgeAll }: { id: string; purgeAll: boolean }) =>
+      inventoryService.deleteItem(id, true, purgeAll),
 
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory.all });

@@ -49,6 +49,10 @@ export const CHANGELOG: ChangelogEntry[] = [
       'Approved transportation requests can now be edited after the fact — transportation type, assessed cost, number of buses, driver names, and notes can all be changed by the Transportation Secretary/Director, with every change logged to a per-request history you can review.',
       'Added a "Resend Email" button on transportation requests so the Transportation Secretary/Director can re-send the approval or denial notice to the submitter, whether because they say they didn\'t get it or because details changed since the original notice.',
       'Transportation requests no longer become visible to the Transportation Secretary/Director until the field trip itself has cleared its entire approval chain (Supervisor, Assistant Director of Schools, Director of Schools, and Finance Director) — previously they could appear and be acted on as soon as just the first approval stage cleared.',
+      'Fixed the Work Orders nav badge not counting a ticket that was auto-assigned to you when it was created — previously it only showed up once someone commented on it or you were manually reassigned.',
+      'Permanently deleting an inventory item no longer blocks on related checkout, repair, damage, audit, cart, or import history — choose to keep that history (unlinked, with a note) or remove it entirely when confirming. Replaced the browser confirmation popup with a proper dialog.',
+      'Fixed finishing the Create Incident wizard landing you back on a blank wizard instead of the Checkouts page you started from.',
+      'The Active Checkouts search field now focuses automatically when the page loads, like every other list page.',
     ],
   },
   {

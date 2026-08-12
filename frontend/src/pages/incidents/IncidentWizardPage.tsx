@@ -1,10 +1,8 @@
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { useGoBack } from '../../hooks/useGoBack';
 import IncidentWizard from '../../components/incidents/IncidentWizard';
-import type { DamageIncident } from '../../types/damageIncident.types';
 
 export default function IncidentWizardPage() {
-  const navigate = useNavigate();
   const goBack = useGoBack();
   const [searchParams] = useSearchParams();
 
@@ -22,7 +20,6 @@ export default function IncidentWizardPage() {
       open={true}
       prefill={prefill}
       onClose={goBack}
-      onCreated={(incident: DamageIncident) => navigate(`/incidents/${incident.id}`)}
     />
   );
 }

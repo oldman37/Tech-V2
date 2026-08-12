@@ -80,8 +80,9 @@ class InventoryService {
   /**
    * Delete inventory item
    */
-  async deleteItem(id: string, permanent = false): Promise<void> {
-    await api.delete(`/inventory/${id}${permanent ? '?permanent=true' : ''}`);
+  async deleteItem(id: string, permanent = false, purgeAll = false): Promise<void> {
+    const query = permanent ? `?permanent=true${purgeAll ? '&purgeAll=true' : ''}` : '';
+    await api.delete(`/inventory/${id}${query}`);
   }
 
   /**

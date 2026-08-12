@@ -13,6 +13,7 @@ import InventoryFormDialog from '../components/inventory/InventoryFormDialog';
 import InventoryHistoryDialog from '../components/inventory/InventoryHistoryDialog';
 import ImportInventoryDialog from '../components/inventory/ImportInventoryDialog';
 import { AssignmentDialog } from '../components/inventory/AssignmentDialog';
+import InventoryPermanentDeleteDialog from '../components/inventory/InventoryPermanentDeleteDialog';
 import { Box, Paper } from '@mui/material';
 import { ResponsiveTable, MobileFilterBar, Column } from '../components/responsive';
 import { useIsMobile } from '../hooks/useResponsive';
@@ -38,6 +39,8 @@ export const InventoryManagement = () => {
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [assignmentDialogOpen, setAssignmentDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
+  const [permanentDeleteItem, setPermanentDeleteItem] = useState<InventoryItem | null>(null);
+  const [permanentDeleteError, setPermanentDeleteError] = useState<string | undefined>(undefined);
 
   // Filter state
   const [filters, setFilters] = useState<InventoryFilters>({
@@ -108,16 +111,23 @@ export const InventoryManagement = () => {
   };
 
   const handlePermanentDelete = (item: InventoryItem) => {
-    if (
-      !window.confirm(
-        `Permanently delete "${item.name}" (${item.assetTag})? This cannot be undone and is different from disposing it as e-waste.`
-      )
-    ) {
-      return;
-    }
-    permanentDeleteMutation.mutate(item.id, {
-      onError: (err: any) => alert(err.response?.data?.message || 'Failed to permanently delete item'),
-    });
+    setPermanentDeleteError(undefined);
+    setPermanentDeleteItem(item);
+  };
+
+  const confirmPermanentDelete = (purgeAll: boolean) => {
+    if (!permanentDeleteItem) return;
+    permanentDeleteMutation.mutate(
+      { id: permanentDeleteItem.id, purgeAll },
+      {
+        onSuccess: () => {
+          setPermanentDeleteItem(null);
+          setPermanentDeleteError(undefined);
+        },
+        onError: (err: any) =>
+          setPermanentDeleteError(err.response?.data?.message || 'Failed to permanently delete item'),
+      },
+    );
   };
 
   const handleReactivate = (item: InventoryItem) => {
@@ -741,6 +751,16 @@ export const InventoryManagement = () => {
         equipment={selectedItem}
         onClose={() => setAssignmentDialogOpen(false)}
         onSuccess={handleAssignmentSuccess}
+      />
+
+      <InventoryPermanentDeleteDialog
+        open={!!permanentDeleteItem}
+        itemName={permanentDeleteItem?.name ?? ''}
+        assetTag={permanentDeleteItem?.assetTag ?? ''}
+        onConfirm={confirmPermanentDelete}
+        onCancel={() => setPermanentDeleteItem(null)}
+        isLoading={permanentDeleteMutation.isPending}
+        errorMessage={permanentDeleteError}
       />
     </Box>
   );
