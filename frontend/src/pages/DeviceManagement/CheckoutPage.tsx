@@ -158,7 +158,7 @@ export default function CheckoutPage() {
         return (
           <Link
             component={RouterLink}
-            to={`/device-management/users/${u.id}/history`}
+            to={`/device-management/checkouts/users/${u.id}/history`}
             onClick={(e) => e.stopPropagation()}
           >
             {u.firstName} {u.lastName}

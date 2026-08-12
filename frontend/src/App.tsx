@@ -434,7 +434,7 @@ function App() {
           }
         />
         <Route
-          path="/device-management/users/:userId/history"
+          path="/device-management/checkouts/users/:userId/history"
           element={
             <ProtectedRoute requireDeviceManagement>
               <AppLayout>

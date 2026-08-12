@@ -53,6 +53,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       'Permanently deleting an inventory item no longer blocks on related checkout, repair, damage, audit, cart, or import history — choose to keep that history (unlinked, with a note) or remove it entirely when confirming. Replaced the browser confirmation popup with a proper dialog.',
       'Fixed finishing the Create Incident wizard landing you back on a blank wizard instead of the Checkouts page you started from.',
       'The Active Checkouts search field now focuses automatically when the page loads, like every other list page.',
+      'Fixed the sidebar nav highlighting "DM Dashboard" instead of "Checkouts" while viewing a user\'s checkout history, opened by clicking an assignee\'s name on the Checkouts page.',
     ],
   },
   {
