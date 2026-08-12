@@ -24,6 +24,7 @@ import {
   FormControlLabel,
   FormHelperText,
   InputLabel,
+  ListSubheader,
   MenuItem,
   Paper,
   Select,
@@ -121,8 +122,12 @@ export default function NewWorkOrderPage() {
     ? ['TECHNOLOGY', 'MAINTENANCE']
     : ['TECHNOLOGY'];
 
-  const { data: locations = [] } = useLocations(['SCHOOL']);
-  const { data: departmentLocations = [] } = useLocations(['DEPARTMENT', 'PROGRAM']);
+  const { data: locations = [] } = useLocations(['SCHOOL', 'DEPARTMENT', 'DISTRICT_OFFICE']);
+  const { data: departmentLocations = [] } = useLocations(['PROGRAM']);
+  // Grouped, sorted sub-lists for the Location select (Schools, Departments, District Office)
+  const schoolLocations = locations.filter((l) => l.type === 'SCHOOL').sort((a, b) => a.name.localeCompare(b.name));
+  const departmentTypeLocations = locations.filter((l) => l.type === 'DEPARTMENT').sort((a, b) => a.name.localeCompare(b.name));
+  const districtOfficeLocations = locations.filter((l) => l.type === 'DISTRICT_OFFICE').sort((a, b) => a.name.localeCompare(b.name));
   const { rooms } = useRoomsByLocation(form.officeLocationId);
   const createWorkOrder = useCreateWorkOrder();
   const { data: userDefaults } = useUserDefaultLocation();
@@ -364,8 +369,22 @@ export default function NewWorkOrderPage() {
                 }}
                 disabled={createWorkOrder.isPending}
               >
-                <MenuItem value="">— None —</MenuItem>
-                {locations.map((loc) => (
+                {schoolLocations.length > 0 && <ListSubheader>Schools</ListSubheader>}
+                {schoolLocations.map((loc) => (
+                  <MenuItem key={loc.id} value={loc.id}>
+                    {loc.name}
+                  </MenuItem>
+                ))}
+                {departmentTypeLocations.length > 0 && <Divider />}
+                {departmentTypeLocations.length > 0 && <ListSubheader>Departments</ListSubheader>}
+                {departmentTypeLocations.map((loc) => (
+                  <MenuItem key={loc.id} value={loc.id}>
+                    {loc.name}
+                  </MenuItem>
+                ))}
+                {districtOfficeLocations.length > 0 && <Divider />}
+                {districtOfficeLocations.length > 0 && <ListSubheader>District Office</ListSubheader>}
+                {districtOfficeLocations.map((loc) => (
                   <MenuItem key={loc.id} value={loc.id}>
                     {loc.name}
                   </MenuItem>
@@ -403,11 +422,11 @@ export default function NewWorkOrderPage() {
               </FormControl>
             )}
 
-            {/* Department/Program (optional) */}
+            {/* Program (optional) */}
             <FormControl size="small" fullWidth>
-              <InputLabel>Department/Program</InputLabel>
+              <InputLabel>Program</InputLabel>
               <Select
-                label="Department/Program"
+                label="Program"
                 value={form.departmentLocationId}
                 onChange={(e) => set('departmentLocationId', e.target.value)}
                 disabled={createWorkOrder.isPending}

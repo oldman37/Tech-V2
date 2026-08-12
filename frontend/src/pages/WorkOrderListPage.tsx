@@ -19,7 +19,9 @@ import {
   Box,
   Button,
   Chip,
+  Divider,
   InputAdornment,
+  ListSubheader,
   MenuItem,
   Paper,
   Select,
@@ -92,7 +94,7 @@ export default function WorkOrderListPage() {
     priority: '',
     location: '',
     // Tracks whether the user has explicitly picked a location (including
-    // "All Schools", which is the same empty string as the unset default) so
+    // "All Locations", which is the same empty string as the unset default) so
     // Back navigation can tell that apart from "home-school default not yet
     // applied" — see effect below.
     locationChosen: '',
@@ -129,10 +131,14 @@ export default function WorkOrderListPage() {
     queryFn: settingsService.getCurrent,
   });
 
-  // Fetch locations for school filter dropdown
-  const { data: locations = [] } = useLocations(['SCHOOL']);
-  // Fetch department/program locations for the Department/Program filter dropdown
-  const { data: departmentLocations = [] } = useLocations(['DEPARTMENT', 'PROGRAM']);
+  // Fetch locations for the location filter dropdown (schools + departments + district office)
+  const { data: locations = [] } = useLocations(['SCHOOL', 'DEPARTMENT', 'DISTRICT_OFFICE']);
+  // Fetch program locations for the Program filter dropdown
+  const { data: departmentLocations = [] } = useLocations(['PROGRAM']);
+  // Grouped, sorted sub-lists for the Location filter (Schools, Departments, District Office)
+  const schoolLocations = locations.filter((l) => l.type === 'SCHOOL' && l.isActive).sort((a, b) => a.name.localeCompare(b.name));
+  const departmentTypeLocations = locations.filter((l) => l.type === 'DEPARTMENT' && l.isActive).sort((a, b) => a.name.localeCompare(b.name));
+  const districtOfficeLocations = locations.filter((l) => l.type === 'DISTRICT_OFFICE' && l.isActive).sort((a, b) => a.name.localeCompare(b.name));
 
   // Technology Assistants: default the school filter to their assigned location
   const { data: supervisedLocations = [] } = useQuery({
@@ -147,7 +153,7 @@ export default function WorkOrderListPage() {
   useEffect(() => {
     if (isAdmin) return;
     // An explicit location in the URL — chosen by the user, or restored by Back —
-    // outranks this default. `locationChosen` covers "All Schools", whose value
+    // outranks this default. `locationChosen` covers "All Locations", whose value
     // ('') is otherwise indistinguishable from "not yet defaulted".
     if (hasFilterParam('location') || hasFilterParam('locationChosen')) return;
     if (supervisedLocations.length > 0 && !defaultLocationApplied.current) {
@@ -436,13 +442,21 @@ export default function WorkOrderListPage() {
                   onChange={(e) => { setFilters({ location: e.target.value, locationChosen: '1', page: '0' }); }}
                   fullWidth
                 >
-                  <MenuItem value="">All Schools</MenuItem>
-                  {locations
-                    .filter((loc) => loc.isActive)
-                    .sort((a, b) => a.name.localeCompare(b.name))
-                    .map((loc) => (
-                      <MenuItem key={loc.id} value={loc.id}>{loc.name}</MenuItem>
-                    ))}
+                  <MenuItem value="">All Locations</MenuItem>
+                  {schoolLocations.length > 0 && <ListSubheader>Schools</ListSubheader>}
+                  {schoolLocations.map((loc) => (
+                    <MenuItem key={loc.id} value={loc.id}>{loc.name}</MenuItem>
+                  ))}
+                  {departmentTypeLocations.length > 0 && <Divider />}
+                  {departmentTypeLocations.length > 0 && <ListSubheader>Departments</ListSubheader>}
+                  {departmentTypeLocations.map((loc) => (
+                    <MenuItem key={loc.id} value={loc.id}>{loc.name}</MenuItem>
+                  ))}
+                  {districtOfficeLocations.length > 0 && <Divider />}
+                  {districtOfficeLocations.length > 0 && <ListSubheader>District Office</ListSubheader>}
+                  {districtOfficeLocations.map((loc) => (
+                    <MenuItem key={loc.id} value={loc.id}>{loc.name}</MenuItem>
+                  ))}
                 </Select>
                 <Select
                   size="small"
@@ -451,7 +465,7 @@ export default function WorkOrderListPage() {
                   onChange={(e) => { setFilters({ departmentLocation: e.target.value, page: '0' }); }}
                   fullWidth
                 >
-                  <MenuItem value="">All Departments/Programs</MenuItem>
+                  <MenuItem value="">All Programs</MenuItem>
                   {departmentLocations
                     .filter((loc) => loc.isActive)
                     .sort((a, b) => a.name.localeCompare(b.name))
@@ -560,13 +574,21 @@ export default function WorkOrderListPage() {
             onChange={(e) => { setFilters({ location: e.target.value, locationChosen: '1', page: '0' }); }}
             sx={{ minWidth: 180 }}
           >
-            <MenuItem value="">All Schools</MenuItem>
-            {locations
-              .filter((loc) => loc.isActive)
-              .sort((a, b) => a.name.localeCompare(b.name))
-              .map((loc) => (
-                <MenuItem key={loc.id} value={loc.id}>{loc.name}</MenuItem>
-              ))}
+            <MenuItem value="">All Locations</MenuItem>
+            {schoolLocations.length > 0 && <ListSubheader>Schools</ListSubheader>}
+            {schoolLocations.map((loc) => (
+              <MenuItem key={loc.id} value={loc.id}>{loc.name}</MenuItem>
+            ))}
+            {departmentTypeLocations.length > 0 && <Divider />}
+            {departmentTypeLocations.length > 0 && <ListSubheader>Departments</ListSubheader>}
+            {departmentTypeLocations.map((loc) => (
+              <MenuItem key={loc.id} value={loc.id}>{loc.name}</MenuItem>
+            ))}
+            {districtOfficeLocations.length > 0 && <Divider />}
+            {districtOfficeLocations.length > 0 && <ListSubheader>District Office</ListSubheader>}
+            {districtOfficeLocations.map((loc) => (
+              <MenuItem key={loc.id} value={loc.id}>{loc.name}</MenuItem>
+            ))}
           </Select>
 
           <Select
@@ -576,7 +598,7 @@ export default function WorkOrderListPage() {
             onChange={(e) => { setFilters({ departmentLocation: e.target.value, page: '0' }); }}
             sx={{ minWidth: 200 }}
           >
-            <MenuItem value="">All Departments/Programs</MenuItem>
+            <MenuItem value="">All Programs</MenuItem>
             {departmentLocations
               .filter((loc) => loc.isActive)
               .sort((a, b) => a.name.localeCompare(b.name))
