@@ -13,7 +13,7 @@ import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
 import NotificationsNoneIcon from '@mui/icons-material/NotificationsNone';
 import { useAuthStore, selectCanAccessDeviceManagement, selectCanAccessDeviceManagementDashboard, selectCanAccessDeviceManagementElevated } from '../../store/authStore';
 import { authApi } from '../../services/authService';
-import { cancelProactiveRefresh } from '../../services/api';
+import { cancelProactiveRefresh, cancelIdleLogout } from '../../services/api';
 import { PUSH_STATUS_QUERY_KEY, isPushEnabled } from '../../services/pushService';
 import { useRoomAssignmentAccess } from '../../hooks/useRoomAssignmentAccess';
 import { useRequestBadges, useMarkSectionVisited } from '../../hooks/queries/useRequestBadges';
@@ -218,6 +218,17 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
   }, [location.pathname]);
 
   const [mobileOpen, setMobileOpen] = useState(false);
+  // Latches true the first time the mobile drawer opens. The drawer's nav content
+  // renders renderSidebarContent() a second time (alongside the always-mounted
+  // desktop sidebar), and each of its 6 NAV_SECTIONS wraps its items in an MUI
+  // Collapse, which measures scrollHeight on mount. Rendering both copies up front
+  // doubles that layout-measurement work on AppLayout's very first mount — right
+  // when the DOM is largest (header + both sidebars + drawer + page content all
+  // inserted at once) — which is a forced-reflow hot spot right after login. Once
+  // opened, ModalProps.keepMounted below keeps this content mounted exactly as
+  // before, so behavior after the first open is unchanged.
+  const hasOpenedMobileDrawer = useRef(false);
+  if (mobileOpen) hasOpenedMobileDrawer.current = true;
   const [desktopChangelogOpen, setDesktopChangelogOpen] = useState(false);
   const [mobileChangelogOpen, setMobileChangelogOpen] = useState(false);
   const [openGroup, setOpenGroup] = useState<string | null>(() => {
@@ -232,6 +243,7 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
 
   const handleLogout = async () => {
     cancelProactiveRefresh();
+    cancelIdleLogout();
     sessionStorage.setItem('explicit_logout', 'true');
     try {
       await authApi.logout();
@@ -415,7 +427,8 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
           }}
         >
           <nav className="shell-sidebar shell-sidebar--mobile">
-            {renderSidebarContent(mobileChangelogOpen, setMobileChangelogOpen)}
+            {hasOpenedMobileDrawer.current &&
+              renderSidebarContent(mobileChangelogOpen, setMobileChangelogOpen)}
           </nav>
         </Drawer>
 

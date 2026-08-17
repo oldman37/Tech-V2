@@ -36,6 +36,7 @@ function doRefresh(): Promise<void> {
     .catch((err) => {
       // Refresh failed — force logout
       cancelProactiveRefresh();
+      cancelIdleLogout();
       sessionStorage.setItem('explicit_logout', 'true');
       useAuthStore.getState().clearAuth();
       window.location.href = '/login';
@@ -73,10 +74,124 @@ function scheduleProactiveRefresh() {
   }, PROACTIVE_REFRESH_MS);
 }
 
-// Reset the proactive timer on meaningful user activity
+// ---------- Idle timeout ----------
+// Sign the user out after 60 minutes with no tracked activity, independent of the
+// proactive refresh above. Unlike the refresh timer, this ends the session — it
+// calls the real logout endpoint so the server-side refresh token is revoked too.
+//
+// This deliberately does NOT use a single long setTimeout. JS timers do not advance
+// while the machine is suspended (behaviour across sleep is unspecified and varies by
+// platform), so a 60-minute countdown armed before a laptop is closed overnight still
+// believes it has ~55 minutes left on wake — the user's first click resets it and the
+// session never expires. Instead we persist a wall-clock timestamp and poll it, so the
+// first tick after wake sees the true elapsed gap. localStorage (not module state) also
+// makes this survive page reloads and stay consistent across tabs.
+//
+// The authoritative check is server-side (IDLE_SESSION_MAX on /auth/refresh-token);
+// this layer provides the precise 60-minute cutoff and a clean redirect.
+const IDLE_LOGOUT_MS = 60 * 60 * 1000; // 60 minutes of no activity
+const IDLE_CHECK_MS = 30 * 1000; // how often we compare wall-clock timestamps
+const LAST_ACTIVITY_KEY = 'last_activity_at';
+let idleInterval: ReturnType<typeof setInterval> | null = null;
+
+// localStorage can throw (hardened privacy modes, storage disabled). Degrade to a
+// no-op client-side check — the server-side idle timeout still ends the session.
+function readLastActivity(): number | null {
+  try {
+    const raw = localStorage.getItem(LAST_ACTIVITY_KEY);
+    if (!raw) return null;
+    const parsed = parseInt(raw, 10);
+    return Number.isFinite(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeLastActivity(ts: number) {
+  try {
+    localStorage.setItem(LAST_ACTIVITY_KEY, String(ts));
+  } catch {
+    // Ignore — server-side enforcement is the backstop
+  }
+}
+
+export function cancelIdleLogout() {
+  if (idleInterval) {
+    clearInterval(idleInterval);
+    idleInterval = null;
+  }
+  try {
+    localStorage.removeItem(LAST_ACTIVITY_KEY);
+  } catch {
+    // Ignore
+  }
+}
+
+function performIdleLogout() {
+  cancelProactiveRefresh();
+  cancelIdleLogout();
+  axios
+    // 8s timeout so a network hang (e.g. the machine sleeping mid-request) can't leave
+    // this promise pending forever — without it, .finally() below would never run and
+    // the "logged out" state would never take effect (SP-idle-1).
+    .post(`${API_URL}/auth/logout`, {}, { withCredentials: true, timeout: 8000 })
+    .catch(() => {
+      // Best-effort — cookies may already be invalid; proceed to clear local state regardless
+    })
+    .finally(() => {
+      sessionStorage.setItem('explicit_logout', 'true');
+      useAuthStore.getState().clearAuth();
+      window.location.href = '/login';
+    });
+}
+
+function checkIdle() {
+  // Not authenticated: leave the stored timestamp untouched. authStore is not
+  // persisted, so isAuthenticated is briefly false on every page load while
+  // /auth/me resolves — re-seeding here would silently reset accumulated idle
+  // time on each reload and defeat the whole mechanism.
+  if (!useAuthStore.getState().isAuthenticated) return;
+
+  const now = Date.now();
+  const last = readLastActivity();
+
+  // No baseline yet (fresh login, or storage unavailable) — start the clock now.
+  if (last === null) {
+    writeLastActivity(now);
+    return;
+  }
+
+  // Clock moved backwards (NTP correction, manual change) — re-baseline rather
+  // than waiting out a bogus negative interval.
+  if (last > now) {
+    writeLastActivity(now);
+    return;
+  }
+
+  if (now - last >= IDLE_LOGOUT_MS) {
+    performIdleLogout();
+  }
+}
+
+function startIdleWatch() {
+  if (idleInterval) return;
+  idleInterval = setInterval(checkIdle, IDLE_CHECK_MS);
+}
+
+// Seed the idle baseline at the moment of a successful sign-in. Without this, a stale
+// last_activity_at orphaned by a previous session (e.g. the browser was closed without
+// logging out) would trip the idle check immediately on the next login.
+export function markSessionStart() {
+  writeLastActivity(Date.now());
+  startIdleWatch();
+}
+
+// Reset the proactive-refresh timer and stamp activity on meaningful user interaction
 function onUserActivity() {
   if (useAuthStore.getState().isAuthenticated) {
     scheduleProactiveRefresh();
+    writeLastActivity(Date.now());
+    startIdleWatch();
   }
 }
 
@@ -94,8 +209,16 @@ if (typeof window !== 'undefined') {
   };
   events.forEach((evt) => window.addEventListener(evt, throttledActivity, { passive: true }));
 
-  // Start the first timer
+  // Check immediately when the tab is brought back to the foreground, so returning
+  // to a long-idle tab logs out at once instead of waiting for the next poll tick.
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') checkIdle();
+  });
+  window.addEventListener('focus', checkIdle);
+
+  // Start the first timers
   scheduleProactiveRefresh();
+  startIdleWatch();
 }
 
 // Create axios instance with cookie support

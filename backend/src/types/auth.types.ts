@@ -166,6 +166,16 @@ export interface JWTRefreshTokenPayload {
   type: 'refresh';
   /** JWT ID — matched against the refresh_tokens table to support revocation (SP-4) */
   jti: string;
+  /** Epoch ms when the session originally began (login). Carried forward unchanged
+   *  across every rotation so an absolute session lifetime can be enforced — must
+   *  never be reset on refresh. */
+  sessionStart: number;
+  /** Standard JWT "issued at" claim, in epoch SECONDS. Populated automatically by
+   *  jwt.sign, so it is absent on the payload objects we construct before signing —
+   *  hence optional. Used to enforce the idle session timeout: because rotation is
+   *  forced at least every ~30 min while the user is active, an `iat` older than
+   *  IDLE_SESSION_MAX means the session has been dormant. */
+  iat?: number;
 }
 
 /**
@@ -180,9 +190,11 @@ export function isRefreshTokenPayload(payload: unknown): payload is JWTRefreshTo
     'entraId' in payload &&
     'type' in payload &&
     'jti' in payload &&
+    'sessionStart' in payload &&
     typeof (payload as Record<string, unknown>).id === 'string' &&
     typeof (payload as Record<string, unknown>).entraId === 'string' &&
     typeof (payload as Record<string, unknown>).jti === 'string' &&
+    typeof (payload as Record<string, unknown>).sessionStart === 'number' &&
     (payload as Record<string, unknown>).type === 'refresh'
   );
 }

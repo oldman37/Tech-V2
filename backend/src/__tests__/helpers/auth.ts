@@ -20,6 +20,7 @@ export interface RefreshTokenPayload {
   entraId: string;
   type: 'refresh';
   jti: string;
+  sessionStart: number;
 }
 
 // ─── Token signing ────────────────────────────────────────────────────────────

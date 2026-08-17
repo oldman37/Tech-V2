@@ -1,14 +1,21 @@
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { authApi } from '../services/authService';
+import { markSessionStart } from '../services/api';
 import { useAuthStore } from '../store/authStore';
 import './Login.css';
+
+// Must stay in sync with the .login-container::after transition in Login.css.
+const LEAVE_FADE_MS = 180;
 
 export const Login = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [error, setError] = useState<string>('');
   const [loading, setLoading] = useState(false);
+  // Drives the wash-to-dashboard-colour overlay immediately before the hard
+  // navigation to Entra — see .login-container::after in Login.css.
+  const [leaving, setLeaving] = useState(false);
   // Initialise silentPending synchronously from the URL so there is no flash of the
   // login button before the first useEffect fires. If there is no code/error/fallback
   // in the URL the user has just arrived and we should attempt silent SSO first.
@@ -24,10 +31,14 @@ export const Login = () => {
   const callbackProcessed = useRef(false);
   const { setUser, isAuthenticated, isLoading } = useAuthStore();
 
-  // Redirect to dashboard once auth state is resolved
+  // Redirect to dashboard once auth state is resolved. Uses replace so this
+  // script-initiated navigation doesn't push a new history entry — without it,
+  // the browser's history-manipulation intervention marks the /login entry left
+  // behind as "skippable" (pushState with no user gesture), and pressing Back
+  // would otherwise strand the user on /login instead of leaving the app.
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
-      navigate('/dashboard');
+      navigate('/dashboard', { replace: true });
     }
   }, [isAuthenticated, isLoading, navigate]);
 
@@ -88,10 +99,13 @@ export const Login = () => {
       
       if (response.data.success) {
         // Tokens are now in HttpOnly cookies, just store user
+        markSessionStart();
         setUser(response.data.user);
-        
-        // Redirect to dashboard
-        navigate('/dashboard');
+
+        // Redirect to dashboard. Uses replace so the /login?code=...&state=...
+        // URL (holding the now-spent OAuth code) is replaced rather than left in
+        // history — see the auth-resolved redirect effect above for why.
+        navigate('/dashboard', { replace: true });
       }
     } catch {
       setError('Authentication failed. Please try again.');
@@ -109,10 +123,23 @@ export const Login = () => {
 
     try {
       const response = await authApi.getLoginUrl();
-      
+
       if (response.data.authUrl) {
-        // Redirect to Entra ID login
-        window.location.href = response.data.authUrl;
+        const authUrl = response.data.authUrl;
+
+        // Fade the page to the dashboard's background colour before leaving, so
+        // the browser's white inter-document canvas has no contrasting
+        // neighbour. The delay lands in time that was already dead — the auth
+        // URL has resolved and the navigation has not started yet.
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+          window.location.href = authUrl;
+          return;
+        }
+
+        setLeaving(true);
+        setTimeout(() => {
+          window.location.href = authUrl;
+        }, LEAVE_FADE_MS);
       }
     } catch {
       setError('Failed to initiate login. Please try again.');
@@ -120,9 +147,11 @@ export const Login = () => {
     }
   };
 
+  const containerClass = `login-container${leaving ? ' login-container--leaving' : ''}`;
+
   if (loading || silentPending || isLoading) {
     return (
-      <div className="login-container">
+      <div className={containerClass}>
         <div className="login-card login-card--loading">
           <div className="login-spinner">
             <div className="spinner"></div>
@@ -134,7 +163,7 @@ export const Login = () => {
   }
 
   return (
-    <div className="login-container">
+    <div className={containerClass}>
       <div className="login-card">
         <div className="login-header">
           <img src="/schoolworks_logo.png" alt="SchoolWorks" className="login-logo" />

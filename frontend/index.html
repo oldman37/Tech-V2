@@ -5,12 +5,66 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#1e40af" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#0f172a" media="(prefers-color-scheme: dark)" />
+    <!-- Governs the browser's own default canvas during the window before any
+         CSS loads — notably the blank inter-document frame while Entra 302s
+         back after sign-in. Without this the canvas is always the light default
+         (white) even for dark-mode users. Post-load, MUI owns color-scheme via
+         <CssBaseline enableColorScheme /> and colorSchemeSelector: 'class', so
+         this is deliberately NOT duplicated in global.css — the two never
+         overlap. -->
+    <meta name="color-scheme" content="light dark" />
     <meta name="description" content="SchoolWorks - School Operations Management" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <link rel="icon" type="image/png" href="/favicon.png" />
     <link rel="apple-touch-icon" href="/favicon.png" />
     <title>SchoolWorks</title>
+    <!-- Matches Login.css's gradient (light/dark) so the first paint on a full page
+         load — notably the hard reload Entra performs when it redirects back to
+         /login?code=... after sign-in — isn't a stark white/black flash before any
+         app CSS has loaded. Approximates the OS-level color-scheme preference only;
+         it can't see an in-app dark-mode override stored in localStorage without a
+         blocking script, so it's a best-effort match, not pixel-perfect for every
+         user — still strictly closer than the unstyled default it replaces. -->
+    <script>
+      // Marks the return leg from Entra (/login?code=...) before first paint, so
+      // the rules below can pre-paint the dashboard's background instead of
+      // Login's gradient. On that load the login card is never shown — the app
+      // reads the code and goes straight to the dashboard — so painting blue
+      // creates a hard boundary against the browser's white inter-document
+      // canvas, which is what users perceive as the "flash" after signing in.
+      // Cold loads of /login keep the gradient and are unaffected.
+      // Exact parameter match, not a substring test — ?promocode=x must not
+      // be mistaken for the OAuth code. Same idiom as Login.tsx.
+      try {
+        if (new URLSearchParams(location.search).has('code')) {
+          document.documentElement.setAttribute('data-callback', '');
+        }
+      } catch (e) {
+        // Degrade to the gradient rather than block first paint.
+      }
+    </script>
+    <style>
+      html, body {
+        background: linear-gradient(160deg, #eaf0fe 0%, #c3d5f6 45%, #8fb2ec 100%);
+      }
+      @media (prefers-color-scheme: dark) {
+        html, body {
+          background: linear-gradient(180deg, #0a1020 0%, #0d1729 55%, #090f1d 100%);
+        }
+      }
+      /* Flat dashboard background (--slate-50) on the callback load. Literal
+         values, not var() — global.css has not loaded at this point. */
+      html[data-callback], html[data-callback] body {
+        background: #f8fafc;
+      }
+      @media (prefers-color-scheme: dark) {
+        html[data-callback], html[data-callback] body {
+          background: #0f172a;
+        }
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>

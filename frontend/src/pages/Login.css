@@ -9,6 +9,40 @@
   padding: 20px;
 }
 
+/* Washes the whole viewport to the dashboard's background colour just before
+   the hard navigation to Entra. Entra 302s straight through without painting
+   anything, so what shows during the round trip is the browser's own default
+   canvas — white. Matching the page to that canvas removes the colour
+   boundary that made it register as a "flash"; the white frame becomes the
+   leading frame of the fade into the dashboard instead.
+
+   An opacity-animated overlay rather than a background transition, because
+   gradient-to-gradient interpolation does not animate in any browser — a
+   `transition: background` between the two would snap, not fade.
+
+   --slate-50 is already redefined under :root.dark (global.css:67), so this
+   single rule covers both themes without a dark-mode variant. */
+.login-container::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  background: var(--slate-50, #f8fafc);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 180ms ease-in;
+}
+
+.login-container--leaving::after {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-container::after {
+    transition: none;
+  }
+}
+
 .login-card {
   background: white;
   border-radius: 20px;

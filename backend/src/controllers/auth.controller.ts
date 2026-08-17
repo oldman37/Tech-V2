@@ -292,6 +292,7 @@ export const callback = async (
       entraId: user.entraId,
       type: 'refresh',
       jti: refreshJti,
+      sessionStart: Date.now(),
     };
 
     // Create refresh token
@@ -468,6 +469,34 @@ export const refreshToken = async (
       throw new AuthenticationError('Refresh token has been revoked');
     }
 
+    // Enforce an absolute session lifetime independent of rotation — sessionStart is
+    // carried forward unchanged on every refresh, so this cannot be extended by activity.
+    const absoluteSessionMs = parseExpiryMs(process.env.ABSOLUTE_SESSION_MAX || '12h');
+    if (Date.now() - decoded.sessionStart >= absoluteSessionMs) {
+      await prisma.refreshToken.updateMany({
+        where: { userId: decoded.id, revokedAt: null },
+        data:  { revokedAt: new Date() },
+      });
+      loggers.auth.info('Absolute session lifetime exceeded — full re-authentication required', { userId: decoded.id });
+      throw new AuthenticationError('Session expired — please sign in again');
+    }
+
+    // Enforce an idle timeout server-side. Refresh tokens rotate at least every ~30 min
+    // while the user is active (the access cookie's 30-minute maxAge forces a refresh on
+    // the next request), so an `iat` older than the idle window means the session has been
+    // dormant. This is the authoritative check — the client-side idle timer cannot be
+    // relied on, since JS timers do not advance while the machine is suspended.
+    // Fail closed if `iat` is somehow absent.
+    const idleSessionMs = parseExpiryMs(process.env.IDLE_SESSION_MAX || '60m');
+    if (typeof decoded.iat !== 'number' || Date.now() - decoded.iat * 1000 >= idleSessionMs) {
+      await prisma.refreshToken.updateMany({
+        where: { userId: decoded.id, revokedAt: null },
+        data:  { revokedAt: new Date() },
+      });
+      loggers.auth.info('Idle session timeout exceeded — re-authentication required', { userId: decoded.id });
+      throw new AuthenticationError('Session timed out due to inactivity — please sign in again');
+    }
+
     // Revoke the consumed token before issuing a replacement
     await prisma.refreshToken.update({
       where: { jti: decoded.jti },
@@ -593,6 +622,8 @@ export const refreshToken = async (
       entraId: user.entraId,
       type: 'refresh',
       jti: newRefreshJti,
+      // Carried forward unchanged (never reset) so the absolute session cap holds across rotations.
+      sessionStart: decoded.sessionStart,
     };
 
     const newRefreshTokenOptions: SignOptions = {

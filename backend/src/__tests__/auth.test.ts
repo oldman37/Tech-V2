@@ -80,6 +80,7 @@ describe('Auth API', () => {
         entraId: user.entraId,
         type: 'refresh',
         jti,
+        sessionStart: Date.now(),
       });
 
       const res = await request(app)
@@ -102,6 +103,7 @@ describe('Auth API', () => {
         entraId: user.entraId,
         type: 'refresh',
         jti,
+        sessionStart: Date.now(),
       });
 
       const res = await request(app)
@@ -127,6 +129,7 @@ describe('Auth API', () => {
         entraId: user.entraId,
         type: 'refresh',
         jti: jti1,
+        sessionStart: Date.now(),
       });
       const res = await request(app)
         .post('/api/auth/refresh-token')
@@ -155,6 +158,7 @@ describe('Auth API', () => {
         entraId: user.entraId,
         type: 'refresh',
         jti,
+        sessionStart: Date.now(),
       });
 
       const { cookieStr, headerValue } = csrfPair();

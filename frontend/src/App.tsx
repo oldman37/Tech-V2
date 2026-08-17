@@ -84,7 +84,21 @@ import './App.css'
 
 function AuthInitializer({ children }: { children: React.ReactNode }) {
   const initializeAuth = useAuthStore((s) => s.initializeAuth);
+  const setLoading = useAuthStore((s) => s.setLoading);
   useEffect(() => {
+    // Skip the /auth/me probe when this mount is the tail end of an OAuth
+    // redirect (Entra sends the browser back to /login?code=... via a full page
+    // load, which remounts the whole app). There is no session cookie yet at
+    // that point by definition, so /auth/me would be a guaranteed 401 that races
+    // Login's own callback exchange — which independently establishes the
+    // authenticated state from the /auth/callback response. Probing here just
+    // adds console noise and a window where the store briefly flips back to
+    // "unauthenticated" right before the real login completes.
+    const params = new URLSearchParams(window.location.search);
+    if (window.location.pathname === '/login' && params.get('code')) {
+      setLoading(false);
+      return;
+    }
     initializeAuth();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

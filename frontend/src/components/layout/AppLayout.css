@@ -5,6 +5,24 @@
   flex-direction: column;
   height: 100vh;
   background: var(--slate-50, #f8fafc);
+  /* Login's centered card unmounts and this full shell mounts in the same
+     commit, with no transition of its own — a plain opacity fade turns that
+     instant cut into a soft appearance instead. Opacity-only so there's no
+     layout shift and the shell is fully interactive throughout the fade.
+     350ms because shorter durations sit near the threshold of perception and
+     still read as a cut. */
+  animation: app-shell-fade-in 350ms ease-out;
+}
+
+@keyframes app-shell-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-shell {
+    animation: none;
+  }
 }
 
 /* Header */

@@ -15,7 +15,7 @@ import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import EmailIcon from '@mui/icons-material/Email';
 import PersonIcon from '@mui/icons-material/Person';
 import LogoutIcon from '@mui/icons-material/Logout';
-import api, { cancelProactiveRefresh } from '../services/api';
+import api, { cancelProactiveRefresh, cancelIdleLogout } from '../services/api';
 import { useAuthStore } from '../store/authStore';
 import { PageBackButton } from '../components/layout/PageBackButton';
 
@@ -31,6 +31,7 @@ export default function AccessDenied() {
 
   const handleLogout = () => {
     cancelProactiveRefresh();
+    cancelIdleLogout();
     sessionStorage.setItem('explicit_logout', 'true');
     clearAuth();
     window.location.href = '/login';
