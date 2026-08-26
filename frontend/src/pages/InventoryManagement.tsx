@@ -3,7 +3,8 @@
  * Main page for viewing and managing inventory items
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { InventoryItem, InventoryFilters } from '../types/inventory.types';
 import { useInventoryList, useInventoryStats } from '../hooks/queries/useInventory';
@@ -14,6 +15,7 @@ import InventoryHistoryDialog from '../components/inventory/InventoryHistoryDial
 import ImportInventoryDialog from '../components/inventory/ImportInventoryDialog';
 import { AssignmentDialog } from '../components/inventory/AssignmentDialog';
 import InventoryPermanentDeleteDialog from '../components/inventory/InventoryPermanentDeleteDialog';
+import EquipmentDetailDrawer from '../components/inventory/EquipmentDetailDrawer';
 import { Box, Paper } from '@mui/material';
 import { ResponsiveTable, MobileFilterBar, Column } from '../components/responsive';
 import { useIsMobile } from '../hooks/useResponsive';
@@ -41,6 +43,7 @@ export const InventoryManagement = () => {
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
   const [permanentDeleteItem, setPermanentDeleteItem] = useState<InventoryItem | null>(null);
   const [permanentDeleteError, setPermanentDeleteError] = useState<string | undefined>(undefined);
+  const [detailItemId, setDetailItemId] = useState<string | null>(null);
 
   // Filter state
   const [filters, setFilters] = useState<InventoryFilters>({
@@ -55,6 +58,21 @@ export const InventoryManagement = () => {
     setFilters(newFilters);
     setPaginationModel(prev => ({ ...prev, page: 0 }));
   };
+
+  const [searchParams] = useSearchParams();
+
+  // Pre-populate search from a query param (e.g. navigated from a work order's
+  // asset tag link). Sanitized with the same whitelist/cap NewWorkOrderPage uses.
+  useEffect(() => {
+    const searchParam = searchParams.get('search');
+    if (searchParam) {
+      const sanitized = searchParam.replace(/[^\w\-./]/g, '').slice(0, 50);
+      if (sanitized) {
+        updateFilters({ ...filters, search: sanitized });
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // run once on mount
 
   const isMobile = useIsMobile();
   const searchRef = useAutoFocusSearch();
@@ -75,6 +93,18 @@ export const InventoryManagement = () => {
   } = useInventoryList(paginationModel.page + 1, paginationModel.pageSize, filters);
 
   const items = listData?.items ?? [];
+
+  // Derive from `items` rather than snapshotting the row, so a refetch (including
+  // one triggered by an edit inside the drawer) flows through to an open drawer.
+  const detailItem = items.find((i) => i.id === detailItemId) ?? null;
+
+  // Drop the id once its row leaves the result set — disposed, filtered out, or
+  // paged past — so the drawer can't reappear if that row comes back later.
+  // Safe to key off `items`: useInventoryList sets placeholderData:
+  // keepPreviousData, so `items` never flashes empty mid-refetch.
+  useEffect(() => {
+    if (detailItemId && !detailItem) setDetailItemId(null);
+  }, [detailItemId, detailItem]);
   const total = listData?.total ?? 0;
 
   const { data: stats } = useInventoryStats();
@@ -364,6 +394,17 @@ export const InventoryManagement = () => {
         ) : (
           <span style={{ color: 'var(--slate-400)' }}>—</span>
         ),
+    },
+    {
+      // The one missing field worth scanning across rows rather than opening an
+      // item to read. hideOnMobile puts it in the lowest priority tier, so it
+      // collapses into the expand row before Status/Category/Location do.
+      key: 'condition',
+      label: 'Condition',
+      hideOnMobile: true,
+      minWidth: 110,
+      render: (item) =>
+        item.condition ?? <span style={{ color: 'var(--slate-400)' }}>—</span>,
     },
   ];
 
@@ -668,6 +709,7 @@ export const InventoryManagement = () => {
               loading={loading}
               emptyMessage="No equipment found. Adjust your filters and try again."
               rowActions={rowActions}
+              onRowClick={(item) => setDetailItemId(item.id)}
               // Up to 5 .btn-sm ghost buttons for an admin viewing an active item
               // (Assign, Edit, History, Dispose, Permanently Delete) in a
               // non-wrapping flex row + cell padding
@@ -726,6 +768,13 @@ export const InventoryManagement = () => {
               </div>
             )}
           </div>
+      <EquipmentDetailDrawer
+        item={detailItem}
+        open={!!detailItem}
+        onClose={() => setDetailItemId(null)}
+        onItemChanged={refetch}
+      />
+
       {/* DIALOGS - Keep existing dialog components */}
       <InventoryFormDialog
         open={formDialogOpen}

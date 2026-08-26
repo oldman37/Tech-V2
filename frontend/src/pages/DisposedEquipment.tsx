@@ -188,7 +188,11 @@ const DisposedEquipment = () => {
       key: 'assetTag',
       label: 'Asset Tag',
       isPrimary: true,
-      render: (item) => <strong style={{ fontWeight: 600 }}>{item.assetTag}</strong>,
+      // Opaque token: let it wrap so the column can shrink instead of forcing
+      // the table wider than its container.
+      render: (item) => (
+        <strong style={{ fontWeight: 600, overflowWrap: 'anywhere' }}>{item.assetTag}</strong>
+      ),
     },
     {
       key: 'name',
@@ -216,7 +220,21 @@ const DisposedEquipment = () => {
       key: 'serialNumber',
       label: 'Serial #',
       hideOnMobile: true,
-      render: (item) => item.serialNumber || '—',
+      render: (item) =>
+        item.serialNumber ? (
+          <span
+            title={item.serialNumber}
+            style={{
+              fontFamily: 'monospace',
+              fontSize: '0.8125rem',
+              overflowWrap: 'anywhere',
+            }}
+          >
+            {item.serialNumber}
+          </span>
+        ) : (
+          <span style={{ color: 'var(--slate-400)' }}>—</span>
+        ),
     },
     {
       key: 'officeLocation',
@@ -247,7 +265,21 @@ const DisposedEquipment = () => {
       key: 'poNumber',
       label: 'PO #',
       hideOnMobile: true,
-      render: (item) => item.poNumber || '—',
+      render: (item) =>
+        item.poNumber ? (
+          <span
+            title={item.poNumber}
+            style={{
+              fontFamily: 'monospace',
+              fontSize: '0.8125rem',
+              overflowWrap: 'anywhere',
+            }}
+          >
+            {item.poNumber}
+          </span>
+        ) : (
+          <span style={{ color: 'var(--slate-400)' }}>—</span>
+        ),
     },
     {
       key: 'purchasePrice',

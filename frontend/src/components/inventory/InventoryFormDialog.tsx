@@ -41,6 +41,9 @@ import {
 } from '../../services/referenceDataService';
 import type { Brand, Vendor, Category, EquipmentModel } from '../../services/referenceDataService';
 import UserSearchAutocomplete from '../UserSearchAutocomplete';
+import CreatableAutocomplete from './CreatableAutocomplete';
+import VendorRequestDialog from './VendorRequestDialog';
+import type { VendorRequestInput } from '../../services/referenceDataService';
 import type { UserSearchResult } from '../../services/userService';
 import type { FundingSource } from '../../types/fundingSource.types';
 import {
@@ -147,6 +150,27 @@ export const InventoryFormDialog = ({
   const [categories, setCategories] = useState<Category[]>([]);
   const [models, setModels] = useState<EquipmentModel[]>([]);
   const [modelsForBrand, setModelsForBrand] = useState<EquipmentModel[]>([]);
+
+  // Uncommitted-text guard: under a creatable picker, text left in the box that was
+  // never committed via `+ Add` would otherwise save silently as "no value".
+  const [pendingText, setPendingText] = useState<{ brand: string; model: string; vendor: string }>({
+    brand: '',
+    model: '',
+    vendor: '',
+  });
+  const [pendingTextError, setPendingTextError] = useState<{ brand?: string; model?: string; vendor?: string }>({});
+
+  // Vendor creation goes through a structured dialog rather than a bare name.
+  const [vendorDialogName, setVendorDialogName] = useState<string | null>(null);
+  const [vendorResolver, setVendorResolver] = useState<((v: Vendor | null) => void) | null>(null);
+  const [vendorSubmitting, setVendorSubmitting] = useState(false);
+
+  const handlePendingText = (field: 'brand' | 'model' | 'vendor', text: string) => {
+    setPendingText((p) => ({ ...p, [field]: text }));
+    // Clear as soon as the user edits, rather than leaving a stale error until the
+    // next submit attempt.
+    setPendingTextError((e) => (e[field] ? { ...e, [field]: undefined } : e));
+  };
 
   // Load dropdown options
   useEffect(() => {
@@ -306,6 +330,101 @@ export const InventoryFormDialog = ({
     }
   };
 
+  /**
+   * The server pre-checks case-insensitively and returns 409 carrying the record that
+   * collided, so a race (or a case-only difference the client's loaded list missed)
+   * resolves by selecting that record rather than surfacing an error.
+   */
+  const readConflictRecord = (err: unknown): { id: string; name: string } | null => {
+    const response = (err as { response?: { status?: number; data?: { existing?: { id: string; name: string } } } })
+      .response;
+    if (response?.status === 409 && response.data?.existing) return response.data.existing;
+    return null;
+  };
+
+  const createBrandOrSelectExisting = async (name: string): Promise<Brand | null> => {
+    try {
+      return await brandsService.create({ name });
+    } catch (err) {
+      const conflict = readConflictRecord(err);
+      if (conflict) {
+        const known = brands.find((b) => b.id === conflict.id);
+        if (known) return known;
+        setPendingTextError((e) => ({ ...e, brand: `"${conflict.name}" already exists — it may be deactivated.` }));
+        return null;
+      }
+      setPendingTextError((e) => ({ ...e, brand: 'Could not create that brand. Please try again.' }));
+      return null;
+    }
+  };
+
+  const createModelOrSelectExisting = async (name: string, brandId: string): Promise<EquipmentModel | null> => {
+    try {
+      return await modelsService.create({ name, brandId });
+    } catch (err) {
+      const conflict = readConflictRecord(err);
+      if (conflict) {
+        const known = models.find((m) => m.id === conflict.id);
+        if (known) return known;
+        setPendingTextError((e) => ({ ...e, model: `"${conflict.name}" already exists — it may be deactivated.` }));
+        return null;
+      }
+      setPendingTextError((e) => ({ ...e, model: 'Could not create that model. Please try again.' }));
+      return null;
+    }
+  };
+
+  const handleVendorDialogSubmit = async (data: VendorRequestInput) => {
+    setVendorSubmitting(true);
+    try {
+      // Plain POST /vendors (TECHNOLOGY 2), NOT /vendors/request-new, which is gated
+      // on REQUISITIONS 2 and would 403 a technology-only user.
+      const created = await vendorsService.create(data);
+      setVendors((prev) => (prev.some((v) => v.id === created.id) ? prev : [...prev, created]));
+      vendorResolver?.(created);
+    } catch (err) {
+      const conflict = readConflictRecord(err);
+      const known = conflict ? vendors.find((v) => v.id === conflict.id) : undefined;
+      if (known) {
+        vendorResolver?.(known);
+      } else {
+        setPendingTextError((e) => ({
+          ...e,
+          vendor: conflict
+            ? `"${conflict.name}" already exists — it may be deactivated.`
+            : 'Could not create that vendor. Please try again.',
+        }));
+        vendorResolver?.(null);
+      }
+    } finally {
+      setVendorSubmitting(false);
+      setVendorDialogName(null);
+      setVendorResolver(null);
+    }
+  };
+
+  /**
+   * Block submit while a creatable field holds text that was never committed via
+   * `+ Add`. Without this the item saves with no brand/model/vendor attached and no
+   * warning — the failure mode freeSolo alone would introduce.
+   */
+  const validatePendingText = (): boolean => {
+    const selected = {
+      brand:  brands.find((b) => b.id === formData.brandId)?.name ?? '',
+      model:  modelsForBrand.find((m) => m.id === formData.modelId)?.name ?? '',
+      vendor: vendors.find((v) => v.id === formData.vendorId)?.name ?? '',
+    };
+    const errors: { brand?: string; model?: string; vendor?: string } = {};
+    (['brand', 'model', 'vendor'] as const).forEach((field) => {
+      const text = pendingText[field].trim();
+      if (text && text !== selected[field]) {
+        errors[field] = `Press Add "${text}" to create it, or clear the field.`;
+      }
+    });
+    setPendingTextError(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const validate = (): boolean => {
     try {
       inventorySchema.parse(formData);
@@ -378,6 +497,9 @@ export const InventoryFormDialog = ({
   };
 
   const handleSubmit = async () => {
+    if (!validatePendingText()) {
+      return;
+    }
     if (!validate()) {
       return;
     }
@@ -475,7 +597,7 @@ export const InventoryFormDialog = ({
               value={categories.find((c) => c.id === formData.categoryId) ?? null}
               onChange={(_e, selected) => handleChange('categoryId', selected?.id ?? null)}
               disabled={loading}
-              noOptionsText="No types found"
+              noOptionsText="No types found — add one in Reference Data"
               renderInput={(params) => <TextField {...params} label="Type" />}
             />
             <TextField
@@ -489,16 +611,21 @@ export const InventoryFormDialog = ({
 
           {/* Row 3: Brand | Status */}
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
-            <Autocomplete
-              fullWidth
+            <CreatableAutocomplete<Brand>
+              label="Brand"
               options={brands}
-              getOptionLabel={(b) => b.name}
-              isOptionEqualToValue={(opt, val) => opt.id === val.id}
               value={brands.find((b) => b.id === formData.brandId) ?? null}
-              onChange={(_e, selected) => handleChange('brandId', selected?.id ?? null)}
+              onChange={(selected) => handleChange('brandId', selected?.id ?? null)}
+              onCreate={async (name) => {
+                const created = await createBrandOrSelectExisting(name);
+                if (created) setBrands((prev) => (prev.some((b) => b.id === created.id) ? prev : [...prev, created]));
+                return created;
+              }}
               disabled={loading}
               noOptionsText="No brands found"
-              renderInput={(params) => <TextField {...params} label="Brand" />}
+              onInputTextChange={(text) => handlePendingText('brand', text)}
+              error={!!pendingTextError.brand}
+              helperText={pendingTextError.brand}
             />
             <FormControl fullWidth>
               <InputLabel>Status</InputLabel>
@@ -519,16 +646,30 @@ export const InventoryFormDialog = ({
 
           {/* Row 4: Model | Condition */}
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
-            <Autocomplete
-              fullWidth
+            <CreatableAutocomplete<EquipmentModel>
+              label="Model"
               options={modelsForBrand}
-              getOptionLabel={(m) => m.name}
-              isOptionEqualToValue={(opt, val) => opt.id === val.id}
               value={modelsForBrand.find((m) => m.id === formData.modelId) ?? null}
-              onChange={(_e, selected) => handleChange('modelId', selected?.id ?? null)}
+              onChange={(selected) => handleChange('modelId', selected?.id ?? null)}
+              onCreate={async (name) => {
+                // A model is meaningless without its brand — the picker is already
+                // scoped to the selected brand, so require one before creating.
+                if (!formData.brandId) {
+                  setPendingTextError((e) => ({ ...e, model: 'Select a brand first.' }));
+                  return null;
+                }
+                const created = await createModelOrSelectExisting(name, formData.brandId);
+                if (created) {
+                  setModels((prev) => (prev.some((m) => m.id === created.id) ? prev : [...prev, created]));
+                  setModelsForBrand((prev) => (prev.some((m) => m.id === created.id) ? prev : [...prev, created]));
+                }
+                return created;
+              }}
               disabled={loading}
               noOptionsText={formData.brandId ? 'No models for this brand' : 'Select a brand to filter models'}
-              renderInput={(params) => <TextField {...params} label="Model" />}
+              onInputTextChange={(text) => handlePendingText('model', text)}
+              error={!!pendingTextError.model}
+              helperText={pendingTextError.model}
             />
             <FormControl fullWidth>
               <InputLabel>Condition</InputLabel>
@@ -598,7 +739,7 @@ export const InventoryFormDialog = ({
               value={fundingSources.find((fs) => fs.id === formData.fundingSourceId) ?? null}
               onChange={(_e, selected) => handleChange('fundingSourceId', selected?.id ?? null)}
               disabled={loading}
-              noOptionsText="No funding sources found"
+              noOptionsText="No funding sources found — add one in Reference Data"
               renderInput={(params) => (
                 <TextField {...params} label="Funds" placeholder="Search funding sources..." />
               )}
@@ -607,16 +748,22 @@ export const InventoryFormDialog = ({
 
           {/* Row 7: Vendor | Assigned User */}
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
-            <Autocomplete
-              fullWidth
+            <CreatableAutocomplete<Vendor>
+              label="Vendor"
               options={vendors}
-              getOptionLabel={(v) => v.name}
-              isOptionEqualToValue={(opt, val) => opt.id === val.id}
               value={vendors.find((v) => v.id === formData.vendorId) ?? null}
-              onChange={(_e, selected) => handleChange('vendorId', selected?.id ?? null)}
+              onChange={(selected) => handleChange('vendorId', selected?.id ?? null)}
+              onCreate={(name) =>
+                new Promise<Vendor | null>((resolve) => {
+                  setVendorDialogName(name);
+                  setVendorResolver(() => resolve);
+                })
+              }
               disabled={loading}
               noOptionsText="No vendors found"
-              renderInput={(params) => <TextField {...params} label="Vendor" />}
+              onInputTextChange={(text) => handlePendingText('vendor', text)}
+              error={!!pendingTextError.vendor}
+              helperText={pendingTextError.vendor}
             />
             <UserSearchAutocomplete
               value={formData.assignedToUserId ?? null}
@@ -662,7 +809,9 @@ export const InventoryFormDialog = ({
               disabled={loading || !formData.officeLocationId}
               loading={roomsLoading}
               noOptionsText={
-                !formData.officeLocationId ? 'Select a school first' : 'No rooms found'
+                !formData.officeLocationId
+                  ? 'Select a school first'
+                  : 'No rooms found — add one in Room Management'
               }
               renderInput={(params) => (
                 <TextField
@@ -708,6 +857,18 @@ export const InventoryFormDialog = ({
           {item ? 'Update' : 'Create'}
         </Button>
       </DialogActions>
+
+      <VendorRequestDialog
+        open={vendorDialogName !== null}
+        initialName={vendorDialogName ?? ''}
+        submitting={vendorSubmitting}
+        onSubmit={handleVendorDialogSubmit}
+        onCancel={() => {
+          vendorResolver?.(null);
+          setVendorDialogName(null);
+          setVendorResolver(null);
+        }}
+      />
     </Dialog>
   );
 };

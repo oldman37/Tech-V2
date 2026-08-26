@@ -143,13 +143,29 @@ export const CreateWorkOrderSchema = z
 // POST /work-orders/quick-fix — body schema
 // ---------------------------------------------------------------------------
 
-export const QuickFixSchema = z.object({
-  equipmentId: z.string().uuid('Invalid equipment ID'),
-  categoryId:  z.string().uuid('Invalid category ID'),
-  // Required — becomes the closing "Actions Taken" note, so the ticket's
-  // history shows what was actually done rather than a generic message.
-  notes: z.string().trim().min(1, 'Please describe what was completed').max(1000, 'Notes must be 1000 characters or less'),
-});
+export const QuickFixSchema = z
+  .object({
+    // The person the work order is reported on behalf of — the checked-out person
+    // resolved from the Active Checkouts row, not the caller running Quick Fix.
+    reportedByUserId: z.string().uuid('Invalid user ID'),
+    // Both omitted/null means "Device not listed" — the ticket is created with
+    // notInInventory: true, reusing the mechanism the full form already has.
+    equipmentId: z.string().uuid('Invalid equipment ID').optional().nullable(),
+    chargerId:   z.string().uuid('Invalid charger ID').optional().nullable(),
+    categoryId:  z.string().uuid('Invalid category ID'),
+    // Required — becomes the closing "Actions Taken" note, so the ticket's
+    // history shows what was actually done rather than a generic message.
+    notes: z.string().trim().min(1, 'Please describe what was completed').max(1000, 'Notes must be 1000 characters or less'),
+  })
+  .superRefine((data, ctx) => {
+    if (data.equipmentId && data.chargerId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Select either a device or a charger, not both',
+        path: ['equipmentId'],
+      });
+    }
+  });
 
 export type QuickFixDto = z.infer<typeof QuickFixSchema>;
 

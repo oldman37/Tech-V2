@@ -18,6 +18,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { Link as RouterLink } from 'react-router-dom';
 import workOrderCategoryService from '../../services/workOrderCategoryService';
+import { deviceAssignmentService } from '../../services/deviceAssignment.service';
 import { useQuickFix } from '../../hooks/mutations/useWorkOrderMutations';
 import type { WorkOrderDetail } from '../../types/work-order.types';
 import type { DeviceAssignment } from '../../types/deviceAssignment.types';
@@ -28,6 +29,12 @@ interface QuickFixDialogProps {
   onClose: () => void;
 }
 
+// A single MUI Select carries one string value space, so equipment ids and
+// charger ids are prefixed to keep them from colliding.
+const EQUIPMENT_PREFIX = 'eq:';
+const CHARGER_PREFIX   = 'chg:';
+const NOT_LISTED       = '__NOT_LISTED__';
+
 function getApiErrorMessage(error: unknown): string | undefined {
   if (error && typeof error === 'object' && 'response' in error) {
     return (error as { response?: { data?: { message?: string } } }).response?.data?.message;
@@ -37,6 +44,8 @@ function getApiErrorMessage(error: unknown): string | undefined {
 
 export function QuickFixDialog({ assignment, open, onClose }: QuickFixDialogProps) {
   const [categoryId, setCategoryId] = useState('');
+  // Defaults to the row that was clicked — switching is an additional choice.
+  const [selection, setSelection] = useState(`${EQUIPMENT_PREFIX}${assignment.equipmentId}`);
   const [notes, setNotes] = useState('');
   const [result, setResult] = useState<WorkOrderDetail | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -59,12 +68,23 @@ export function QuickFixDialog({ assignment, open, onClose }: QuickFixDialogProp
   });
   const categories = categoriesData?.items ?? [];
 
+  const { data: userAssignments } = useQuery({
+    queryKey: ['device-assignments', 'user', assignment.userId],
+    queryFn: () => deviceAssignmentService.getByUser(assignment.userId),
+    enabled: open,
+  });
+  const activeDevices = (userAssignments ?? []).filter((a) => !a.returnedAt && a.equipment);
+  const activeChargers = activeDevices
+    .map((a) => a.chargerAssignment)
+    .filter((c): c is NonNullable<typeof c> => !!c && !c.returnedAt);
+
   const assigneeName = assignment.user
     ? [assignment.user.firstName, assignment.user.lastName].filter(Boolean).join(' ')
     : null;
 
   const handleClose = () => {
     setCategoryId('');
+    setSelection(`${EQUIPMENT_PREFIX}${assignment.equipmentId}`);
     setNotes('');
     setResult(null);
     setSubmitError(null);
@@ -77,7 +97,17 @@ export function QuickFixDialog({ assignment, open, onClose }: QuickFixDialogProp
     if (!categoryId || !trimmedNotes) return;
     setSubmitError(null);
     try {
-      setResult(await quickFix.mutateAsync({ equipmentId: assignment.equipmentId, categoryId, notes: trimmedNotes }));
+      setResult(await quickFix.mutateAsync({
+        reportedByUserId: assignment.userId,
+        equipmentId: selection.startsWith(EQUIPMENT_PREFIX)
+          ? selection.slice(EQUIPMENT_PREFIX.length)
+          : null,
+        chargerId: selection.startsWith(CHARGER_PREFIX)
+          ? selection.slice(CHARGER_PREFIX.length)
+          : null,
+        categoryId,
+        notes: trimmedNotes,
+      }));
     } catch (err: unknown) {
       setSubmitError(
         getApiErrorMessage(err) ?? 'Failed to create the work order. Please try again.',
@@ -109,10 +139,31 @@ export function QuickFixDialog({ assignment, open, onClose }: QuickFixDialogProp
         ) : (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, mt: 0.5 }}>
             <Typography variant="body2" color="text.secondary">
-              Device: <strong>{assignment.equipment?.assetTag}</strong>
-              {assignment.equipment?.name ? ` — ${assignment.equipment.name}` : ''}
-              {assigneeName ? ` · ${assigneeName}` : ''}
+              Reported by: <strong>{assigneeName ?? assignment.userId}</strong>
             </Typography>
+
+            <FormControl size="small" fullWidth>
+              <InputLabel>Device</InputLabel>
+              <Select
+                label="Device"
+                value={selection}
+                onChange={(e) => setSelection(e.target.value)}
+                disabled={isSubmitting}
+              >
+                {activeDevices.map((a) => (
+                  <MenuItem key={a.id} value={`${EQUIPMENT_PREFIX}${a.equipmentId}`}>
+                    {a.equipment?.assetTag}
+                    {a.equipment?.name ? ` — ${a.equipment.name}` : ''}
+                  </MenuItem>
+                ))}
+                {activeChargers.map((c) => (
+                  <MenuItem key={c.id} value={`${CHARGER_PREFIX}${c.charger.id}`}>
+                    Charger — {c.charger.serialNumber}
+                  </MenuItem>
+                ))}
+                <MenuItem value={NOT_LISTED}>Device not listed</MenuItem>
+              </Select>
+            </FormControl>
 
             <FormControl size="small" fullWidth>
               <InputLabel>Category</InputLabel>

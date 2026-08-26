@@ -97,6 +97,17 @@ router.post(
   controller.assignCharger
 );
 
+// Charger-only checkin — closes an outstanding charger on a checkout whose
+// device side is already returned. No body; same middleware stack as the
+// sibling charger-assign route above.
+router.post(
+  '/:id/charger/checkin',
+  validateCsrfToken,
+  requireDeviceManagementAccess(),
+  validateRequest(AssignmentIdParamSchema, 'params'),
+  controller.checkinCharger
+);
+
 router.patch(
   '/:id',
   validateCsrfToken,

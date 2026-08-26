@@ -79,7 +79,7 @@ async function countWorkOrders(userId: string, groups: string[], since: Date): P
 
   const ownTickets = await prisma.ticket.findMany({
     where: { OR: [{ reportedById: userId }, { assignedToId: userId }] },
-    select: { id: true, assignedToId: true, createdAt: true },
+    select: { id: true, assignedToId: true, createdAt: true, status: true },
   });
   if (ownTickets.length === 0) return 0;
 
@@ -117,7 +117,9 @@ async function countWorkOrders(userId: string, groups: string[], since: Date): P
   for (const row of commentRows) changed.add(row.ticketId);
   for (const row of assignmentRows) changed.add(row.ticketId);
   for (const t of ownTickets) {
-    if (t.assignedToId === userId && t.createdAt > since) changed.add(t.id);
+    // An assigned ticket that is already closed needs no further look — a general
+    // narrowing that also covers create-then-close flows like Quick Fix.
+    if (t.assignedToId === userId && t.createdAt > since && t.status !== 'CLOSED') changed.add(t.id);
   }
   return changed.size;
 }

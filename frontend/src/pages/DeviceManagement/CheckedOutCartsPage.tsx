@@ -463,6 +463,23 @@ export default function CheckedOutCartsPage() {
       {/* Filter bar */}
       <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+          {/* Search */}
+          <TextField
+            inputRef={searchRef}
+            size="small"
+            label="Search tag / name"
+            value={search}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon fontSize="small" />
+                </InputAdornment>
+              ),
+            }}
+            sx={{ minWidth: 200 }}
+          />
+
           {/* Status filter */}
           <FormControl size="small" sx={{ minWidth: 180 }}>
             <InputLabel>Status</InputLabel>
@@ -491,23 +508,6 @@ export default function CheckedOutCartsPage() {
               renderInput={(params) => <TextField {...params} label="Location" />}
             />
           )}
-
-          {/* Search */}
-          <TextField
-            inputRef={searchRef}
-            size="small"
-            label="Search tag / name"
-            value={search}
-            onChange={(e) => handleSearchChange(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon fontSize="small" />
-                </InputAdornment>
-              ),
-            }}
-            sx={{ minWidth: 200 }}
-          />
         </Box>
       </Paper>
 

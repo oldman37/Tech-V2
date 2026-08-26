@@ -24,6 +24,9 @@ export const deviceAssignmentService = {
   assignCharger: (deviceAssignmentId: string, serialNumber: string): Promise<ChargerAssignmentRecord> =>
     api.post(`${BASE}/${deviceAssignmentId}/charger`, { serialNumber }).then((r) => r.data),
 
+  checkinCharger: (deviceAssignmentId: string): Promise<DeviceAssignment> =>
+    api.post(`${BASE}/${deviceAssignmentId}/charger/checkin`).then((r) => r.data),
+
   update: (id: string, data: UpdateAssignmentRequest): Promise<DeviceAssignment> =>
     api.patch(`${BASE}/${id}`, data).then((r) => r.data),
 

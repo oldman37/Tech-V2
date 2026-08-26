@@ -484,6 +484,12 @@ async function executeBatchAction(
 
 // ---------------------------------------------------------------------------
 // Inventory write-back after decommission
+//
+// Scoped to `fullDecommission` only. Plain `deleteDevice` (and every other
+// action) must never touch inventory — Intune actions act on Intune only.
+// Full Decommission is the deliberate, explicit "retire this asset for good"
+// action (Intune record + Autopilot identity + Entra object all removed), so
+// disposing the matching inventory row is part of what that action means.
 // ---------------------------------------------------------------------------
 
 async function writeInventoryDisposals(
@@ -491,17 +497,11 @@ async function writeInventoryDisposals(
   action: IntuneAction,
   logId: string,
 ): Promise<void> {
-  if (action !== 'fullDecommission' && action !== 'deleteDevice') return;
+  if (action !== 'fullDecommission') return;
 
-  const isSuccessful = (r: DeviceActionResult) => {
-    if (action === 'fullDecommission') {
-      return (
-        r.status === 'success' ||
-        (r.status === 'partial' && r.stepResults?.deleteDevice === 'success')
-      );
-    }
-    return r.status === 'success';
-  };
+  const isSuccessful = (r: DeviceActionResult) =>
+    r.status === 'success' ||
+    (r.status === 'partial' && r.stepResults?.deleteDevice === 'success');
 
   const serialsToDispose  = results.filter((r) =>  !!r.serialNumber && isSuccessful(r)).map((r) => r.serialNumber);
   // Fallback for OCS-named devices that have no serial in Intune — match by asset tag instead

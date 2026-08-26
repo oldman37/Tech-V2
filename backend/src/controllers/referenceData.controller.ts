@@ -54,6 +54,21 @@ export const getBrand = async (req: AuthRequest, res: Response): Promise<void> =
 export const createBrand = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const data = CreateBrandSchema.parse(req.body);
+    // Postgres unique indexes are case-sensitive, so `brands.name @unique` alone
+    // lets Dell and dell both insert. Pre-check case-insensitively, and return the
+    // colliding record so the client can select it instead of surfacing an error.
+    const existing = await prisma.brands.findFirst({
+      where:  { name: { equals: data.name, mode: 'insensitive' } },
+      select: { id: true, name: true },
+    });
+    if (existing) {
+      res.status(409).json({
+        error: 'CONFLICT',
+        message: `Brand "${existing.name}" already exists.`,
+        existing,
+      });
+      return;
+    }
     const item = await prisma.brands.create({ data });
     res.status(201).json(item);
   } catch (error) {
@@ -126,6 +141,19 @@ export const getVendor = async (req: AuthRequest, res: Response): Promise<void> 
 export const createVendor = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const data = CreateVendorSchema.parse(req.body);
+    // See createBrand — case-insensitive pre-check, colliding record returned.
+    const existing = await prisma.vendors.findFirst({
+      where:  { name: { equals: data.name, mode: 'insensitive' } },
+      select: { id: true, name: true },
+    });
+    if (existing) {
+      res.status(409).json({
+        error: 'CONFLICT',
+        message: `Vendor "${existing.name}" already exists.`,
+        existing,
+      });
+      return;
+    }
     const item = await prisma.vendors.create({ data });
     res.status(201).json(item);
   } catch (error) {
@@ -364,6 +392,19 @@ export const createModel = async (req: AuthRequest, res: Response): Promise<void
     // Verify brand exists
     const brand = await prisma.brands.findUnique({ where: { id: data.brandId } });
     if (!brand) throw new NotFoundError('Brand not found');
+    // See createBrand — scoped by brandId, matching the @@unique([name, brandId]).
+    const existing = await prisma.models.findFirst({
+      where:  { name: { equals: data.name, mode: 'insensitive' }, brandId: data.brandId },
+      select: { id: true, name: true },
+    });
+    if (existing) {
+      res.status(409).json({
+        error: 'CONFLICT',
+        message: `Model "${existing.name}" already exists for this brand.`,
+        existing,
+      });
+      return;
+    }
     const item = await prisma.models.create({
       data,
       include: { brands: { select: { id: true, name: true } } },

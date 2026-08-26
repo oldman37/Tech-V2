@@ -13,9 +13,11 @@ interface EquipmentDetailDrawerProps {
   item: InventoryItem | null;
   open: boolean;
   onClose: () => void;
+  /** Called after an edit from inside the drawer succeeds, so the host can refresh. */
+  onItemChanged?: () => void;
 }
 
-const EquipmentDetailDrawer = ({ item, open, onClose }: EquipmentDetailDrawerProps) => {
+const EquipmentDetailDrawer = ({ item, open, onClose, onItemChanged }: EquipmentDetailDrawerProps) => {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
 
@@ -386,7 +388,10 @@ const EquipmentDetailDrawer = ({ item, open, onClose }: EquipmentDetailDrawerPro
         open={editDialogOpen}
         item={item}
         onClose={() => setEditDialogOpen(false)}
-        onSuccess={() => setEditDialogOpen(false)}
+        onSuccess={() => {
+          setEditDialogOpen(false);
+          onItemChanged?.();
+        }}
       />
 
       {/* History Dialog */}

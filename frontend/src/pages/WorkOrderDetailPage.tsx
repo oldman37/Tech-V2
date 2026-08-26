@@ -507,6 +507,25 @@ function WorkOrderDetailsFields({ workOrder }: { workOrder: WorkOrderDetail }) {
         </Typography>
       </Box>
 
+      {workOrder.equipment && (
+        <Box>
+          <Typography variant="caption" color="text.secondary" display="block">
+            Asset Tag
+          </Typography>
+          <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
+            <Link
+              component={RouterLink}
+              to={`/inventory?search=${encodeURIComponent(workOrder.equipment.assetTag)}`}
+              underline="hover"
+            >
+              {workOrder.equipment.assetTag}
+            </Link>
+            {' — '}
+            {workOrder.equipment.name}
+          </Typography>
+        </Box>
+      )}
+
       {workOrder.notInInventory && workOrder.notInInventoryTag && (
         <Box>
           <Typography variant="caption" color="text.secondary" display="block">
@@ -681,13 +700,16 @@ export default function WorkOrderDetailPage() {
   // (mirrors ToggleButtonGroup's exclusive-with-deselect behavior).
   const toggleAction = (value: ActiveAction) => handleActionChange(undefined, activeAction === value ? null : value);
 
-  // On mobile the "New Status" dropdown renders below the fold when it
-  // first appears — nudge it into view so the user doesn't have to
-  // scroll manually before selecting the next status.
-  const statusFieldRef = useRef<HTMLDivElement>(null);
+  // On mobile the status fields expand below the fold — nudge the composer's
+  // submit button into view, not just the "New Status" options, so the whole
+  // action is reachable without a second scroll to find the button.
+  // block: 'nearest' scrolls the minimum distance, so the status chips stay on
+  // screen whenever the composer fits, and it's a no-op on desktop where the
+  // button is already visible.
+  const composerSubmitRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (activeAction === 'status') {
-      statusFieldRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      composerSubmitRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
   }, [activeAction]);
 
@@ -917,6 +939,7 @@ export default function WorkOrderDetailPage() {
                     color="inherit"
                     disabled={dismissInputRequest.isPending}
                     onClick={() => id && dismissInputRequest.mutate({ workOrderId: id, requestId: r.id })}
+                    sx={{ whiteSpace: 'nowrap', flexShrink: 0 }}
                   >
                     Dismiss
                   </Button>
@@ -1119,7 +1142,7 @@ export default function WorkOrderDetailPage() {
 
               {/* Fields specific to the active action */}
               {activeAction === 'status' && (
-                <Box ref={statusFieldRef} sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                   <Box>
                     <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
                       New Status
@@ -1210,7 +1233,7 @@ export default function WorkOrderDetailPage() {
                 </Alert>
               )}
 
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 1 }}>
+              <Box ref={composerSubmitRef} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 1 }}>
                 {activeAction !== null && (
                   <Button size="small" onClick={() => handleActionChange(undefined, null)} disabled={composerPending}>
                     Cancel

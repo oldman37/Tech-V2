@@ -85,23 +85,44 @@ export class InventoryService {
     // Build where clause
     const where: Prisma.equipmentWhereInput = {};
 
-    // Search across multiple fields
+    // Search across multiple fields. assetTag and barcode are the only @unique
+    // fields on equipment, so an exact match on either is unambiguous — prefer it
+    // over the fuzzy multi-field search so an exact tag doesn't also pull in
+    // unrelated items that merely happen to contain the same digits in a
+    // non-unique field (e.g. a PO number).
     if (search) {
-      where.OR = [
-        { assetTag:     { contains: search, mode: 'insensitive' } },
-        { name:         { contains: search, mode: 'insensitive' } },
-        { serialNumber: { contains: search, mode: 'insensitive' } },
-        { description:  { contains: search, mode: 'insensitive' } },
-        { notes:        { contains: search, mode: 'insensitive' } },
-        { poNumber:     { contains: search, mode: 'insensitive' } },
-        { barcode:      { contains: search, mode: 'insensitive' } },
-        { brands:       { is: { name:        { contains: search, mode: 'insensitive' } } } },
-        { models:       { is: { name:        { contains: search, mode: 'insensitive' } } } },
-        { models:       { is: { modelNumber: { contains: search, mode: 'insensitive' } } } },
-        { vendor:       { is: { name:        { contains: search, mode: 'insensitive' } } } },
-        { assignedToUser: { is: { displayName: { contains: search, mode: 'insensitive' } } } },
-        { assignedToUser: { is: { email:       { contains: search, mode: 'insensitive' } } } },
-      ];
+      const trimmed = search.trim();
+      const exactUniqueMatches = trimmed
+        ? await this.prisma.equipment.count({
+            where: {
+              OR: [
+                { assetTag: { equals: trimmed, mode: 'insensitive' } },
+                { barcode:  { equals: trimmed, mode: 'insensitive' } },
+              ],
+            },
+          })
+        : 0;
+
+      where.OR = exactUniqueMatches > 0
+        ? [
+            { assetTag: { equals: trimmed, mode: 'insensitive' } },
+            { barcode:  { equals: trimmed, mode: 'insensitive' } },
+          ]
+        : [
+            { assetTag:     { contains: search, mode: 'insensitive' } },
+            { name:         { contains: search, mode: 'insensitive' } },
+            { serialNumber: { contains: search, mode: 'insensitive' } },
+            { description:  { contains: search, mode: 'insensitive' } },
+            { notes:        { contains: search, mode: 'insensitive' } },
+            { poNumber:     { contains: search, mode: 'insensitive' } },
+            { barcode:      { contains: search, mode: 'insensitive' } },
+            { brands:       { is: { name:        { contains: search, mode: 'insensitive' } } } },
+            { models:       { is: { name:        { contains: search, mode: 'insensitive' } } } },
+            { models:       { is: { modelNumber: { contains: search, mode: 'insensitive' } } } },
+            { vendor:       { is: { name:        { contains: search, mode: 'insensitive' } } } },
+            { assignedToUser: { is: { displayName: { contains: search, mode: 'insensitive' } } } },
+            { assignedToUser: { is: { email:       { contains: search, mode: 'insensitive' } } } },
+          ];
     }
 
     // Filter by location

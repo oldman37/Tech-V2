@@ -9,7 +9,9 @@ import {
   Button,
   Chip,
   Dialog,
+  DialogActions,
   DialogContent,
+  DialogTitle,
   FormControl,
   InputAdornment,
   InputLabel,
@@ -100,7 +102,13 @@ export default function CheckoutPage() {
   }, [setFilters]);
 
   // Checkin dialog state
+  // True only for a row whose device side closed but whose paired charger did not.
+  // getActiveAssignments keeps such rows listed so the outstanding charger stays visible.
+  const isChargerOutstandingOnly = (r: DeviceAssignment) =>
+    !!r.returnedAt && !!r.chargerAssignment && !r.chargerAssignment.returnedAt;
+
   const [checkinTarget, setCheckinTarget] = useState<DeviceAssignment | null>(null);
+  const [chargerCheckinTarget, setChargerCheckinTarget] = useState<DeviceAssignment | null>(null);
   const [editTarget, setEditTarget] = useState<DeviceAssignment | null>(null);
   const [chargerTarget, setChargerTarget] = useState<DeviceAssignment | null>(null);
   const [quickFixTarget, setQuickFixTarget] = useState<DeviceAssignment | null>(null);
@@ -141,6 +149,15 @@ export default function CheckoutPage() {
   const checkinMutation = useMutation({
     mutationFn: () => Promise.resolve(), // handled inside CheckinForm
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['device-assignments', 'active'] });
+    },
+  });
+
+  // ── Mutation: charger-only checkin ─────────────────────────────────────
+  const chargerCheckinMutation = useMutation({
+    mutationFn: (id: string) => deviceAssignmentService.checkinCharger(id),
+    onSuccess: () => {
+      setChargerCheckinTarget(null);
       queryClient.invalidateQueries({ queryKey: ['device-assignments', 'active'] });
     },
   });
@@ -262,7 +279,12 @@ export default function CheckoutPage() {
       key:      'status',
       label:    'Status',
       minWidth: 120,
-      render:   (r) => <DeviceStatusChip status={r.equipment?.status ?? 'checked_out'} />,
+      // The equipment's real status is "active"/available once the device is back,
+      // which would read as contradictory on a row still sitting in this list.
+      render:   (r) =>
+        isChargerOutstandingOnly(r)
+          ? <Chip label="Charger Outstanding" size="small" color="warning" />
+          : <DeviceStatusChip status={r.equipment?.status ?? 'checked_out'} />,
     },
     {
       key:      'actions',
@@ -275,6 +297,24 @@ export default function CheckoutPage() {
       priority: -3,
       render:   (r) => {
         const hasOpenCharger = !!r.chargerAssignment && !r.chargerAssignment.returnedAt;
+
+        // Every action below targets the device side, which is already closed for
+        // these rows — and the plain Check In button would hit checkin()'s 409.
+        if (isChargerOutstandingOnly(r)) {
+          return (
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+              <Button
+                size="small"
+                startIcon={<PowerIcon />}
+                onClick={(e) => { e.stopPropagation(); setChargerCheckinTarget(r); }}
+                sx={{ whiteSpace: 'nowrap' }}
+              >
+                Check In Charger
+              </Button>
+            </Box>
+          );
+        }
+
         return (
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
             <Button size="small" startIcon={<AssignmentReturnIcon />} onClick={(e) => { e.stopPropagation(); setCheckinTarget(r); }}>
@@ -461,6 +501,44 @@ export default function CheckoutPage() {
             />
           )}
         </DialogContent>
+      </Dialog>
+
+      {/* Charger-only checkin confirm */}
+      <Dialog
+        open={!!chargerCheckinTarget}
+        onClose={() => setChargerCheckinTarget(null)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>Check In Charger</DialogTitle>
+        <DialogContent>
+          {chargerCheckinMutation.isError && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              Failed to check in the charger. Please try again.
+            </Alert>
+          )}
+          <Typography variant="body2">
+            Mark charger{' '}
+            <strong>{chargerCheckinTarget?.chargerAssignment?.charger.serialNumber}</strong>{' '}
+            as returned by{' '}
+            <strong>
+              {chargerCheckinTarget?.user
+                ? `${chargerCheckinTarget.user.firstName} ${chargerCheckinTarget.user.lastName}`
+                : chargerCheckinTarget?.userId}
+            </strong>
+            ?
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setChargerCheckinTarget(null)}>Cancel</Button>
+          <Button
+            variant="contained"
+            disabled={chargerCheckinMutation.isPending}
+            onClick={() => chargerCheckinTarget && chargerCheckinMutation.mutate(chargerCheckinTarget.id)}
+          >
+            Check In Charger
+          </Button>
+        </DialogActions>
       </Dialog>
 
       {chargerInvoiceTarget && (

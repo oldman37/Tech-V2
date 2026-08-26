@@ -59,6 +59,16 @@ export const assignCharger = async (req: AuthRequest, res: Response): Promise<vo
   }
 };
 
+export const checkinCharger = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const id = req.params['id'] as string;
+    const result = await service.checkinCharger(id, req.user!.id);
+    res.json(result);
+  } catch (error) {
+    handleControllerError(error, res);
+  }
+};
+
 // ---------------------------------------------------------------------------
 // Update (edit an active checkout's location / condition / notes)
 // ---------------------------------------------------------------------------

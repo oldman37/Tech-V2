@@ -128,13 +128,8 @@ export const Dashboard = () => {
           </>
         )}
 
+        {isStaff && <DashboardFieldTripCalendar />}
       </Box>
-
-      {isStaff && (
-        <Box sx={{ mt: 3, maxWidth: 420 }}>
-          <DashboardFieldTripCalendar />
-        </Box>
-      )}
     </Box>
   );
 };

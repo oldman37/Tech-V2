@@ -643,7 +643,13 @@ export class WorkOrderService {
     return assignment?.userId ?? null;
   }
 
-  async createWorkOrder(data: CreateWorkOrderDto, reportedById: string) {
+  async createWorkOrder(
+    data: CreateWorkOrderDto,
+    reportedById: string,
+    // Opt-out for callers that immediately close the ticket they just created
+    // (Quick Fix). Defaults to notifying, preserving every existing call site.
+    options?: { notifyAssignee?: boolean },
+  ) {
     const settings = await this.settingsService.getSettings();
     const fiscalYear = settings.currentFiscalYear ?? String(new Date().getFullYear());
 
@@ -731,7 +737,7 @@ export class WorkOrderService {
     loggers.workOrders.info('Work order created', { ticketId: ticket.id, ticketNumber: ticket.ticketNumber, department: data.department, reportedById, autoAssignedTo: autoAssigneeId ?? 'none' });
 
     // Send email notification to auto-assigned worker (fire-and-forget)
-    if (autoAssigneeId) {
+    if (autoAssigneeId && (options?.notifyAssignee ?? true)) {
       this.sendAssignmentEmail(ticket.id, ticket.ticketNumber, data.department, data.priority ?? 'MEDIUM', data.officeLocationId ?? null, autoAssigneeId, reportedById, ticket.notInInventory).catch(() => {});
     }
 
@@ -762,12 +768,54 @@ export class WorkOrderService {
       throw new AuthorizationError('Quick Fix requires permission to close work orders');
     }
 
-    const equipment = await this.prisma.equipment.findFirst({
-      where:  { id: data.equipmentId, isDisposed: false },
-      select: { id: true, officeLocationId: true },
+    const reporter = await this.prisma.user.findUnique({
+      where:  { id: data.reportedByUserId },
+      select: { id: true },
     });
-    if (!equipment) {
-      throw new ValidationError('Device not found or has been disposed', 'equipmentId');
+    if (!reporter) throw new ValidationError('Person not found', 'reportedByUserId');
+
+    // The dropdown only offers this person's own active checkouts, but a direct
+    // API call must not be trusted — re-verify both sides server-side.
+    let equipment: { id: string; officeLocationId: string | null } | null = null;
+    let chargerTag: string | null = null;
+
+    if (data.equipmentId) {
+      equipment = await this.prisma.equipment.findFirst({
+        where:  { id: data.equipmentId, isDisposed: false },
+        select: { id: true, officeLocationId: true },
+      });
+      if (!equipment) {
+        throw new ValidationError('Device not found or has been disposed', 'equipmentId');
+      }
+
+      const activeAssignment = await this.prisma.deviceAssignment.findFirst({
+        where:  { equipmentId: equipment.id, userId: data.reportedByUserId, returnedAt: null },
+        select: { id: true },
+      });
+      if (!activeAssignment) {
+        throw new ValidationError('This device is not currently checked out to that person', 'equipmentId');
+      }
+    } else if (data.chargerId) {
+      const charger = await this.prisma.charger.findFirst({
+        where:  { id: data.chargerId, isDisposed: false },
+        select: { id: true, serialNumber: true },
+      });
+      if (!charger) {
+        throw new ValidationError('Charger not found or has been disposed', 'chargerId');
+      }
+
+      const activeChargerAssignment = await this.prisma.chargerAssignment.findFirst({
+        where:  { chargerId: charger.id, userId: data.reportedByUserId, returnedAt: null },
+        select: { id: true },
+      });
+      if (!activeChargerAssignment) {
+        throw new ValidationError('This charger is not currently checked out to that person', 'chargerId');
+      }
+
+      // Ticket.equipmentId is an FK to `equipment`, and chargers deliberately are
+      // not equipment rows — so a charger rides on the existing not-in-inventory
+      // tag mechanism instead of needing a new column.
+      chargerTag = charger.serialNumber;
     }
 
     // quickFix is opt-in per category — enforced here so the curated list is a
@@ -788,13 +836,19 @@ export class WorkOrderService {
         // description field's min(10).
         description:    `Quick Fix: ${category.name}`,
         categoryId:     category.id,
-        equipmentId:    equipment.id,
+        equipmentId:    equipment?.id ?? null,
         // Explicit despite the schema's .default(false): the Zod-inferred
         // output type makes this required at the call site.
-        notInInventory: false,
-        ...(equipment.officeLocationId && { officeLocationId: equipment.officeLocationId }),
+        notInInventory: !equipment,
+        ...(chargerTag && { notInInventoryTag: `Charger ${chargerTag}` }),
+        ...(equipment?.officeLocationId && { officeLocationId: equipment.officeLocationId }),
       },
-      userId,
+      // The checked-out person, not the caller — the caller still performs the
+      // close step below as themselves.
+      data.reportedByUserId,
+      // Quick Fix closes this ticket in the next breath; an "assigned to you"
+      // email/push for an already-finished ticket is pure noise.
+      { notifyAssignee: false },
     );
     if (!created) throw new NotFoundError('Work order');
 

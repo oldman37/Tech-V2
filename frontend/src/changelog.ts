@@ -12,6 +12,60 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.9.0',
+    highlights: [
+      {
+        icon: '🔌',
+        title: 'A checkout stays visible when the charger comes back late',
+        body: 'Checking a device in and answering "no" to "was the charger returned?" used to make the whole checkout vanish from Active Checkouts — so nothing showed the person was still holding the charger. The row now stays, flagged "Charger Outstanding", with a single "Check In Charger" button to close it out when the charger turns up. The charger\'s serial number is searchable on that page again too.',
+      },
+      {
+        icon: '✏️',
+        title: 'Write in a Brand, Model, or Vendor that isn\'t in the list yet',
+        body: 'Typing a value that wasn\'t already in the Brand, Model, or Vendor dropdown used to erase it the moment you moved to the next field. Each of those dropdowns now offers a "+ Add" entry. To keep the lists from filling with near-duplicates, a misspelling still surfaces the correct existing entry, an exact match is picked for you, and a very close match asks "Did you mean Dell?" before creating anything. Type, Funds, and Room stay admin-owned — but now tell you where to add a new one instead of showing a dead "no options found".',
+      },
+      {
+        icon: '📝',
+        title: 'Click any inventory row to see its full details',
+        body: 'Notes, Condition, Description, and Room were saved but shown nowhere on the Inventory Management page — the only way to read Notes was to reopen the Edit dialog, which made the field look like it never saved. Clicking a row now opens the full detail panel, and editing from inside it refreshes the list and the panel together. Condition is also a new column.',
+      },
+      {
+        icon: '🔧',
+        title: 'Quick Fix credits the right person and asks which device',
+        body: 'A Quick Fix work order was always filed as reported by the technician, never the person whose device it was. It now lists the checked-out person as the reporter, and asks which of their items the fix was for — including any charger checked out to them, plus a "Device not listed" option. Quick Fix also no longer sends a "new ticket assigned to you" notification or nav badge for a ticket it closed in the same breath.',
+      },
+      {
+        icon: '🏷️',
+        title: 'Work orders show their asset tag, and searching a tag finds one item',
+        body: 'The asset tag entered when creating a work order is now shown on the work order, linked straight to that item in Inventory. And searching Inventory for a complete asset tag returns only that item — previously it also pulled in unrelated items whose PO number happened to share the same digits.',
+      },
+    ],
+    changes: [
+      'Checking in a device without its charger no longer removes the entire checkout from Active Checkouts — the row stays, marked "Charger Outstanding", so the person is still shown as responsible for the charger.',
+      'Added a "Check In Charger" action for those rows, so an outstanding charger can be closed out on its own once the device has already been returned.',
+      'A charger\'s serial number is findable in the Active Checkouts search box again.',
+      'Brand, Model, and Vendor on the inventory form now accept a write-in value through a "+ Add" entry, instead of silently erasing what you typed when you moved to the next field.',
+      'Write-ins are guarded against creating near-duplicate entries: a misspelling still surfaces the existing entry, an exact match (ignoring case and punctuation) is selected for you, and a very close match asks "Did you mean ...?" first. Adding a vendor opens a short form for contact details rather than saving a bare name.',
+      'The inventory form now blocks saving when a Brand, Model, or Vendor box holds text you never confirmed with "+ Add", instead of quietly saving the item with that field empty.',
+      'Type, Funds, and Room on the inventory form now say where to add a new entry (Reference Data or Room Management) instead of showing a dead "no options found".',
+      'Clicking a row on Inventory Management now opens the item\'s detail panel, showing Notes, Condition, Description, and Room — fields that were saved but previously visible nowhere on that page. Editing from inside the panel refreshes both the list and the panel.',
+      'Added a Condition column to the Inventory Management table (hidden on mobile).',
+      'Quick Fix work orders are now reported by the person the device is checked out to, instead of the technician who ran the fix.',
+      'The Quick Fix dialog now asks which device the fix was for, listing everything currently checked out to that person — including any charger — plus a "Device not listed" option.',
+      'Quick Fix no longer triggers a "new ticket assigned to you" email, push notification, or nav badge, since the ticket is closed the moment it is created.',
+      'The Work Orders nav badge no longer counts a ticket that was assigned to you but is already closed.',
+      'Work order detail now shows the asset tag of the linked inventory item, hyperlinked to that item in Inventory.',
+      'Searching Inventory for a complete, exact asset tag or barcode now returns only that item, instead of also listing unrelated items that happen to contain the same digits in their PO number or another field. Partial searches and searches by name, vendor, or assigned user still return every match as before.',
+      'Running "Delete from Intune" no longer marks the matching inventory item as disposed — it now only removes the Intune enrollment record, as the action name implies. "Full Decommission" still disposes the inventory item, as it always has, and still warns you it will.',
+      'The standalone "Create Ticket" form on the Repair Tickets page no longer asks for database IDs typed by hand. It now searches for the device by asset tag or name and collects damage type, severity, date, and description — matching the Create Incident wizard, for devices that are not checked out to anyone.',
+      'Fixed the Disposed Equipment table forcing a horizontal scrollbar instead of dropping columns like other tables; asset tag, serial number, and PO# now wrap instead of pushing the table wider than the window.',
+      'Fixed the Field Trip Availability card on the dashboard rendering at an odd in-between width — it now matches every other card on the page.',
+      'Moved the search box to the front of the filter row on Checked-Out Carts, matching every other list page in the app.',
+      'Fixed the "Dismiss" button on a work order\'s input-request banner breaking mid-word on mobile.',
+      'On mobile, tapping "Update Status" on a work order now scrolls down to the Update Status button itself, instead of stopping at the status options and leaving you to scroll again to find the button.',
+    ],
+  },
+  {
     version: '1.8.5',
     highlights: [
       {

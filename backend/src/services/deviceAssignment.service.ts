@@ -486,6 +486,55 @@ export async function checkin(
 }
 
 /**
+ * Check in ONLY the charger paired with a checkout, leaving the device side as-is.
+ *
+ * Exists because checkin() 409s on an already-returned assignment, so once the
+ * device is back there is otherwise no path that can ever set
+ * ChargerAssignment.returnedAt — a charger-outstanding row would stay open forever.
+ */
+export async function checkinCharger(deviceAssignmentId: string, performedByUserId: string) {
+  const openChargerAssignment = await prisma.chargerAssignment.findUnique({
+    where:  { deviceAssignmentId },
+    select: { id: true, returnedAt: true, chargerId: true },
+  });
+  if (!openChargerAssignment) {
+    throw new NotFoundError('ChargerAssignment', deviceAssignmentId);
+  }
+  if (openChargerAssignment.returnedAt) {
+    throw new AppError('Charger has already been returned', 409, 'CONFLICT');
+  }
+
+  const updated = await prisma.$transaction(async (tx) => {
+    await tx.chargerAssignment.update({
+      where: { id: openChargerAssignment.id },
+      data:  { returnedAt: new Date(), returnedBy: performedByUserId },
+    });
+    await tx.charger.update({
+      where: { id: openChargerAssignment.chargerId },
+      data:  { status: 'active' },
+    });
+    return tx.deviceAssignment.findUniqueOrThrow({
+      where: { id: deviceAssignmentId },
+      include: {
+        user:             { select: userSelect },
+        equipment:        { select: equipmentSelect },
+        checkedOutByUser: { select: { firstName: true, lastName: true } },
+        location:         { select: { id: true, name: true } },
+        chargerAssignment: { select: openChargerAssignmentSelect },
+      },
+    });
+  });
+
+  log.info('Charger checked in', {
+    deviceAssignmentId,
+    chargerAssignmentId: openChargerAssignment.id,
+    performedBy: performedByUserId,
+  });
+
+  return updated;
+}
+
+/**
  * Paginated list of active (not yet returned) assignments.
  */
 export async function getActiveAssignments(query: ListAssignmentsQuery) {
@@ -493,7 +542,17 @@ export async function getActiveAssignments(query: ListAssignmentsQuery) {
   const limit = Number(query.limit) || 50;
   const skip  = (page - 1) * limit;
 
-  const where: Prisma.DeviceAssignmentWhereInput = { returnedAt: null };
+  // A row stays "active" while EITHER the device or its paired charger is still
+  // outstanding. checkin() closes the device side unconditionally (correctly — the
+  // device really was handed back) but deliberately leaves the charger's own
+  // returnedAt null when it wasn't returned; filtering on the device timestamp
+  // alone dropped the whole row and hid the outstanding charger.
+  const activeOr: Prisma.DeviceAssignmentWhereInput[] = [
+    { returnedAt: null },
+    { chargerAssignment: { returnedAt: null } },
+  ];
+  const andConditions: Prisma.DeviceAssignmentWhereInput[] = [{ OR: activeOr }];
+  const where: Prisma.DeviceAssignmentWhereInput = { AND: andConditions };
   if (query.userId)       where.userId       = query.userId;
   if (query.equipmentId)  where.equipmentId  = query.equipmentId;
   if (query.assigneeType)              where.assigneeType = query.assigneeType;
@@ -512,21 +571,26 @@ export async function getActiveAssignments(query: ListAssignmentsQuery) {
   if (q) {
     const [first, ...rest] = q.split(/\s+/);
     const last = rest.join(' ');
-    where.OR = [
-      { equipment: { assetTag: { contains: q, mode: 'insensitive' } } },
-      { chargerAssignment: { charger: { serialNumber: { contains: q, mode: 'insensitive' } } } },
-      { user: { firstName: { contains: q, mode: 'insensitive' } } },
-      { user: { lastName:  { contains: q, mode: 'insensitive' } } },
-      // "john smith" must match firstName + lastName as a pair
-      ...(last
-        ? [{
-            user: {
-              firstName: { contains: first, mode: 'insensitive' as const },
-              lastName:  { contains: last,  mode: 'insensitive' as const },
-            },
-          }]
-        : []),
-    ];
+    // Pushed into `AND` rather than assigned as `where.OR`: the active-row
+    // predicate above already owns the single top-level OR key, and one would
+    // silently overwrite the other.
+    andConditions.push({
+      OR: [
+        { equipment: { assetTag: { contains: q, mode: 'insensitive' } } },
+        { chargerAssignment: { charger: { serialNumber: { contains: q, mode: 'insensitive' } } } },
+        { user: { firstName: { contains: q, mode: 'insensitive' } } },
+        { user: { lastName:  { contains: q, mode: 'insensitive' } } },
+        // "john smith" must match firstName + lastName as a pair
+        ...(last
+          ? [{
+              user: {
+                firstName: { contains: first, mode: 'insensitive' as const },
+                lastName:  { contains: last,  mode: 'insensitive' as const },
+              },
+            }]
+          : []),
+      ],
+    });
   }
 
   const [items, total] = await prisma.$transaction([
@@ -600,6 +664,9 @@ export async function getByUser(userId: string) {
     include: {
       equipment: { select: equipmentSelect },
       checkedOutByUser: { select: { firstName: true, lastName: true } },
+      // Matches the sibling listing queries — omitting it hid every checked-out
+      // charger from any caller using this endpoint.
+      chargerAssignment: { select: openChargerAssignmentSelect },
     },
   });
 }
