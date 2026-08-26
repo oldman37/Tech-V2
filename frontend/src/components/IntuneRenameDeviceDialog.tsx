@@ -72,7 +72,8 @@ export default function IntuneRenameDeviceDialog({ open, device, onClose, onRena
       <DialogTitle>Rename Device</DialogTitle>
       <DialogContent>
         <Alert severity="info" sx={{ mb: 2 }}>
-          This takes effect immediately in Intune.
+          Intune queues the rename and applies it the next time this device checks in —
+          Windows devices also need a restart.
         </Alert>
 
         <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>

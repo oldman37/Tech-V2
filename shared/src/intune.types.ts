@@ -63,6 +63,14 @@ export const INTUNE_ACTION_LABELS: Record<IntuneAction, string> = {
  */
 export const INTUNE_RENAME_MAX_ROWS = 300;
 
+/**
+ * Advisory threshold: a device that hasn't synced with Intune in this many days is unlikely
+ * to pick up a queued rename any time soon, so the preview warns about it. Warning only —
+ * it never blocks a row. Deliberately separate from the reconciliation report's 60/90-day
+ * staleness buckets, which answer a different question.
+ */
+export const INTUNE_RENAME_STALE_SYNC_DAYS = 30;
+
 const INTUNE_DEVICE_NAME_RE = /^[A-Za-z0-9-]+$/;
 
 /**
@@ -77,6 +85,31 @@ export function validateIntuneDeviceName(name: string): string | null {
   if (/\s/.test(name)) return 'Name cannot contain spaces';
   if (!INTUNE_DEVICE_NAME_RE.test(name)) return 'Name contains invalid characters (letters, numbers, and hyphens only)';
   if (/^\d+$/.test(name)) return 'Name cannot be only numbers';
+  return null;
+}
+
+/**
+ * Returns why a device cannot be renamed through Intune at all, independent of the name
+ * chosen — or null if it can. Shared by the backend preview and the bulk rename dialog
+ * (which recomputes readiness locally because names are editable in the grid) so the two
+ * never disagree about which rows are executable.
+ *
+ * Microsoft does not support renaming Entra hybrid joined devices from Intune, but Graph
+ * still accepts `setDeviceName` for them and returns 204 — the command is queued and then
+ * silently never applied. Blocking here is the only way to keep those rows out of a run.
+ *
+ * `joinType` values other than the explicit `hybridAzureADJoined` (including `unknown`, and
+ * null when Graph omits the field) are treated as renameable, so an unrecognised value never
+ * newly blocks a device that used to work.
+ */
+export function getRenameBlocker(device: {
+  intuneDeviceId: string | null;
+  joinType: string | null;
+}): string | null {
+  if (!device.intuneDeviceId) return 'Not enrolled in Intune';
+  if (device.joinType === 'hybridAzureADJoined') {
+    return 'Entra hybrid joined — Intune cannot rename this device';
+  }
   return null;
 }
 
@@ -455,6 +488,15 @@ export interface RenamePreviewItem {
   /** null if no tag number could be resolved from either the input or inventory. */
   proposedDeviceName: string | null;
   enrollmentStatus: 'enrolled' | 'not_enrolled';
+  /**
+   * Graph beta `managedDevice.joinType` — `hybridAzureADJoined` cannot be renamed by Intune.
+   * See {@link getRenameBlocker}.
+   */
+  joinType: string | null;
+  /** Last successful Intune sync — a queued rename won't apply until the device checks in. */
+  lastSyncDateTime: string | null;
+  /** Advisory note (e.g. stale sync). Does not affect `valid` — the row stays executable. */
+  warning: string | null;
   /** Whether this row is safe to execute as-is. */
   valid: boolean;
   /** Reason `valid` is false, e.g. "Not enrolled in Intune", "No tag number available". */
@@ -502,14 +544,21 @@ export interface RenameDeviceResult {
   intuneDeviceId: string | null;
   previousDeviceName: string | null;
   newDeviceName: string;
-  status: 'success' | 'failed';
+  /**
+   * `queued`, not `success`: `setDeviceName` is an asynchronous Intune device action, and its
+   * 204 response means Intune accepted the command — not that the device applied it. The
+   * rename lands when the device next checks in (Windows delivers it via the Accounts CSP and
+   * needs a restart), so a device that is off or off-network stays pending indefinitely.
+   */
+  status: 'queued' | 'failed';
   error?: string;
 }
 
 /** Response from POST /api/intune/actions/rename. */
 export interface RenameDevicesResponse {
   total: number;
-  succeeded: number;
+  /** Commands Intune accepted. See {@link RenameDeviceResult.status} — not a count of renames. */
+  queued: number;
   failed: number;
   results: RenameDeviceResult[];
   /** ID of the IntuneActionLog record written to the database. */

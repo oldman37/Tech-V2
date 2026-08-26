@@ -38,7 +38,11 @@ import type {
   RenameDeviceResult,
   RenameDevicesResponse,
 } from '@mgspe/shared-types';
-import { validateIntuneDeviceName } from '@mgspe/shared-types';
+import {
+  validateIntuneDeviceName,
+  getRenameBlocker,
+  INTUNE_RENAME_STALE_SYNC_DAYS,
+} from '@mgspe/shared-types';
 
 const log = createLogger('IntuneDeviceService');
 
@@ -115,17 +119,22 @@ async function queryIntuneByModel(
   return results;
 }
 
+// `joinType` is beta-only, so both single-device lookups below are pinned to beta. Every other
+// selected field exists on the beta managedDevice resource too, and `$filter` on serialNumber /
+// deviceName is supported there, so the pin changes nothing but the extra field.
+const DEVICE_LOOKUP_SELECT =
+  'id,deviceName,serialNumber,operatingSystem,complianceState,lastSyncDateTime,enrolledDateTime,managedDeviceOwnerType,azureADDeviceId,model,joinType';
+
 async function getDeviceBySerial(serialNumber: string): Promise<IntuneDevice | null> {
   const client = await createGraphClient();
   const safeSerial = escapeOdata(serialNumber);
-  const select =
-    'id,deviceName,serialNumber,operatingSystem,complianceState,lastSyncDateTime,enrolledDateTime,managedDeviceOwnerType,azureADDeviceId,model';
 
   const page: IntuneDeviceCollection = await withRetry(() =>
     client
       .api(
-        `/deviceManagement/managedDevices?$filter=serialNumber eq '${safeSerial}'&$select=${select}&$top=1`,
+        `/deviceManagement/managedDevices?$filter=serialNumber eq '${safeSerial}'&$select=${DEVICE_LOOKUP_SELECT}&$top=1`,
       )
+      .version('beta')
       .get(),
   );
   return page.value?.[0] ?? null;
@@ -134,20 +143,20 @@ async function getDeviceBySerial(serialNumber: string): Promise<IntuneDevice | n
 async function getDeviceByName(deviceName: string): Promise<IntuneDevice | null> {
   const client = await createGraphClient();
   const safeName = escapeOdata(deviceName);
-  const select =
-    'id,deviceName,serialNumber,operatingSystem,complianceState,lastSyncDateTime,enrolledDateTime,managedDeviceOwnerType,azureADDeviceId,model';
 
   // Exact match first; falls back to contains for partial names (e.g. barcode suffix)
   const exactPage: IntuneDeviceCollection = await withRetry(() =>
     client
-      .api(`/deviceManagement/managedDevices?$filter=deviceName eq '${safeName}'&$select=${select}&$top=1`)
+      .api(`/deviceManagement/managedDevices?$filter=deviceName eq '${safeName}'&$select=${DEVICE_LOOKUP_SELECT}&$top=1`)
+      .version('beta')
       .get(),
   );
   if (exactPage.value?.[0]) return exactPage.value[0];
 
   const containsPage: IntuneDeviceCollection = await withRetry(() =>
     client
-      .api(`/deviceManagement/managedDevices?$filter=contains(deviceName,'${safeName}')&$select=${select}&$top=1`)
+      .api(`/deviceManagement/managedDevices?$filter=contains(deviceName,'${safeName}')&$select=${DEVICE_LOOKUP_SELECT}&$top=1`)
+      .version('beta')
       .get(),
   );
   return containsPage.value?.[0] ?? null;
@@ -1621,6 +1630,21 @@ function buildProposedDeviceName(tag: string): string {
   return `OCS-${cleaned}`;
 }
 
+/**
+ * Advisory note for a device that hasn't checked in recently. Intune only applies a queued
+ * rename when the device next syncs, so a long-idle device will accept the command and sit on
+ * it. Returns null when the device is syncing normally or has no sync timestamp.
+ */
+function buildStaleSyncWarning(lastSyncDateTime: string | null): string | null {
+  if (!lastSyncDateTime) return null;
+  const lastSync = new Date(lastSyncDateTime).getTime();
+  if (Number.isNaN(lastSync)) return null;
+
+  const days = Math.floor((Date.now() - lastSync) / (1000 * 60 * 60 * 24));
+  if (days < INTUNE_RENAME_STALE_SYNC_DAYS) return null;
+  return `Last synced ${days} days ago — rename stays queued until the device checks in`;
+}
+
 function findColumnKey(sampleKeys: string[], aliases: string[]): string | undefined {
   for (const alias of aliases) {
     const found = sampleKeys.find((k) => k.trim().toLowerCase() === alias);
@@ -1795,15 +1819,23 @@ export async function previewRenameItems(
 
         const proposedDeviceName = resolvedTag ? buildProposedDeviceName(resolvedTag) : null;
 
+        const joinType = intuneDevice?.joinType ?? null;
+        const lastSyncDateTime = intuneDevice?.lastSyncDateTime ?? null;
+
         // "No tag" is informational, not a hard blocker — the device doesn't need to exist in
         // inventory to be renamed; the caller can type a name manually before executing.
-        let issue: string | null;
-        if (!intuneDevice) {
-          issue = 'Not enrolled in Intune';
-        } else if (!proposedDeviceName) {
-          issue = 'No tag number found — enter a new name manually';
-        } else {
-          issue = validateIntuneDeviceName(proposedDeviceName);
+        // The device-capability check comes first: no name is valid on a device Intune can't
+        // rename at all, and queueing one there is a silent no-op.
+        let issue = getRenameBlocker({
+          intuneDeviceId: intuneDevice?.id ?? null,
+          joinType,
+        });
+        if (!issue) {
+          if (!proposedDeviceName) {
+            issue = 'No tag number found — enter a new name manually';
+          } else {
+            issue = validateIntuneDeviceName(proposedDeviceName);
+          }
         }
 
         return {
@@ -1815,6 +1847,9 @@ export async function previewRenameItems(
           currentDeviceName: intuneDevice?.deviceName ?? null,
           proposedDeviceName,
           enrollmentStatus: intuneDevice ? 'enrolled' : 'not_enrolled',
+          joinType,
+          lastSyncDateTime,
+          warning: buildStaleSyncWarning(lastSyncDateTime),
           valid: !issue,
           issue,
         };
@@ -1900,7 +1935,8 @@ export async function executeRenameDevices(
         intuneDeviceId:     item.intuneDeviceId,
         previousDeviceName: item.previousDeviceName ?? null,
         newDeviceName:      item.newDeviceName,
-        status:             'success',
+        // 204 from Graph means Intune accepted the command, not that the device applied it.
+        status:             'queued',
       });
     } catch (err: unknown) {
       const message = (err as { message?: string })?.message ?? 'Rename failed';
@@ -1917,8 +1953,8 @@ export async function executeRenameDevices(
     }
   }
 
-  const succeeded = results.filter((r) => r.status === 'success').length;
-  const failed    = results.filter((r) => r.status === 'failed').length;
+  const queued = results.filter((r) => r.status === 'queued').length;
+  const failed = results.filter((r) => r.status === 'failed').length;
 
   const logRecord = await prisma.intuneActionLog.create({
     data: {
@@ -1927,23 +1963,25 @@ export async function executeRenameDevices(
       modelId:          null,
       modelName:        null,
       totalDevices:     results.length,
-      successCount:     succeeded,
+      // Generic column shared with every other Intune action — for a rename it holds the
+      // number of commands Intune accepted, not the number of devices actually renamed.
+      successCount:     queued,
       failedCount:      failed,
       notEnrolledCount: 0,
       results:          results as unknown as object,
     },
   });
 
-  log.info('Rename devices action complete', {
+  log.info('Rename devices commands queued with Intune', {
     total: results.length,
-    succeeded,
+    queued,
     failed,
     logId: logRecord.id,
   });
 
   return {
     total:     results.length,
-    succeeded,
+    queued,
     failed,
     results,
     logId:     logRecord.id,

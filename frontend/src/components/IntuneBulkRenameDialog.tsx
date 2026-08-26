@@ -19,6 +19,7 @@ import { useMutation } from '@tanstack/react-query';
 import {
   INTUNE_RENAME_MAX_ROWS,
   validateIntuneDeviceName,
+  getRenameBlocker,
   type RenamePreviewItem,
   type RenameDeviceRequestItem,
   type RenameDevicesResponse,
@@ -49,13 +50,14 @@ export default function IntuneBulkRenameDialog({ open, onClose, onRenamed }: Pro
   };
 
   const isRowReady = (r: RenamePreviewItem): boolean => {
-    if (!r.intuneDeviceId) return false;
+    if (getRenameBlocker(r)) return false;
     const name = getEffectiveName(r);
     return !!name && !validateIntuneDeviceName(name);
   };
 
   const getRowIssue = (r: RenamePreviewItem): string | null => {
-    if (!r.intuneDeviceId) return 'Not enrolled in Intune';
+    const blocker = getRenameBlocker(r);
+    if (blocker) return blocker;
     const name = getEffectiveName(r);
     if (!name) return 'Enter a new name';
     return validateIntuneDeviceName(name);
@@ -210,7 +212,7 @@ export default function IntuneBulkRenameDialog({ open, onClose, onRenamed }: Pro
                       onChange={(e) =>
                         setEditedNames((prev) => ({ ...prev, [r._key]: e.target.value }))
                       }
-                      disabled={!r.intuneDeviceId}
+                      disabled={!!getRenameBlocker(r)}
                       sx={{ minWidth: 140 }}
                     />
                   ),
@@ -219,11 +221,16 @@ export default function IntuneBulkRenameDialog({ open, onClose, onRenamed }: Pro
                   key: 'status',
                   label: 'Status',
                   render: (r) => (
-                    <Chip
-                      label={isRowReady(r) ? 'Ready' : (getRowIssue(r) ?? 'Issue')}
-                      size="small"
-                      color={isRowReady(r) ? 'success' : 'error'}
-                    />
+                    <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+                      <Chip
+                        label={isRowReady(r) ? 'Ready' : (getRowIssue(r) ?? 'Issue')}
+                        size="small"
+                        color={isRowReady(r) ? 'success' : 'error'}
+                      />
+                      {isRowReady(r) && r.warning && (
+                        <Chip label={r.warning} size="small" color="warning" variant="outlined" />
+                      )}
+                    </Stack>
                   ),
                 },
                 {
@@ -250,8 +257,10 @@ export default function IntuneBulkRenameDialog({ open, onClose, onRenamed }: Pro
 
             {pendingConfirm && (
               <Alert severity="warning" sx={{ mt: 2 }}>
-                You are about to rename {readyCount} device{readyCount !== 1 ? 's' : ''} in Intune.
-                This takes effect immediately. Click "Confirm Rename" again to proceed.
+                You are about to queue a rename for {readyCount} device
+                {readyCount !== 1 ? 's' : ''} in Intune. Intune applies each rename the next
+                time that device checks in — Windows devices also need a restart — so the new
+                names will not appear immediately. Click "Confirm Rename" again to proceed.
               </Alert>
             )}
 

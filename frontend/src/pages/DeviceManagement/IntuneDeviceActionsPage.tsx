@@ -70,6 +70,17 @@ const ACTIONS = (Object.keys(INTUNE_ACTION_LABELS) as IntuneAction[]).filter(
   (a) => a !== 'setDeviceName',
 );
 
+/**
+ * History rows share one `succeeded` count across every action, but a rename is asynchronous:
+ * Intune only accepts the command and applies it when the device next checks in. Label it
+ * "queued" so the count is never read as devices actually renamed.
+ */
+function historySuccessChip(entry: IntuneHistoryEntry): { icon: string; noun: string } {
+  return entry.action === 'setDeviceName'
+    ? { icon: '⏳', noun: 'queued' }
+    : { icon: '✓',  noun: 'succeeded' };
+}
+
 /** Split an array into chunks of at most `size`. */
 function chunk<T>(arr: T[], size: number): T[][] {
   const out: T[][] = [];
@@ -771,7 +782,11 @@ export default function IntuneDeviceActionsPage() {
                           size="small"
                           variant="outlined"
                         />
-                        <Chip label={`✓ ${entry.succeeded}`} size="small" color="success" />
+                        <Chip
+                          label={`${historySuccessChip(entry).icon} ${entry.succeeded}`}
+                          size="small"
+                          color="success"
+                        />
                         {entry.failed > 0 && (
                           <Chip label={`✗ ${entry.failed}`} size="small" color="error" />
                         )}
@@ -822,7 +837,11 @@ export default function IntuneDeviceActionsPage() {
                         size="small"
                         variant="outlined"
                       />
-                      <Chip label={`✓ ${entry.succeeded} succeeded`} size="small" color="success" />
+                      <Chip
+                        label={`${historySuccessChip(entry).icon} ${entry.succeeded} ${historySuccessChip(entry).noun}`}
+                        size="small"
+                        color="success"
+                      />
                       {entry.failed > 0 && (
                         <Chip label={`✗ ${entry.failed} failed`} size="small" color="error" />
                       )}

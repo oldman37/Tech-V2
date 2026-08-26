@@ -357,8 +357,13 @@ export default function IntuneScanWizardTab({ initialLookupResult, initialAction
   /**
    * Shared by both the per-device and bulk rename dialogs — both resolve to the same
    * RenameDevicesResponse shape. Writes the same history entry the old standalone Rename tab
-   * wrote, then patches any affected row's displayName in place: the BitLocker lookup is keyed
-   * by device name, so a stale name here would send the wrong identifier to Graph next click.
+   * wrote.
+   *
+   * Scanned rows deliberately keep their current displayName: a queued rename has not been
+   * applied yet, so Intune still holds the old name. The BitLocker lookup is keyed by device
+   * name, and patching the row to the new name here would send Graph an identifier Intune
+   * does not recognise until the device checks in. Re-scan after check-in to pick up the
+   * new name.
    */
   const handleRenamed = (result: RenameDevicesResponse) => {
     saveToHistory({
@@ -367,7 +372,8 @@ export default function IntuneScanWizardTab({ initialLookupResult, initialAction
       action:      'setDeviceName',
       actionLabel: INTUNE_ACTION_LABELS.setDeviceName,
       deviceCount: result.total,
-      succeeded:   result.succeeded,
+      // Generic history field — for a rename this is the count Intune accepted, not applied.
+      succeeded:   result.queued,
       failed:      result.failed,
       partial:     0,
       devices: result.results.map((r) => ({
@@ -378,17 +384,6 @@ export default function IntuneScanWizardTab({ initialLookupResult, initialAction
         operatingSystem: null,
       })),
     });
-    setScannedEntries((prev) =>
-      prev.map((e) => {
-        if (!e.device?.intuneDeviceId) return e;
-        const renamed = result.results.find(
-          (r) => r.status === 'success' && r.intuneDeviceId === e.device!.intuneDeviceId,
-        );
-        return renamed
-          ? { ...e, device: { ...e.device, displayName: renamed.newDeviceName } }
-          : e;
-      }),
-    );
     onActionComplete?.();
   };
 

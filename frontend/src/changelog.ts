@@ -54,6 +54,9 @@ export const CHANGELOG: ChangelogEntry[] = [
       'Fixed finishing the Create Incident wizard landing you back on a blank wizard instead of the Checkouts page you started from.',
       'The Active Checkouts search field now focuses automatically when the page loads, like every other list page.',
       'Fixed the sidebar nav highlighting "DM Dashboard" instead of "Checkouts" while viewing a user\'s checkout history, opened by clicking an assignee\'s name on the Checkouts page.',
+      'Intune device renames now report as "queued" instead of "succeeded" — Intune accepts a rename immediately but only applies it the next time the device checks in (Windows devices also need a restart), so the old count implied far more had actually been renamed than had.',
+      'The bulk rename preview now blocks Entra hybrid joined devices with a clear reason. Intune cannot rename these at all, but it still accepts the command and silently drops it, so they previously counted as successes without ever being renamed.',
+      'The bulk rename preview now warns when a device has not synced with Intune in over 30 days — the rename is still queued, but it will not apply until that device comes back online.',
     ],
   },
   {

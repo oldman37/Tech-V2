@@ -167,6 +167,12 @@ export interface IntuneDevice {
   manufacturer: string | null;
   userDisplayName: string | null;
   userPrincipalName: string | null;
+  /**
+   * Device join type — `unknown` | `azureADJoined` | `azureADRegistered` | `hybridAzureADJoined`.
+   * Beta-only (absent from the v1.0 managedDevice resource), so it is populated only by
+   * lookups pinned to `.version('beta')`. Used to detect devices Intune cannot rename.
+   */
+  joinType?: string | null;
 }
 
 /**
