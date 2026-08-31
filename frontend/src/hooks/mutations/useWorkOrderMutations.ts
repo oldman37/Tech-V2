@@ -34,7 +34,7 @@ export function useQuickFix() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: { reportedByUserId: string; equipmentId?: string | null; chargerId?: string | null; categoryId: string; notes: string }) =>
+    mutationFn: (data: { reportedByUserId: string; equipmentId?: string | null; chargerId?: string | null; categoryId: string; issue: string; notes: string }) =>
       workOrderService.quickFix(data),
     onSuccess: () => {
       // Work orders only — Quick Fix does not modify the checkout assignment,

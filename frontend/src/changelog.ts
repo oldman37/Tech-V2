@@ -15,6 +15,10 @@ export const CHANGELOG: ChangelogEntry[] = [
     version: '1.9.1',
     changes: [
       'Staff accounts now have their Entra Department field set to "Staff" during provisioning — previously left blank. Employee Type already read "Staff" and is unchanged.',
+      'Fixed dashboard module cards stretching to match the height of the much-taller Field Trip Availability calendar card, leaving empty space under their button; cards now size to their own content while still lining up with each other.',
+      'Fixed a device exchange (Create Incident wizard) leaving the student\'s charger stranded on the old, now-closed checkout — it showed as a phantom "Charger Outstanding" row instead of following the student onto their replacement laptop. The charger now carries over to the new checkout automatically.',
+      'Quick Fix now asks "What\'s the issue?" in addition to "What did you do?" — the issue becomes the work order\'s description, instead of a generic "Quick Fix: <category>" placeholder that never said what was actually wrong.',
+      'A user\'s Checkout History tab now shows a charger checked out alongside a laptop as its own row, directly under the laptop, instead of not showing it at all — a laptop and its charger can be returned, exchanged, or replaced independently, so each now gets its own checkout date and status.',
     ],
   },
   {

@@ -664,9 +664,10 @@ export async function getByUser(userId: string) {
     include: {
       equipment: { select: equipmentSelect },
       checkedOutByUser: { select: { firstName: true, lastName: true } },
-      // Matches the sibling listing queries — omitting it hid every checked-out
-      // charger from any caller using this endpoint.
-      chargerAssignment: { select: openChargerAssignmentSelect },
+      // `checkoutAt` is added here (not to the shared select) so the user
+      // checkout-history page can render the charger as its own row with
+      // its own checkout date.
+      chargerAssignment: { select: { ...openChargerAssignmentSelect, checkoutAt: true } },
     },
   });
 }

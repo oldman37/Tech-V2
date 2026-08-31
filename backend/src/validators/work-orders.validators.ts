@@ -153,6 +153,8 @@ export const QuickFixSchema = z
     equipmentId: z.string().uuid('Invalid equipment ID').optional().nullable(),
     chargerId:   z.string().uuid('Invalid charger ID').optional().nullable(),
     categoryId:  z.string().uuid('Invalid category ID'),
+    // Required — becomes the ticket's description.
+    issue: z.string().trim().min(10, 'Please describe the issue (at least 10 characters)').max(5000, 'Issue must be 5000 characters or less'),
     // Required — becomes the closing "Actions Taken" note, so the ticket's
     // history shows what was actually done rather than a generic message.
     notes: z.string().trim().min(1, 'Please describe what was completed').max(1000, 'Notes must be 1000 characters or less'),

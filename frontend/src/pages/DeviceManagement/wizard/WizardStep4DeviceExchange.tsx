@@ -267,6 +267,11 @@ export default function WizardStep4DeviceExchange({
                 <Typography variant="body2" color="text.secondary">
                   Condition: {checkoutAssignment.checkoutCondition}
                 </Typography>
+                {checkoutAssignment.chargerAssignment && (
+                  <Typography variant="body2" color="text.secondary">
+                    Charger: {checkoutAssignment.chargerAssignment.charger.serialNumber} (carried over)
+                  </Typography>
+                )}
               </Box>
             ) : (
               <Typography variant="body2" color="text.secondary" fontStyle="italic">Skipped</Typography>

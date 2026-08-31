@@ -46,6 +46,7 @@ export function QuickFixDialog({ assignment, open, onClose }: QuickFixDialogProp
   const [categoryId, setCategoryId] = useState('');
   // Defaults to the row that was clicked — switching is an additional choice.
   const [selection, setSelection] = useState(`${EQUIPMENT_PREFIX}${assignment.equipmentId}`);
+  const [issue, setIssue] = useState('');
   const [notes, setNotes] = useState('');
   const [result, setResult] = useState<WorkOrderDetail | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -85,16 +86,18 @@ export function QuickFixDialog({ assignment, open, onClose }: QuickFixDialogProp
   const handleClose = () => {
     setCategoryId('');
     setSelection(`${EQUIPMENT_PREFIX}${assignment.equipmentId}`);
+    setIssue('');
     setNotes('');
     setResult(null);
     setSubmitError(null);
     onClose();
   };
 
+  const trimmedIssue = issue.trim();
   const trimmedNotes = notes.trim();
 
   const handleSubmit = async () => {
-    if (!categoryId || !trimmedNotes) return;
+    if (!categoryId || !trimmedIssue || !trimmedNotes) return;
     setSubmitError(null);
     try {
       setResult(await quickFix.mutateAsync({
@@ -106,6 +109,7 @@ export function QuickFixDialog({ assignment, open, onClose }: QuickFixDialogProp
           ? selection.slice(CHARGER_PREFIX.length)
           : null,
         categoryId,
+        issue: trimmedIssue,
         notes: trimmedNotes,
       }));
     } catch (err: unknown) {
@@ -182,6 +186,20 @@ export function QuickFixDialog({ assignment, open, onClose }: QuickFixDialogProp
             </FormControl>
 
             <TextField
+              label="What's the issue?"
+              required
+              multiline
+              minRows={3}
+              fullWidth
+              size="small"
+              value={issue}
+              onChange={(e) => setIssue(e.target.value)}
+              disabled={isSubmitting}
+              error={issue.length > 0 && !trimmedIssue}
+              helperText="Becomes the work order's description."
+            />
+
+            <TextField
               label="What did you do?"
               required
               multiline
@@ -209,7 +227,7 @@ export function QuickFixDialog({ assignment, open, onClose }: QuickFixDialogProp
             <Button
               variant="contained"
               onClick={handleSubmit}
-              disabled={!categoryId || !trimmedNotes || isSubmitting}
+              disabled={!categoryId || !trimmedIssue || !trimmedNotes || isSubmitting}
             >
               Submit
             </Button>

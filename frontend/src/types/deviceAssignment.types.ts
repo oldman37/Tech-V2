@@ -25,6 +25,8 @@ export interface DeviceAssignmentEquipment {
 
 export interface OpenChargerAssignment {
   id: string;
+  /** Present only from getByUser (user checkout history) — the charger's own checkout date. */
+  checkoutAt?: string;
   returnedAt: string | null;
   charger: { id: string; serialNumber: string };
 }

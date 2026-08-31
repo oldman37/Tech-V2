@@ -578,6 +578,7 @@ export async function deviceExchange(
           checkedOutByUser: { select: { firstName: true, lastName: true } },
           equipment:        { select: { id: true, assetTag: true, name: true, serialNumber: true, barcode: true, qrCode: true, status: true, condition: true, purchasePrice: true, brands: { select: { name: true } }, models: { select: { name: true } } } },
           location:         { select: { id: true, name: true } },
+          chargerAssignment: { select: { id: true, returnedAt: true, charger: { select: { id: true, serialNumber: true } } } },
         },
       });
 
@@ -589,6 +590,32 @@ export async function deviceExchange(
           officeLocationId: locationId,
         },
       });
+
+      // A device exchange swaps only the laptop — the student keeps the same
+      // charger, so the open charger assignment must follow to the replacement
+      // checkout instead of being stranded (returnedAt still null) on the
+      // now-closed old checkout, where it would surface as a phantom
+      // "Charger Outstanding" row in Active Checkouts.
+      if (data.checkin) {
+        const openChargerAssignment = await tx.chargerAssignment.findUnique({
+          where:  { deviceAssignmentId: data.checkin.assignmentId },
+          select: { id: true, returnedAt: true },
+        });
+        if (openChargerAssignment && !openChargerAssignment.returnedAt) {
+          const repairedChargerAssignment = await tx.chargerAssignment.update({
+            where: { id: openChargerAssignment.id },
+            data: {
+              // chargerId / checkoutAt / checkoutBy / notes are left untouched —
+              // the charger really has been continuously checked out to this person.
+              deviceAssignmentId: txCheckoutAssignment.id,
+              userId:             data.checkout.userId,
+              assigneeType:       data.checkout.assigneeType,
+            },
+            select: { id: true, returnedAt: true, charger: { select: { id: true, serialNumber: true } } },
+          });
+          txCheckoutAssignment = { ...txCheckoutAssignment, chargerAssignment: repairedChargerAssignment };
+        }
+      }
     }
 
     const hasActiveRepair = incident.equipmentId

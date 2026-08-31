@@ -23,6 +23,7 @@ import { ConditionChip } from '../../components/DeviceManagement/ConditionChip';
 import { ResponsiveTable } from '../../components/responsive';
 import type { Column } from '../../components/responsive';
 import type { CheckoutCondition } from '@mgspe/shared-types';
+import type { DeviceAssignment } from '../../types/deviceAssignment.types';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -39,6 +40,49 @@ function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-US', {
     month: 'short', day: 'numeric', year: 'numeric',
   });
+}
+
+function renderReturned(returnedAt: string | null) {
+  return returnedAt ? fmtDate(returnedAt) : (
+    <Chip label="Active" color="info" size="small" variant="outlined" />
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Checkout History row types — a charger has no checkout record of its own
+// (it's a child of the device checkout it rode in with, with independently
+// nullable returnedAt), so its history row is synthesised from the parent
+// device assignment's nested chargerAssignment and shown directly beneath it.
+// ---------------------------------------------------------------------------
+
+type HistoryRow =
+  | ({ kind: 'device' } & DeviceAssignment)
+  | {
+      kind: 'charger';
+      id: string;
+      serialNumber: string;
+      checkoutAt: string;
+      returnedAt: string | null;
+      parentEquipmentId?: string;
+    };
+
+function buildHistoryRows(assignments: DeviceAssignment[]): HistoryRow[] {
+  const rows: HistoryRow[] = [];
+  for (const a of assignments) {
+    rows.push({ kind: 'device', ...a });
+    const ca = a.chargerAssignment;
+    if (ca) {
+      rows.push({
+        kind: 'charger',
+        id: ca.id,
+        serialNumber: ca.charger.serialNumber,
+        checkoutAt: ca.checkoutAt ?? a.checkoutAt,
+        returnedAt: ca.returnedAt,
+        parentEquipmentId: a.equipment?.id,
+      });
+    }
+  }
+  return rows;
 }
 
 // ---------------------------------------------------------------------------
@@ -227,77 +271,93 @@ export default function UserCheckoutHistoryPage() {
             </Typography>
           ) : (
             <Paper>
-              <ResponsiveTable<typeof assignments[number]>
+              <ResponsiveTable<HistoryRow>
                 columns={[
                   {
                     key: 'assetTag',
                     label: 'Asset Tag',
                     isPrimary: true,
-                    render: (a) =>
-                      a.equipment ? (
+                    render: (row) => {
+                      if (row.kind === 'charger') {
+                        return (
+                          <Typography variant="body2" fontFamily="monospace" fontWeight={600}>
+                            {row.serialNumber}
+                          </Typography>
+                        );
+                      }
+                      return row.equipment ? (
                         <RouterLink
-                          to={`/device-management/devices/${a.equipment.id}`}
+                          to={`/device-management/devices/${row.equipment.id}`}
                           style={{ fontFamily: 'monospace', fontWeight: 600 }}
                           onClick={(e) => e.stopPropagation()}
                         >
-                          {a.equipment.assetTag}
+                          {row.equipment.assetTag}
                         </RouterLink>
                       ) : (
                         <Typography variant="body2" fontFamily="monospace" color="text.secondary">
-                          {a.equipmentId}
+                          {row.equipmentId}
                         </Typography>
-                      ),
+                      );
+                    },
                   },
                   {
                     key: 'name',
                     label: 'Device Name',
                     isSecondary: true,
-                    render: (a) => a.equipment?.name ?? '—',
+                    render: (row) => row.kind === 'charger' ? 'Charger' : (row.equipment?.name ?? '—'),
                   },
                   {
                     key: 'assigneeType',
                     label: 'Type',
-                    render: (a) => (
-                      <Chip
-                        label={a.assigneeType === 'student' ? 'Student' : 'Staff'}
-                        size="small"
-                        color={a.assigneeType === 'student' ? 'primary' : 'secondary'}
-                        variant="outlined"
-                      />
-                    ),
+                    render: (row) =>
+                      row.kind === 'charger' ? (
+                        <Chip label="Charger" size="small" variant="outlined" />
+                      ) : (
+                        <Chip
+                          label={row.assigneeType === 'student' ? 'Student' : 'Staff'}
+                          size="small"
+                          color={row.assigneeType === 'student' ? 'primary' : 'secondary'}
+                          variant="outlined"
+                        />
+                      ),
                   },
                   {
                     key: 'checkoutAt',
                     label: 'Checked Out',
-                    render: (a) => fmtDate(a.checkoutAt),
+                    render: (row) => fmtDate(row.checkoutAt),
                   },
                   {
                     key: 'checkoutCondition',
                     label: 'Condition Out',
                     hideOnMobile: true,
-                    render: (a) => <ConditionChip condition={a.checkoutCondition as CheckoutCondition} />,
+                    render: (row) =>
+                      row.kind === 'charger' ? '—' : (
+                        <ConditionChip condition={row.checkoutCondition as CheckoutCondition} />
+                      ),
                   },
                   {
                     key: 'returnedAt',
                     label: 'Returned',
-                    render: (a) =>
-                      a.returnedAt ? fmtDate(a.returnedAt) : (
-                        <Chip label="Active" color="info" size="small" variant="outlined" />
-                      ),
+                    render: (row) => renderReturned(row.returnedAt),
                   },
                   {
                     key: 'returnCondition',
                     label: 'Condition In',
                     hideOnMobile: true,
-                    render: (a) =>
-                      a.returnCondition ? (
-                        <ConditionChip condition={a.returnCondition as CheckoutCondition} />
-                      ) : '—',
+                    render: (row) =>
+                      row.kind === 'charger' ? '—' : (
+                        row.returnCondition ? (
+                          <ConditionChip condition={row.returnCondition as CheckoutCondition} />
+                        ) : '—'
+                      ),
                   },
-                ]}
-                rows={assignments}
-                getRowKey={(a) => a.id}
-                onRowClick={(a) => a.equipment && navigate(`/device-management/devices/${a.equipment.id}`)}
+                ] as Column<HistoryRow>[]}
+                rows={buildHistoryRows(assignments)}
+                getRowKey={(row) => row.kind === 'charger' ? `c-${row.id}` : `d-${row.id}`}
+                onRowClick={(row) => {
+                  const equipmentId = row.kind === 'charger' ? row.parentEquipmentId : row.equipment?.id;
+                  if (equipmentId) navigate(`/device-management/devices/${equipmentId}`);
+                }}
               />
             </Paper>
           )}

@@ -77,7 +77,7 @@ const workOrderService = {
   // work order for a device already identified on the Checkouts page.
   // -------------------------------------------------------------------------
 
-  quickFix: async (data: { reportedByUserId: string; equipmentId?: string | null; chargerId?: string | null; categoryId: string; notes: string }): Promise<WorkOrderDetail> => {
+  quickFix: async (data: { reportedByUserId: string; equipmentId?: string | null; chargerId?: string | null; categoryId: string; issue: string; notes: string }): Promise<WorkOrderDetail> => {
     const res = await api.post<WorkOrderDetail>(`${BASE}/quick-fix`, data);
     return res.data;
   },

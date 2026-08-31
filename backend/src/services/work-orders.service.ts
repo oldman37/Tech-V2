@@ -822,7 +822,7 @@ export class WorkOrderService {
     // server-side rule, not just a filter the dropdown happens to apply.
     const category = await this.prisma.workOrderCategory.findUnique({
       where:  { id: data.categoryId },
-      select: { id: true, name: true, module: true, isActive: true, quickFix: true },
+      select: { id: true, module: true, isActive: true, quickFix: true },
     });
     if (!category || category.module !== 'TECHNOLOGY' || !category.isActive || !category.quickFix) {
       throw new ValidationError('Invalid category selected', 'categoryId');
@@ -832,9 +832,7 @@ export class WorkOrderService {
       {
         department:     'TECHNOLOGY',
         priority:       'LOW',
-        // Fixed prefix — some category names alone are shorter than the
-        // description field's min(10).
-        description:    `Quick Fix: ${category.name}`,
+        description:    data.issue,
         categoryId:     category.id,
         equipmentId:    equipment?.id ?? null,
         // Explicit despite the schema's .default(false): the Zod-inferred
