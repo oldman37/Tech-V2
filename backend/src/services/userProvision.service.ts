@@ -712,6 +712,7 @@ async function runForType(
         if (type === 'STAFF') {
           const row = sisRow as StaffRow;
           if (row.staffType !== (entraUser.jobTitle ?? '')) patch['jobTitle'] = row.staffType;
+          if ('Staff' !== (entraUser.department ?? '')) patch['department'] = 'Staff';
         }
 
         if (type === 'STUDENT') {
@@ -840,6 +841,7 @@ async function runForType(
           body['surname']       = row.lastName;
           body['jobTitle']      = row.staffType;
           body['employeeType']  = 'Staff';
+          body['department']    = 'Staff';
         } else {
           const row = sisRow as StudentRow;
           body['givenName']     = row.firstName;

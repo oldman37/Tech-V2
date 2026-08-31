@@ -12,6 +12,12 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.9.1',
+    changes: [
+      'Staff accounts now have their Entra Department field set to "Staff" during provisioning — previously left blank. Employee Type already read "Staff" and is unchanged.',
+    ],
+  },
+  {
     version: '1.9.0',
     highlights: [
       {
