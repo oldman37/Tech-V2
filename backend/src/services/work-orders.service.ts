@@ -857,6 +857,7 @@ export class WorkOrderService {
         userId,
         permLevel,
         maintenanceRole,
+        { suppressReporterNotification: true },
       );
     } catch (err) {
       // Scope rules in assertTicketAccess can block closing this specific
@@ -919,6 +920,11 @@ export class WorkOrderService {
     userId: string,
     permLevel: number,
     maintenanceRole?: MaintenanceRole,
+    // Opt-out for callers that create-and-close a ticket in one request (Quick
+    // Fix): the reporter is a bystander (the checked-out person), never took an
+    // action, and must not be emailed/pushed. Defaults to notifying, so every
+    // existing call site is unchanged.
+    options?: { suppressReporterNotification?: boolean },
   ) {
     const ticket = await this.prisma.ticket.findUnique({ where: { id } });
     if (!ticket) throw new NotFoundError('Work order', id);
@@ -974,7 +980,7 @@ export class WorkOrderService {
       userId,
     });
 
-    if (data.status === 'CLOSED' && userId !== ticket.reportedById) {
+    if (data.status === 'CLOSED' && userId !== ticket.reportedById && !options?.suppressReporterNotification) {
       this.sendClosedEmail(id, ticket.ticketNumber, ticket.department, ticket.priority, ticket.officeLocationId, ticket.reportedById, data.notes).catch(() => {});
     }
 
