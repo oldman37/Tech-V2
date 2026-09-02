@@ -20,21 +20,59 @@ if (Test-Path $dockerBin) {
 $repoRoot = Split-Path -Parent $PSScriptRoot
 Set-Location $repoRoot
 
-Write-Host '==> Preflight 1/3: backend image build (shared + prisma generate + backend tsc)'
+Write-Host '==> Preflight 1/4: mobile table card-view guard'
+# Every page/component that renders a raw MUI <TableHead> must also reference
+# useIsMobile (a hand-rolled mobile branch, e.g. ProvisioningPage.tsx's
+# AuditLogSection) or ResponsiveTable (the shared component) somewhere in the
+# same file -- otherwise the table renders as a cramped/overflowing raw table
+# on mobile instead of switching to cards. This is a file-level heuristic, not
+# a line-level one: it cannot tell whether a *specific* table within a file
+# that has multiple tables is the one actually guarded. Treat a pass as "no
+# obviously-untouched table", not proof every table in a multi-table file is
+# fixed.
+$mobileTableExceptions = @(
+    # Pre-existing gap, not a new regression -- tracked, not yet fixed.
+    'frontend/src/components/inventory-audit/FiscalYearAuditEntry.tsx',
+    # Dead code -- not routed anywhere in App.tsx (see pages/DeviceManagement/
+    # IntuneDeviceActionsPage.tsx for the live equivalent). Not deleted since
+    # that wasn't asked for; exempted so it doesn't block on an unused table.
+    'frontend/src/pages/IntuneDeviceActions.tsx'
+)
+$mobileTableViolations = @()
+Get-ChildItem -Path (Join-Path $repoRoot 'frontend/src') -Recurse -Include *.tsx |
+    Where-Object { $_.FullName -notmatch '[\\/]components[\\/]responsive[\\/]' } |
+    ForEach-Object {
+        $relPath = $_.FullName.Substring($repoRoot.Length + 1).Replace('\', '/')
+        if ($mobileTableExceptions -contains $relPath) { return }
+        $content = Get-Content -Raw -LiteralPath $_.FullName
+        if ($content -match 'TableHead' -and $content -notmatch 'useIsMobile' -and $content -notmatch 'ResponsiveTable') {
+            $mobileTableViolations += $relPath
+        }
+    }
+if ($mobileTableViolations.Count -gt 0) {
+    Write-Host 'PREFLIGHT FAILED: these files render a raw MUI table with no mobile card-view handling'
+    Write-Host '(no useIsMobile or ResponsiveTable reference found in the file):'
+    $mobileTableViolations | ForEach-Object { Write-Host "  - $_" }
+    Write-Host 'Add a useIsMobile()-guarded card branch (see ProvisioningPage.tsx AuditLogSection),'
+    Write-Host 'switch to ResponsiveTable, or add a justified entry to $mobileTableExceptions in this script.'
+    exit 1
+}
+
+Write-Host '==> Preflight 2/4: backend image build (shared + prisma generate + backend tsc)'
 docker compose -f docker-compose.dev.yml build backend
 if ($LASTEXITCODE -ne 0) {
     Write-Host 'PREFLIGHT FAILED: backend image build returned a non-zero exit code.'
     exit 1
 }
 
-Write-Host '==> Preflight 2/3: frontend image build (tsc + vite build)'
+Write-Host '==> Preflight 3/4: frontend image build (tsc + vite build)'
 docker compose -f docker-compose.dev.yml build frontend
 if ($LASTEXITCODE -ne 0) {
     Write-Host 'PREFLIGHT FAILED: frontend image build returned a non-zero exit code.'
     exit 1
 }
 
-Write-Host '==> Preflight 3/3: backend integration tests (vitest run inside Docker)'
+Write-Host '==> Preflight 4/4: backend integration tests (vitest run inside Docker)'
 docker compose -f docker-compose.dev.yml --profile test run --build --rm backend-test
 $testResult = $LASTEXITCODE
 

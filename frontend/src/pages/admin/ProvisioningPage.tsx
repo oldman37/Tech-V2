@@ -56,6 +56,7 @@ import provisioningService, {
 import { useUpdateSchedule } from '@/hooks/mutations/useJobMutations';
 import { useJobSchedules } from '@/hooks/queries/useJobSchedules';
 import { useAutoFocusSearch } from '@/hooks/useAutoFocusSearch';
+import { useIsMobile } from '@/hooks/useResponsive';
 import { PageBackButton } from '@/components/layout/PageBackButton';
 
 // ---------------------------------------------------------------------------
@@ -1609,6 +1610,7 @@ function AuditDetailPanel({ details }: { details: Record<string, unknown> | null
 }
 
 function AuditLogSection() {
+  const isMobile = useIsMobile();
   const [filter, setFilter] = useState<AuditFilter>('all');
   const [userTypeFilter, setUserTypeFilter] = useState<AuditUserTypeFilter>('ALL');
   const [page, setPage] = useState(1);
@@ -1718,95 +1720,173 @@ function AuditLogSection() {
 
           {!isLoading && !isError && (
             <>
-              <TableContainer>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell sx={{ width: 40, p: 0.5 }} />
-                      <TableCell>Date / Time</TableCell>
-                      <TableCell>Type</TableCell>
-                      <TableCell>UPN</TableCell>
-                      <TableCell>Employee ID</TableCell>
-                      <TableCell>Action</TableCell>
-                      <TableCell>Error</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {data?.rows.length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={7}>
-                          <Typography variant="body2" color="text.secondary" align="center" py={2}>
-                            No audit records
-                          </Typography>
-                        </TableCell>
-                      </TableRow>
-                    )}
-                    {data?.rows.map((row) => {
-                      const isExpanded = expandedId === row.id;
-                      return (
-                        <React.Fragment key={row.id}>
-                          <TableRow
-                            hover
-                            onClick={() => toggleExpand(row.id)}
-                            sx={{ cursor: 'pointer', '& > *': { borderBottom: isExpanded ? 0 : undefined } }}
+              {isMobile ? (
+                <Stack spacing={1.5}>
+                  {data?.rows.length === 0 && (
+                    <Typography variant="body2" color="text.secondary" align="center" sx={{ py: 2 }}>
+                      No audit records
+                    </Typography>
+                  )}
+                  {data?.rows.map((row) => {
+                    const isExpanded = expandedId === row.id;
+                    return (
+                      <Box
+                        key={row.id}
+                        className="mobile-card mobile-card--collapsible"
+                        role="button"
+                        tabIndex={0}
+                        aria-expanded={isExpanded}
+                        onClick={() => toggleExpand(row.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            toggleExpand(row.id);
+                          }
+                        }}
+                      >
+                        <Box className="mobile-card__header">
+                          <Box className="mobile-card__title" sx={{ fontFamily: 'monospace', fontSize: '0.85rem' }}>
+                            {row.upn ?? '—'}
+                          </Box>
+                          <Box className="mobile-card__subtitle">
+                            {formatTimestamp(row.createdAt)} · {row.userType}
+                          </Box>
+                          <span
+                            className={`mobile-card__chevron${isExpanded ? ' mobile-card__chevron--expanded' : ''}`}
+                            aria-hidden="true"
                           >
-                            <TableCell sx={{ width: 40, p: 0.5 }}>
-                              <IconButton size="small" tabIndex={-1}>
-                                {isExpanded ? <KeyboardArrowUpIcon fontSize="small" /> : <KeyboardArrowDownIcon fontSize="small" />}
-                              </IconButton>
-                            </TableCell>
-                            <TableCell sx={{ whiteSpace: 'nowrap' }}>
-                              {formatTimestamp(row.createdAt)}
-                            </TableCell>
-                            <TableCell>{row.userType}</TableCell>
-                            <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
-                              {row.upn ?? '—'}
-                            </TableCell>
-                            <TableCell>{row.employeeId ?? '—'}</TableCell>
-                            <TableCell>
-                              <Tooltip title={row.action} placement="top">
-                                <Chip
-                                  label={actionLabel(row.action)}
-                                  color={actionChipColor(row.action)}
-                                  size="small"
-                                  sx={{ fontFamily: 'monospace', fontSize: '0.7rem' }}
-                                />
-                              </Tooltip>
-                            </TableCell>
-                            <TableCell>
-                              {row.errorMessage ? (
-                                <Tooltip title={row.errorMessage} placement="top">
-                                  <Typography
-                                    variant="caption"
-                                    color="error"
-                                    sx={{ cursor: 'help', display: 'block', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                                  >
-                                    {row.errorMessage}
-                                  </Typography>
+                            ▸
+                          </span>
+                        </Box>
+
+                        <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mt: 0.5 }}>
+                          <Chip
+                            label={actionLabel(row.action)}
+                            color={actionChipColor(row.action)}
+                            size="small"
+                            sx={{ fontFamily: 'monospace', fontSize: '0.7rem' }}
+                          />
+                          {row.errorMessage && (
+                            <Chip label="Error" color="error" size="small" variant="outlined" />
+                          )}
+                        </Stack>
+
+                        <Collapse in={isExpanded} unmountOnExit>
+                          <Box className="mobile-card__details">
+                            <Box className="mobile-card__field">
+                              <span className="mobile-card__label">Employee ID</span>
+                              <span className="mobile-card__value">{row.employeeId ?? '—'}</span>
+                            </Box>
+                            <Box className="mobile-card__field">
+                              <span className="mobile-card__label">Triggered By</span>
+                              <span className="mobile-card__value">{row.triggeredBy}</span>
+                            </Box>
+                            {row.errorMessage && (
+                              <Box className="mobile-card__field mobile-card__field--actions">
+                                <span className="mobile-card__label">Error</span>
+                                <span className="mobile-card__value">{row.errorMessage}</span>
+                              </Box>
+                            )}
+                          </Box>
+                          <Box sx={{ mt: 1, pt: 1, borderTop: 1, borderColor: 'divider' }}>
+                            <AuditDetailPanel details={row.details} />
+                          </Box>
+                        </Collapse>
+                      </Box>
+                    );
+                  })}
+                </Stack>
+              ) : (
+                <TableContainer>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell sx={{ width: 40, p: 0.5 }} />
+                        <TableCell>Date / Time</TableCell>
+                        <TableCell>Type</TableCell>
+                        <TableCell>UPN</TableCell>
+                        <TableCell>Employee ID</TableCell>
+                        <TableCell>Action</TableCell>
+                        <TableCell>Error</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {data?.rows.length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={7}>
+                            <Typography variant="body2" color="text.secondary" align="center" py={2}>
+                              No audit records
+                            </Typography>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                      {data?.rows.map((row) => {
+                        const isExpanded = expandedId === row.id;
+                        return (
+                          <React.Fragment key={row.id}>
+                            <TableRow
+                              hover
+                              onClick={() => toggleExpand(row.id)}
+                              sx={{ cursor: 'pointer', '& > *': { borderBottom: isExpanded ? 0 : undefined } }}
+                            >
+                              <TableCell sx={{ width: 40, p: 0.5 }}>
+                                <IconButton size="small" tabIndex={-1}>
+                                  {isExpanded ? <KeyboardArrowUpIcon fontSize="small" /> : <KeyboardArrowDownIcon fontSize="small" />}
+                                </IconButton>
+                              </TableCell>
+                              <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                                {formatTimestamp(row.createdAt)}
+                              </TableCell>
+                              <TableCell>{row.userType}</TableCell>
+                              <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
+                                {row.upn ?? '—'}
+                              </TableCell>
+                              <TableCell>{row.employeeId ?? '—'}</TableCell>
+                              <TableCell>
+                                <Tooltip title={row.action} placement="top">
+                                  <Chip
+                                    label={actionLabel(row.action)}
+                                    color={actionChipColor(row.action)}
+                                    size="small"
+                                    sx={{ fontFamily: 'monospace', fontSize: '0.7rem' }}
+                                  />
                                 </Tooltip>
-                              ) : (
-                                '—'
-                              )}
-                            </TableCell>
-                          </TableRow>
-                          <TableRow>
-                            <TableCell colSpan={7} sx={{ py: 0, border: isExpanded ? undefined : 0 }}>
-                              <Collapse in={isExpanded} unmountOnExit>
-                                <Box sx={{ py: 1.5, px: 2, bgcolor: 'action.hover', borderRadius: 1, my: 0.5 }}>
-                                  <Typography variant="caption" color="text.secondary" display="block" mb={0.5}>
-                                    Triggered by {row.triggeredBy}
-                                  </Typography>
-                                  <AuditDetailPanel details={row.details} />
-                                </Box>
-                              </Collapse>
-                            </TableCell>
-                          </TableRow>
-                        </React.Fragment>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </TableContainer>
+                              </TableCell>
+                              <TableCell>
+                                {row.errorMessage ? (
+                                  <Tooltip title={row.errorMessage} placement="top">
+                                    <Typography
+                                      variant="caption"
+                                      color="error"
+                                      sx={{ cursor: 'help', display: 'block', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                                    >
+                                      {row.errorMessage}
+                                    </Typography>
+                                  </Tooltip>
+                                ) : (
+                                  '—'
+                                )}
+                              </TableCell>
+                            </TableRow>
+                            <TableRow>
+                              <TableCell colSpan={7} sx={{ py: 0, border: isExpanded ? undefined : 0 }}>
+                                <Collapse in={isExpanded} unmountOnExit>
+                                  <Box sx={{ py: 1.5, px: 2, bgcolor: 'action.hover', borderRadius: 1, my: 0.5 }}>
+                                    <Typography variant="caption" color="text.secondary" display="block" mb={0.5}>
+                                      Triggered by {row.triggeredBy}
+                                    </Typography>
+                                    <AuditDetailPanel details={row.details} />
+                                  </Box>
+                                </Collapse>
+                              </TableCell>
+                            </TableRow>
+                          </React.Fragment>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
 
               <Stack direction="row" spacing={2} alignItems="center" justifyContent="flex-end" flexWrap="wrap">
                 {data && (

@@ -12,6 +12,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.9.3',
+    changes: [
+      'Provisioning\'s status banner now correctly shows "Sync Enabled" whenever any of the staff, student, or legacy sync schedules is running, instead of sometimes showing "Sync Disabled" while a split schedule was actually active.',
+      'Each Split Schedule row on the Provisioning page (staff and students) now shows a Success/Failed status chip with created, updated, deprovisioned, and error counts for its last run, so a quiet run reads as a confirmed success instead of no information at all.',
+      'The provisioning audit log no longer records an entry for every account that was already in sync (the common case) — only real creates, updates, and failures are logged, so they\'re no longer buried and the audit log stops growing unbounded.',
+      'Quick Fix no longer sends the checked-out person a "your work order has been completed" email or push notification — logging an on-the-spot fix from the Checkouts page is now silent to them, as intended.',
+      'The Provisioning page\'s Audit Log now switches to a card layout on mobile instead of rendering as a cramped, overflowing table — matching every other list page in the app. Filtering, search, pagination, and tapping an entry for its full details all still work the same.',
+    ],
+  },
+  {
     version: '1.9.2',
     changes: [
       'Vehicles in Fleet Management can now be marked "County-Wide". Log Fuel shows your assigned vehicle pre-selected in a dropdown as before, but now also lets you switch to any county-wide vehicle instead.',
