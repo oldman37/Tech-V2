@@ -2,15 +2,11 @@
  * Transportation Report Service
  *
  * Generates fuel consumption and DOT status reports.
- * Also handles the monthly report scheduled job.
  */
 import { PrismaClient } from '@prisma/client';
 import { createLogger } from '../lib/logger';
 import { DotPhysicalService } from './dotPhysical.service';
-import {
-  sendMonthlyFuelReportEmail,
-  sendGasThresholdAlertEmail,
-} from './email.service';
+import { sendMonthlyFuelReportEmail } from './email.service';
 
 const log = createLogger('TransportationReportService');
 
@@ -195,55 +191,4 @@ export class TransportationReportService {
     return { sent: true, month, recipientEmail };
   }
 
-  /**
-   * Scheduled job handler: generate and send the monthly fuel report.
-   * Called by scheduler.service.ts as transportation-monthly-report.
-   */
-  async runMonthlyReportJob(): Promise<Record<string, unknown>> {
-    const settings = await this.prisma.transportationSettings.findUnique({
-      where: { id: 'singleton' },
-    });
-
-    if (settings && !settings.monthlyFuelReportEnabled) {
-      log.info('Monthly fuel report disabled — skipping job');
-      return { skipped: true, reason: 'monthlyFuelReportEnabled=false' };
-    }
-
-    const now = new Date();
-    const prevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const month = `${prevMonth.getFullYear()}-${String(prevMonth.getMonth() + 1).padStart(2, '0')}`;
-
-    const reportData = await this.getMonthlyFuelReport(month);
-
-    // Threshold alert
-    if (
-      settings?.gasFuelThresholdEnabled &&
-      settings.gasFuelThresholdGallons != null &&
-      reportData.totalGasGallons > Number(settings.gasFuelThresholdGallons)
-    ) {
-      const dosEmail = settings.directorOfSchoolsEmail;
-      if (dosEmail) {
-        await sendGasThresholdAlertEmail({
-          recipientEmail: dosEmail,
-          month,
-          totalGasGallons: reportData.totalGasGallons,
-          threshold: Number(settings.gasFuelThresholdGallons),
-          topUser: reportData.topGasUser,
-        });
-      }
-    }
-
-    // Monthly report
-    const financeEmail = settings?.financeDirectorEmail;
-    if (financeEmail) {
-      await sendMonthlyFuelReportEmail({
-        recipientEmail: financeEmail,
-        month,
-        reportData,
-      });
-    }
-
-    log.info('Monthly fuel report job complete', { month, totalEntries: reportData.totalEntries });
-    return { month, totalEntries: reportData.totalEntries, totalGallons: reportData.totalGallons };
-  }
 }

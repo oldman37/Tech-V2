@@ -20,6 +20,7 @@ import {
   DialogContent,
   DialogTitle,
   FormControl,
+  FormControlLabel,
   Grid,
   IconButton,
   InputAdornment,
@@ -27,6 +28,7 @@ import {
   MenuItem,
   Paper,
   Select,
+  Switch,
   TablePagination,
   TextField,
   Tooltip,
@@ -70,12 +72,13 @@ interface UnitFormState {
   capacity: string;
   licensePlate: string;
   currentMileage: string;
+  isCountyWide: boolean;
   notes: string;
 }
 
 const defaultForm: UnitFormState = {
   unitNumber: '', type: '', fuelType: '', vin: '', year: '', make: '',
-  model: '', capacity: '', licensePlate: '', currentMileage: '0', notes: '',
+  model: '', capacity: '', licensePlate: '', currentMileage: '0', isCountyWide: false, notes: '',
 };
 
 export default function TransportationUnitsPage() {
@@ -182,6 +185,7 @@ export default function TransportationUnitsPage() {
       capacity:       unit.capacity?.toString() ?? '',
       licensePlate:   unit.licensePlate ?? '',
       currentMileage: unit.currentMileage.toString(),
+      isCountyWide:   unit.isCountyWide,
       notes:          unit.notes ?? '',
     });
     setFormError('');
@@ -204,6 +208,7 @@ export default function TransportationUnitsPage() {
       capacity:       form.capacity ? parseInt(form.capacity, 10) : null,
       licensePlate:   form.licensePlate.trim() || null,
       currentMileage: form.currentMileage ? parseInt(form.currentMileage, 10) : 0,
+      isCountyWide:   form.isCountyWide,
       notes:          form.notes.trim() || null,
     };
     if (editUnit) {
@@ -300,6 +305,14 @@ export default function TransportationUnitsPage() {
           size="small"
         />
       ),
+    },
+    {
+      key: 'isCountyWide',
+      label: 'County-Wide',
+      hideOnMobile: true,
+      render: (unit) => unit.isCountyWide
+        ? <Chip label="County-Wide" size="small" color="secondary" variant="outlined" />
+        : '—',
     },
   ];
 
@@ -552,6 +565,17 @@ export default function TransportationUnitsPage() {
                 type="number"
                 value={form.currentMileage}
                 onChange={(e) => setForm({ ...form, currentMileage: e.target.value })}
+              />
+            </Grid>
+            <Grid size={{ xs: 12 }}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={form.isCountyWide}
+                    onChange={(e) => setForm({ ...form, isCountyWide: e.target.checked })}
+                  />
+                }
+                label="County-Wide Vehicle"
               />
             </Grid>
             <Grid size={{ xs: 12 }}>

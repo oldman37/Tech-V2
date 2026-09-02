@@ -10,6 +10,8 @@ import {
   ListFuelEntriesQuerySchema,
   CreateFuelEntrySchema,
   UpdateFuelEntrySchema,
+  MonthlySummaryQuerySchema,
+  UpsertFuelMileageBaselineSchema,
 } from '../validators/transportation.validators';
 
 const service = new FuelConsumptionService(prisma);
@@ -33,6 +35,34 @@ export const getMyEntries = async (req: AuthRequest, res: Response): Promise<voi
     const query = ListFuelEntriesQuerySchema.parse(req.query);
     const result = await service.getMyEntries(req.user!.id, query);
     res.json(result);
+  } catch (error) {
+    handleControllerError(error, res);
+  }
+};
+
+export const getSummary = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const query = MonthlySummaryQuerySchema.parse(req.query);
+    const rows = await service.getMonthlySummary(
+      { reportingMonth: query.month, unitId: query.unitId, userId: query.userId },
+      req.user!.id,
+      req.user!.permLevel ?? 1,
+    );
+    res.json(rows);
+  } catch (error) {
+    handleControllerError(error, res);
+  }
+};
+
+export const getMySummary = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const query = MonthlySummaryQuerySchema.parse(req.query);
+    const rows = await service.getMonthlySummary(
+      { reportingMonth: query.month },
+      req.user!.id,
+      1,
+    );
+    res.json(rows);
   } catch (error) {
     handleControllerError(error, res);
   }
@@ -75,6 +105,16 @@ export const deleteEntry = async (req: AuthRequest, res: Response): Promise<void
   try {
     await service.delete(req.params['id'] as string);
     res.status(204).send();
+  } catch (error) {
+    handleControllerError(error, res);
+  }
+};
+
+export const upsertMileageBaseline = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const data = UpsertFuelMileageBaselineSchema.parse(req.body);
+    const baseline = await service.upsertMileageBaseline(data, req.user!.id, req.user!.permLevel ?? 1);
+    res.json(baseline);
   } catch (error) {
     handleControllerError(error, res);
   }

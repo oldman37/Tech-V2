@@ -12,6 +12,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.9.2',
+    changes: [
+      'Vehicles in Fleet Management can now be marked "County-Wide". Log Fuel shows your assigned vehicle pre-selected in a dropdown as before, but now also lets you switch to any county-wide vehicle instead.',
+      'Log Fuel\'s vehicle list now shows each vehicle\'s make/model instead of its type. Users with no assigned vehicle get a searchable dropdown — type the vehicle number or click to browse the full fleet list.',
+      'My Fuel History now shows one row per vehicle per month instead of a separate row for every fill-up, with Previous Mileage / Latest Mileage / Miles Driven in place of the unused Cost column. Click a row to see — and, for Directors/Admins, delete — the individual fill-ups it was built from.',
+      'The automatic monthly fuel report email has been replaced with an on-demand "Export CSV" button on My Fuel History (Site Admin / Transportation Secretary), which also lists the fuel station location(s) used that month.',
+      'Added a "Set Starting Mileage" option on My Fuel History for a driver/vehicle with no fuel history before the month being viewed, so Miles Driven can be calculated instead of showing "—".',
+      'My Fuel History defaults to the current month; past months are still reachable via the Month field, and the page now switches to a proper card layout on mobile.',
+      'Fixed fuel entries logged on the 1st of a month sometimes being filed under the previous month.',
+    ],
+  },
+  {
     version: '1.9.1',
     changes: [
       'Staff accounts now have their Entra Department field set to "Staff" during provisioning — previously left blank. Employee Type already read "Staff" and is unchanged.',

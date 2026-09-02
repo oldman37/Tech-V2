@@ -14,6 +14,7 @@ import { FuelLowAlertService } from './fuelLowAlert.service';
 import type {
   CreateFuelEntryDto,
   UpdateFuelEntryDto,
+  UpsertFuelMileageBaselineDto,
 } from '../validators/transportation.validators';
 
 const log = createLogger('FuelConsumptionService');
@@ -22,6 +23,29 @@ function toReportingMonth(date: Date): string {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, '0');
   return `${y}-${m}`;
+}
+
+/** Local midnight of the 1st of the given YYYY-MM month. */
+function monthStartDate(month: string): Date {
+  const [y, m] = month.split('-').map(Number);
+  return new Date(y, m - 1, 1);
+}
+
+/**
+ * Parses an entryDate value as a local calendar date rather than UTC, so
+ * reportingMonth reflects the day the user actually picked regardless of the
+ * server's UTC offset. `new Date('2026-09-01')` parses as UTC midnight,
+ * which in a UTC-negative timezone (e.g. America/Chicago) reads back as the
+ * evening of the previous day — misclassifying reportingMonth specifically
+ * for the 1st of every month. A full ISO timestamp (has a "T") is left as-is.
+ */
+function parseEntryDate(value?: string): Date {
+  if (!value) return new Date();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const [y, m, d] = value.split('-').map(Number);
+    return new Date(y, m - 1, d);
+  }
+  return new Date(value);
 }
 
 export class FuelConsumptionService {
@@ -124,6 +148,144 @@ export class FuelConsumptionService {
     return { items, total, page, limit };
   }
 
+  /**
+   * Monthly summary for My Fuel History: one row per (user, vehicle) for the
+   * given month, with total fuel and miles driven. Miles driven chains
+   * consecutive fill-ups — previousMileage is the reading from the fill-up
+   * immediately before the latest one, whether that's earlier in the same
+   * month or the most recent fill-up before this month started (used when
+   * this month has only one fill-up so far — no matter how many months back
+   * that prior fill-up was, so a skipped month doesn't break the chain).
+   */
+  async getMonthlySummary(
+    filters: { reportingMonth?: string; unitId?: string; userId?: string },
+    requestingUserId: string,
+    requestingPermLevel: number,
+  ) {
+    const reportingMonth = filters.reportingMonth ?? toReportingMonth(new Date());
+
+    const where: Prisma.FuelConsumptionEntryWhereInput = { reportingMonth };
+    if (requestingPermLevel < 2) {
+      where.enteredById = requestingUserId;
+    } else if (filters.userId) {
+      where.enteredById = filters.userId;
+    }
+    if (filters.unitId) where.transportationUnitId = filters.unitId;
+
+    const entries = await this.prisma.fuelConsumptionEntry.findMany({
+      where,
+      orderBy: { entryDate: 'asc' },
+      include: {
+        unit:        { select: { id: true, unitNumber: true, type: true, fuelType: true } },
+        enteredBy:   { select: { id: true, firstName: true, lastName: true, displayName: true } },
+        fuelStation: {
+          include: { officeLocation: { select: { id: true, name: true } } },
+        },
+      },
+    });
+
+    if (entries.length === 0) return [];
+
+    type Entry = (typeof entries)[number];
+    const groups = new Map<string, {
+      userId: string;
+      userName: string;
+      unitId: string;
+      unitNumber: string;
+      totalFuelAmount: number;
+      fuelUnit: string;
+      entries: Entry[]; // chronological — `entries` is ordered by entryDate asc
+    }>();
+
+    for (const entry of entries) {
+      const key = `${entry.enteredById}::${entry.transportationUnitId}`;
+      let group = groups.get(key);
+      if (!group) {
+        const userName = entry.enteredBy.displayName
+          ?? (`${entry.enteredBy.firstName ?? ''} ${entry.enteredBy.lastName ?? ''}`.trim() || '—');
+        group = {
+          userId: entry.enteredById,
+          userName,
+          unitId: entry.transportationUnitId,
+          unitNumber: entry.unit.unitNumber,
+          totalFuelAmount: 0,
+          fuelUnit: entry.fuelUnit,
+          entries: [],
+        };
+        groups.set(key, group);
+      }
+      group.totalFuelAmount += Number(entry.fuelAmount);
+      group.entries.push(entry);
+    }
+
+    // Bulk-fetch, for (user, unit) pairs that only have one fill-up this
+    // month, the single most recent reading from *before* this month —
+    // however many months back that was — used as the fallback previous
+    // reading. `distinct` (Postgres DISTINCT ON under the hood) combined
+    // with a descending order gets exactly one row per pair in one query.
+    const userIds = [...new Set(entries.map((e) => e.enteredById))];
+    const unitIds = [...new Set(entries.map((e) => e.transportationUnitId))];
+    const priorEntries = await this.prisma.fuelConsumptionEntry.findMany({
+      where: {
+        entryDate: { lt: monthStartDate(reportingMonth) },
+        enteredById: { in: userIds },
+        transportationUnitId: { in: unitIds },
+      },
+      distinct: ['enteredById', 'transportationUnitId'],
+      orderBy: { entryDate: 'desc' },
+      select: { enteredById: true, transportationUnitId: true, mileageAtFueling: true },
+    });
+
+    const priorLastByKey = new Map<string, number>();
+    for (const e of priorEntries) {
+      priorLastByKey.set(`${e.enteredById}::${e.transportationUnitId}`, e.mileageAtFueling);
+    }
+
+    // Fall back further to a manually-entered starting mileage (see
+    // FuelMileageBaseline) for pairs with no real fuel history before this
+    // month at all — e.g. a driver who didn't use this system last month.
+    const baselines = await this.prisma.fuelMileageBaseline.findMany({
+      where: {
+        userId: { in: userIds },
+        transportationUnitId: { in: unitIds },
+      },
+      select: { userId: true, transportationUnitId: true, mileage: true },
+    });
+    const baselineByKey = new Map<string, number>();
+    for (const b of baselines) {
+      baselineByKey.set(`${b.userId}::${b.transportationUnitId}`, b.mileage);
+    }
+
+    const rows = Array.from(groups.entries()).map(([key, g]) => {
+      const latest = g.entries[g.entries.length - 1]!;
+      const latestMileage = latest.mileageAtFueling;
+      // Chain to the fill-up right before the latest one — earlier this
+      // month if there is one, otherwise the most recent reading before
+      // this month started (real entry, then manual baseline), regardless
+      // of how far back it was.
+      const previousMileage = g.entries.length > 1
+        ? g.entries[g.entries.length - 2]!.mileageAtFueling
+        : priorLastByKey.get(key) ?? baselineByKey.get(key) ?? null;
+      const milesDriven = previousMileage !== null ? latestMileage - previousMileage : null;
+      return {
+        userId: g.userId,
+        userName: g.userName,
+        unitId: g.unitId,
+        unitNumber: g.unitNumber,
+        reportingMonth,
+        totalFuelAmount: parseFloat(g.totalFuelAmount.toFixed(3)),
+        fuelUnit: g.fuelUnit,
+        previousMileage,
+        latestMileage,
+        milesDriven,
+        entries: g.entries,
+      };
+    });
+
+    rows.sort((a, b) => a.userName.localeCompare(b.userName) || a.unitNumber.localeCompare(b.unitNumber));
+    return rows;
+  }
+
   async getById(id: string, requestingUserId: string, requestingPermLevel: number) {
     const entry = await this.prisma.fuelConsumptionEntry.findUnique({
       where: { id },
@@ -144,22 +306,37 @@ export class FuelConsumptionService {
     return entry;
   }
 
+  /**
+   * For level 1 users: if they have an active assignment, `unitId` must
+   * match it — unless the selected unit is marked county-wide, which any
+   * driver may act on regardless of their own assignment.
+   */
+  private async assertUnitAccessibleToDriver(unitId: string, requestingUserId: string, message: string) {
+    const activeAssignment = await this.prisma.transportationUnitAssignment.findFirst({
+      where: { userId: requestingUserId, unassignedAt: null },
+    });
+    if (activeAssignment && activeAssignment.transportationUnitId !== unitId) {
+      const selectedUnit = await this.prisma.transportationUnit.findUnique({
+        where: { id: unitId },
+        select: { isCountyWide: true },
+      });
+      if (!selectedUnit?.isCountyWide) {
+        throw new ValidationError(message, 'transportationUnitId');
+      }
+    }
+  }
+
   async create(
     data: CreateFuelEntryDto,
     requestingUserId: string,
     requestingPermLevel: number,
   ) {
-    // For level 1 users: if they have an active assignment, the unit must match it
     if (requestingPermLevel < 2) {
-      const activeAssignment = await this.prisma.transportationUnitAssignment.findFirst({
-        where: { userId: requestingUserId, unassignedAt: null },
-      });
-      if (activeAssignment && activeAssignment.transportationUnitId !== data.transportationUnitId) {
-        throw new ValidationError(
-          'You may only log fuel for your assigned unit',
-          'transportationUnitId',
-        );
-      }
+      await this.assertUnitAccessibleToDriver(
+        data.transportationUnitId,
+        requestingUserId,
+        'You may only log fuel for your assigned unit or a county-wide vehicle',
+      );
     }
 
     // Validate the fuel station exists and is active
@@ -170,7 +347,7 @@ export class FuelConsumptionService {
       throw new ValidationError('The selected fuel station is not available', 'fuelStationId');
     }
 
-    const entryDate = data.entryDate ? new Date(data.entryDate) : new Date();
+    const entryDate = parseEntryDate(data.entryDate);
     const reportingMonth = toReportingMonth(entryDate);
 
     // Auto-compute totalCost when not supplied
@@ -271,7 +448,7 @@ export class FuelConsumptionService {
     if (data.notes !== undefined)                updateData['notes'] = data.notes ? sanitizeText(data.notes) : null;
 
     if (data.entryDate !== undefined) {
-      const newDate = new Date(data.entryDate);
+      const newDate = parseEntryDate(data.entryDate);
       updateData['entryDate'] = newDate;
       updateData['reportingMonth'] = toReportingMonth(newDate);
     }
@@ -283,5 +460,48 @@ export class FuelConsumptionService {
     const existing = await this.prisma.fuelConsumptionEntry.findUnique({ where: { id } });
     if (!existing) throw new NotFoundError('FuelConsumptionEntry', id);
     await this.prisma.fuelConsumptionEntry.delete({ where: { id } });
+  }
+
+  /**
+   * Sets (or replaces) the one-time starting mileage baseline for a
+   * (user, unit) pair — see FuelMileageBaseline. Level 1 users may only set
+   * their own, for their assigned unit or a county-wide vehicle; level 2+
+   * may set it on behalf of any user.
+   */
+  async upsertMileageBaseline(
+    data: UpsertFuelMileageBaselineDto,
+    requestingUserId: string,
+    requestingPermLevel: number,
+  ) {
+    const targetUserId = requestingPermLevel >= 2 && data.userId ? data.userId : requestingUserId;
+
+    if (requestingPermLevel < 2) {
+      await this.assertUnitAccessibleToDriver(
+        data.transportationUnitId,
+        requestingUserId,
+        'You may only set a starting mileage for your assigned unit or a county-wide vehicle',
+      );
+    }
+
+    return this.prisma.fuelMileageBaseline.upsert({
+      where: {
+        transportationUnitId_userId: {
+          transportationUnitId: data.transportationUnitId,
+          userId: targetUserId,
+        },
+      },
+      update: {
+        mileage:     data.mileage,
+        asOfMonth:   data.asOfMonth,
+        enteredById: requestingUserId,
+      },
+      create: {
+        transportationUnitId: data.transportationUnitId,
+        userId:                targetUserId,
+        mileage:               data.mileage,
+        asOfMonth:             data.asOfMonth,
+        enteredById:           requestingUserId,
+      },
+    });
   }
 }

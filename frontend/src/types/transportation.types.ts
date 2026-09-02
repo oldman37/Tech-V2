@@ -79,6 +79,7 @@ export interface TransportationUnit {
   capacity?:      number | null;
   licensePlate?:  string | null;
   isActive:       boolean;
+  isCountyWide:   boolean;
   notes?:         string | null;
   createdAt:      string;
   updatedAt:      string;
@@ -153,6 +154,23 @@ export interface FuelConsumptionEntry {
     fuelType: TankFuelType;
     label?:   string | null;
   } | null;
+}
+
+// ---------------------------------------------------------------------------
+// Monthly Fuel Summary (My Fuel History — combined per user/vehicle/month)
+// ---------------------------------------------------------------------------
+export interface FuelMonthlySummaryRow {
+  userId:          string;
+  userName:        string;
+  unitId:          string;
+  unitNumber:      string;
+  reportingMonth:  string;
+  totalFuelAmount: number;
+  fuelUnit:        FuelUnit;
+  previousMileage: number | null;
+  latestMileage:   number;
+  milesDriven:     number | null;
+  entries:         FuelConsumptionEntry[];
 }
 
 // ---------------------------------------------------------------------------

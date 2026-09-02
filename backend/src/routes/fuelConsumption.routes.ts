@@ -10,6 +10,7 @@ import { requireModule } from '../utils/groupAuth';
 import {
   CreateFuelEntrySchema,
   UpdateFuelEntrySchema,
+  UpsertFuelMileageBaselineSchema,
 } from '../validators/transportation.validators';
 import * as controller from '../controllers/fuelConsumption.controller';
 
@@ -31,6 +32,22 @@ router.get(
   controller.getMyEntries,
 );
 
+// GET /api/fuel-entries/summary — monthly totals across all users (level 2+)
+router.get(
+  '/summary',
+  authenticate,
+  requireModule('TRANSPORTATION', 2),
+  controller.getSummary,
+);
+
+// GET /api/fuel-entries/my-summary — monthly totals for the requesting user
+router.get(
+  '/my-summary',
+  authenticate,
+  requireModule('TRANSPORTATION', 1),
+  controller.getMySummary,
+);
+
 // GET /api/fuel-entries/:id
 router.get(
   '/:id',
@@ -47,6 +64,16 @@ router.post(
   validateRequest(CreateFuelEntrySchema),
   requireModule('TRANSPORTATION', 1),
   controller.create,
+);
+
+// PUT /api/fuel-entries/baseline — set/replace a starting mileage baseline
+router.put(
+  '/baseline',
+  authenticate,
+  validateCsrfToken,
+  validateRequest(UpsertFuelMileageBaselineSchema),
+  requireModule('TRANSPORTATION', 1),
+  controller.upsertMileageBaseline,
 );
 
 // PUT /api/fuel-entries/:id

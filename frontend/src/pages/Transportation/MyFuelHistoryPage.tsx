@@ -1,8 +1,14 @@
 /**
  * My Fuel History Page — /transportation/my-fuel-history
  *
- * Level 1: own entries only (getMyEntries).
- * Level 2+: all entries with filters (unit, user, station, date range, month).
+ * Shows one combined row per (user, vehicle) for the selected month, with
+ * total fuel and miles driven (from mileage readings). Defaults to the
+ * current month; past months stay searchable via the Month field. Each row
+ * expands in place to show the individual fill-ups it was built from.
+ *
+ * Level 1: own totals only (getMySummary).
+ * Level 2+: all users' totals with Unit/Month filters (getSummary), plus
+ * an Export CSV button.
  */
 
 import { useFilterParams } from '@/hooks/useFilterParams';
@@ -11,7 +17,12 @@ import {
   Alert,
   Box,
   Button,
+  Collapse,
   CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   FormControl,
   Grid,
   IconButton,
@@ -19,22 +30,255 @@ import {
   MenuItem,
   Paper,
   Select,
-  TablePagination,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
   TextField,
   Tooltip,
   Typography,
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
+import DownloadIcon from '@mui/icons-material/Download';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
+import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 import { useAuthStore } from '@/store/authStore';
-import { fuelEntryApi, fuelStationApi, transportationUnitApi } from '@/services/transportation.service';
-import type { FuelConsumptionEntry } from '@/types/transportation.types';
+import { fuelEntryApi, transportationUnitApi } from '@/services/transportation.service';
+import type { FuelMonthlySummaryRow } from '@/types/transportation.types';
 import { PageBackButton } from '@/components/layout/PageBackButton';
-import { ResponsiveTable } from '@/components/responsive/ResponsiveTable';
-import type { Column } from '@/components/responsive/ResponsiveTable';
 import { useIsMobile } from '@/hooks/useResponsive';
 import { parseDateLocal } from '@/utils/inventoryFormatters';
+
+function getCurrentMonth(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function formatMonthLabel(month: string): string {
+  const [y, m] = month.split('-').map(Number);
+  if (!y || !m) return month;
+  return new Date(y, m - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+}
+
+function previousMonthString(month: string): string {
+  const [y, m] = month.split('-').map(Number);
+  const d = new Date(y, m - 2, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+/** Distinct fuel station location names used by a row's fill-ups, in the order first seen. */
+function getDistinctLocations(row: FuelMonthlySummaryRow): string[] {
+  const seen = new Set<string>();
+  const locations: string[] = [];
+  for (const entry of row.entries) {
+    const name = entry.fuelStation?.officeLocation?.name;
+    if (name && !seen.has(name)) {
+      seen.add(name);
+      locations.push(name);
+    }
+  }
+  return locations;
+}
+
+const escapeCsv = (val: string): string => `"${val.replace(/"/g, '""')}"`;
+
+function downloadCsv(filename: string, headers: string[], rows: string[][]): void {
+  const csvContent = [
+    headers.map(escapeCsv).join(','),
+    ...rows.map((row) => row.map(escapeCsv).join(',')),
+  ].join('\r\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.setAttribute('download', `${filename}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+/** Shared fill-up list rendered inside both the desktop row's and mobile card's expand area. */
+function FuelEntryList({ row, permLevel, onDelete, onSetBaseline }: {
+  row: FuelMonthlySummaryRow;
+  permLevel: number;
+  onDelete: (entryId: string) => void;
+  onSetBaseline: (row: FuelMonthlySummaryRow) => void;
+}) {
+  const needsBaseline = row.previousMileage === null;
+  return (
+    <>
+      {needsBaseline && (
+        <Box display="flex" alignItems="center" justifyContent="space-between" gap={1} mb={1.5} flexWrap="wrap">
+          <Typography variant="body2" color="text.secondary">
+            No mileage on record before this month.
+          </Typography>
+          <Button
+            size="small"
+            variant="outlined"
+            onClick={(e) => { e.stopPropagation(); onSetBaseline(row); }}
+          >
+            Set Starting Mileage
+          </Button>
+        </Box>
+      )}
+      {row.entries.map((entry, i) => (
+        <Box key={entry.id}>
+          {i > 0 && <Box sx={{ borderTop: '1px solid', borderColor: 'divider', my: 1 }} />}
+          <Box display="flex" alignItems="flex-start" justifyContent="space-between" gap={1}>
+            <Box>
+              <Typography variant="body2" fontWeight="bold">
+                {parseDateLocal(entry.entryDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {Number(entry.fuelAmount).toFixed(3)} {entry.fuelUnit} · {entry.mileageAtFueling.toLocaleString()} mi
+              </Typography>
+              {entry.fuelStation?.officeLocation?.name && (
+                <Typography variant="caption" color="text.secondary">
+                  {entry.fuelStation.officeLocation.name}
+                </Typography>
+              )}
+            </Box>
+            {permLevel >= 3 && (
+              <Tooltip title="Delete">
+                <IconButton
+                  size="small"
+                  color="error"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (window.confirm('Delete this fuel entry?')) {
+                      onDelete(entry.id);
+                    }
+                  }}
+                >
+                  <DeleteIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            )}
+          </Box>
+        </Box>
+      ))}
+    </>
+  );
+}
+
+interface FuelSummaryRowProps {
+  row: FuelMonthlySummaryRow;
+  showUser: boolean;
+  permLevel: number;
+  colSpan: number;
+  onDelete: (entryId: string) => void;
+  onSetBaseline: (row: FuelMonthlySummaryRow) => void;
+}
+
+/** Desktop table row with an in-place expand section. */
+function FuelSummaryRow({ row, showUser, permLevel, colSpan, onDelete, onSetBaseline }: FuelSummaryRowProps) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <>
+      <TableRow
+        hover
+        sx={{ cursor: 'pointer', '& > td': { borderBottom: expanded ? 'none' : undefined } }}
+        onClick={() => setExpanded((v) => !v)}
+      >
+        <TableCell sx={{ width: 40, pr: 0 }}>
+          <IconButton size="small" aria-label={expanded ? 'collapse' : 'expand'}>
+            {expanded ? <KeyboardArrowUpIcon fontSize="small" /> : <KeyboardArrowDownIcon fontSize="small" />}
+          </IconButton>
+        </TableCell>
+        <TableCell>{formatMonthLabel(row.reportingMonth)}</TableCell>
+        {showUser && <TableCell>{row.userName}</TableCell>}
+        <TableCell>{row.unitNumber}</TableCell>
+        <TableCell>{`${row.totalFuelAmount.toFixed(3)} ${row.fuelUnit}`}</TableCell>
+        <TableCell>
+          {row.previousMileage != null ? `${row.previousMileage.toLocaleString()} mi` : (
+            <Button
+              size="small"
+              onClick={(e) => { e.stopPropagation(); onSetBaseline(row); }}
+            >
+              Set Starting Mileage
+            </Button>
+          )}
+        </TableCell>
+        <TableCell>{`${row.latestMileage.toLocaleString()} mi`}</TableCell>
+        <TableCell>{row.milesDriven != null ? `${row.milesDriven.toLocaleString()} mi` : '—'}</TableCell>
+      </TableRow>
+      <TableRow>
+        <TableCell colSpan={colSpan} sx={{ py: 0, px: 0 }}>
+          <Collapse in={expanded} timeout="auto" unmountOnExit>
+            <Box sx={{ bgcolor: 'action.hover', px: 2, py: 1.5 }}>
+              <FuelEntryList row={row} permLevel={permLevel} onDelete={onDelete} onSetBaseline={onSetBaseline} />
+            </Box>
+          </Collapse>
+        </TableCell>
+      </TableRow>
+    </>
+  );
+}
+
+interface FuelSummaryCardProps {
+  row: FuelMonthlySummaryRow;
+  showUser: boolean;
+  permLevel: number;
+  onDelete: (entryId: string) => void;
+  onSetBaseline: (row: FuelMonthlySummaryRow) => void;
+}
+
+/** Mobile card, mirroring the expand-in-place pattern used by DeviceManagement's cart cards. */
+function FuelSummaryCard({ row, showUser, permLevel, onDelete, onSetBaseline }: FuelSummaryCardProps) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <Paper variant="outlined" sx={{ p: 1.5, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Typography variant="body1" fontWeight={700}>{row.unitNumber}</Typography>
+        <Typography variant="caption" color="text.secondary">{formatMonthLabel(row.reportingMonth)}</Typography>
+      </Box>
+      {showUser && <Typography variant="caption" color="text.secondary">{row.userName}</Typography>}
+      <Typography variant="body2">{`${row.totalFuelAmount.toFixed(3)} ${row.fuelUnit}`}</Typography>
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mt: 0.5 }}>
+        <Box>
+          <Typography variant="caption" color="text.secondary" display="block">Previous Mileage</Typography>
+          {row.previousMileage != null ? (
+            <Typography variant="body2">{row.previousMileage.toLocaleString()} mi</Typography>
+          ) : (
+            <Button size="small" onClick={() => onSetBaseline(row)} sx={{ minWidth: 0, px: 0 }}>
+              Set Starting Mileage
+            </Button>
+          )}
+        </Box>
+        <Box>
+          <Typography variant="caption" color="text.secondary" display="block">Latest Mileage</Typography>
+          <Typography variant="body2">{row.latestMileage.toLocaleString()} mi</Typography>
+        </Box>
+        <Box>
+          <Typography variant="caption" color="text.secondary" display="block">Miles Driven</Typography>
+          <Typography variant="body2">{row.milesDriven != null ? `${row.milesDriven.toLocaleString()} mi` : '—'}</Typography>
+        </Box>
+      </Box>
+      <Box sx={{ mt: 0.5 }}>
+        <Button
+          size="small"
+          variant="text"
+          onClick={() => setExpanded((v) => !v)}
+          endIcon={expanded ? <KeyboardArrowUpIcon fontSize="small" /> : <KeyboardArrowDownIcon fontSize="small" />}
+        >
+          {expanded ? 'Hide fill-ups' : `Show fill-ups (${row.entries.length})`}
+        </Button>
+      </Box>
+      <Collapse in={expanded} timeout="auto" unmountOnExit>
+        <Box sx={{ pt: 1 }}>
+          <FuelEntryList row={row} permLevel={permLevel} onDelete={onDelete} onSetBaseline={onSetBaseline} />
+        </Box>
+      </Collapse>
+    </Paper>
+  );
+}
 
 export default function MyFuelHistoryPage() {
   const navigate = useNavigate();
@@ -43,31 +287,17 @@ export default function MyFuelHistoryPage() {
   const isAdmin = user?.roles?.includes('ADMIN');
   const permLevel = isAdmin ? 6 : (user?.permLevels?.TRANSPORTATION ?? 1);
   const isMobile = useIsMobile();
+  const showUser = permLevel >= 2;
 
-  // Filter state - lives in the URL so Back returns to this view
+  // Filter state - lives in the URL so Back returns to this view.
+  // Month defaults to the current month so the page always opens "fresh";
+  // past months stay reachable by changing it.
   const [filters, setFilters] = useFilterParams({
-    unit:    '',
-    station: '',
-    month:   '',
-    from:    '',
-    to:      '',
-    page:    '0',
-    rows:    '25',
+    unit:  '',
+    month: getCurrentMonth(),
   });
-
-  const page            = Number(filters.page) || 0;
-  const rowsPerPage     = Number(filters.rows) || 25;
-  const unitIdFilter    = filters.unit;
-  const stationIdFilter = filters.station;
-  const monthFilter     = filters.month;
-  const fromFilter      = filters.from;
-  const toFilter        = filters.to;
-
-  const { data: stationsData = [] } = useQuery({
-    queryKey: ['fuel-stations'],
-    queryFn: () => fuelStationApi.getAll(),
-    enabled: permLevel >= 2,
-  });
+  const unitIdFilter = filters.unit;
+  const monthFilter  = filters.month;
 
   const { data: unitsData } = useQuery({
     queryKey: ['transportation-units-active'],
@@ -75,90 +305,91 @@ export default function MyFuelHistoryPage() {
     enabled: permLevel >= 2,
   });
 
-  // Query: level 1 = my entries, level 2+ = all with filters
-  const { data, isLoading, error } = useQuery({
+  const { data: rows = [], isLoading, error } = useQuery({
     queryKey: permLevel >= 2
-      ? ['fuel-entries-all', { unitIdFilter, stationIdFilter, monthFilter, fromFilter, toFilter, page, rowsPerPage }]
-      : ['fuel-entries-mine', { page, rowsPerPage }],
+      ? ['fuel-summary-all', { unitIdFilter, monthFilter }]
+      : ['fuel-summary-mine', { monthFilter }],
     queryFn: () => {
       if (permLevel >= 2) {
-        return fuelEntryApi.getAll({
-          unitId:         unitIdFilter || undefined,
-          fuelStationId:  stationIdFilter || undefined,
-          reportingMonth: monthFilter || undefined,
-          from:           fromFilter || undefined,
-          to:             toFilter || undefined,
-          page:           page + 1,
-          limit:          rowsPerPage,
+        return fuelEntryApi.getSummary({
+          month:  monthFilter || undefined,
+          unitId: unitIdFilter || undefined,
         });
       }
-      return fuelEntryApi.getMyEntries({ page: page + 1, limit: rowsPerPage });
+      return fuelEntryApi.getMySummary({ month: monthFilter || undefined });
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: fuelEntryApi.deleteEntry,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['fuel-entries-all'] });
-      queryClient.invalidateQueries({ queryKey: ['fuel-entries-mine'] });
+      queryClient.invalidateQueries({ queryKey: ['fuel-summary-all'] });
+      queryClient.invalidateQueries({ queryKey: ['fuel-summary-mine'] });
     },
   });
 
-  const entries: FuelConsumptionEntry[] = data?.items ?? [];
-  const total = data?.total ?? 0;
+  // "Set Starting Mileage" dialog — backfills a previous-reading baseline for
+  // a (user, vehicle) with no fuel history before the viewed month.
+  const [baselineTarget, setBaselineTarget] = useState<FuelMonthlySummaryRow | null>(null);
+  const [baselineMileage, setBaselineMileage] = useState('');
+  const [baselineError, setBaselineError] = useState('');
 
-  const historyColumns: Column<FuelConsumptionEntry>[] = [
-    {
-      key: 'entryDate',
-      label: 'Date',
-      isPrimary: true,
-      render: (e) => parseDateLocal(e.entryDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+  const baselineMutation = useMutation({
+    mutationFn: fuelEntryApi.setMileageBaseline,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['fuel-summary-all'] });
+      queryClient.invalidateQueries({ queryKey: ['fuel-summary-mine'] });
+      setBaselineTarget(null);
+      setBaselineMileage('');
+      setBaselineError('');
     },
-    {
-      key: 'unit',
-      label: 'Unit',
-      isSecondary: true,
-      render: (e) => e.unit?.unitNumber ?? '—',
+    onError: (err: unknown) => {
+      setBaselineError(err instanceof Error ? err.message : 'Failed to save starting mileage.');
     },
-    {
-      key: 'fuelStation',
-      label: 'Fuel Station',
-      hideOnMobile: true,
-      render: (e) => e.fuelStation?.officeLocation?.name ?? '—',
-    },
-    {
-      key: 'fuelAmount',
-      label: 'Amount',
-      render: (e) => `${Number(e.fuelAmount).toFixed(3)} ${e.fuelUnit}`,
-    },
-    {
-      key: 'mileageAtFueling',
-      label: 'Mileage',
-      hideOnMobile: true,
-      render: (e) => `${e.mileageAtFueling.toLocaleString()} mi`,
-    },
-    {
-      key: 'totalCost',
-      label: 'Cost',
-      hideOnMobile: true,
-      render: (e) =>
-        e.totalCost != null
-          ? `$${Number(e.totalCost).toFixed(2)}`
-          : '—',
-    },
-    ...(permLevel >= 2
-      ? [{
-          key: 'enteredBy',
-          label: 'Entered By',
-          hideOnMobile: true as const,
-          render: (e: FuelConsumptionEntry) => {
-            const name = e.enteredBy?.displayName
-              ?? (`${e.enteredBy?.firstName ?? ''} ${e.enteredBy?.lastName ?? ''}`.trim() || '—');
-            return name;
-          },
-        }]
-      : []),
-  ];
+  });
+
+  function openBaselineDialog(row: FuelMonthlySummaryRow) {
+    setBaselineTarget(row);
+    setBaselineMileage('');
+    setBaselineError('');
+  }
+
+  function handleSubmitBaseline() {
+    if (!baselineTarget) return;
+    const mileage = parseInt(baselineMileage, 10);
+    if (!baselineMileage || isNaN(mileage) || mileage < 0) {
+      setBaselineError('Please enter a valid mileage reading.');
+      return;
+    }
+    baselineMutation.mutate({
+      transportationUnitId: baselineTarget.unitId,
+      mileage,
+      asOfMonth: previousMonthString(baselineTarget.reportingMonth),
+      userId: permLevel >= 2 ? baselineTarget.userId : undefined,
+    });
+  }
+
+  function handleExport() {
+    const rowLocations = rows.map(getDistinctLocations);
+    const maxLocations = Math.max(1, ...rowLocations.map((l) => l.length));
+    const locationHeaders = Array.from({ length: maxLocations }, (_, i) => i === 0 ? 'Location' : `Location ${i + 1}`);
+
+    const headers = ['Month', 'User', 'Vehicle', 'Total Fuel Amount', 'Previous Mileage', 'Latest Mileage', 'Miles Driven', ...locationHeaders];
+    const csvRows = rows.map((r, i) => [
+      formatMonthLabel(r.reportingMonth),
+      r.userName,
+      r.unitNumber,
+      `${r.totalFuelAmount.toFixed(3)} ${r.fuelUnit}`,
+      r.previousMileage != null ? r.previousMileage.toLocaleString() : '',
+      r.latestMileage.toLocaleString(),
+      r.milesDriven != null ? r.milesDriven.toLocaleString() : '',
+      ...Array.from({ length: maxLocations }, (_, j) => rowLocations[i]?.[j] ?? ''),
+    ]);
+    downloadCsv(`fuel-history-${monthFilter}`, headers, csvRows);
+  }
+
+  // Expand-icon + Month + [User] + Vehicle + Total Fuel Amount + Previous/Latest Mileage + Miles Driven
+  const columnCount = 1 + 1 + (showUser ? 1 : 0) + 1 + 1 + 2 + 1;
 
   return (
     <Box sx={{ p: { xs: 2, sm: 3 } }}>
@@ -167,27 +398,40 @@ export default function MyFuelHistoryPage() {
         <Typography variant="h5" fontWeight="bold">
           {permLevel >= 2 ? 'Fuel Entry History' : 'My Fuel History'}
         </Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => navigate('/transportation/fuel-entry')}
-          sx={{ ...(isMobile ? { width: '100%' } : {}) }}
-        >
-          Log Fuel
-        </Button>
+        <Box display="flex" gap={1} sx={{ ...(isMobile ? { width: '100%' } : {}) }}>
+          {permLevel >= 2 && (
+            <Button
+              variant="outlined"
+              startIcon={<DownloadIcon />}
+              onClick={handleExport}
+              disabled={rows.length === 0}
+              sx={{ ...(isMobile ? { flex: 1 } : {}) }}
+            >
+              Export CSV
+            </Button>
+          )}
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => navigate('/transportation/fuel-entry')}
+            sx={{ ...(isMobile ? { flex: 1 } : {}) }}
+          >
+            Log Fuel
+          </Button>
+        </Box>
       </Box>
 
-      {/* Level 2+ Filters */}
-      {permLevel >= 2 && (
-        <Paper sx={{ p: 2, mb: 2 }}>
-          <Grid container spacing={2} alignItems="center">
-            <Grid size={{ xs: 12, sm: 3 }}>
+      {/* Filters */}
+      <Paper sx={{ p: 2, mb: 2 }}>
+        <Grid container spacing={2} alignItems="center">
+          {permLevel >= 2 && (
+            <Grid size={{ xs: 12, sm: 4 }}>
               <FormControl size="small" fullWidth>
                 <InputLabel>Unit</InputLabel>
                 <Select
                   label="Unit"
                   value={unitIdFilter}
-                  onChange={(e) => { setFilters({ unit: e.target.value, page: '0' }); }}
+                  onChange={(e) => { setFilters({ unit: e.target.value }); }}
                 >
                   <MenuItem value="">All Units</MenuItem>
                   {(unitsData?.items ?? []).map((u) => (
@@ -196,100 +440,126 @@ export default function MyFuelHistoryPage() {
                 </Select>
               </FormControl>
             </Grid>
-            <Grid size={{ xs: 12, sm: 3 }}>
-              <FormControl size="small" fullWidth>
-                <InputLabel>Fuel Station</InputLabel>
-                <Select
-                  label="Fuel Station"
-                  value={stationIdFilter}
-                  onChange={(e) => { setFilters({ station: e.target.value, page: '0' }); }}
-                >
-                  <MenuItem value="">All Stations</MenuItem>
-                  {stationsData.map((s) => (
-                    <MenuItem key={s.id} value={s.id}>{s.officeLocation.name}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid size={{ xs: 12, sm: 2 }}>
-              <TextField
-                label="Month (YYYY-MM)"
-                size="small"
-                fullWidth
-                value={monthFilter}
-                onChange={(e) => { setFilters({ month: e.target.value, page: '0' }); }}
-                placeholder="2026-06"
-              />
-            </Grid>
-            <Grid size={{ xs: 12, sm: 2 }}>
-              <TextField
-                label="From Date"
-                size="small"
-                fullWidth
-                type="date"
-                value={fromFilter}
-                onChange={(e) => { setFilters({ from: e.target.value, page: '0' }); }}
-                InputLabelProps={{ shrink: true }}
-              />
-            </Grid>
-            <Grid size={{ xs: 12, sm: 2 }}>
-              <TextField
-                label="To Date"
-                size="small"
-                fullWidth
-                type="date"
-                value={toFilter}
-                onChange={(e) => { setFilters({ to: e.target.value, page: '0' }); }}
-                InputLabelProps={{ shrink: true }}
-              />
-            </Grid>
+          )}
+          <Grid size={{ xs: 12, sm: 3 }}>
+            <TextField
+              label="Month (YYYY-MM)"
+              size="small"
+              fullWidth
+              value={monthFilter}
+              onChange={(e) => { setFilters({ month: e.target.value }); }}
+              placeholder="2026-06"
+            />
           </Grid>
-        </Paper>
-      )}
+        </Grid>
+      </Paper>
 
       {isLoading && (
         <Box display="flex" justifyContent="center" p={4}>
           <CircularProgress />
         </Box>
       )}
-      {error && <Alert severity="error" sx={{ mb: 2 }}>Failed to load fuel entries.</Alert>}
+      {error && <Alert severity="error" sx={{ mb: 2 }}>Failed to load fuel history.</Alert>}
 
       {!isLoading && (
-        <Paper>
-          <ResponsiveTable
-            columns={historyColumns}
-            rows={entries}
-            getRowKey={(e) => e.id}
-            loading={isLoading}
-            emptyMessage="No fuel entries found."
-            rowActions={permLevel >= 3 ? (entry) => (
-              <Tooltip title="Delete">
-                <IconButton
-                  size="small"
-                  color="error"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (window.confirm('Delete this fuel entry?')) {
-                      deleteMutation.mutate(entry.id);
-                    }
-                  }}
-                >
-                  <DeleteIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
-            ) : undefined}
-          />
-          <TablePagination
-            component="div"
-            count={total}
-            page={page}
-            rowsPerPage={rowsPerPage}
-            onPageChange={(_, p) => setFilters({ page: String(p) })}
-            onRowsPerPageChange={(e) => { setFilters({ rows: e.target.value, page: '0' }); }}
-            rowsPerPageOptions={[25, 50, 100]}
-          />
-        </Paper>
+        isMobile ? (
+          rows.length === 0 ? (
+            <Typography variant="body2" color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
+              No fuel entries found for {formatMonthLabel(monthFilter)}.
+            </Typography>
+          ) : (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+              {rows.map((r) => (
+                <FuelSummaryCard
+                  key={`${r.userId}::${r.unitId}`}
+                  row={r}
+                  showUser={showUser}
+                  permLevel={permLevel}
+                  onDelete={(entryId) => deleteMutation.mutate(entryId)}
+                  onSetBaseline={openBaselineDialog}
+                />
+              ))}
+            </Box>
+          )
+        ) : (
+          <Paper>
+            <Box sx={{ overflowX: 'auto' }}>
+              <Table size="small">
+                <TableHead>
+                  <TableRow sx={{ '& th': { fontWeight: 700 } }}>
+                    <TableCell sx={{ width: 40, pr: 0 }} />
+                    <TableCell>Month</TableCell>
+                    {showUser && <TableCell>User</TableCell>}
+                    <TableCell>Vehicle</TableCell>
+                    <TableCell>Total Fuel Amount</TableCell>
+                    <TableCell>Previous Mileage</TableCell>
+                    <TableCell>Latest Mileage</TableCell>
+                    <TableCell>Miles Driven</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {rows.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={columnCount} align="center" sx={{ py: 4 }}>
+                        <Typography variant="body2" color="text.secondary">
+                          No fuel entries found for {formatMonthLabel(monthFilter)}.
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    rows.map((r) => (
+                      <FuelSummaryRow
+                        key={`${r.userId}::${r.unitId}`}
+                        row={r}
+                        showUser={showUser}
+                        permLevel={permLevel}
+                        colSpan={columnCount}
+                        onDelete={(entryId) => deleteMutation.mutate(entryId)}
+                        onSetBaseline={openBaselineDialog}
+                      />
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </Box>
+          </Paper>
+        )
       )}
+
+      {/* Set Starting Mileage dialog */}
+      <Dialog open={!!baselineTarget} onClose={() => setBaselineTarget(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>Set Starting Mileage</DialogTitle>
+        <DialogContent>
+          {baselineTarget && (
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Enter {baselineTarget.unitNumber}'s last odometer reading as of the end of{' '}
+              {formatMonthLabel(previousMonthString(baselineTarget.reportingMonth))}
+              {showUser ? ` for ${baselineTarget.userName}` : ''}.
+            </Typography>
+          )}
+          {baselineError && <Alert severity="error" sx={{ mb: 2 }}>{baselineError}</Alert>}
+          <TextField
+            label="Mileage"
+            fullWidth
+            size="small"
+            type="number"
+            inputProps={{ min: 0 }}
+            value={baselineMileage}
+            onChange={(e) => setBaselineMileage(e.target.value)}
+            autoFocus
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setBaselineTarget(null)}>Cancel</Button>
+          <Button
+            variant="contained"
+            onClick={handleSubmitBaseline}
+            disabled={baselineMutation.isPending}
+          >
+            Save
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

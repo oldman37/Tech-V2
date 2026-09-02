@@ -41,7 +41,6 @@ async function main() {
     { jobKey: 'sync-locations',                  cronExpr: '0 4 * * 1',   enabled: false },
     { jobKey: 'sync-supervisors',                cronExpr: '0 4 * * 1',   enabled: false },
     { jobKey: 'transportation-dot-reminders',    cronExpr: '0 7 * * *',   enabled: false },
-    { jobKey: 'transportation-monthly-report',   cronExpr: '0 6 1 * *',   enabled: false },
   ];
 
   for (const schedule of defaultSchedules) {

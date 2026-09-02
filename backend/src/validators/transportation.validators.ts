@@ -51,6 +51,7 @@ export const CreateTransportationUnitSchema = z.object({
   capacity:      z.number().int().min(0).max(999).optional().nullable(),
   licensePlate:  z.string().max(20).trim().optional().nullable(),
   currentMileage: z.number().int().min(0).optional(),
+  isCountyWide:  z.boolean().optional(),
   notes:         z.string().max(5000).optional().nullable(),
 });
 
@@ -148,6 +149,23 @@ export const ListFuelEntriesQuerySchema = z.object({
   page:           z.string().optional().transform(v => (v ? parseInt(v, 10) : 1)),
   limit:          z.string().optional().transform(v => (v ? Math.min(parseInt(v, 10), 100) : 25)),
 });
+
+export const MonthlySummaryQuerySchema = z.object({
+  month:  z.string().regex(/^\d{4}-\d{2}$/, 'month must be in YYYY-MM format').optional(),
+  unitId: z.string().uuid().optional(),
+  userId: z.string().uuid().optional(),
+});
+
+export type MonthlySummaryQueryDto = z.infer<typeof MonthlySummaryQuerySchema>;
+
+export const UpsertFuelMileageBaselineSchema = z.object({
+  transportationUnitId: z.string().uuid('Invalid transportation unit ID'),
+  mileage:              z.number().int().min(0),
+  asOfMonth:            z.string().regex(/^\d{4}-\d{2}$/, 'asOfMonth must be in YYYY-MM format'),
+  userId:               z.string().uuid('Invalid user ID').optional(), // level 2+ only; defaults to self
+});
+
+export type UpsertFuelMileageBaselineDto = z.infer<typeof UpsertFuelMileageBaselineSchema>;
 
 // ---------------------------------------------------------------------------
 // Fuel Tanks

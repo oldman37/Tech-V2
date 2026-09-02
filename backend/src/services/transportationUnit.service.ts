@@ -106,6 +106,7 @@ export class TransportationUnitService {
         capacity:      data.capacity      ?? null,
         licensePlate:  data.licensePlate  ? sanitizeText(data.licensePlate)  : null,
         currentMileage: data.currentMileage ?? 0,
+        isCountyWide:  data.isCountyWide  ?? false,
         notes:         data.notes         ? sanitizeText(data.notes)         : null,
       },
     });
@@ -126,6 +127,7 @@ export class TransportationUnitService {
     if (data.capacity      !== undefined) updateData['capacity']      = data.capacity;
     if (data.licensePlate  !== undefined) updateData['licensePlate']  = data.licensePlate ? sanitizeText(data.licensePlate) : null;
     if (data.currentMileage !== undefined) updateData['currentMileage'] = data.currentMileage;
+    if (data.isCountyWide  !== undefined) updateData['isCountyWide']  = data.isCountyWide;
     if (data.notes         !== undefined) updateData['notes']         = data.notes ? sanitizeText(data.notes) : null;
 
     return this.prisma.transportationUnit.update({ where: { id }, data: updateData });
@@ -151,11 +153,11 @@ export class TransportationUnitService {
     return this.prisma.transportationUnit.update({ where: { id }, data: { isActive: false } });
   }
 
-  async getActiveForFuel(): Promise<{ id: string; unitNumber: string; type: string; fuelType: string }[]> {
+  async getActiveForFuel(): Promise<{ id: string; unitNumber: string; type: string; fuelType: string; isCountyWide: boolean; make: string | null; model: string | null }[]> {
     return this.prisma.transportationUnit.findMany({
       where: { isActive: true },
       orderBy: { unitNumber: 'asc' },
-      select: { id: true, unitNumber: true, type: true, fuelType: true },
+      select: { id: true, unitNumber: true, type: true, fuelType: true, isCountyWide: true, make: true, model: true },
     });
   }
 

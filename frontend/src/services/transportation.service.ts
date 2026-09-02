@@ -12,6 +12,7 @@ import type {
   TransportationUnitAssignment,
   TransportationFuelStation,
   FuelConsumptionEntry,
+  FuelMonthlySummaryRow,
   DotPhysical,
   DotPhysician,
   CreateDotPhysicianPayload,
@@ -71,6 +72,7 @@ export const transportationUnitApi = {
     capacity?: number | null;
     licensePlate?: string | null;
     currentMileage?: number;
+    isCountyWide?: boolean;
     notes?: string | null;
   }): Promise<TransportationUnit> => {
     const res = await api.post<TransportationUnit>('/transportation-units', data);
@@ -88,6 +90,7 @@ export const transportationUnitApi = {
     capacity?: number | null;
     licensePlate?: string | null;
     currentMileage?: number;
+    isCountyWide?: boolean;
     notes?: string | null;
   }>): Promise<TransportationUnit> => {
     const res = await api.put<TransportationUnit>(`/transportation-units/${id}`, data);
@@ -116,8 +119,8 @@ export const transportationUnitApi = {
     await api.delete(`/transportation-units/${id}/assignments/${assignmentId}`);
   },
 
-  getActiveForFuel: async (): Promise<{ id: string; unitNumber: string; type: TransportationUnitType; fuelType: FuelType }[]> => {
-    const res = await api.get<{ id: string; unitNumber: string; type: TransportationUnitType; fuelType: FuelType }[]>(
+  getActiveForFuel: async (): Promise<{ id: string; unitNumber: string; type: TransportationUnitType; fuelType: FuelType; isCountyWide: boolean; make: string | null; model: string | null }[]> => {
+    const res = await api.get<{ id: string; unitNumber: string; type: TransportationUnitType; fuelType: FuelType; isCountyWide: boolean; make: string | null; model: string | null }[]>(
       '/transportation-units/active-for-fuel',
     );
     return res.data;
@@ -225,6 +228,29 @@ export const fuelEntryApi = {
 
   deleteEntry: async (id: string): Promise<void> => {
     await api.delete(`/fuel-entries/${id}`);
+  },
+
+  getSummary: async (params?: {
+    month?: string;
+    unitId?: string;
+    userId?: string;
+  }): Promise<FuelMonthlySummaryRow[]> => {
+    const res = await api.get<FuelMonthlySummaryRow[]>('/fuel-entries/summary', { params });
+    return res.data;
+  },
+
+  getMySummary: async (params?: { month?: string }): Promise<FuelMonthlySummaryRow[]> => {
+    const res = await api.get<FuelMonthlySummaryRow[]>('/fuel-entries/my-summary', { params });
+    return res.data;
+  },
+
+  setMileageBaseline: async (data: {
+    transportationUnitId: string;
+    mileage: number;
+    asOfMonth: string;
+    userId?: string;
+  }): Promise<void> => {
+    await api.put('/fuel-entries/baseline', data);
   },
 };
 

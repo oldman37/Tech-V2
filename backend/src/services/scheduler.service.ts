@@ -7,7 +7,6 @@ import { Client } from '@microsoft/microsoft-graph-client';
 import { loggers } from '../lib/logger';
 import { LocationSyncService } from './locationSync.service';
 import { UserSyncService } from './userSync.service';
-import { TransportationReportService } from './transportationReport.service';
 import { DotPhysicalService } from './dotPhysical.service';
 import { DriverLicenseService } from './driverLicense.service';
 import { MvrRecordService } from './mvrRecord.service';
@@ -15,7 +14,7 @@ import { runProvisioningJob } from './userProvision.service';
 import { sendProvisioningReport } from './email.service';
 import { runSynergyCsvExportJob } from './synergyExport.service';
 
-type JobKey = 'sync-staff' | 'sync-students' | 'sync-locations' | 'sync-supervisors' | 'transportation-dot-reminders' | 'transportation-monthly-report' | 'transportation-license-reminders' | 'transportation-mvr-reminders' | 'provisioning-sync' | 'provisioning-sync-staff' | 'provisioning-sync-students' | 'provisioning-audit-cleanup' | 'synergy-csv-export';
+type JobKey = 'sync-staff' | 'sync-students' | 'sync-locations' | 'sync-supervisors' | 'transportation-dot-reminders' | 'transportation-license-reminders' | 'transportation-mvr-reminders' | 'provisioning-sync' | 'provisioning-sync-staff' | 'provisioning-sync-students' | 'provisioning-audit-cleanup' | 'synergy-csv-export';
 
 const VALID_JOB_KEYS: JobKey[] = [
   'sync-staff',
@@ -23,7 +22,6 @@ const VALID_JOB_KEYS: JobKey[] = [
   'sync-locations',
   'sync-supervisors',
   'transportation-dot-reminders',
-  'transportation-monthly-report',
   'transportation-license-reminders',
   'transportation-mvr-reminders',
   'provisioning-sync',
@@ -41,7 +39,6 @@ const DEFAULT_CRON: Record<JobKey, string> = {
   'sync-locations':                '0 4 * * 1',
   'sync-supervisors':              '0 4 * * 1',
   'transportation-dot-reminders':  '0 7 * * *',
-  'transportation-monthly-report': '0 6 1 * *',
   'transportation-license-reminders': '0 7 * * 1',
   'transportation-mvr-reminders':  '0 7 * * 2',
   'provisioning-sync':             '0 */2 * * *',
@@ -286,10 +283,6 @@ class SchedulerService {
       case 'transportation-dot-reminders': {
         const svc = new DotPhysicalService(prisma);
         return (await svc.runDotReminderJob()) as unknown as Record<string, unknown>;
-      }
-      case 'transportation-monthly-report': {
-        const svc = new TransportationReportService(prisma);
-        return (await svc.runMonthlyReportJob()) as unknown as Record<string, unknown>;
       }
       case 'transportation-license-reminders': {
         const svc = new DriverLicenseService(prisma);

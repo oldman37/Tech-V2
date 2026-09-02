@@ -1,8 +1,8 @@
 /**
  * Fuel Entry Page — /transportation/fuel-entry
  *
- * Log a new fuel consumption entry.
- * If user has an assigned unit, pre-selects it as read-only.
+ * Log a new fuel consumption entry. If the user has an assigned unit, it's
+ * pre-selected; county-wide units are also offered so it can be swapped.
  */
 
 import { useState, useEffect } from 'react';
@@ -10,11 +10,11 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   Card,
   CardContent,
-  Chip,
   CircularProgress,
   FormControl,
   Grid,
@@ -46,11 +46,12 @@ export default function FuelEntryPage() {
     queryFn: transportationUnitApi.getMyUnit,
   });
 
-  // Load all active units for fuel selection (any level, only when user has no assignment)
+  // Load all active units for fuel selection — used for users with no assignment
+  // (full list) and for users with an assignment (to offer county-wide units too).
   const { data: allUnitsData = [], isLoading: loadingUnits } = useQuery({
     queryKey: ['transportation-units-active-for-fuel'],
     queryFn: transportationUnitApi.getActiveForFuel,
-    enabled: !loadingMyUnit && myAssignment === null,
+    enabled: !loadingMyUnit,
   });
 
   // Load active fuel stations
@@ -125,7 +126,7 @@ export default function FuelEntryPage() {
     submitMutation.mutate(payload);
   }
 
-  const isLoading = loadingMyUnit || loadingStations || (loadingUnits && myAssignment === null);
+  const isLoading = loadingMyUnit || loadingStations || loadingUnits;
   if (isLoading) {
     return (
       <Box display="flex" justifyContent="center" p={4}>
@@ -136,6 +137,20 @@ export default function FuelEntryPage() {
 
   const assignedUnit: TransportationUnit | null = myAssignment?.unit ?? null;
   const allUnits = allUnitsData;
+  // Drivers with an assignment can still pick a county-wide unit instead of their own.
+  const selectableUnits = assignedUnit
+    ? [
+        assignedUnit,
+        ...allUnits.filter((u) => u.isCountyWide && u.id !== assignedUnit.id),
+      ]
+    : allUnits;
+
+  function unitLabel(u: { unitNumber: string; type: TransportationUnitType; fuelType: FuelType; isCountyWide: boolean; make?: string | null; model?: string | null }) {
+    const vehicleDesc = u.make || u.model ? [u.make, u.model].filter(Boolean).join(' ') : UNIT_TYPE_LABELS[u.type];
+    return `${u.unitNumber} — ${vehicleDesc} (${FUEL_TYPE_LABELS[u.fuelType]})${u.isCountyWide ? ' — County-Wide' : ''}`;
+  }
+
+  const selectedUnit = selectableUnits.find((u) => u.id === unitId) ?? null;
 
   return (
     <Box sx={{ p: { xs: 2, sm: 3 }, maxWidth: 600 }}>
@@ -156,20 +171,6 @@ export default function FuelEntryPage() {
               {/* Unit */}
               <Grid size={{ xs: 12 }}>
                 {assignedUnit ? (
-                  <Box>
-                    <Typography variant="caption" color="text.secondary">Unit</Typography>
-                    <Box display="flex" gap={1} alignItems="center" mt={0.5}>
-                      <Chip
-                        label={assignedUnit.unitNumber}
-                        color="primary"
-                        icon={<LocalGasStationIcon />}
-                      />
-                      <Typography variant="body2" color="text.secondary">
-                        {UNIT_TYPE_LABELS[assignedUnit.type]} — {FUEL_TYPE_LABELS[assignedUnit.fuelType]}
-                      </Typography>
-                    </Box>
-                  </Box>
-                ) : (
                   <FormControl size="small" fullWidth required>
                     <InputLabel>Unit *</InputLabel>
                     <Select
@@ -177,13 +178,37 @@ export default function FuelEntryPage() {
                       value={unitId}
                       onChange={(e) => setUnitId(e.target.value)}
                     >
-                      {allUnits.map((u) => (
+                      {selectableUnits.map((u) => (
                         <MenuItem key={u.id} value={u.id}>
-                          {u.unitNumber} — {UNIT_TYPE_LABELS[u.type as TransportationUnitType]} ({FUEL_TYPE_LABELS[u.fuelType as FuelType]})
+                          {unitLabel(u)}
                         </MenuItem>
                       ))}
                     </Select>
                   </FormControl>
+                ) : (
+                  <>
+                    <Typography variant="caption" color="text.secondary" display="block" mb={0.5}>
+                      Click the dropdown or type the vehicle number to search.
+                    </Typography>
+                    <Autocomplete
+                      size="small"
+                      fullWidth
+                      openOnFocus
+                      options={selectableUnits}
+                      getOptionLabel={(u) => unitLabel(u)}
+                      isOptionEqualToValue={(u, v) => u.id === v.id}
+                      value={selectedUnit}
+                      onChange={(_e, newValue) => setUnitId(newValue?.id ?? '')}
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          label="Unit *"
+                          required
+                          onFocus={(e) => e.target.select()}
+                        />
+                      )}
+                    />
+                  </>
                 )}
               </Grid>
 

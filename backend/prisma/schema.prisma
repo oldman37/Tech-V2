@@ -605,6 +605,8 @@ model User {
   transportationAssignmentsMade TransportationUnitAssignment[] @relation("TransportationAssignmentMadeBy")
   transportationAssignmentsRemoved TransportationUnitAssignment[] @relation("TransportationAssignmentRemovedBy")
   fuelEntries                  FuelConsumptionEntry[]
+  fuelMileageBaselines         FuelMileageBaseline[] @relation("FuelMileageBaselineUser")
+  fuelMileageBaselinesEntered  FuelMileageBaseline[] @relation("FuelMileageBaselineEnteredBy")
   dotPhysicals                 DotPhysical[] @relation("DotPhysicalDriver")
   dotPhysicalsCreated          DotPhysical[] @relation("DotPhysicalCreator")
   dotPhysiciansCreated         DotPhysician[] @relation("DotPhysicianCreator")
@@ -2035,17 +2037,20 @@ model TransportationUnit {
   capacity       Int?
   licensePlate   String?
   isActive       Boolean  @default(true)
+  isCountyWide   Boolean  @default(false)
   notes          String?  @db.Text
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  assignments TransportationUnitAssignment[]
-  fuelEntries FuelConsumptionEntry[]
+  assignments      TransportationUnitAssignment[]
+  fuelEntries      FuelConsumptionEntry[]
+  mileageBaselines FuelMileageBaseline[]
 
   @@index([unitNumber])
   @@index([type])
   @@index([fuelType])
   @@index([isActive])
+  @@index([isCountyWide])
   @@map("transportation_units")
 }
 
@@ -2099,6 +2104,30 @@ model FuelConsumptionEntry {
   @@index([transportationUnitId, reportingMonth])
   @@index([enteredById, reportingMonth])
   @@map("fuel_consumption_entries")
+}
+
+/// A one-time, manually-entered starting mileage reading for a (user, vehicle)
+/// pair that has no fuel log history before it — e.g. a driver who didn't use
+/// this system last month. Used only as the fallback "previous reading" in
+/// the monthly summary when no real FuelConsumptionEntry predates it; once
+/// real entries exist before a given month, they take precedence.
+model FuelMileageBaseline {
+  id                   String   @id @default(uuid())
+  transportationUnitId String
+  userId               String
+  mileage              Int
+  asOfMonth            String   // YYYY-MM — the month this reading is the ending mileage for
+  enteredById          String
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  unit      TransportationUnit @relation(fields: [transportationUnitId], references: [id])
+  user      User               @relation("FuelMileageBaselineUser", fields: [userId], references: [id])
+  enteredBy User               @relation("FuelMileageBaselineEnteredBy", fields: [enteredById], references: [id])
+
+  @@unique([transportationUnitId, userId])
+  @@index([userId])
+  @@map("fuel_mileage_baselines")
 }
 
 model TransportationUnitAssignment {
