@@ -16,6 +16,7 @@ export interface RunProvisioningResult {
   reEnabled: number;
   updated: number;
   errors: number;
+  skipped: number;
   errorMessages: string[];
   durationMs: number;
   testMode: boolean;

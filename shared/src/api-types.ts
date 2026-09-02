@@ -163,17 +163,6 @@ export interface ProvisioningStatus {
   testMode: boolean;
   targetTenant: 'PRODUCTION' | 'TEST';
   executing: boolean;
-  lastRunAt: string | null;
-  lastRunDurationMs: number | null;
-  lastRunError: string | null;
-  lastRunSummary: {
-    created: number;
-    deprovisioned: number;
-    reEnabled: number;
-    updated: number;
-    errors: number;
-    testMode: boolean;
-  } | null;
 }
 
 export interface DisableBatchHistoryItem {

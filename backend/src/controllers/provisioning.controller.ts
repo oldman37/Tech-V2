@@ -37,6 +37,7 @@ export const runProvisioning = async (req: AuthRequest, res: Response): Promise<
       reEnabled:     result.reEnabled.length,
       updated:       result.updated.length,
       errors:        result.errors,
+      skipped:       result.skipped,
       durationMs:    result.durationMs,
       testMode:      result.testMode,
     };
@@ -59,6 +60,7 @@ export const runProvisioning = async (req: AuthRequest, res: Response): Promise<
       reEnabled:           result.reEnabled.length,
       updated:             result.updated.length,
       errors:              result.errors,
+      skipped:             result.skipped,
       errorMessages:       result.errorMessages,
       durationMs:          result.durationMs,
       testMode:            result.testMode,
@@ -284,33 +286,25 @@ export const approveDisableBatch = async (req: AuthRequest, res: Response): Prom
 
 export const getStatus = async (_req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const [config, jobSchedule] = await Promise.all([
+    // Provisioning can run as one combined job or as independent staff/student schedules
+    // (see the Split Schedule card) — "enabled" should reflect whichever of those is
+    // actually active, not just the legacy combined jobKey.
+    const [config, schedules] = await Promise.all([
       prisma.provisioningConfig.findUnique({ where: { id: 'singleton' } }),
-      prisma.jobSchedule.findUnique({ where: { jobKey: 'provisioning-sync' } }),
+      prisma.jobSchedule.findMany({
+        where: { jobKey: { in: ['provisioning-sync', 'provisioning-sync-staff', 'provisioning-sync-students'] } },
+      }),
     ]);
 
-    const lastRunResult = jobSchedule?.lastRunResult as Record<string, unknown> | null;
-    const lastRunError = jobSchedule?.lastRunStatus === 'error'
-      ? ((lastRunResult?.['error'] as string) ?? 'Unknown error')
-      : null;
-    const lastRunSummary = (lastRunResult && jobSchedule?.lastRunStatus === 'success') ? {
-      created:       Number(lastRunResult['created']       ?? 0),
-      deprovisioned: Number(lastRunResult['deprovisioned'] ?? 0),
-      reEnabled:     Number(lastRunResult['reEnabled']     ?? 0),
-      updated:       Number(lastRunResult['updated']       ?? 0),
-      errors:        Number(lastRunResult['errors']        ?? 0),
-      testMode:      Boolean(lastRunResult['testMode']     ?? true),
-    } : null;
+    const syncEnabled = schedules.some((s) => s.enabled);
+    const executing = ['provisioning-sync', 'provisioning-sync-staff', 'provisioning-sync-students']
+      .some((jobKey) => schedulerService.isJobRunning(jobKey));
 
     res.json({
-      syncEnabled:       jobSchedule?.enabled ?? false,
-      testMode:          config?.testMode ?? true,
-      targetTenant:      config?.targetTenant ?? 'TEST',
-      executing:         schedulerService.isJobRunning('provisioning-sync'),
-      lastRunAt:         jobSchedule?.lastRunAt?.toISOString() ?? null,
-      lastRunDurationMs: lastRunResult ? (Number(lastRunResult['durationMs']) || null) : null,
-      lastRunError,
-      lastRunSummary,
+      syncEnabled,
+      testMode:     config?.testMode ?? true,
+      targetTenant: config?.targetTenant ?? 'TEST',
+      executing,
     });
   } catch (error) {
     handleControllerError(error, res);

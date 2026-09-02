@@ -67,6 +67,7 @@ export interface ProvisioningResult {
   reEnabled:           Array<{ displayName: string; upn: string; school: string; userType: UserType }>;
   updated:             UpdatedAccount[];
   errors:              number;
+  skipped:             number;
   errorMessages:       string[];
   durationMs:          number;
   triggeredBy:         string;
@@ -562,7 +563,7 @@ export async function runProvisioningJob(
   const startedAt  = Date.now();
 
   const result: ProvisioningResult = {
-    created: [], deprovisioned: [], reEnabled: [], updated: [], errors: 0, errorMessages: [],
+    created: [], deprovisioned: [], reEnabled: [], updated: [], errors: 0, skipped: 0, errorMessages: [],
     durationMs: 0, triggeredBy, testMode: isTestMode,
   };
   const { client, isTestTenant } = buildProvisioningGraphClient(config.targetTenant);
@@ -735,7 +736,10 @@ async function runForType(
         }
 
         if (Object.keys(patch).length === 0) {
-          await writeAudit({ triggeredBy, userType: type, upn: entraUser.userPrincipalName, employeeId: empId, action: 'SKIPPED' });
+          // Already in sync — count it, but don't write an audit row. Writing one per
+          // unchanged account (the common case on every run) drowned the audit log in
+          // noise and grew the table unbounded. See provisioning_audit_status_visibility_spec.md.
+          result.skipped++;
           return;
         }
 

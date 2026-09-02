@@ -305,6 +305,7 @@ class SchedulerService {
           reEnabled:     result.reEnabled.length,
           updated:       result.updated.length,
           errors:        result.errors,
+          skipped:       result.skipped,
           durationMs:    result.durationMs,
           testMode:      result.testMode,
         };
@@ -322,6 +323,7 @@ class SchedulerService {
           reEnabled:     result.reEnabled.length,
           updated:       result.updated.length,
           errors:        result.errors,
+          skipped:       result.skipped,
           durationMs:    result.durationMs,
           testMode:      result.testMode,
         };
@@ -339,6 +341,7 @@ class SchedulerService {
           reEnabled:     result.reEnabled.length,
           updated:       result.updated.length,
           errors:        result.errors,
+          skipped:       result.skipped,
           durationMs:    result.durationMs,
           testMode:      result.testMode,
         };

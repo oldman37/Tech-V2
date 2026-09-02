@@ -141,18 +141,7 @@ function StatusBanner() {
 
   if (!status) return null;
 
-  const { syncEnabled, testMode, targetTenant, lastRunAt, lastRunDurationMs, lastRunError, lastRunSummary } = status;
-
-  const lastRunText = (() => {
-    if (!lastRunAt) return 'Last run: Never';
-    const ago = timeAgo(lastRunAt);
-    if (lastRunError) return `Last run: ${ago} · FAILED`;
-    if (lastRunSummary) {
-      const dur = lastRunDurationMs ? ` · ${formatDuration(lastRunDurationMs)}` : '';
-      return `Last run: ${ago} · ${lastRunSummary.created} created · ${lastRunSummary.errors} errors${dur}`;
-    }
-    return `Last run: ${ago}`;
-  })();
+  const { syncEnabled, testMode, targetTenant } = status;
 
   return (
     <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
@@ -171,9 +160,6 @@ function StatusBanner() {
         color={targetTenant === 'TEST' ? 'warning' : 'error'}
         size="small"
       />
-      <Typography variant="caption" color={lastRunError ? 'error.main' : 'text.secondary'}>
-        {lastRunText}
-      </Typography>
     </Stack>
   );
 }
@@ -578,12 +564,27 @@ function SplitScheduleRow({ label, jobKey }: SplitScheduleRowProps) {
           Next run: {new Date(schedule.nextRunAt).toLocaleString()}
         </Typography>
       )}
-      {schedule?.lastRunAt && (
-        <Typography variant="caption" color={schedule.lastRunStatus === 'error' ? 'error.main' : 'text.secondary'}>
-          Last run: {new Date(schedule.lastRunAt).toLocaleString()}
-          {schedule.lastRunStatus === 'error' ? ' · FAILED' : ''}
-        </Typography>
-      )}
+      {schedule?.lastRunAt && (() => {
+        const failed = schedule.lastRunStatus === 'error';
+        const r = schedule.lastRunResult;
+        const summary = !failed && r
+          ? `${Number(r['created'] ?? 0)} created · ${Number(r['updated'] ?? 0)} updated · ${Number(r['deprovisioned'] ?? 0)} deprovisioned · ${Number(r['errors'] ?? 0)} errors`
+          : null;
+        return (
+          <Stack direction="row" spacing={0.75} alignItems="center" flexWrap="wrap">
+            <Chip
+              label={failed ? 'Failed' : 'Success'}
+              color={failed ? 'error' : 'success'}
+              size="small"
+              variant="outlined"
+            />
+            <Typography variant="caption" color={failed ? 'error.main' : 'text.secondary'}>
+              Last run: {timeAgo(schedule.lastRunAt)}
+              {summary ? ` · ${summary}` : ''}
+            </Typography>
+          </Stack>
+        );
+      })()}
       {!enabled && (
         <Typography variant="caption" color="text.secondary">
           Disabled — will not run automatically
@@ -940,7 +941,7 @@ function RunJobCard() {
                   <Alert severity={lastResult.errors > 0 ? 'warning' : 'success'}>
                     {lastResult.testMode && <strong>[TEST RUN] </strong>}
                     Re-enabled {lastResult.reEnabled} · Created {lastResult.created} · Deprovisioned {lastResult.deprovisioned} · Updated{' '}
-                    {lastResult.updated} · Errors {lastResult.errors} · Duration{' '}
+                    {lastResult.updated} · Unchanged {lastResult.skipped} · Errors {lastResult.errors} · Duration{' '}
                     {formatDuration(lastResult.durationMs)}
                   </Alert>
                 )}
