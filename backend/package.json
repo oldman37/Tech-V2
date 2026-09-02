@@ -29,7 +29,7 @@
     "@mgspe/shared-types": "file:../shared",
     "@microsoft/microsoft-graph-client": "^3.0.7",
     "@prisma/adapter-pg": "^7.2.0",
-    "@prisma/client": "^7.2.0",
+    "@prisma/client": "^7.8.0",
     "bwip-js": "^4.10.1",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
