@@ -20,6 +20,12 @@
   --slate-800: #1e293b;
   --slate-900: #0f172a;
   
+  --blue-50: #eff6ff;
+  --blue-100: #dbeafe;
+  --blue-200: #bfdbfe;
+  --blue-700: #1d4ed8;
+  --blue-900: #1e3a8a;
+
   --emerald-100: #d1fae5;
   --emerald-800: #065f46;
   
@@ -74,6 +80,12 @@
   --slate-700: #e2e8f0;
   --slate-800: #f1f5f9;
   --slate-900: #f8fafc;
+
+  --blue-50: rgba(59, 130, 246, 0.12);
+  --blue-100: rgba(59, 130, 246, 0.18);
+  --blue-200: rgba(96, 165, 250, 0.35);
+  --blue-700: #93c5fd;
+  --blue-900: #bfdbfe;
 
   --emerald-100: rgba(16, 185, 129, 0.16);
   --emerald-800: #6ee7b7;

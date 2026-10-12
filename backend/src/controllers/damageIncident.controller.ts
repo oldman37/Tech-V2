@@ -104,6 +104,16 @@ export const remove = async (req: AuthRequest, res: Response): Promise<void> => 
   }
 };
 
+export const abandon = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const id = req.params['id'] as string;
+    await service.abandon(id, req.user!.id);
+    res.status(204).send();
+  } catch (error) {
+    handleControllerError(error, res);
+  }
+};
+
 // ---------------------------------------------------------------------------
 // Upload photos
 // ---------------------------------------------------------------------------

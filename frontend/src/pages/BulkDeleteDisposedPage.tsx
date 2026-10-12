@@ -24,6 +24,8 @@ import DialogContentText from '@mui/material/DialogContentText';
 import DialogActions from '@mui/material/DialogActions';
 import Snackbar from '@mui/material/Snackbar';
 import Alert from '@mui/material/Alert';
+import PlainSelect from '../components/common/PlainSelect';
+import MenuItem from '@mui/material/MenuItem';
 
 interface OfficeLocationOption {
   id: string;
@@ -359,16 +361,15 @@ const BulkDeleteDisposedPage = () => {
                 </div>
                 <div>
                   <label className="form-label">Office Location</label>
-                  <select
+                  <PlainSelect
                     value={filters.officeLocationId}
                     onChange={(e) => setFilters({ ...filters, officeLocationId: e.target.value })}
-                    className="form-select"
                   >
-                    <option value="">All Locations</option>
+                    <MenuItem value="">All Locations</MenuItem>
                     {locations.map((loc) => (
-                      <option key={loc.id} value={loc.id}>{loc.name}</option>
+                      <MenuItem key={loc.id} value={loc.id}>{loc.name}</MenuItem>
                     ))}
-                  </select>
+                  </PlainSelect>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                   <button onClick={handleClearFilters} className="btn btn-secondary btn-sm">
@@ -413,17 +414,16 @@ const BulkDeleteDisposedPage = () => {
               <div className="card mb-6">
                 <div>
                   <label className="form-label">Office Location</label>
-                  <select
+                  <PlainSelect
                     value={filters.officeLocationId}
                     onChange={(e) => setFilters({ ...filters, officeLocationId: e.target.value })}
-                    className="form-select"
                     style={{ maxWidth: '32rem' }}
                   >
-                    <option value="">All Locations</option>
+                    <MenuItem value="">All Locations</MenuItem>
                     {locations.map((loc) => (
-                      <option key={loc.id} value={loc.id}>{loc.name}</option>
+                      <MenuItem key={loc.id} value={loc.id}>{loc.name}</MenuItem>
                     ))}
-                  </select>
+                  </PlainSelect>
                 </div>
                 <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'flex-end' }}>
                   <button onClick={handleClearFilters} className="btn btn-secondary btn-sm">

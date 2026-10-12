@@ -23,6 +23,8 @@ import { useAutoFocusSearch } from '../hooks/useAutoFocusSearch';
 import { PageBackButton } from '../components/layout/PageBackButton';
 import fundingSourceService from '../services/fundingSourceService';
 import { useAuthStore, selectIsAdmin, selectIsTechAssistant } from '../store/authStore';
+import PlainSelect from '../components/common/PlainSelect';
+import MenuItem from '@mui/material/MenuItem';
 
 interface PaginationModel {
   page: number;
@@ -584,42 +586,39 @@ export const InventoryManagement = () => {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                     <div>
                       <label className="form-label">Status</label>
-                      <select
+                      <PlainSelect
                         value={filters.status || ''}
                         onChange={(e) => updateFilters({ ...filters, status: e.target.value as any })}
-                        className="form-select"
                       >
-                        <option value="">All</option>
-                        <option value="active">Active</option>
-                        <option value="available">Available</option>
-                        <option value="maintenance">Maintenance</option>
-                        <option value="storage">Storage</option>
-                        <option value="disposed">Disposed</option>
-                      </select>
+                        <MenuItem value="">All</MenuItem>
+                        <MenuItem value="active">Active</MenuItem>
+                        <MenuItem value="available">Available</MenuItem>
+                        <MenuItem value="maintenance">Maintenance</MenuItem>
+                        <MenuItem value="storage">Storage</MenuItem>
+                        <MenuItem value="disposed">Disposed</MenuItem>
+                      </PlainSelect>
                     </div>
                     <div>
                       <label className="form-label">Show Disposed</label>
-                      <select
+                      <PlainSelect
                         value={filters.isDisposed ? 'true' : 'false'}
                         onChange={(e) => updateFilters({ ...filters, isDisposed: e.target.value === 'true' })}
-                        className="form-select"
                       >
-                        <option value="false">Active Only</option>
-                        <option value="true">Disposed Only</option>
-                      </select>
+                        <MenuItem value="false">Active Only</MenuItem>
+                        <MenuItem value="true">Disposed Only</MenuItem>
+                      </PlainSelect>
                     </div>
                     <div>
                       <label className="form-label">Funding Source</label>
-                      <select
+                      <PlainSelect
                         value={filters.fundingSourceId || ''}
                         onChange={(e) => updateFilters({ ...filters, fundingSourceId: e.target.value || undefined })}
-                        className="form-select"
                       >
-                        <option value="">All</option>
+                        <MenuItem value="">All</MenuItem>
                         {fundingSources.map((fs) => (
-                          <option key={fs.id} value={fs.id}>{fs.name}</option>
+                          <MenuItem key={fs.id} value={fs.id}>{fs.name}</MenuItem>
                         ))}
-                      </select>
+                      </PlainSelect>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                       <button
@@ -649,44 +648,41 @@ export const InventoryManagement = () => {
                 </Box>
                 <div>
                   <label className="form-label">Status</label>
-                  <select
+                  <PlainSelect
                     value={filters.status || ''}
                     onChange={(e) => updateFilters({ ...filters, status: e.target.value as any })}
-                    className="form-select"
                   >
-                    <option value="">All</option>
-                    <option value="active">Active</option>
-                    <option value="available">Available</option>
-                    <option value="maintenance">Maintenance</option>
-                    <option value="storage">Storage</option>
-                    <option value="disposed">Disposed</option>
-                  </select>
+                    <MenuItem value="">All</MenuItem>
+                    <MenuItem value="active">Active</MenuItem>
+                    <MenuItem value="available">Available</MenuItem>
+                    <MenuItem value="maintenance">Maintenance</MenuItem>
+                    <MenuItem value="storage">Storage</MenuItem>
+                    <MenuItem value="disposed">Disposed</MenuItem>
+                  </PlainSelect>
                 </div>
                 <div>
                   <label className="form-label">Show Disposed</label>
-                  <select
+                  <PlainSelect
                     value={filters.isDisposed ? 'true' : 'false'}
                     onChange={(e) => updateFilters({ ...filters, isDisposed: e.target.value === 'true' })}
-                    className="form-select"
                   >
-                    <option value="false">Active Only</option>
-                    <option value="true">Disposed Only</option>
-                  </select>
+                    <MenuItem value="false">Active Only</MenuItem>
+                    <MenuItem value="true">Disposed Only</MenuItem>
+                  </PlainSelect>
                 </div>
               </Box>
               <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: 'repeat(4, 1fr)' }, gap: 2, mt: 2 }}>
                 <div>
                   <label className="form-label">Funding Source</label>
-                  <select
+                  <PlainSelect
                     value={filters.fundingSourceId || ''}
                     onChange={(e) => updateFilters({ ...filters, fundingSourceId: e.target.value || undefined })}
-                    className="form-select"
                   >
-                    <option value="">All</option>
+                    <MenuItem value="">All</MenuItem>
                     {fundingSources.map((fs) => (
-                      <option key={fs.id} value={fs.id}>{fs.name}</option>
+                      <MenuItem key={fs.id} value={fs.id}>{fs.name}</MenuItem>
                     ))}
-                  </select>
+                  </PlainSelect>
                 </div>
               </Box>
               <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'flex-end' }}>
@@ -735,16 +731,15 @@ export const InventoryManagement = () => {
                   {!isMobile && (
                     <>
                       <label className="form-label" style={{ marginBottom: 0 }}>Rows per page:</label>
-                      <select
+                      <PlainSelect
                         value={paginationModel.pageSize}
-                        onChange={(e) => setPaginationModel({ ...paginationModel, pageSize: parseInt(e.target.value), page: 0 })}
-                        className="form-select"
+                        onChange={(e) => setPaginationModel({ ...paginationModel, pageSize: Number(e.target.value), page: 0 })}
                         style={{ width: 'auto' }}
                       >
-                        <option value={25}>25</option>
-                        <option value={50}>50</option>
-                        <option value={100}>100</option>
-                      </select>
+                        <MenuItem value={25}>25</MenuItem>
+                        <MenuItem value={50}>50</MenuItem>
+                        <MenuItem value={100}>100</MenuItem>
+                      </PlainSelect>
                     </>
                   )}
                   <button

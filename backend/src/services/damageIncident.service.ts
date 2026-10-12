@@ -375,6 +375,34 @@ export async function softDelete(id: string, userId: string) {
 }
 
 // ---------------------------------------------------------------------------
+// Abandon — hard-delete an incident (and its draft invoices) left behind by a
+// wizard that was canceled before Device Exchange completed. Refuses when real
+// progress exists (repair ticket, or an invoice that is no longer a draft).
+// ---------------------------------------------------------------------------
+
+export async function abandon(id: string, _userId: string) {
+  await prisma.$transaction(async (tx) => {
+    const incident = await tx.damageIncident.findUnique({
+      where:   { id },
+      include: {
+        invoices:      { select: { id: true, status: true } },
+        repairTickets: { select: { id: true } },
+      },
+    });
+    if (!incident) throw new NotFoundError('DamageIncident', id);
+
+    const hasRealProgress =
+      incident.repairTickets.length > 0 || incident.invoices.some((inv) => inv.status !== 'draft');
+    if (hasRealProgress) {
+      throw new ConflictError('Incident has progressed past an abandonable state');
+    }
+
+    await tx.damageInvoice.deleteMany({ where: { damageIncidentId: id } });
+    await tx.damageIncident.delete({ where: { id } });
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Update workflow step (state machine guard)
 // ---------------------------------------------------------------------------
 

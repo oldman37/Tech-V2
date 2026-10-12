@@ -61,6 +61,8 @@ import AdminBackupTab from './AdminBackupTab';
 import SyncIcon from '@mui/icons-material/Sync';
 import EmailIcon from '@mui/icons-material/Email';
 import BackupIcon from '@mui/icons-material/Backup';
+import PlainSelect from '../../components/common/PlainSelect';
+import MenuItem from '@mui/material/MenuItem';
 
 // ---------------------------------------------------------------------------
 // Tab hash helpers
@@ -298,23 +300,22 @@ export default function AdminSettings() {
 
       {isMobile ? (
         <Box sx={{ mb: 3 }}>
-          <select
+          <PlainSelect
             value={activeTab}
             onChange={(e) => {
               const v = Number(e.target.value);
               setActiveTab(v);
               navigate({ hash: TAB_HASHES[v] }, { replace: true });
             }}
-            className="form-select"
             style={{ width: '100%' }}
           >
-            <option value={0}>General</option>
-            <option value={1}>Requisitions &amp; POs</option>
-            <option value={2}>Fiscal Year</option>
-            <option value={3}>Jobs</option>
-            <option value={4}>Email Queue</option>
-            <option value={5}>Backup</option>
-          </select>
+            <MenuItem value={0}>General</MenuItem>
+            <MenuItem value={1}>Requisitions &amp; POs</MenuItem>
+            <MenuItem value={2}>Fiscal Year</MenuItem>
+            <MenuItem value={3}>Jobs</MenuItem>
+            <MenuItem value={4}>Email Queue</MenuItem>
+            <MenuItem value={5}>Backup</MenuItem>
+          </PlainSelect>
         </Box>
       ) : (
         <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>

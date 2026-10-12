@@ -6,6 +6,7 @@ import { AuthRequest } from '../middleware/auth';
 import { FuelConsumptionService } from '../services/fuelConsumption.service';
 import { handleControllerError } from '../utils/errorHandler';
 import { prisma } from '../lib/prisma';
+import { generateFuelHistoryPdf } from '../services/fuelHistoryPdf.service';
 import {
   ListFuelEntriesQuerySchema,
   CreateFuelEntrySchema,
@@ -49,6 +50,26 @@ export const getSummary = async (req: AuthRequest, res: Response): Promise<void>
       req.user!.permLevel ?? 1,
     );
     res.json(rows);
+  } catch (error) {
+    handleControllerError(error, res);
+  }
+};
+
+export const getSummaryPdf = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const query = MonthlySummaryQuerySchema.parse(req.query);
+    const rows = await service.getMonthlySummary(
+      { reportingMonth: query.month, unitId: query.unitId, userId: query.userId },
+      req.user!.id,
+      req.user!.permLevel ?? 1,
+    );
+    const month = rows[0]?.reportingMonth ?? query.month ?? '';
+    const buffer = await generateFuelHistoryPdf(rows, month);
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="fuel-history-${month}.pdf"`);
+    res.setHeader('Content-Length', buffer.length);
+    res.send(buffer);
   } catch (error) {
     handleControllerError(error, res);
   }

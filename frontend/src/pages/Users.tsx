@@ -25,6 +25,8 @@ import {
 } from '../hooks/mutations/useAdminMutations';
 import { useUserSupervisors, useSearchSupervisors } from '../hooks/queries/useSupervisors';
 import { useAddUserSupervisor, useRemoveUserSupervisor } from '../hooks/mutations/useSupervisorMutations';
+import PlainSelect from '../components/common/PlainSelect';
+import MenuItem from '@mui/material/MenuItem';
 
 const GRADE_LEVEL_OPTIONS: { value: string; label: string }[] = [
   { value: 'PK', label: 'PK' },
@@ -277,17 +279,16 @@ const Users: React.FC = () => {
       key: 'role',
       label: 'Role',
       render: (user) => (
-        <select
+        <PlainSelect
           value={user.role}
           onChange={(e) => handleRoleChange(user.id, e.target.value)}
           disabled={updateRoleMutation.isPending}
-          className="form-select"
           style={{ fontSize: '0.875rem' }}
           onClick={(e) => e.stopPropagation()}
         >
-          <option value="ADMIN">Admin</option>
-          <option value="USER">User</option>
-        </select>
+          <MenuItem value="ADMIN">Admin</MenuItem>
+          <MenuItem value="USER">User</MenuItem>
+        </PlainSelect>
       ),
     },
     {
@@ -434,55 +435,51 @@ const Users: React.FC = () => {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                     <div>
                       <label className="form-label">Account Type</label>
-                      <select
+                      <PlainSelect
                         value={accountType}
                         onChange={(e) => handleAccountTypeChange(e.target.value as 'all' | 'staff' | 'student')}
-                        className="form-select"
                       >
-                        <option value="all">All Accounts</option>
-                        <option value="staff">Staff (@ocboe.com)</option>
-                        <option value="student">Students (@students.ocboe.com)</option>
-                      </select>
+                        <MenuItem value="all">All Accounts</MenuItem>
+                        <MenuItem value="staff">Staff (@ocboe.com)</MenuItem>
+                        <MenuItem value="student">Students (@students.ocboe.com)</MenuItem>
+                      </PlainSelect>
                     </div>
                     <div>
                       <label className="form-label">Location</label>
-                      <select
+                      <PlainSelect
                         value={locationFilter}
                         onChange={(e) => handleLocationFilterChange(e.target.value)}
-                        className="form-select"
                       >
-                        <option value="">All Locations</option>
+                        <MenuItem value="">All Locations</MenuItem>
                         {[...locations].sort((a, b) => a.name.localeCompare(b.name)).map((loc) => (
-                          <option key={loc.id} value={loc.id}>{loc.name}</option>
+                          <MenuItem key={loc.id} value={loc.id}>{loc.name}</MenuItem>
                         ))}
-                      </select>
+                      </PlainSelect>
                     </div>
                     {accountType !== 'staff' && (
                       <div>
                         <label className="form-label">Grade Level</label>
-                        <select
+                        <PlainSelect
                           value={gradeLevelFilter}
                           onChange={(e) => handleGradeLevelFilterChange(e.target.value)}
-                          className="form-select"
                         >
-                          <option value="">All Grades</option>
+                          <MenuItem value="">All Grades</MenuItem>
                           {GRADE_LEVEL_OPTIONS.map((g) => (
-                            <option key={g.value} value={g.value}>{g.label}</option>
+                            <MenuItem key={g.value} value={g.value}>{g.label}</MenuItem>
                           ))}
-                        </select>
+                        </PlainSelect>
                       </div>
                     )}
                     <div>
                       <label className="form-label">Status</label>
-                      <select
+                      <PlainSelect
                         value={statusFilter}
                         onChange={(e) => handleStatusFilterChange(e.target.value as 'all' | 'active' | 'inactive')}
-                        className="form-select"
                       >
-                        <option value="all">All Statuses</option>
-                        <option value="active">Active</option>
-                        <option value="inactive">Inactive</option>
-                      </select>
+                        <MenuItem value="all">All Statuses</MenuItem>
+                        <MenuItem value="active">Active</MenuItem>
+                        <MenuItem value="inactive">Inactive</MenuItem>
+                      </PlainSelect>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                       <button
@@ -508,63 +505,58 @@ const Users: React.FC = () => {
                   className="form-input"
                   style={{ flex: 1, minWidth: '250px' }}
                 />
-                <select
+                <PlainSelect
                   value={accountType}
                   onChange={(e) => handleAccountTypeChange(e.target.value as 'all' | 'staff' | 'student')}
-                  className="form-select"
                   style={{ width: 'auto', fontSize: '0.875rem' }}
                 >
-                  <option value="all">All Accounts</option>
-                  <option value="staff">Staff (@ocboe.com)</option>
-                  <option value="student">Students (@students.ocboe.com)</option>
-                </select>
-                <select
+                  <MenuItem value="all">All Accounts</MenuItem>
+                  <MenuItem value="staff">Staff (@ocboe.com)</MenuItem>
+                  <MenuItem value="student">Students (@students.ocboe.com)</MenuItem>
+                </PlainSelect>
+                <PlainSelect
                   value={locationFilter}
                   onChange={(e) => handleLocationFilterChange(e.target.value)}
-                  className="form-select"
                   style={{ width: 'auto', fontSize: '0.875rem' }}
                 >
-                  <option value="">All Locations</option>
+                  <MenuItem value="">All Locations</MenuItem>
                   {[...locations].sort((a, b) => a.name.localeCompare(b.name)).map((loc) => (
-                    <option key={loc.id} value={loc.id}>{loc.name}</option>
+                    <MenuItem key={loc.id} value={loc.id}>{loc.name}</MenuItem>
                   ))}
-                </select>
+                </PlainSelect>
                 {accountType !== 'staff' && (
-                  <select
+                  <PlainSelect
                     value={gradeLevelFilter}
                     onChange={(e) => handleGradeLevelFilterChange(e.target.value)}
-                    className="form-select"
                     style={{ width: 'auto', fontSize: '0.875rem' }}
                   >
-                    <option value="">All Grades</option>
+                    <MenuItem value="">All Grades</MenuItem>
                     {GRADE_LEVEL_OPTIONS.map((g) => (
-                      <option key={g.value} value={g.value}>{g.label}</option>
+                      <MenuItem key={g.value} value={g.value}>{g.label}</MenuItem>
                     ))}
-                  </select>
+                  </PlainSelect>
                 )}
-                <select
+                <PlainSelect
                   value={statusFilter}
                   onChange={(e) => handleStatusFilterChange(e.target.value as 'all' | 'active' | 'inactive')}
-                  className="form-select"
                   style={{ width: 'auto', fontSize: '0.875rem' }}
                 >
-                  <option value="all">All Statuses</option>
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                </select>
+                  <MenuItem value="all">All Statuses</MenuItem>
+                  <MenuItem value="active">Active</MenuItem>
+                  <MenuItem value="inactive">Inactive</MenuItem>
+                </PlainSelect>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                   <label style={{ fontSize: '0.875rem', whiteSpace: 'nowrap' }}>Show:</label>
-                  <select
+                  <PlainSelect
                     value={itemsPerPage}
-                    onChange={(e) => handleItemsPerPageChange(parseInt(e.target.value))}
-                    className="form-select"
+                    onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
                     style={{ width: 'auto', fontSize: '0.875rem' }}
                   >
-                    <option value={25}>25</option>
-                    <option value={50}>50</option>
-                    <option value={100}>100</option>
-                    <option value={200}>200</option>
-                  </select>
+                    <MenuItem value={25}>25</MenuItem>
+                    <MenuItem value={50}>50</MenuItem>
+                    <MenuItem value={100}>100</MenuItem>
+                    <MenuItem value={200}>200</MenuItem>
+                  </PlainSelect>
                   <span style={{ fontSize: '0.875rem', color: 'var(--slate-600)' }}>
                     per page
                   </span>

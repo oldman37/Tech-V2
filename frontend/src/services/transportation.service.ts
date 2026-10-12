@@ -239,6 +239,21 @@ export const fuelEntryApi = {
     return res.data;
   },
 
+  downloadSummaryPdf: async (
+    params: { month?: string; unitId?: string; userId?: string },
+    filename: string,
+  ): Promise<void> => {
+    const res = await api.get('/fuel-entries/summary/pdf', { params, responseType: 'blob' });
+    const url = window.URL.createObjectURL(new Blob([res.data as BlobPart], { type: 'application/pdf' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  },
+
   getMySummary: async (params?: { month?: string }): Promise<FuelMonthlySummaryRow[]> => {
     const res = await api.get<FuelMonthlySummaryRow[]>('/fuel-entries/my-summary', { params });
     return res.data;

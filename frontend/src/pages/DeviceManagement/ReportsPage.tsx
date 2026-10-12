@@ -27,6 +27,7 @@ import { useAuthStore, selectCanSeeAllLocations } from '../../store/authStore';
 import type { InvoiceAgingBucket, GradeLevelSummaryItem } from '../../types/checkoutReport.types';
 import { gradeLevelLabel } from '../../constants/gradeLevel';
 import { ResponsiveTable } from '../../components/responsive';
+import PlainSelect from '../../components/common/PlainSelect';
 
 type ReportType = 'active-checkouts' | 'damage-summary' | 'repair-costs' | 'invoice-aging' | 'grade-level-summary' | null;
 
@@ -160,19 +161,18 @@ export default function ReportsPage() {
       {/* Report selector */}
       {isMobile ? (
         <Box sx={{ mb: 2 }}>
-          <select
+          <PlainSelect
             value={selectedReport ?? ''}
             onChange={(e) => setSelectedReport((e.target.value as ReportType) || null)}
-            className="form-select"
             style={{ width: '100%' }}
           >
-            <option value="">Select a report…</option>
-            <option value="active-checkouts">Active Checkouts by Campus</option>
-            <option value="damage-summary">Damage Summary</option>
-            <option value="repair-costs">Repair Costs by Vendor</option>
-            <option value="invoice-aging">Invoice Aging</option>
-            <option value="grade-level-summary">By Grade Level</option>
-          </select>
+            <MenuItem value="">Select a report…</MenuItem>
+            <MenuItem value="active-checkouts">Active Checkouts by Campus</MenuItem>
+            <MenuItem value="damage-summary">Damage Summary</MenuItem>
+            <MenuItem value="repair-costs">Repair Costs by Vendor</MenuItem>
+            <MenuItem value="invoice-aging">Invoice Aging</MenuItem>
+            <MenuItem value="grade-level-summary">By Grade Level</MenuItem>
+          </PlainSelect>
         </Box>
       ) : (
         <Tabs

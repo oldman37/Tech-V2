@@ -40,6 +40,14 @@ router.get(
   controller.getSummary,
 );
 
+// GET /api/fuel-entries/summary/pdf — same data as /summary, rendered as a PDF (level 2+)
+router.get(
+  '/summary/pdf',
+  authenticate,
+  requireModule('TRANSPORTATION', 2),
+  controller.getSummaryPdf,
+);
+
 // GET /api/fuel-entries/my-summary — monthly totals for the requesting user
 router.get(
   '/my-summary',

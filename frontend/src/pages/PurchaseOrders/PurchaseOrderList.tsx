@@ -50,6 +50,7 @@ import {
   type POStatus,
   type WorkflowType,
 } from '@/types/purchaseOrder.types';
+import PlainSelect from '../../components/common/PlainSelect';
 
 // ─── Tab definitions ────────────────────────────────────────────────────────
 
@@ -365,16 +366,15 @@ export default function PurchaseOrderList() {
       {/* ── Tabs ── */}
       {isMobile ? (
         <Box sx={{ mb: 2 }}>
-          <select
+          <PlainSelect
             value={activeTab}
             onChange={(e) => { setFilters({ tab: e.target.value, page: '0' }); }}
-            className="form-select"
             style={{ width: '100%' }}
           >
             {visibleTabs.map((t) => (
-              <option key={t.key} value={t.key}>{t.label}</option>
+              <MenuItem key={t.key} value={t.key}>{t.label}</MenuItem>
             ))}
-          </select>
+          </PlainSelect>
         </Box>
       ) : (
         <Tabs

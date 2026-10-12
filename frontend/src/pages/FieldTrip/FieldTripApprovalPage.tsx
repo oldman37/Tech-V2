@@ -41,6 +41,8 @@ import {
   TRANSPORTATION_STATUS_COLORS,
 } from '@/types/fieldTrip.types';
 import { PageBackButton } from '../../components/layout/PageBackButton';
+import PlainSelect from '../../components/common/PlainSelect';
+import MenuItem from '@mui/material/MenuItem';
 
 
 export function FieldTripApprovalPage() {
@@ -103,17 +105,16 @@ export function FieldTripApprovalPage() {
 
       {isMobile ? (
         <Box sx={{ mb: 2 }}>
-          <select
+          <PlainSelect
             value={activeTab}
             onChange={(e) => setFilters({ tab: String(e.target.value) })}
-            className="form-select"
             style={{ width: '100%' }}
           >
-            <option value={0}>Field Trip Approvals</option>
-            <option value={1}>Transportation Pending</option>
-            <option value={2}>Approval History</option>
-            <option value={3}>Transportation History</option>
-          </select>
+            <MenuItem value={0}>Field Trip Approvals</MenuItem>
+            <MenuItem value={1}>Transportation Pending</MenuItem>
+            <MenuItem value={2}>Approval History</MenuItem>
+            <MenuItem value={3}>Transportation History</MenuItem>
+          </PlainSelect>
         </Box>
       ) : (
         <Tabs

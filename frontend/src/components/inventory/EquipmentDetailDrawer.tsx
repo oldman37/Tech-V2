@@ -67,7 +67,8 @@ const TABS = [
   { label: 'History',   icon: <HistoryIcon fontSize="small" /> },
 ] as const;
 
-const RAIL_WIDTH = 112;
+// Negative offset: the rail floats past the Paper's left edge, over the backdrop.
+const RAIL_OFFSET = -64;
 const CONTENT_WIDTH = 480;
 
 // Filled rounded-rect on the selected tab instead of the default underline —
@@ -175,14 +176,14 @@ const EquipmentDetailDrawer = ({ item, open, onClose, onItemChanged }: Equipment
         PaperProps={{
           // No `position` override here — .MuiDrawer-paperAnchorRight already
           // applies position:fixed, which pins the drawer to the right edge.
-          // The rail floats *inside* this box with a positive offset, not
-          // outside it — a negative-offset rail was tried first and clipped
-          // against the browser's own left edge on any window narrower than
-          // drawer-width + rail-width, which is common. Keeping it inside
-          // the Paper's own box makes that impossible.
+          // The desktop rail floats past this box's left edge over the
+          // backdrop, so the Paper must not clip it. Accepted tradeoff: on a
+          // desktop window narrower than ~570px the rail can clip at the
+          // browser edge; below 1024px the horizontal tab strip is used.
           sx: {
-            width: { xs: '100%', sm: isDesktop ? CONTENT_WIDTH + RAIL_WIDTH : CONTENT_WIDTH },
+            width: { xs: '100%', sm: CONTENT_WIDTH },
             maxWidth: '100vw',
+            overflow: 'visible',
           },
         }}
       >
@@ -234,12 +235,10 @@ const EquipmentDetailDrawer = ({ item, open, onClose, onItemChanged }: Equipment
               <Box
                 sx={{
                   position: 'absolute',
-                  left: 12,
+                  left: RAIL_OFFSET,
                   top: 16,
                   zIndex: 2,
                   bgcolor: 'background.paper',
-                  border: 1,
-                  borderColor: 'divider',
                   borderRadius: 3,
                   boxShadow: 3,
                 }}
@@ -248,7 +247,7 @@ const EquipmentDetailDrawer = ({ item, open, onClose, onItemChanged }: Equipment
                   orientation="vertical"
                   value={activeTab}
                   onChange={(_, v) => setActiveTab(v)}
-                  sx={{ width: RAIL_WIDTH, py: 1, ...pillTabsSx }}
+                  sx={{ py: 1, ...pillTabsSx }}
                 >
                   {TABS.map(({ label, icon }) => (
                     <Tab
@@ -256,13 +255,17 @@ const EquipmentDetailDrawer = ({ item, open, onClose, onItemChanged }: Equipment
                       icon={icon}
                       iconPosition="top"
                       label={label}
-                      sx={{ fontSize: '0.75rem', minWidth: 0 }}
+                      sx={{
+                        fontSize: '0.625rem', lineHeight: 1.15, gap: 0.25,
+                        minWidth: 60, maxWidth: 68, minHeight: 44, px: 0.5, py: 0.75,
+                        '& .MuiSvgIcon-root': { fontSize: 18 },
+                      }}
                     />
                   ))}
                 </Tabs>
               </Box>
             )}
-            <Box sx={{ flex: 1, minWidth: 0, overflowY: 'auto', pl: isDesktop ? `${RAIL_WIDTH}px` : 0 }}>
+            <Box sx={{ flex: 1, minWidth: 0, overflowY: 'auto' }}>
               {renderTabContent()}
             </Box>
           </Box>

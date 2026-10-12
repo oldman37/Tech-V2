@@ -49,6 +49,7 @@ import { usePaginatedRooms } from '../hooks/queries/useRooms';
 import RoomFormModal from '../components/RoomFormModal';
 import WorkOrderCategoriesTab from '../components/reference-data/WorkOrderCategoriesTab';
 import { PageBackButton } from '../components/layout/PageBackButton';
+import PlainSelect from '../components/common/PlainSelect';
 
 // ─── Tab Panel Helper ──────────────────────────────────────────────────────
 
@@ -1242,36 +1243,36 @@ function RoomsTab() {
         <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
           <div style={{ flex: '1 1 180px' }}>
             <label className="form-label">Location</label>
-            <select value={locationFilter}
-              onChange={(e) => setLocationFilter(e.target.value)} className="form-select">
-              <option value="">All Locations</option>
+            <PlainSelect value={locationFilter}
+              onChange={(e) => setLocationFilter(e.target.value)}>
+              <MenuItem value="">All Locations</MenuItem>
               {locations.map((l) => (
-                <option key={l.id} value={l.id}>{l.name}</option>
+                <MenuItem key={l.id} value={l.id}>{l.name}</MenuItem>
               ))}
-            </select>
+            </PlainSelect>
           </div>
           <div style={{ flex: '1 1 150px' }}>
             <label className="form-label">Type</label>
-            <select value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value as RoomType | '')} className="form-select">
-              <option value="">All Types</option>
-              <option value="CLASSROOM">Classroom</option>
-              <option value="OFFICE">Office</option>
-              <option value="GYM">Gym</option>
-              <option value="CAFETERIA">Cafeteria</option>
-              <option value="LIBRARY">Library</option>
-              <option value="LAB">Lab</option>
-              <option value="MAINTENANCE">Maintenance</option>
-              <option value="SPORTS">Sports</option>
-              <option value="MUSIC">Music</option>
-              <option value="MEDICAL">Medical</option>
-              <option value="CONFERENCE">Conference</option>
-              <option value="TECHNOLOGY">Technology</option>
-              <option value="TRANSPORTATION">Transportation</option>
-              <option value="SPECIAL_ED">Special Ed</option>
-              <option value="GENERAL">General</option>
-              <option value="OTHER">Other</option>
-            </select>
+            <PlainSelect value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value as RoomType | '')}>
+              <MenuItem value="">All Types</MenuItem>
+              <MenuItem value="CLASSROOM">Classroom</MenuItem>
+              <MenuItem value="OFFICE">Office</MenuItem>
+              <MenuItem value="GYM">Gym</MenuItem>
+              <MenuItem value="CAFETERIA">Cafeteria</MenuItem>
+              <MenuItem value="LIBRARY">Library</MenuItem>
+              <MenuItem value="LAB">Lab</MenuItem>
+              <MenuItem value="MAINTENANCE">Maintenance</MenuItem>
+              <MenuItem value="SPORTS">Sports</MenuItem>
+              <MenuItem value="MUSIC">Music</MenuItem>
+              <MenuItem value="MEDICAL">Medical</MenuItem>
+              <MenuItem value="CONFERENCE">Conference</MenuItem>
+              <MenuItem value="TECHNOLOGY">Technology</MenuItem>
+              <MenuItem value="TRANSPORTATION">Transportation</MenuItem>
+              <MenuItem value="SPECIAL_ED">Special Ed</MenuItem>
+              <MenuItem value="GENERAL">General</MenuItem>
+              <MenuItem value="OTHER">Other</MenuItem>
+            </PlainSelect>
           </div>
         </div>
       </div>
@@ -1412,21 +1413,20 @@ const ReferenceDataManagement = () => {
 
       {isMobile ? (
         <Box sx={{ mb: 2 }}>
-          <select
+          <PlainSelect
             value={tab}
             onChange={(e) => setSearchParams({ tab: TAB_NAMES[Number(e.target.value)] })}
-            className="form-select"
             style={{ width: '100%' }}
           >
-            <option value={0}>Brands</option>
-            <option value={1}>Vendors</option>
-            <option value={2}>Categories</option>
-            <option value={3}>Models</option>
-            <option value={4}>Funding Sources</option>
-            <option value={5}>Locations</option>
-            <option value={6}>Rooms</option>
-            <option value={7}>WO Categories</option>
-          </select>
+            <MenuItem value={0}>Brands</MenuItem>
+            <MenuItem value={1}>Vendors</MenuItem>
+            <MenuItem value={2}>Categories</MenuItem>
+            <MenuItem value={3}>Models</MenuItem>
+            <MenuItem value={4}>Funding Sources</MenuItem>
+            <MenuItem value={5}>Locations</MenuItem>
+            <MenuItem value={6}>Rooms</MenuItem>
+            <MenuItem value={7}>WO Categories</MenuItem>
+          </PlainSelect>
         </Box>
       ) : (
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>

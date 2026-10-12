@@ -47,6 +47,8 @@ import {
   useDeleteLocation,
   useRemoveSupervisor,
 } from '../hooks/mutations/useLocationMutations';
+import PlainSelect from '../components/common/PlainSelect';
+import MenuItem from '@mui/material/MenuItem';
 
 interface User {
   id: string;
@@ -180,18 +182,17 @@ const LocationsTab: React.FC<LocationsTabProps> = ({ locations, onAddLocation, o
       <Paper sx={{ p: 2, mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1.5 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <label className="form-label" style={{ marginBottom: 0 }}>Filter:</label>
-          <select
+          <PlainSelect
             value={filter}
             onChange={(e) => setFilter(e.target.value as LocationType | 'ALL')}
-            className="form-select"
             style={{ width: 'auto' }}
           >
-            <option value="ALL">All Types</option>
-            <option value="SCHOOL">Schools</option>
-            <option value="DISTRICT_OFFICE">District Office</option>
-            <option value="DEPARTMENT">Departments</option>
-            <option value="PROGRAM">Programs</option>
-          </select>
+            <MenuItem value="ALL">All Types</MenuItem>
+            <MenuItem value="SCHOOL">Schools</MenuItem>
+            <MenuItem value="DISTRICT_OFFICE">District Office</MenuItem>
+            <MenuItem value="DEPARTMENT">Departments</MenuItem>
+            <MenuItem value="PROGRAM">Programs</MenuItem>
+          </PlainSelect>
         </Box>
         <Button variant="contained" onClick={onAddLocation}>
           + Add Location
@@ -600,17 +601,16 @@ const AddLocationModal: React.FC<AddLocationModalProps> = ({ onClose, onSuccess 
 
           <div>
             <label className="form-label">Type *</label>
-            <select
+            <PlainSelect
               required
               value={formData.type}
               onChange={(e) => setFormData({ ...formData, type: e.target.value as LocationType })}
-              className="form-select"
             >
-              <option value="SCHOOL">School</option>
-              <option value="DISTRICT_OFFICE">District Office</option>
-              <option value="DEPARTMENT">Department</option>
-              <option value="PROGRAM">Program</option>
-            </select>
+              <MenuItem value="SCHOOL">School</MenuItem>
+              <MenuItem value="DISTRICT_OFFICE">District Office</MenuItem>
+              <MenuItem value="DEPARTMENT">Department</MenuItem>
+              <MenuItem value="PROGRAM">Program</MenuItem>
+            </PlainSelect>
           </div>
 
           <div>
@@ -637,16 +637,16 @@ const AddLocationModal: React.FC<AddLocationModalProps> = ({ onClose, onSuccess 
             </div>
             <div>
               <label className="form-label">State</label>
-              <select
+              <PlainSelect
                 value={formData.state}
                 onChange={(e) => setFormData({ ...formData, state: e.target.value })}
                 className="form-input"
               >
-                <option value="">Select state...</option>
+                <MenuItem value="">Select state...</MenuItem>
                 {US_STATES.map(s => (
-                  <option key={s.code} value={s.code}>{s.code} - {s.name}</option>
+                  <MenuItem key={s.code} value={s.code}>{s.code} - {s.name}</MenuItem>
                 ))}
-              </select>
+              </PlainSelect>
             </div>
             <div>
               <label className="form-label">ZIP</label>
@@ -766,37 +766,35 @@ const AssignSupervisorModal: React.FC<AssignSupervisorModalProps> = ({
 
           <div>
             <label className="form-label">User *</label>
-            <select
+            <PlainSelect
               required
               value={formData.userId}
               onChange={(e) => setFormData({ ...formData, userId: e.target.value })}
-              className="form-select"
             >
-              <option value="">Select a user...</option>
+              <MenuItem value="">Select a user...</MenuItem>
               {users.map((user) => (
-                <option key={user.id} value={user.id}>
+                <MenuItem key={user.id} value={user.id}>
                   {user.displayName || `${user.firstName} ${user.lastName}`} ({user.email})
-                </option>
+                </MenuItem>
               ))}
-            </select>
+            </PlainSelect>
           </div>
 
           <div>
             <label className="form-label">Supervisor Type *</label>
-            <select
+            <PlainSelect
               required
               value={formData.supervisorType}
               onChange={(e) =>
                 setFormData({ ...formData, supervisorType: e.target.value as SupervisorType })
               }
-              className="form-select"
             >
               {Object.entries(SUPERVISOR_TYPE_LABELS).map(([value, label]) => (
-                <option key={value} value={value}>
+                <MenuItem key={value} value={value}>
                   {label}
-                </option>
+                </MenuItem>
               ))}
-            </select>
+            </PlainSelect>
           </div>
 
           <div className="flex" style={{ alignItems: 'center' }}>
@@ -1210,17 +1208,16 @@ const EditLocationModal: React.FC<EditLocationModalProps> = ({ location, onClose
 
           <div>
             <label className="form-label">Type *</label>
-            <select
+            <PlainSelect
               required
               value={formData.type}
               onChange={(e) => setFormData({ ...formData, type: e.target.value as LocationType })}
-              className="form-select"
             >
-              <option value="SCHOOL">School</option>
-              <option value="DISTRICT_OFFICE">District Office</option>
-              <option value="DEPARTMENT">Department</option>
-              <option value="PROGRAM">Program</option>
-            </select>
+              <MenuItem value="SCHOOL">School</MenuItem>
+              <MenuItem value="DISTRICT_OFFICE">District Office</MenuItem>
+              <MenuItem value="DEPARTMENT">Department</MenuItem>
+              <MenuItem value="PROGRAM">Program</MenuItem>
+            </PlainSelect>
           </div>
 
           <div>
@@ -1247,16 +1244,16 @@ const EditLocationModal: React.FC<EditLocationModalProps> = ({ location, onClose
             </div>
             <div>
               <label className="form-label">State</label>
-              <select
+              <PlainSelect
                 value={formData.state}
                 onChange={(e) => setFormData({ ...formData, state: e.target.value })}
                 className="form-input"
               >
-                <option value="">Select state...</option>
+                <MenuItem value="">Select state...</MenuItem>
                 {US_STATES.map(s => (
-                  <option key={s.code} value={s.code}>{s.code} - {s.name}</option>
+                  <MenuItem key={s.code} value={s.code}>{s.code} - {s.name}</MenuItem>
                 ))}
-              </select>
+              </PlainSelect>
             </div>
             <div>
               <label className="form-label">ZIP</label>
@@ -1397,20 +1394,19 @@ const EditLocationModal: React.FC<EditLocationModalProps> = ({ location, onClose
                         staffOnly
                       />
 
-                      <select
+                      <PlainSelect
                         value={newSupervisor.supervisorType}
                         onChange={(e) => setNewSupervisor({ ...newSupervisor, supervisorType: e.target.value as SupervisorType })}
-                        className="form-select"
                         style={{ fontSize: '0.875rem' }}
                       >
                         {Object.entries(SUPERVISOR_TYPE_LABELS)
                           .filter(([value]) => value !== 'TECHNOLOGY_ASSISTANT' && value !== 'MAINTENANCE_WORKER')
                           .map(([value, label]) => (
-                          <option key={value} value={value}>
+                          <MenuItem key={value} value={value}>
                             {label}
-                          </option>
+                          </MenuItem>
                         ))}
-                      </select>
+                      </PlainSelect>
 
                       <div className="flex" style={{ alignItems: 'center' }}>
                         <input
@@ -1526,19 +1522,18 @@ const EditLocationModal: React.FC<EditLocationModalProps> = ({ location, onClose
 
                 {showAddDelegate && (
                   <div style={{ padding: '1rem', background: 'var(--slate-50)', borderRadius: '0.375rem', marginBottom: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                    <select
+                    <PlainSelect
                       value={newDelegate.supervisorType}
                       onChange={(e) => setNewDelegate({ ...newDelegate, supervisorType: e.target.value as SupervisorType | '' })}
-                      className="form-select"
                       style={{ fontSize: '0.875rem' }}
                     >
-                      <option value="">Select role to delegate...</option>
+                      <MenuItem value="">Select role to delegate...</MenuItem>
                       {delegatableRoles.map((type) => (
-                        <option key={type} value={type}>
+                        <MenuItem key={type} value={type}>
                           {SUPERVISOR_TYPE_LABELS[type]}
-                        </option>
+                        </MenuItem>
                       ))}
-                    </select>
+                    </PlainSelect>
 
                     <UserSearchAutocomplete
                       value={newDelegate.delegateUserId}

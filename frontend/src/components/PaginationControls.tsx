@@ -1,5 +1,7 @@
 import React from 'react';
 import { useIsMobile } from '../hooks/useResponsive';
+import PlainSelect from './common/PlainSelect';
+import MenuItem from '@mui/material/MenuItem';
 
 interface PaginationControlsProps {
   currentPage: number;
@@ -162,20 +164,19 @@ export const PaginationControls: React.FC<PaginationControlsProps> = ({
             <label htmlFor="page-size" className="form-label" style={{ marginBottom: 0 }}>
               Rows per page:
             </label>
-            <select
+            <PlainSelect
               id="page-size"
               value={pageSize}
               onChange={(e) => onPageSizeChange(Number(e.target.value))}
-              className="form-select"
               style={{ width: 'auto' }}
               aria-label="Select number of rows per page"
             >
               {pageSizeOptions.map((option) => (
-                <option key={option} value={option}>
+                <MenuItem key={option} value={option}>
                   {option}
-                </option>
+                </MenuItem>
               ))}
-            </select>
+            </PlainSelect>
           </div>
 
           {/* Navigation buttons */}

@@ -109,6 +109,12 @@ router.delete(
   requireDeviceManagementAccess(),
   controller.remove,
 );
+router.post(
+  '/:id/abandon',
+  validateCsrfToken,
+  requireDeviceManagementAccess(),
+  controller.abandon,
+);
 
 // Photos
 // GET serves the image behind auth — static /uploads/damage-incidents access is

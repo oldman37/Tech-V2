@@ -34,6 +34,9 @@ export const damageIncidentService = {
   delete: (id: string): Promise<void> =>
     api.delete(`${BASE}/${id}`).then((r) => r.data),
 
+  abandon: (id: string): Promise<void> =>
+    api.post(`${BASE}/${id}/abandon`).then((r) => r.data),
+
   uploadPhotos: (id: string, files: File[]): Promise<DamageIncidentPhoto[]> => {
     const form = new FormData();
     files.forEach((f) => form.append('photos', f));

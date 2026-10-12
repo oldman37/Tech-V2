@@ -12,6 +12,36 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.9.9',
+    highlights: [
+      {
+        icon: '🎨',
+        title: 'Dropdown menus now look the same everywhere',
+        body: 'Every dropdown in the app now shares one modern style — rounded corners, a soft shadow, a light blue hover, and a highlighted row with a checkmark for the selected option. This includes the "Rows per page" selector and the filter dropdowns that previously used the plain built-in browser menu.',
+      },
+      {
+        icon: '⛽',
+        title: 'Fuel History now exports as a PDF',
+        body: 'The Export button on the Fuel History page now downloads a nicely formatted, landscape PDF of the monthly fuel summary — user, vehicle, total fuel, mileage, miles driven, and location — instead of a CSV file.',
+      },
+      {
+        icon: '🧾',
+        title: 'Purchase order PDFs print cleanly',
+        body: 'Fixed the Bill To section overlapping the requester details on some purchase order PDFs, and fixed signatures being scattered across several pages when a PO ran close to the bottom of the page.',
+      },
+    ],
+    changes: [
+      'Unified the look of all dropdown menus: rounded popup, soft shadow, tinted hover, and a bold highlighted selected row with a checkmark.',
+      'Replaced the browser-native dropdowns on list and filter pages (including "Rows per page") with the same styled dropdown so they match the rest of the app.',
+      'Fixed the selected-supervisor highlight and info banners on the Users page missing their blue tint.',
+      "Fixed the equipment detail drawer's tab rail so it floats off the drawer's left edge as a compact icon-over-label stack, instead of sitting inside the drawer as a wide panel.",
+      'Canceling or backing out of the Create Incident wizard before Device Exchange is completed now removes the incident (and any draft invoice) it created, instead of leaving stray records behind. Resumed incidents are not affected.',
+      'The Fuel History export is now a formatted PDF instead of a CSV.',
+      'Fixed the purchase order PDF Bill To section overlapping the Requested By block when the requester has more lines than the vendor.',
+      'Fixed purchase order PDF signature blocks splitting across multiple pages; they now stay together and move to a new page when there is not enough room.',
+    ],
+  },
+  {
     version: '1.9.8',
     highlights: [
       {

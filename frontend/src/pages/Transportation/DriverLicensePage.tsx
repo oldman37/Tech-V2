@@ -45,6 +45,8 @@ import {
   DRIVER_LICENSE_STATUS_COLORS,
 } from '@/types/transportation.types';
 import type { DriverLicense, DriverLicenseStatus, UpdateDriverLicensePayload } from '@/types/transportation.types';
+import PlainSelect from '../../components/common/PlainSelect';
+import MenuItem from '@mui/material/MenuItem';
 
 type TabValue = 'all' | DriverLicenseStatus;
 
@@ -267,17 +269,16 @@ export default function DriverLicensePage() {
         {/* Status filter tabs */}
         {isMobile ? (
           <Box sx={{ p: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}>
-            <select
+            <PlainSelect
               value={tab}
               onChange={(e) => { setFilters({ tab: e.target.value, page: '0' }); }}
-              className="form-select"
               style={{ width: '100%' }}
             >
-              <option value="all">All</option>
-              <option value="active">Active</option>
-              <option value="expiring_soon">Expiring Soon</option>
-              <option value="expired">Expired</option>
-            </select>
+              <MenuItem value="all">All</MenuItem>
+              <MenuItem value="active">Active</MenuItem>
+              <MenuItem value="expiring_soon">Expiring Soon</MenuItem>
+              <MenuItem value="expired">Expired</MenuItem>
+            </PlainSelect>
           </Box>
         ) : (
           <Tabs

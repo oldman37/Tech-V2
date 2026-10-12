@@ -8,7 +8,7 @@
  *
  * Level 1: own totals only (getMySummary).
  * Level 2+: all users' totals with Unit/Month filters (getSummary), plus
- * an Export CSV button.
+ * an Export PDF button.
  */
 
 import { useFilterParams } from '@/hooks/useFilterParams';
@@ -68,38 +68,6 @@ function previousMonthString(month: string): string {
   const [y, m] = month.split('-').map(Number);
   const d = new Date(y, m - 2, 1);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-}
-
-/** Distinct fuel station location names used by a row's fill-ups, in the order first seen. */
-function getDistinctLocations(row: FuelMonthlySummaryRow): string[] {
-  const seen = new Set<string>();
-  const locations: string[] = [];
-  for (const entry of row.entries) {
-    const name = entry.fuelStation?.officeLocation?.name;
-    if (name && !seen.has(name)) {
-      seen.add(name);
-      locations.push(name);
-    }
-  }
-  return locations;
-}
-
-const escapeCsv = (val: string): string => `"${val.replace(/"/g, '""')}"`;
-
-function downloadCsv(filename: string, headers: string[], rows: string[][]): void {
-  const csvContent = [
-    headers.map(escapeCsv).join(','),
-    ...rows.map((row) => row.map(escapeCsv).join(',')),
-  ].join('\r\n');
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.setAttribute('download', `${filename}.csv`);
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
 }
 
 /** Shared fill-up list rendered inside both the desktop row's and mobile card's expand area. */
@@ -369,23 +337,18 @@ export default function MyFuelHistoryPage() {
     });
   }
 
-  function handleExport() {
-    const rowLocations = rows.map(getDistinctLocations);
-    const maxLocations = Math.max(1, ...rowLocations.map((l) => l.length));
-    const locationHeaders = Array.from({ length: maxLocations }, (_, i) => i === 0 ? 'Location' : `Location ${i + 1}`);
+  const [exporting, setExporting] = useState(false);
 
-    const headers = ['Month', 'User', 'Vehicle', 'Total Fuel Amount', 'Previous Mileage', 'Latest Mileage', 'Miles Driven', ...locationHeaders];
-    const csvRows = rows.map((r, i) => [
-      formatMonthLabel(r.reportingMonth),
-      r.userName,
-      r.unitNumber,
-      `${r.totalFuelAmount.toFixed(3)} ${r.fuelUnit}`,
-      r.previousMileage != null ? r.previousMileage.toLocaleString() : '',
-      r.latestMileage.toLocaleString(),
-      r.milesDriven != null ? r.milesDriven.toLocaleString() : '',
-      ...Array.from({ length: maxLocations }, (_, j) => rowLocations[i]?.[j] ?? ''),
-    ]);
-    downloadCsv(`fuel-history-${monthFilter}`, headers, csvRows);
+  async function handleExport() {
+    setExporting(true);
+    try {
+      await fuelEntryApi.downloadSummaryPdf(
+        { month: monthFilter || undefined, unitId: unitIdFilter || undefined },
+        `fuel-history-${monthFilter}.pdf`,
+      );
+    } finally {
+      setExporting(false);
+    }
   }
 
   // Expand-icon + Month + [User] + Vehicle + Total Fuel Amount + Previous/Latest Mileage + Miles Driven
@@ -404,10 +367,10 @@ export default function MyFuelHistoryPage() {
               variant="outlined"
               startIcon={<DownloadIcon />}
               onClick={handleExport}
-              disabled={rows.length === 0}
+              disabled={rows.length === 0 || exporting}
               sx={{ ...(isMobile ? { flex: 1 } : {}) }}
             >
-              Export CSV
+              Export PDF
             </Button>
           )}
           <Button

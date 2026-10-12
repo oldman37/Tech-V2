@@ -1,4 +1,4 @@
-import { createTheme } from '@mui/material/styles';
+import { createTheme, alpha } from '@mui/material/styles';
 
 declare module '@mui/material/styles' {
   interface Palette {
@@ -38,6 +38,39 @@ declare module '@mui/material/Chip' {
     priorityUrgent: true;
   }
 }
+
+// Shared dropdown surface: rounded to match --radius-md, hairline border and a
+// soft shadow in place of MUI's heavy elevation.
+const dropdownPaper = (theme: { palette: { divider: string } }) => ({
+  borderRadius: 12,
+  border: `1px solid ${theme.palette.divider}`,
+  boxShadow: '0 10px 30px rgba(15, 23, 42, 0.12)',
+  backgroundImage: 'none',
+});
+
+// Checkmark on the selected row — masked inline SVG on currentColor so it
+// recolors with the text (including dark mode).
+const selectedCheckmark = {
+  paddingRight: 36,
+  '&::after': {
+    content: '""',
+    position: 'absolute',
+    right: 12,
+    top: '50%',
+    width: 16,
+    height: 16,
+    transform: 'translateY(-50%)',
+    backgroundColor: 'currentColor',
+    maskImage:
+      "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z'/></svg>\")",
+    maskRepeat: 'no-repeat',
+    maskSize: 'contain',
+    WebkitMaskImage:
+      "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z'/></svg>\")",
+    WebkitMaskRepeat: 'no-repeat',
+    WebkitMaskSize: 'contain',
+  },
+} as const;
 
 export const theme = createTheme({
   cssVariables: {
@@ -106,6 +139,50 @@ export const theme = createTheme({
     // specificity (applyStyles's dark-mode selector is wrapped in `:where()`
     // and contributes none), so without the extra class this override was
     // silently losing the tie.
+    MuiMenu: {
+      styleOverrides: {
+        paper: ({ theme }) => dropdownPaper(theme),
+        list: { padding: 6 },
+      },
+    },
+    MuiMenuItem: {
+      styleOverrides: {
+        root: ({ theme }) => ({
+          position: 'relative',
+          borderRadius: 8,
+          margin: '2px 0',
+          '&:hover': { backgroundColor: alpha(theme.palette.primary.main, 0.06) },
+          '&.Mui-focusVisible': { backgroundColor: alpha(theme.palette.primary.main, 0.06) },
+          '&.Mui-selected': {
+            backgroundColor: alpha(theme.palette.primary.main, 0.12),
+            color: theme.palette.primary.dark,
+            fontWeight: 700,
+            ...selectedCheckmark,
+            '&:hover': { backgroundColor: alpha(theme.palette.primary.main, 0.16) },
+            '&.Mui-focusVisible': { backgroundColor: alpha(theme.palette.primary.main, 0.16) },
+          },
+        }),
+      },
+    },
+    MuiAutocomplete: {
+      styleOverrides: {
+        paper: ({ theme }) => dropdownPaper(theme),
+        listbox: { padding: 6 },
+        option: ({ theme }) => ({
+          position: 'relative',
+          borderRadius: 8,
+          margin: '2px 0',
+          '&.Mui-focused': { backgroundColor: alpha(theme.palette.primary.main, 0.06) },
+          '&[aria-selected="true"]': {
+            backgroundColor: alpha(theme.palette.primary.main, 0.12),
+            color: theme.palette.primary.dark,
+            fontWeight: 700,
+            ...selectedCheckmark,
+            '&.Mui-focused': { backgroundColor: alpha(theme.palette.primary.main, 0.16) },
+          },
+        }),
+      },
+    },
     MuiButton: {
       styleOverrides: {
         outlined: ({ theme }) => [

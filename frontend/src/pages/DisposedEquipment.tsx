@@ -12,6 +12,8 @@ import { ResponsiveTable, MobileFilterBar, Column } from '../components/responsi
 import { useIsMobile } from '../hooks/useResponsive';
 import { useAutoFocusSearch } from '../hooks/useAutoFocusSearch';
 import { PageBackButton } from '../components/layout/PageBackButton';
+import PlainSelect from '../components/common/PlainSelect';
+import MenuItem from '@mui/material/MenuItem';
 
 
 interface PaginationModel {
@@ -379,42 +381,39 @@ const DisposedEquipment = () => {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                     <div>
                       <label className="form-label">Office Location</label>
-                      <select
+                      <PlainSelect
                         value={filters.officeLocationId}
                         onChange={(e) => setFilters({ ...filters, officeLocationId: e.target.value })}
-                        className="form-select"
                       >
-                        <option value="">All Locations</option>
+                        <MenuItem value="">All Locations</MenuItem>
                         {locations.map((loc) => (
-                          <option key={loc.id} value={loc.id}>{loc.name}</option>
+                          <MenuItem key={loc.id} value={loc.id}>{loc.name}</MenuItem>
                         ))}
-                      </select>
+                      </PlainSelect>
                     </div>
                     <div>
                       <label className="form-label">Category</label>
-                      <select
+                      <PlainSelect
                         value={filters.categoryId}
                         onChange={(e) => setFilters({ ...filters, categoryId: e.target.value })}
-                        className="form-select"
                       >
-                        <option value="">All Categories</option>
+                        <MenuItem value="">All Categories</MenuItem>
                         {categories.map((cat) => (
-                          <option key={cat.id} value={cat.id}>{cat.name}</option>
+                          <MenuItem key={cat.id} value={cat.id}>{cat.name}</MenuItem>
                         ))}
-                      </select>
+                      </PlainSelect>
                     </div>
                     <div>
                       <label className="form-label">Model</label>
-                      <select
+                      <PlainSelect
                         value={filters.modelId}
                         onChange={(e) => setFilters({ ...filters, modelId: e.target.value })}
-                        className="form-select"
                       >
-                        <option value="">All Models</option>
+                        <MenuItem value="">All Models</MenuItem>
                         {models.map((m) => (
-                          <option key={m.id} value={m.id}>{m.name}</option>
+                          <MenuItem key={m.id} value={m.id}>{m.name}</MenuItem>
                         ))}
-                      </select>
+                      </PlainSelect>
                     </div>
                     <div>
                       <label className="form-label">Disposed Date From</label>
@@ -459,42 +458,39 @@ const DisposedEquipment = () => {
                 </div>
                 <div>
                   <label className="form-label">Office Location</label>
-                  <select
+                  <PlainSelect
                     value={filters.officeLocationId}
                     onChange={(e) => setFilters({ ...filters, officeLocationId: e.target.value })}
-                    className="form-select"
                   >
-                    <option value="">All Locations</option>
+                    <MenuItem value="">All Locations</MenuItem>
                     {locations.map((loc) => (
-                      <option key={loc.id} value={loc.id}>{loc.name}</option>
+                      <MenuItem key={loc.id} value={loc.id}>{loc.name}</MenuItem>
                     ))}
-                  </select>
+                  </PlainSelect>
                 </div>
                 <div>
                   <label className="form-label">Category</label>
-                  <select
+                  <PlainSelect
                     value={filters.categoryId}
                     onChange={(e) => setFilters({ ...filters, categoryId: e.target.value })}
-                    className="form-select"
                   >
-                    <option value="">All Categories</option>
+                    <MenuItem value="">All Categories</MenuItem>
                     {categories.map((cat) => (
-                      <option key={cat.id} value={cat.id}>{cat.name}</option>
+                      <MenuItem key={cat.id} value={cat.id}>{cat.name}</MenuItem>
                     ))}
-                  </select>
+                  </PlainSelect>
                 </div>
                 <div>
                   <label className="form-label">Model</label>
-                  <select
+                  <PlainSelect
                     value={filters.modelId}
                     onChange={(e) => setFilters({ ...filters, modelId: e.target.value })}
-                    className="form-select"
                   >
-                    <option value="">All Models</option>
+                    <MenuItem value="">All Models</MenuItem>
                     {models.map((m) => (
-                      <option key={m.id} value={m.id}>{m.name}</option>
+                      <MenuItem key={m.id} value={m.id}>{m.name}</MenuItem>
                     ))}
-                  </select>
+                  </PlainSelect>
                 </div>
                 <div>
                   <label className="form-label">Disposed Date From</label>
@@ -558,16 +554,15 @@ const DisposedEquipment = () => {
                       <label className="form-label" style={{ marginBottom: 0 }}>
                         Rows per page:
                       </label>
-                      <select
+                      <PlainSelect
                         value={paginationModel.pageSize}
-                        onChange={(e) => setPaginationModel({ page: 0, pageSize: parseInt(e.target.value) })}
-                        className="form-select"
+                        onChange={(e) => setPaginationModel({ page: 0, pageSize: Number(e.target.value) })}
                         style={{ width: 'auto' }}
                       >
-                        <option value={25}>25</option>
-                        <option value={50}>50</option>
-                        <option value={100}>100</option>
-                      </select>
+                        <MenuItem value={25}>25</MenuItem>
+                        <MenuItem value={50}>50</MenuItem>
+                        <MenuItem value={100}>100</MenuItem>
+                      </PlainSelect>
                     </>
                   )}
                   <button

@@ -43,6 +43,7 @@ import { useIsMobile } from '../../hooks/useResponsive';
 import { ResponsiveTable } from '../../components/responsive';
 import type { Column } from '../../components/responsive';
 import { PageBackButton } from '../../components/layout/PageBackButton';
+import PlainSelect from '../../components/common/PlainSelect';
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
@@ -404,7 +405,7 @@ export default function IntuneDeviceActionsPage() {
       {/* Mode tabs */}
       {isMobile ? (
         <Box sx={{ mb: 2 }}>
-          <select
+          <PlainSelect
             value={tab}
             onChange={(e) => {
               const v = Number(e.target.value) as 0 | 1 | 2 | 3;
@@ -413,14 +414,13 @@ export default function IntuneDeviceActionsPage() {
               setResults(null);
               setIsDryRun(true);
             }}
-            className="form-select"
             style={{ width: '100%' }}
           >
-            <option value={1}>Scan / Search by Name</option>
-            <option value={0}>By Device Model</option>
-            <option value={2}>History</option>
-            <option value={3}>Reconciliation</option>
-          </select>
+            <MenuItem value={1}>Scan / Search by Name</MenuItem>
+            <MenuItem value={0}>By Device Model</MenuItem>
+            <MenuItem value={2}>History</MenuItem>
+            <MenuItem value={3}>Reconciliation</MenuItem>
+          </PlainSelect>
         </Box>
       ) : (
         <Tabs

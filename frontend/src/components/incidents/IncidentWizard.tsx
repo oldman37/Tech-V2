@@ -1,4 +1,4 @@
-import { useReducer, useCallback, useState, useEffect } from 'react';
+import { useReducer, useCallback, useState, useEffect, useRef } from 'react';
 import {
   Alert,
   AlertTitle,
@@ -154,6 +154,22 @@ export default function IncidentWizard({ open, onClose, onCreated, initialIncide
 
   const [state, dispatch] = useReducer(reducer, INITIAL_STATE);
 
+  // Best-effort rollback of an incident created in THIS session that never
+  // reached Device Exchange completion. Resumed incidents (initialIncident)
+  // are never abandoned.
+  const finishedIncidentIdRef = useRef<string | null>(null);
+  const abandonRef = useRef<() => void>(() => {});
+  abandonRef.current = () => {
+    const created = state.createdIncident;
+    const isFreshThisSession = !!created && created.id !== initialIncident?.id;
+    const finished = !!created && finishedIncidentIdRef.current === created.id;
+    if (created && isFreshThisSession && !finished) {
+      damageIncidentService.abandon(created.id).catch(() => {});
+    }
+  };
+  // Safety net for unmounting without handleClose (e.g. browser back).
+  useEffect(() => () => abandonRef.current(), []);
+
   // ----- Incident summary for threshold check (3+ incidents) -----
   // Runs whenever a user is linked to the incident (device may or may not also be linked).
   const { data: incidentSummary } = useQuery({
@@ -176,6 +192,7 @@ export default function IncidentWizard({ open, onClose, onCreated, initialIncide
         damageDate:   prefill.damageDate,
       };
     }
+    finishedIncidentIdRef.current = null;
     dispatch({ type: 'RESET_WITH', payload: base });
     setActiveStep(getInitialStep(initialIncident));
     setApiError(null);
@@ -185,6 +202,7 @@ export default function IncidentWizard({ open, onClose, onCreated, initialIncide
   }, [open, initialIncident]); // eslint-disable-line react-hooks/exhaustive-deps
   // ----- Reset on close -----
   const handleClose = useCallback(() => {
+    abandonRef.current();
     dispatch({ type: 'RESET' });
     setActiveStep(0);
     setApiError(null);
@@ -515,7 +533,7 @@ export default function IncidentWizard({ open, onClose, onCreated, initialIncide
             step1={state.step1}
             createdIncident={incident}
             onBack={() => setActiveStep(1)}
-            onFinish={(inc) => { onCreated?.(inc); handleClose(); }}
+            onFinish={(inc) => { finishedIncidentIdRef.current = inc.id; onCreated?.(inc); handleClose(); }}
           />
         );
       }
@@ -528,7 +546,7 @@ export default function IncidentWizard({ open, onClose, onCreated, initialIncide
             step1={state.step1}
             createdIncident={incident}
             onBack={() => setActiveStep(2)}
-            onFinish={(inc) => { onCreated?.(inc); handleClose(); }}
+            onFinish={(inc) => { finishedIncidentIdRef.current = inc.id; onCreated?.(inc); handleClose(); }}
           />
         );
 

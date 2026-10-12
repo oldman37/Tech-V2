@@ -221,6 +221,7 @@ export async function generatePurchaseOrderPdf(po: POForPdf): Promise<Buffer> {
       if (po.officeLocation) {
         doc.text(po.officeLocation.name, leftX, doc.y, { width: colW });
       }
+      const requesterEndY = doc.y;
 
       // Right: Vendor info
       doc.font(FONT_BLD).fontSize(10).fillColor(PRIMARY).text('VENDOR', rightX, sectionTop);
@@ -235,6 +236,10 @@ export async function generatePurchaseOrderPdf(po: POForPdf): Promise<Buffer> {
         if (po.vendors.fax)   doc.text(`Fax: ${po.vendors.fax}`, rightX, doc.y, { width: colW });
       }
 
+      // Continue below whichever column is taller — the requester block can
+      // run longer than the vendor block, and using doc.y alone (the vendor's
+      // end) made BILL TO overlap the requester's last lines.
+      doc.y = Math.max(requesterEndY, doc.y);
       doc.moveDown(1.5);
       hRule(doc, doc.y);
       doc.moveDown(0.5);
@@ -368,6 +373,13 @@ export async function generatePurchaseOrderPdf(po: POForPdf): Promise<Buffer> {
       // ---- Signature Lines -----------------------------------------------
       // Layout: cursive name above the line, role label + date below
       doc.moveDown(1.5);
+      // Keep the whole signature block (name + line + role + date) on one page.
+      // Without this, text drawn past the bottom margin makes pdfkit add a page
+      // per text call, scattering the labels across several pages.
+      const SIG_BLOCK_H = 60;
+      if (doc.y + SIG_BLOCK_H > doc.page.height - doc.page.margins.bottom) {
+        doc.addPage();
+      }
       const sigLineW = 150;
       const sigGap   = Math.floor((COL_W - sigLineW * 3) / 2);
       const sigCol1  = MARGIN;
