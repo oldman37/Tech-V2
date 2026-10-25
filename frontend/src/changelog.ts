@@ -29,6 +29,11 @@ export const CHANGELOG: ChangelogEntry[] = [
         title: 'Purchase order PDFs print cleanly',
         body: 'Fixed the Bill To section overlapping the requester details on some purchase order PDFs, and fixed signatures being scattered across several pages when a PO ran close to the bottom of the page.',
       },
+      {
+        icon: '🛠️',
+        title: 'Director of Schools can see every work order',
+        body: 'The Director of Schools now sees work orders from every school and department in the district, not just the District Office, and can open, update, assign, and comment on any of them.',
+      },
     ],
     changes: [
       'Unified the look of all dropdown menus: rounded popup, soft shadow, tinted hover, and a bold highlighted selected row with a checkmark.',
@@ -39,6 +44,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       'The Fuel History export is now a formatted PDF instead of a CSV.',
       'Fixed the purchase order PDF Bill To section overlapping the Requested By block when the requester has more lines than the vendor.',
       'Fixed purchase order PDF signature blocks splitting across multiple pages; they now stay together and move to a new page when there is not enough room.',
+      'The Director of Schools can now view and work on all work orders district-wide instead of only those at the District Office. Permanently deleting a work order is still limited to Admins and Tech Assistants.',
     ],
   },
   {

@@ -271,6 +271,11 @@ export function isMaintenanceDirector(groups: string[]): boolean {
   return Boolean(gid && groups.includes(gid));
 }
 
+export function isDirectorOfSchools(groups: string[]): boolean {
+  const gid = process.env.ENTRA_DIRECTOR_OF_SCHOOLS_GROUP_ID;
+  return Boolean(gid && groups.includes(gid));
+}
+
 const TICKET_PRIORITY_CHANGE_GROUP_ENV_VARS = [
   'ENTRA_ADMIN_GROUP_ID',
   'ENTRA_TECH_ASSISTANTS_GROUP_ID',

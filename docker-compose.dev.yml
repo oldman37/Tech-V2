@@ -124,6 +124,10 @@ services:
 
   db-test:
     image: postgres:16-alpine
+    # Each vitest file loads a fresh app module graph with its own pg pool (max 10)
+    # that is never closed, so connections accumulate across files; the default
+    # max_connections=100 is exhausted intermittently ("too many clients already").
+    command: ["postgres", "-c", "max_connections=300"]
     environment:
       POSTGRES_DB: tech_v2_test
       POSTGRES_USER: techv2test
@@ -159,6 +163,7 @@ services:
       ENTRA_SCHOOL_MAINTENANCE_GROUP_ID: test-wo-level-3-group-id
       ENTRA_COUNTY_WIDE_MAINTENANCE_GROUP_ID: test-wo-county-maint-group-id
       ENTRA_MAINTENANCE_DIRECTOR_GROUP_ID: test-maintenance-director-group-id
+      ENTRA_DIRECTOR_OF_SCHOOLS_GROUP_ID: test-dos-group-id
       ENTRA_PRINCIPALS_GROUP_ID: test-wo-level-3b-group-id
       ENTRA_ALL_STAFF_GROUP_ID: test-allstaff-group-id
       CORS_ORIGIN: "http://localhost"

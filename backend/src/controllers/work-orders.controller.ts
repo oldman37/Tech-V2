@@ -13,7 +13,7 @@ import { AuthRequest } from '../middleware/auth';
 import { WorkOrderService, WorkOrderListResponse } from '../services/work-orders.service';
 import { handleControllerError } from '../utils/errorHandler';
 import { prisma } from '../lib/prisma';
-import { isCountyWideMaintenance, isSchoolMaintenanceWorker, isMaintenanceDirector } from '../utils/groupAuth';
+import { isCountyWideMaintenance, isSchoolMaintenanceWorker, isMaintenanceDirector, isDirectorOfSchools } from '../utils/groupAuth';
 import {
   WorkOrderQuerySchema,
   CreateWorkOrderSchema,
@@ -60,7 +60,9 @@ function mapInputRequest<T extends { ticketId: string }>(request: T): Omit<T, 't
 // Helpers
 // ---------------------------------------------------------------------------
 
-function getMaintenanceRole(groups: string[]): 'county_wide' | 'school_only' | 'director' | undefined {
+function getMaintenanceRole(groups: string[]): 'district_wide' | 'county_wide' | 'school_only' | 'director' | undefined {
+  // Director of Schools sees every work order — checked first since it is a superset of the maintenance scopes
+  if (isDirectorOfSchools(groups)) return 'district_wide';
   if (isCountyWideMaintenance(groups)) return 'county_wide';
   if (isSchoolMaintenanceWorker(groups)) return 'school_only';
   if (isMaintenanceDirector(groups)) return 'director';

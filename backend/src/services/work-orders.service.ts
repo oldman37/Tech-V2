@@ -34,7 +34,8 @@ import type {
 // Types
 // ---------------------------------------------------------------------------
 
-type MaintenanceRole = 'county_wide' | 'school_only' | 'director' | undefined;
+// Group-derived scope override. 'district_wide' is the Director of Schools (level 4, no location scope).
+type MaintenanceRole = 'district_wide' | 'county_wide' | 'school_only' | 'director' | undefined;
 
 // ---------------------------------------------------------------------------
 // Valid status transitions (state machine)
@@ -342,6 +343,8 @@ export class WorkOrderService {
     }
 
     // permLevel === 4
+    // Director of Schools sees every work order district-wide, regardless of supervised locations.
+    if (maintenanceRole === 'district_wide') return;
     if (maintenanceRole === 'director') {
       // Maintenance Director sees every MAINTENANCE-department ticket district-wide,
       // regardless of supervised locations — mirrors the county_wide check above.
@@ -476,7 +479,9 @@ export class WorkOrderService {
         }
       }
     } else if (permLevel === 4) {
-      if (maintenanceRole === 'director') {
+      if (maintenanceRole === 'district_wide') {
+        // Director of Schools — no location or department restriction
+      } else if (maintenanceRole === 'director') {
         // No location restriction — department already forced to MAINTENANCE in baseWhere
       } else {
         // Supervisor scope — all supervised locations
@@ -492,7 +497,7 @@ export class WorkOrderService {
     // Grant read access to work orders where the user has an active input
     // request, alongside whatever scope already applies. Only unioned when
     // scopeWhere is non-empty — for unrestricted roles (permLevel >= 5, and
-    // county_wide/director at 3/4) scopeWhere is `{}`, which already means
+    // county_wide/director/district_wide at 3/4) scopeWhere is `{}`, which already means
     // "no restriction"; unioning into it would be a no-op.
     if (Object.keys(scopeWhere).length > 0) {
       scopeWhere = {
