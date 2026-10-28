@@ -220,7 +220,8 @@ export function CartMetadataForm({ cart, disabled }: CartMetadataFormProps) {
             save({ checkoutCondition: e.target.value as CheckoutCondition });
           }}
         >
-          {CONDITIONS.map((c) => (
+          {/* 'Damaged' only for legacy records — damage is reported via Create Incident */}
+          {CONDITIONS.filter((c) => c.value !== 'damaged' || cart.checkoutCondition === 'damaged').map((c) => (
             <MenuItem key={c.value} value={c.value}>{c.label}</MenuItem>
           ))}
         </Select>

@@ -12,6 +12,35 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.9.10',
+    highlights: [
+      {
+        icon: '🔎',
+        title: 'Incident and invoice search finds everything',
+        body: 'Searching on the Incidents and Invoices pages now looks through every record, not just the 25 shown on the current page — so older incidents and invoices turn up by number, asset tag, or name. Paging on the Invoices page also works now; it used to show the same first page every time.',
+      },
+      {
+        icon: '🧭',
+        title: 'One place to report damage',
+        body: 'Damage on a checked-out device is now reported with Create Incident on the Checkouts page (or Report Damage while checking devices in on Bulk Check-In, which opens the same incident form). Damage on a device that isn\'t checked out is reported with Report Damage in the inventory detail panel. Quick Check and the other check-in/out forms no longer offer a "Damaged" condition.',
+      },
+      {
+        icon: '🔧',
+        title: 'Out-for-repair warning in the incident wizard',
+        body: 'If the replacement device picked in the Create Incident wizard is still out for repair, you now get the same "Device Still Out for Repair" prompt as Quick Check, with a Mark Returned & Continue button, instead of an error.',
+      },
+    ],
+    changes: [
+      'Incidents page search now runs on the server, matching incident #, asset tag, or user name across all incidents; multi-word searches like "john smith" match first and last name.',
+      'Invoices page search now runs on the server (invoice #, recipient, or user name), and the page and rows-per-page controls now actually change the results.',
+      'The Create Incident wizard\'s Device Exchange step now prompts to mark the replacement device returned when it is still out for repair.',
+      'Removed damage reporting from Quick Check: no "Damaged" condition, no damage-incident checkbox, and no "Create Incident Report" link after check-in.',
+      'Removed the "Damaged" condition from the Checkout dialog, Bulk Check-In, Bulk Check-Out, cart return dialogs, and the cart assignment wizard. Edit Checkout, cart details, and the inventory Status field show "Damaged" only for records that already have it.',
+      'Bulk Check-In has a new Report Damage button on the scanned device that opens the incident wizard prefilled for that checkout.',
+      'Report Damage in the inventory detail panel now points checked-out devices to the Checkouts page, and is disabled until the device\'s checkout status has loaded.',
+    ],
+  },
+  {
     version: '1.9.9',
     highlights: [
       {

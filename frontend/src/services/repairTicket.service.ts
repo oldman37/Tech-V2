@@ -12,6 +12,11 @@ export const repairTicketService = {
   getAll: (params?: object): Promise<RepairTicketsResponse> =>
     api.get(BASE, { params }).then((r) => r.data),
 
+  // The ticket that blocks checkout: device sent to the vendor and not yet marked returned.
+  getActiveTicket: (equipmentId: string): Promise<RepairTicket | null> =>
+    api.get<RepairTicketsResponse>(BASE, { params: { equipmentId, status: 'sent_to_vendor', limit: 1 } })
+      .then((r) => r.data.items[0] ?? null),
+
   getById: (id: string): Promise<RepairTicket> =>
     api.get(`${BASE}/${id}`).then((r) => r.data),
 

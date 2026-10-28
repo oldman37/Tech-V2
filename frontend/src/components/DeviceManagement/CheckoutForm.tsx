@@ -136,7 +136,6 @@ export function CheckoutForm({ equipmentId, onSuccess, onCancel }: CheckoutFormP
               <MenuItem value="perfect">Perfect</MenuItem>
               <MenuItem value="good">Good</MenuItem>
               <MenuItem value="fair">Fair</MenuItem>
-              <MenuItem value="damaged">Damaged</MenuItem>
             </Select>
             {errors.checkoutCondition && (
               <FormHelperText>{errors.checkoutCondition.message}</FormHelperText>

@@ -30,6 +30,7 @@ import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import ErrorIcon from '@mui/icons-material/Error';
 import QrCodeScannerIcon from '@mui/icons-material/QrCodeScanner';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import ReportProblemIcon from '@mui/icons-material/ReportProblem';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { deviceAssignmentService } from '../../services/deviceAssignment.service';
 import { DeviceStatusChip } from '../../components/DeviceManagement/DeviceStatusChip';
@@ -243,6 +244,19 @@ export default function BulkCheckinPage() {
     });
   };
 
+  const handleReportDamage = () => {
+    if (!scanResult?.activeAssignment) return;
+    const a = scanResult.activeAssignment;
+    // Local date components rather than toISOString(), which computes "today" in UTC
+    // and can be off by a day near midnight in any US timezone.
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    navigate(
+      `/incidents/new?equipmentId=${a.equipmentId}&userId=${a.userId ?? ''}&assignmentId=${a.id}&damageDate=${today}`,
+      { state: { returnTo: '/device-management/checkouts/bulk-checkin' } },
+    );
+  };
+
   const handleCancel = () => {
     resetAfterAction();
   };
@@ -292,7 +306,6 @@ export default function BulkCheckinPage() {
             <MenuItem value="perfect">Perfect</MenuItem>
             <MenuItem value="good">Good</MenuItem>
             <MenuItem value="fair">Fair</MenuItem>
-            <MenuItem value="damaged">Damaged</MenuItem>
           </Select>
         </FormControl>
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
@@ -447,6 +460,17 @@ export default function BulkCheckinPage() {
 
             {/* Actions */}
             <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+              {/* Damaged devices go through the incident wizard (same link as Create
+                  Incident on the Checkouts page); its exchange step checks the device in. */}
+              <Button
+                color="warning"
+                startIcon={<ReportProblemIcon />}
+                disabled={checkinMutation.isPending}
+                onClick={handleReportDamage}
+                sx={{ mr: 'auto' }}
+              >
+                Report Damage
+              </Button>
               <Button onClick={handleCancel} disabled={checkinMutation.isPending}>
                 Cancel
               </Button>

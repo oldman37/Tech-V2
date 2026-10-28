@@ -223,8 +223,12 @@ export async function getAll(query: ListQuery) {
   const limit     = Number(query.limit)  || 25;
   const sortBy    = query.sortBy    ?? 'createdAt';
   const sortOrder = (query.sortOrder ?? 'desc') as 'asc' | 'desc';
-  const { status, userId, damageIncidentId, equipmentId, overdueOnly } = query;
+  const { status, userId, damageIncidentId, equipmentId, overdueOnly, search } = query;
   const skip = (page - 1) * limit;
+
+  // Every whitespace-separated term must match invoice #, recipient, or user name,
+  // so "john smith" matches first + last name across fields.
+  const searchTerms = search ? search.split(/\s+/).filter(Boolean) : [];
 
   const where: Prisma.DamageInvoiceWhereInput = {
     ...(status           && { status }),
@@ -234,6 +238,17 @@ export async function getAll(query: ListQuery) {
     ...(overdueOnly && {
       dueDate: { lt: new Date() },
       status:  { notIn: ['paid', 'waived'] },
+    }),
+    ...(searchTerms.length > 0 && {
+      AND: searchTerms.map((term) => ({
+        OR: [
+          { invoiceNumber:  { contains: term, mode: 'insensitive' as const } },
+          { recipientEmail: { contains: term, mode: 'insensitive' as const } },
+          { recipientName:  { contains: term, mode: 'insensitive' as const } },
+          { user: { firstName: { contains: term, mode: 'insensitive' as const } } },
+          { user: { lastName:  { contains: term, mode: 'insensitive' as const } } },
+        ],
+      })),
     }),
   };
 

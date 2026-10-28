@@ -242,8 +242,12 @@ export async function getAll(query: ListQuery) {
   const limit     = Number(query.limit)  || 25;
   const sortBy    = query.sortBy    ?? 'reportedAt';
   const sortOrder = (query.sortOrder ?? 'desc') as 'asc' | 'desc';
-  const { status, severity, equipmentId, userId, intent, workflowStep } = query;
+  const { status, severity, equipmentId, userId, intent, workflowStep, search } = query;
   const skip = (page - 1) * limit;
+
+  // Every whitespace-separated term must match incident #, asset tag, or user name,
+  // so "john smith" matches first + last name across fields.
+  const searchTerms = search ? search.split(/\s+/).filter(Boolean) : [];
 
   const where: Prisma.DamageIncidentWhereInput = {
     ...(status       && { status }),
@@ -252,6 +256,16 @@ export async function getAll(query: ListQuery) {
     ...(userId       && { userId }),
     ...(intent       && { intent }),
     ...(workflowStep && { workflowStep }),
+    ...(searchTerms.length > 0 && {
+      AND: searchTerms.map((term) => ({
+        OR: [
+          { incidentNumber: { contains: term, mode: 'insensitive' as const } },
+          { equipment: { assetTag:  { contains: term, mode: 'insensitive' as const } } },
+          { user:      { firstName: { contains: term, mode: 'insensitive' as const } } },
+          { user:      { lastName:  { contains: term, mode: 'insensitive' as const } } },
+        ],
+      })),
+    }),
   };
 
   const orderBy: Prisma.DamageIncidentOrderByWithRelationInput = {

@@ -25,6 +25,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { deviceAssignmentService } from '../../../services/deviceAssignment.service';
 import inventoryService from '../../../services/inventory.service';
 import { deviceExchangeService } from '../../../services/deviceExchange.service';
+import { repairTicketService } from '../../../services/repairTicket.service';
+import { DeviceOutForRepairDialog } from '../../../components/DeviceManagement/DeviceOutForRepairDialog';
 import type { DeviceExchangeResponse } from '../../../services/deviceExchange.service';
 import type { InventoryItem } from '../../../types/inventory.types';
 import type { DamageIncident } from '../../../types/damageIncident.types';
@@ -89,6 +91,10 @@ export default function WizardStep4DeviceExchange({
   const [checkoutError,        setCheckoutError]        = useState<string | null>(null);
   const [filterByCategory,     setFilterByCategory]     = useState(true);
   const [returnCharger,        setReturnCharger]        = useState(false);
+
+  // Replacement device still out for repair — must be marked returned before checkout
+  const [pendingRepair,  setPendingRepair]  = useState<{ ticketId: string; ticketNumber: string } | null>(null);
+  const [checkingRepair, setCheckingRepair] = useState(false);
 
   // ── Debounce device search ───────────────────────────────────────────────
   useEffect(() => {
@@ -187,7 +193,7 @@ export default function WizardStep4DeviceExchange({
   });
 
   // ── Validate and submit ──────────────────────────────────────────────────
-  const handleCompleteExchange = useCallback(() => {
+  const handleCompleteExchange = useCallback(async () => {
     let valid = true;
 
     if (!skipCheckout) {
@@ -204,10 +210,29 @@ export default function WizardStep4DeviceExchange({
       setCheckoutError(null);
     }
 
-    if (valid) exchangeMutation.mutate();
+    if (!valid) return;
+
+    // Block checkout while the replacement device is still out for repair and
+    // hasn't been marked returned. If the lookup fails, the backend still enforces it.
+    if (!skipCheckout && selectedDevice) {
+      setCheckingRepair(true);
+      try {
+        const ticket = await repairTicketService.getActiveTicket(selectedDevice.id);
+        if (ticket) {
+          setPendingRepair({ ticketId: ticket.id, ticketNumber: ticket.ticketNumber });
+          return;
+        }
+      } catch {
+        // fall through to the exchange
+      } finally {
+        setCheckingRepair(false);
+      }
+    }
+
+    exchangeMutation.mutate();
   }, [skipCheckout, selectedDevice, checkoutCondition, exchangeMutation]);
 
-  const isBusy = exchangeMutation.isPending;
+  const isBusy = exchangeMutation.isPending || checkingRepair;
   const incident = createdIncident;
 
   // ── Summary panel ────────────────────────────────────────────────────────
@@ -557,6 +582,20 @@ export default function WizardStep4DeviceExchange({
               : 'Complete Exchange'}
         </Button>
       </Box>
+
+      {pendingRepair && selectedDevice && (
+        <DeviceOutForRepairDialog
+          open
+          equipmentLabel={`${selectedDevice.assetTag} — ${selectedDevice.name}`}
+          ticketNumber={pendingRepair.ticketNumber}
+          repairTicketId={pendingRepair.ticketId}
+          onResolved={() => {
+            setPendingRepair(null);
+            exchangeMutation.mutate();
+          }}
+          onCancel={() => setPendingRepair(null)}
+        />
+      )}
     </Box>
   );
 }

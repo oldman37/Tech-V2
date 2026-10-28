@@ -635,7 +635,8 @@ export const InventoryFormDialog = ({
                 label="Status"
                 disabled={loading}
               >
-                {STATUS_OPTIONS.map((status) => (
+                {/* 'Damaged' only for legacy records — damage is reported via Checkouts or Report Damage */}
+                {STATUS_OPTIONS.filter((s) => s !== 'damaged' || item?.status === 'damaged').map((status) => (
                   <MenuItem key={status} value={status}>
                     {status.charAt(0).toUpperCase() + status.slice(1)}
                   </MenuItem>

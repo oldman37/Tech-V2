@@ -72,6 +72,7 @@ export const ListIncidentsQuerySchema = z.object({
   workflowStep: IncidentWorkflowStepEnum.optional(),
   equipmentId:  z.string().uuid().optional(),
   userId:       z.string().uuid().optional(),
+  search:       z.string().max(100).optional(),
   sortBy:       z.enum(['reportedAt', 'damageDate', 'createdAt', 'updatedAt', 'severity', 'status']).default('reportedAt'),
   sortOrder:    z.enum(['asc', 'desc']).default('desc'),
 });

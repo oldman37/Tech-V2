@@ -235,9 +235,7 @@ export default function BulkCheckoutPage() {
       }
 
       // Block if the device is still out for repair and hasn't been marked returned
-      const activeTicket = await repairTicketService
-        .getAll({ equipmentId: scanResult.equipment.id, status: 'sent_to_vendor', limit: 1 })
-        .then((r) => r.items[0] ?? null);
+      const activeTicket = await repairTicketService.getActiveTicket(scanResult.equipment.id);
 
       if (activeTicket) {
         setPendingRepair({
@@ -478,7 +476,6 @@ export default function BulkCheckoutPage() {
                 <MenuItem value="perfect">Perfect</MenuItem>
                 <MenuItem value="good">Good</MenuItem>
                 <MenuItem value="fair">Fair</MenuItem>
-                <MenuItem value="damaged">Damaged</MenuItem>
               </Select>
             </FormControl>
             <TextField

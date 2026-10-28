@@ -7,12 +7,10 @@ import {
   Button,
   Card,
   CardContent,
-  Checkbox,
   Chip,
   CircularProgress,
   Divider,
   FormControl,
-  FormControlLabel,
   IconButton,
   InputAdornment,
   InputLabel,
@@ -57,7 +55,6 @@ interface SuccessSummary {
   assigneeName: string;
   condition: CheckoutCondition;
   time: Date;
-  shouldCreateIncident?: boolean;
   shouldCreateChargerIncident?: boolean;
   chargerAssignmentId?: string;
   chargerSerialNumber?: string;
@@ -106,7 +103,6 @@ export default function QuickCheckPage() {
   // Check-in form fields
   const [returnCondition, setReturnCondition] = useState<CheckoutCondition>('good');
   const [returnNotes, setReturnNotes] = useState('');
-  const [createDamageIncident, setCreateDamageIncident] = useState(false);
   const [chargerReturned, setChargerReturned] = useState<boolean | null>(null);
 
   // Charger-not-returned invoice dialog (opened from the success card)
@@ -143,7 +139,6 @@ export default function QuickCheckPage() {
     setScanError(null);
     setReturnCondition('good');
     setReturnNotes('');
-    setCreateDamageIncident(false);
     setChargerReturned(null);
     setChargerInvoiceOpen(false);
     setCheckoutCondition('good');
@@ -233,7 +228,6 @@ export default function QuickCheckPage() {
           assigneeName,
           condition: returnConditionRef.current,
           time: new Date(),
-          shouldCreateIncident: response.shouldCreateIncident,
           shouldCreateChargerIncident: response.shouldCreateChargerIncident,
           chargerAssignmentId: response.chargerAssignmentId,
           chargerSerialNumber: result.activeAssignment.chargerAssignment?.charger.serialNumber,
@@ -319,7 +313,6 @@ export default function QuickCheckPage() {
         data: {
           returnCondition,
           returnNotes: returnNotes.trim() || undefined,
-          createDamageIncident,
           chargerReturned: hasOpenCharger ? chargerReturned === true : undefined,
         },
       });
@@ -379,10 +372,7 @@ export default function QuickCheckPage() {
 
   const { data: fetchedRepairTicket } = useQuery({
     queryKey: ['active-repair-ticket', scanResultData?.equipment.id],
-    queryFn:  () =>
-      repairTicketService
-        .getAll({ equipmentId: scanResultData!.equipment.id, status: 'sent_to_vendor', limit: 1 })
-        .then((r) => r.items[0] ?? null),
+    queryFn:  () => repairTicketService.getActiveTicket(scanResultData!.equipment.id),
     enabled: needsRepairCheck && !repairResolved,
   });
   // `enabled: false` stops refetching but leaves the last-fetched ticket cached,
@@ -519,19 +509,6 @@ export default function QuickCheckPage() {
                 {summary.chargerAssignError && (
                   <Alert severity="warning" sx={{ mt: 1 }}>
                     Device checked out, but the charger serial could not be recorded: {summary.chargerAssignError}
-                  </Alert>
-                )}
-
-                {summary.shouldCreateIncident && (
-                  <Alert severity="warning" sx={{ mt: 1 }}>
-                    Device returned damaged.{' '}
-                    <Button
-                      size="small"
-                      onClick={() => navigate('/incidents/new')}
-                      sx={{ p: 0, minWidth: 'auto', textDecoration: 'underline' }}
-                    >
-                      Create Incident Report →
-                    </Button>
                   </Alert>
                 )}
 
@@ -722,7 +699,6 @@ export default function QuickCheckPage() {
                         <MenuItem value="perfect">Perfect</MenuItem>
                         <MenuItem value="good">Good</MenuItem>
                         <MenuItem value="fair">Fair</MenuItem>
-                        <MenuItem value="damaged">Damaged</MenuItem>
                       </Select>
                     </FormControl>
 
@@ -759,23 +735,6 @@ export default function QuickCheckPage() {
                           <ToggleButton value={false}>No</ToggleButton>
                         </ToggleButtonGroup>
                       </Box>
-                    )}
-
-                    {/* Damage incident checkbox */}
-                    {returnCondition === 'damaged' && (
-                      <Alert severity="warning" sx={{ mb: 2 }} icon={<WarningAmberIcon />}>
-                        <FormControlLabel
-                          control={
-                            <Checkbox
-                              checked={createDamageIncident}
-                              onChange={(e) => setCreateDamageIncident(e.target.checked)}
-                              disabled={isSubmitting}
-                              size="small"
-                            />
-                          }
-                          label="Create a damage incident report for this device"
-                        />
-                      </Alert>
                     )}
                   </>
                 )}
@@ -839,7 +798,6 @@ export default function QuickCheckPage() {
                         <MenuItem value="perfect">Perfect</MenuItem>
                         <MenuItem value="good">Good</MenuItem>
                         <MenuItem value="fair">Fair</MenuItem>
-                        <MenuItem value="damaged">Damaged</MenuItem>
                       </Select>
                     </FormControl>
 

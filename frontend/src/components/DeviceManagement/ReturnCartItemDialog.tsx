@@ -29,7 +29,6 @@ const CONDITIONS: { value: CheckoutCondition; label: string }[] = [
   { value: 'perfect', label: 'Perfect' },
   { value: 'good',    label: 'Good'    },
   { value: 'fair',    label: 'Fair'    },
-  { value: 'damaged', label: 'Damaged' },
 ];
 
 function getApiErrorMessage(error: unknown): string | undefined {

@@ -42,10 +42,7 @@ export default function CheckoutScanPage() {
 
   const { data: fetchedRepairTicket } = useQuery({
     queryKey: ['active-repair-ticket', scanResult?.equipment.id],
-    queryFn:  () =>
-      repairTicketService
-        .getAll({ equipmentId: scanResult!.equipment.id, status: 'sent_to_vendor', limit: 1 })
-        .then((r) => r.items[0] ?? null),
+    queryFn:  () => repairTicketService.getActiveTicket(scanResult!.equipment.id),
     enabled: needsRepairCheck && !repairResolved,
   });
   // `enabled: false` stops refetching but leaves the last-fetched ticket cached,

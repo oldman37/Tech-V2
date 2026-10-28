@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useFilterParams } from '@/hooks/useFilterParams';
 import { useAutoFocusSearch } from '@/hooks/useAutoFocusSearch';
 import {
@@ -81,6 +81,16 @@ export default function IncidentsPage() {
   const page     = Number(filters.page) || 0;
   const pageSize = Number(filters.rows) || 25;
 
+  // Seeded from the URL so a restored search is queried without waiting on the debounce
+  const [debouncedSearch, setDebouncedSearch] = useState(search);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleSearchChange = useCallback((val: string) => {
+    setFilters({ search: val, page: '0' });
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => setDebouncedSearch(val), 300);
+  }, [setFilters]);
+
   // If arriving with prefill params (e.g. from Checkout page), redirect straight to wizard
   useEffect(() => {
     const equipmentId  = searchParams.get('equipmentId');
@@ -99,25 +109,19 @@ export default function IncidentsPage() {
     // Shares the 'damage-incidents' prefix with every other incident-mutating
     // call site (IncidentWizard, CreateInvoiceDialog, RepairTicketsPage,
     // RepairTicketDetailPage) so their invalidateQueries calls reach this list.
-    queryKey: ['damage-incidents', 'list', { page, pageSize }],
+    queryKey: ['damage-incidents', 'list', { page, pageSize, search: debouncedSearch }],
     queryFn:  () =>
       incidentService.getIncidents({
-        page:  page + 1,
-        limit: pageSize,
+        page:   page + 1,
+        limit:  pageSize,
+        search: debouncedSearch.trim() || undefined,
       }),
     // Keep the Workflow Step column current on its own while the page stays
     // open, without requiring a manual refresh.
     refetchInterval: 30_000,
   });
 
-  const rows = (data?.items ?? []).filter((r) => {
-    if (!search) return true;
-    const q   = search.toLowerCase();
-    const num = r.incidentNumber?.toLowerCase() ?? '';
-    const tag = r.equipment?.assetTag?.toLowerCase() ?? '';
-    const usr = r.user ? `${r.user.firstName} ${r.user.lastName}`.toLowerCase() : '';
-    return num.includes(q) || tag.includes(q) || usr.includes(q);
-  });
+  const rows = data?.items ?? [];
 
   const columns: Column<DamageIncident>[] = [
     {
@@ -202,7 +206,7 @@ export default function IncidentsPage() {
           size="small"
           placeholder="Search by incident #, asset tag, or user…"
           value={search}
-          onChange={(e) => setFilters({ search: e.target.value })}
+          onChange={(e) => handleSearchChange(e.target.value)}
           sx={{ width: { xs: '100%', sm: 360 } }}
           InputProps={{
             startAdornment: (

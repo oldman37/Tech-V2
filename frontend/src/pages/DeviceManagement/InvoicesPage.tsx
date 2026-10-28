@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { useFilterParams } from '@/hooks/useFilterParams';
 import { useAutoFocusSearch } from '@/hooks/useAutoFocusSearch';
 import {
@@ -83,9 +83,22 @@ export default function InvoicesPage() {
   const [createOpen,   setCreateOpen]        = useState(false);
   const [actionError,  setActionError]       = useState<string | null>(null);
 
+  // Seeded from the URL so a restored search is queried without waiting on the debounce
+  const [debouncedSearch, setDebouncedSearch] = useState(search);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleSearchChange = useCallback((val: string) => {
+    setFilters({ search: val, page: '0' });
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => setDebouncedSearch(val), 300);
+  }, [setFilters]);
+
   const query = {
+    page:  page + 1,
+    limit: pageSize,
     ...(statusFilter && { status: statusFilter }),
     ...(overdueOnly  && { overdueOnly: true }),
+    ...(debouncedSearch.trim() && { search: debouncedSearch.trim() }),
   };
 
   const { data, isLoading, isError } = useQuery({
@@ -192,16 +205,7 @@ export default function InvoicesPage() {
 
   const activeFilterCount = (statusFilter ? 1 : 0) + (overdueOnly ? 1 : 0);
 
-  const filteredRows = (data?.items ?? []).filter((inv) => {
-    if (!search) return true;
-    const q = search.toLowerCase();
-    return (
-      (inv.invoiceNumber ?? '').toLowerCase().includes(q) ||
-      (inv.recipientEmail ?? '').toLowerCase().includes(q) ||
-      (inv.recipientName ?? '').toLowerCase().includes(q) ||
-      (inv.user ? `${inv.user.firstName} ${inv.user.lastName}` : '').toLowerCase().includes(q)
-    );
-  });
+  const rows = data?.items ?? [];
 
   return (
     <Box sx={{ p: { xs: 1, sm: 3 } }}>
@@ -226,7 +230,7 @@ export default function InvoicesPage() {
         <Box sx={{ mb: 2 }}>
           <MobileFilterBar
             searchValue={search}
-            onSearchChange={(v) => { setFilters({ search: v, page: '0' }); }}
+            onSearchChange={handleSearchChange}
             filterCount={activeFilterCount}
             onOpenFilters={() => setFilterDrawerOpen(!filterDrawerOpen)}
             searchPlaceholder="Search invoices…"
@@ -261,7 +265,7 @@ export default function InvoicesPage() {
             size="small"
             placeholder="Search invoices…"
             value={search}
-            onChange={(e) => { setFilters({ search: e.target.value, page: '0' }); }}
+            onChange={(e) => handleSearchChange(e.target.value)}
             InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> }}
             sx={{ minWidth: 220 }}
           />
@@ -291,7 +295,7 @@ export default function InvoicesPage() {
 
       <ResponsiveTable
         columns={columns}
-        rows={filteredRows}
+        rows={rows}
         getRowKey={(inv) => inv.id}
         loading={isLoading}
         emptyMessage="No invoices found."

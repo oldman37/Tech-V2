@@ -4,7 +4,9 @@
  *
  * Six tabs (Details/Damage/Repairs/Invoices/Checkouts/History) — only Details
  * is editable content; the rest are read-only history. The only creation
- * entry point in the whole drawer is the header's "Report Damage" button.
+ * entry point in the whole drawer is the header's "Report Damage" button,
+ * which creates a repair ticket — checked-out devices are reported from the
+ * Checkouts page instead.
  */
 
 import { useState } from 'react';
@@ -35,7 +37,6 @@ import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import HistoryIcon from '@mui/icons-material/History';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
 import { InventoryItem } from '../../types/inventory.types';
 import InventoryFormDialog from './InventoryFormDialog';
 import DetailsTab from './drawer/DetailsTab';
@@ -83,7 +84,6 @@ const pillTabsSx = {
 } as const;
 
 const EquipmentDetailDrawer = ({ item, open, onClose, onItemChanged }: EquipmentDetailDrawerProps) => {
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { isDesktop } = useResponsive();
 
@@ -97,11 +97,14 @@ const EquipmentDetailDrawer = ({ item, open, onClose, onItemChanged }: Equipment
   const [reportNotes, setReportNotes] = useState('');
   const [reportError, setReportError] = useState<string | null>(null);
 
+  // Checked-out devices are reported from the Checkouts page, not here
+  const [checkedOutNoticeOpen, setCheckedOutNoticeOpen] = useState(false);
+
   const equipmentId = item?.id;
 
   // Shares the ['device', id, 'assignments'] key with AssignmentsTab so the
   // header's Report Damage branch and the Checkouts tab read one cache.
-  const { data: assignments = [] } = useQuery({
+  const { data: assignments = [], isLoading: assignmentsLoading } = useQuery({
     queryKey: ['device', equipmentId, 'assignments'],
     queryFn:  () => deviceAssignmentService.getByEquipment(equipmentId!),
     enabled:  !!equipmentId && open,
@@ -140,11 +143,7 @@ const EquipmentDetailDrawer = ({ item, open, onClose, onItemChanged }: Equipment
   const handleReportDamage = () => {
     if (!item) return;
     if (activeAssignment) {
-      const params = new URLSearchParams({ equipmentId: item.id });
-      if (activeAssignment.userId) params.set('userId', activeAssignment.userId);
-      params.set('assignmentId', activeAssignment.id);
-      navigate(`/incidents/new?${params.toString()}`);
-      handleClose();
+      setCheckedOutNoticeOpen(true);
     } else {
       resetReportForm();
       setReportDialogOpen(true);
@@ -208,7 +207,8 @@ const EquipmentDetailDrawer = ({ item, open, onClose, onItemChanged }: Equipment
               <IconButton onClick={handleClose} size="small" title="Close">
                 <CloseIcon />
               </IconButton>
-              <Button variant="outlined" size="small" onClick={handleReportDamage}>
+              {/* Disabled until assignments load, so the checked-out branch is decided on real data */}
+              <Button variant="outlined" size="small" onClick={handleReportDamage} disabled={assignmentsLoading}>
                 Report Damage
               </Button>
             </Box>
@@ -353,6 +353,18 @@ const EquipmentDetailDrawer = ({ item, open, onClose, onItemChanged }: Equipment
           >
             {createTicketMutation.isPending ? 'Saving…' : 'Save'}
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={checkedOutNoticeOpen} onClose={() => setCheckedOutNoticeOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Report Damage</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">
+            This device is checked out — report damage from the Checkouts page.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCheckedOutNoticeOpen(false)}>Close</Button>
         </DialogActions>
       </Dialog>
     </>
