@@ -163,6 +163,22 @@ export class TransportationRequestService {
       where.tripDate = {};
       if (filters.from) (where.tripDate as Prisma.DateTimeFilter).gte = new Date(filters.from);
       if (filters.to)   (where.tripDate as Prisma.DateTimeFilter).lte = new Date(filters.to);
+    } else {
+      // Default view (no explicit from/to): only trips that haven't happened
+      // yet — a request rolls off once its trip date has passed, unless it is
+      // still awaiting approval. An explicit from/to shows exactly that
+      // window, past dates included.
+      // tripDate is stored as UTC midnight of the calendar day, so compare
+      // against today's local date expressed as UTC midnight (a local
+      // setHours(0,0,0,0) would hide today's trips in a non-UTC container).
+      // Added via AND because where.OR may already hold the permission scope.
+      const now = new Date();
+      where.AND = [{
+        OR: [
+          { tripDate: { gte: new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())) } },
+          { status: { in: ['PENDING_SUPERVISOR_APPROVAL', 'PENDING_SECRETARY_REVIEW'] } },
+        ],
+      }];
     }
 
     return prisma.transportationRequest.findMany({

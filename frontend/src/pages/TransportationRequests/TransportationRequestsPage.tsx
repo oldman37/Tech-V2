@@ -2,6 +2,8 @@
  * TransportationRequestsPage
  *
  * Lists transportation requests. Staff see only their own; secretary/admin see all.
+ * By default only upcoming trips (plus any still awaiting approval) are shown;
+ * picking a date range surfaces past trips.
  * Provides navigation to create a new request or view an existing one.
  */
 
@@ -224,6 +226,11 @@ export function TransportationRequestsPage() {
               </Box>
             </Paper>
           )}
+          {!fromFilter && !toFilter && (
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+              Showing upcoming trips and any still awaiting approval — pick a date range to view past trips.
+            </Typography>
+          )}
         </Box>
       ) : (
         <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap' }}>
@@ -280,6 +287,11 @@ export function TransportationRequestsPage() {
             >
               Clear Filters
             </Button>
+          )}
+          {!fromFilter && !toFilter && (
+            <Typography variant="caption" color="text.secondary" sx={{ alignSelf: 'center' }}>
+              Showing upcoming trips and any still awaiting approval — pick a date range to view past trips.
+            </Typography>
           )}
         </Box>
       )}

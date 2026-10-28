@@ -34,6 +34,11 @@ export const CHANGELOG: ChangelogEntry[] = [
         title: 'Director of Schools can see every work order',
         body: 'The Director of Schools now sees work orders from every school and department in the district, not just the District Office, and can open, update, assign, and comment on any of them.',
       },
+      {
+        icon: '🚌',
+        title: 'Transportation Requests show upcoming trips',
+        body: 'The Transportation Requests list now works like Transportation History on field trips — it shows upcoming trips, and a trip drops off once its date has passed. Requests still waiting on approval stay on the list no matter the date, so nothing gets missed. Pick a date range to look up past trips.',
+      },
     ],
     changes: [
       'Unified the look of all dropdown menus: rounded popup, soft shadow, tinted hover, and a bold highlighted selected row with a checkmark.',
@@ -45,6 +50,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       'Fixed the purchase order PDF Bill To section overlapping the Requested By block when the requester has more lines than the vendor.',
       'Fixed purchase order PDF signature blocks splitting across multiple pages; they now stay together and move to a new page when there is not enough room.',
       'The Director of Schools can now view and work on all work orders district-wide instead of only those at the District Office. Permanently deleting a work order is still limited to Admins and Tech Assistants.',
+      'The Transportation Requests list now shows only upcoming trips by default, plus any request still pending supervisor or secretary review regardless of date. Approved and denied trips roll off after their trip date; choose a From/To date range to view past trips.',
     ],
   },
   {
